@@ -19,7 +19,7 @@ namespace DGAIZone.Title
         [SerializeField] private CanvasGroup introPanel;
         [SerializeField] private Button startButton;
         [SerializeField] private Button nextButton;
-        [SerializeField] private string gameSceneName = "1_Game";
+        [SerializeField] private string gameSceneName = "1_Tutorial";
         [SerializeField] private float panelFadeDuration = 0.4f;
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
