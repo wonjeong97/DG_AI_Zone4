@@ -17,6 +17,7 @@ namespace DGAIZone.Game
         [SerializeField] private CanvasGroup storyPanel;
         [SerializeField] private CanvasGroup gamePanel;
         [SerializeField] private Button startButton;
+        [SerializeField] private Button storyButton;
         [SerializeField] private float panelFadeDuration = 0.4f;
 
         private ILogger<GameFlowController> _logger;
@@ -37,12 +38,15 @@ namespace DGAIZone.Game
 
             if (startButton) startButton.onClick.AddListener(OnStartClicked);
             else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] startButton is null.");
+
+            if (storyButton) storyButton.onClick.AddListener(OnStoryClicked);
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
         private void OnDestroy()
         {
             if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
+            if (storyButton) storyButton.onClick.RemoveListener(OnStoryClicked);
         }
 
         /// <summary> 시작 버튼 클릭 시 스토리에서 게임 패널로 전환함. </summary>
@@ -69,6 +73,36 @@ namespace DGAIZone.Game
                 {
                     await FadeCanvasGroupAsync(gamePanel, 0f, 1f, panelFadeDuration, token);
                     ApplyPanelState(gamePanel, true);
+                }
+            }
+            catch (OperationCanceledException) { }
+            finally { _isBusy = false; }
+        }
+
+        /// <summary> 스토리 버튼 클릭 시 게임에서 스토리 패널로 되돌아감. </summary>
+        private void OnStoryClicked()
+        {
+            if (_isBusy) return;
+            SwitchToStoryAsync().Forget();
+        }
+
+        /// <summary> 게임 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하는 크로스페이드. </summary>
+        private async UniTaskVoid SwitchToStoryAsync()
+        {
+            _isBusy = true;
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
+            try
+            {
+                if (gamePanel)
+                {
+                    await FadeCanvasGroupAsync(gamePanel, 1f, 0f, panelFadeDuration, token);
+                    ApplyPanelState(gamePanel, false);
+                }
+
+                if (storyPanel)
+                {
+                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, panelFadeDuration, token);
+                    ApplyPanelState(storyPanel, true);
                 }
             }
             catch (OperationCanceledException) { }

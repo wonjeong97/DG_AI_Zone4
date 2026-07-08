@@ -1,0 +1,33 @@
+{
+  "baudRate": 9600,
+  "stageReadCounts": [ 3 ],
+  "readers": [
+    {
+      "readerId": "Reader_1",
+      "deviceInstancePath": "USB\\VID_10C4&PID_EA60\\0001\n",
+      "fallbackPort": "COM9"
+    },
+    {
+      "readerId": "Reader_2",
+      "deviceInstancePath": "USB\\VID_10C4&PID_EA60\\8&184227F3&0&3\n",
+      "fallbackPort": "COM3"
+    }
+  ],
+  "mappings": [
+    {
+      "uid": "55009FE62C",
+      "ingredientName": "추진체 종류",
+      "matterNames": [ "고체 로켓", "액체 로켓", "핵 추진 엔진" ]
+    },
+    {
+      "uid": "55009FC910",
+      "ingredientName": "탑재 종류",
+      "matterNames": [ "인공위성", "탐사 로봇", "우주왕복선" ]
+    },
+    {
+      "uid": "5500A0A524",
+      "ingredientName": "연료량",
+      "matterNames": [ "적음", "보통", "많음" ]
+    }
+  ]
+}
