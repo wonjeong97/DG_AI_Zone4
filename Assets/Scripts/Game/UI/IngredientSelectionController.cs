@@ -8,6 +8,7 @@ using DGAIZone.Game.Events;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using R3;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
@@ -21,8 +22,8 @@ namespace DGAIZone.Game.UI
     public class IngredientSelectionController : MonoBehaviour
     {
         [Header("UI References")]
-        [SerializeField] private Text textIngredient;
-        [SerializeField] private Text textMatter;
+        [SerializeField] private TMP_Text textIngredient;
+        [SerializeField] private TMP_Text textMatter;
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
 
@@ -54,7 +55,7 @@ namespace DGAIZone.Game.UI
         private string[] _confirmedIngredients;
 
         // 디자인 컨테이너에 동적으로 추가된 확정 항목 텍스트 목록
-        private readonly List<Text> _designItems = new List<Text>();
+        private readonly List<TMP_Text> _designItems = new List<TMP_Text>();
 
         // R3 반응형 상태 관리
         private readonly ReactiveProperty<string> _currentIngredient = new ReactiveProperty<string>("");
@@ -265,22 +266,22 @@ namespace DGAIZone.Game.UI
         {
             if (designContent == null) return;
 
-            var go = new GameObject("DesignItem", typeof(RectTransform), typeof(Text));
+            var go = new GameObject("DesignItem", typeof(RectTransform), typeof(TextMeshProUGUI));
             go.layer = designContent.gameObject.layer;
 
             var rt = go.GetComponent<RectTransform>();
             rt.SetParent(designContent, false);
             rt.sizeDelta = new Vector2(rt.sizeDelta.x, 56f);
 
-            var text = go.GetComponent<Text>();
+            var text = go.GetComponent<TextMeshProUGUI>();
             text.font = textIngredient != null ? textIngredient.font
                       : (textMatter != null ? textMatter.font : null);
             text.fontSize = 44;
             text.color = Color.white;
-            text.alignment = TextAnchor.MiddleLeft;
-            text.supportRichText = true;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.alignment = TextAlignmentOptions.Left;
+            text.richText = true;
+            text.enableWordWrapping = true;
+            text.overflowMode = TextOverflowModes.Overflow;
             text.text = $"- {ingredient} [<color=yellow>{matter}</color>]";
 
             _designItems.Add(text);
