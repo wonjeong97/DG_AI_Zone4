@@ -12,6 +12,7 @@ namespace DGAIZone.Result
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<ResultFlowController>();
+            builder.RegisterComponentInHierarchy<ResultVideoPanel>();
         }
     }
 }

@@ -58,6 +58,12 @@ namespace DGAIZone.Result
         /// <summary> 결과 패널의 다음 버튼 클릭 시 컴플리트 패널로 전환함. </summary>
         private void OnResultNextClicked()
         {
+            ShowCompletePanel();
+        }
+
+        /// <summary> 외부 트리거(예: 결과 영상 재생 종료)에서 컴플리트 패널로 전환함. </summary>
+        public void ShowCompletePanel()
+        {
             if (_isBusy) return;
             SwitchToCompleteAsync().Forget();
         }
@@ -84,7 +90,7 @@ namespace DGAIZone.Result
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             try
             {
-                if (resultPanel)
+                if (resultPanel && resultPanel.gameObject.activeInHierarchy)
                 {
                     await FadeCanvasGroupAsync(resultPanel, 1f, 0f, panelFadeDuration, token);
                     ApplyPanelState(resultPanel, false);
