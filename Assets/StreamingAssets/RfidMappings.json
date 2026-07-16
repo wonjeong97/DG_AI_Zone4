@@ -4,8 +4,8 @@
   "readers": [
     {
       "readerId": "Reader_1",
-      "deviceInstancePath": "USB\\VID_10C4&PID_EA60\\0001\n",
-      "fallbackPort": "COM9"
+      "deviceInstancePath": "USB\\VID_10C4&PID_EA60\\0715\n",
+      "fallbackPort": "COM6"
     },
     {
       "readerId": "Reader_2",

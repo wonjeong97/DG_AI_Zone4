@@ -72,6 +72,18 @@ description: Scaffold or refactor Unity C# classes (managers, systems, services)
   ```
   - `[클래스명]` 태그를 메시지 맨 앞에 붙인다 — 여러 매니저의 로그가 한 콘솔에 섞여도 어디서 난 건지 바로 구분하기 위함.
   - null이 발생할 수 있는 지점(Fallback이 필요한 지점)마다 `_logger != null` 체크 후 경고/에러 로그를 남긴다. 로그 없이 조용히 return하지 않는다.
+- **if로 조건/참조를 검사하는 모든 곳은 실패 분기(else)에 로그를 남긴다.** `if (someRef != null) { ... }`처럼 성공 분기만 작성하고 else를 생략하면, 조건이 실패했을 때 아무 흔적 없이 조용히 아무 일도 안 일어난다 — 원인 파악이 콘솔 로그가 아니라 코드 리딩으로만 가능해진다.
+  ```csharp
+  if (flowController != null)
+  {
+      flowController.ShowCompletePanel();
+  }
+  else if (_logger != null)
+  {
+      _logger.ZLogWarning($"[ResultVideoPanel] flowController is null. CompletePanel will not fade in.");
+  }
+  ```
+  실제로 `ResultVideoPanel`에서 `flowController`가 씬에 연결되지 않았는데 else 로그가 없어서, 영상 재생이 끝나도 CompletePanel이 페이드인되지 않는 원인을 로그 없이 코드까지 뒤져서 찾아야 했던 사례가 있었다. 조건이 맞지 않는 경우가 "정상적으로 자주 발생하는 no-op"이 아니라면 반드시 로그를 남긴다.
 - 로그 레벨: 복구 가능한 이상 상황은 `ZLogWarning`, 기능이 실패한 경우는 `ZLogError`, 정상 흐름 기록은 `ZLogInformation`.
 
 ## 7. ZString — 문자열 조합
