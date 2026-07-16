@@ -1499,8 +1499,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -196, y: 50}
-  m_SizeDelta: {x: -432, y: -200}
+  m_AnchoredPosition: {x: 0, y: 50}
+  m_SizeDelta: {x: -40, y: -200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1570363859
 CanvasRenderer:
@@ -1530,24 +1530,11 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uD6CC\uB96D\uD574\uC694! \uCC28\uADFC\uCC28\uADFC \uC124\uACC4\uD55C
-    \uB85C\uCF13\uACFC \uD0D0\uC0AC \uC2DC\uC2A4\uD15C \uCF54\uB529 \uB355\uBD84\uC5D0,
-    \uC778\uB958\uB294 \uC218\uC5B5 \uD0AC\uB85C\uBBF8\uD130 \uB5A8\uC5B4\uC9C4 \uBBF8\uC9C0\uC758
-    \uC678\uACC4 \uD589\uC131\uC5D0 \uC548\uC804\uD558\uAC8C \uBC1C\uC744 \uB514\uB51C
-    \uC218 \uC788\uAC8C \uB418\uC5C8\uC2B5\uB2C8\uB2E4! \u200B\r\n\u200B\r\r\n[\uCCB4\uD5D8\uC790]
-    \uB2D8\uC774 \uC124\uACC4\uD55C \uC6B0\uC8FC \uD0D0\uC0AC \uC2DC\uC2A4\uD15C\uC740
-    \uC911\uB825\uC744 \uB6AB\uACE0 \uC62C\uB77C\uAC04 \uC644\uBCBD\uD55C \uB85C\uCF13
-    \uBC1C\uC0AC\uBD80\uD130, \uC2A4\uC2A4\uB85C \uC7A5\uC560\uBB3C\uC744 \uD53C\uD574
-    \uC0D8\uD50C\uC744 \uBAA8\uC740 \uB611\uB611\uD55C \uD0D0\uC0AC \uB85C\uBD07,
-    \uADF8\uB9AC\uACE0 \uC0DD\uBA85\uC744 \uC9C0\uCF1C\uB0B8 \uC6B0\uC8FC \uC815\uAC70\uC7A5\uAE4C\uC9C0
-    \uBAA8\uB4E0 \uAC83\uC774 \uC644\uBCBD\uD588\uC2B5\uB2C8\uB2E4.\u200B\r\n\r\n\uC6B0\uC8FC\uB97C
-    \uC6C0\uC9C1\uC778 \uC774 \uBA4B\uC9C4 \uCF54\uB529 \uC54C\uACE0\uB9AC\uC998\uC758
-    \uD798\uC744 \uAF2D \uAE30\uC5B5\uD574 \uC8FC\uC138\uC694. \uD654\uBA74 \uC18D
-    \uBBF8\uC9C0\uC758 \uD589\uC131\uC744 \uC815\uBCF5\uD55C \uAC83\uCC98\uB7FC,
-    \uC55E\uC73C\uB85C \uD3BC\uCCD0\uC9C8 \uC5EC\uB7EC\uBD84\uC758 \uBBF8\uB798\uB3C4
-    \uC800 \uB113\uC740 \uC6B0\uC8FC\uCC98\uB7FC \uBB34\uD55C\uD55C \uAC00\uB2A5\uC131\uC73C\uB85C
-    \uAC00\uB4DD \uCC28 \uC788\uC73C\uB2C8\uAE4C\uC694. \u200B\r\n\r\n\uBBF8\uC158\uC744
-    \uD6CC\uB96D\uD558\uAC8C \uC644\uC218\uD558\uC600\uC2B5\uB2C8\uB2E4.\u200B\r\n\r\n\u200B"
+  m_text: "\uD6CC\uB96D\uD574\uC694!\n\uCC28\uADFC\uCC28\uADFC \uC124\uACC4\uD55C
+    \uB85C\uCF13\uACFC \uD0D0\uC0AC \uC2DC\uC2A4\uD15C \uCF54\uB529 \uB355\uBD84\uC5D0,\n\uC778\uB958\uB294
+    \uC218\uC5B5 \uD0AC\uB85C\uBBF8\uD130 \uB5A8\uC5B4\uC9C4 \uBBF8\uC9C0\uC758 \uC678\uACC4
+    \uD589\uC131\uC5D0 \uC548\uC804\uD558\uAC8C \uBC1C\uC744\n\uB514\uB51C \uC218
+    \uC788\uAC8C \uB418\uC5C8\uC2B5\uB2C8\uB2E4!"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -1575,10 +1562,10 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 14
+  m_fontSize: 52
+  m_fontSizeBase: 52
   m_fontWeight: 400
-  m_enableAutoSizing: 1
+  m_enableAutoSizing: 0
   m_fontSizeMin: 10
   m_fontSizeMax: 40
   m_fontStyle: 0
@@ -1611,7 +1598,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: -26.307251, z: 0, w: -59.789368}
+  m_margin: {x: 0, y: -26.307251, z: 0, w: 141.44427}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -1838,6 +1825,7 @@ GameObject:
   - component: {fileID: 1808189251}
   - component: {fileID: 1808189253}
   - component: {fileID: 1808189252}
+  - component: {fileID: 1808189254}
   m_Layer: 5
   m_Name: BG
   m_TagString: Untagged
@@ -1904,6 +1892,40 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1808189250}
   m_CullTransparentMesh: 1
+--- !u!114 &1808189254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1808189250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d2157532c9d6654db2a29a19b375a6a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  storyText: {fileID: 1570363860}
+  charsPerSecond: 30
+  homeButton: {fileID: 238961219}
+  paragraphs:
+  - "\uD6CC\uB96D\uD574\uC694!\n\uCC28\uADFC\uCC28\uADFC \uC124\uACC4\uD55C \uB85C\uCF13\uACFC
+    \uD0D0\uC0AC \uC2DC\uC2A4\uD15C \uCF54\uB529 \uB355\uBD84\uC5D0,\n\uC778\uB958\uB294
+    \uC218\uC5B5 \uD0AC\uB85C\uBBF8\uD130 \uB5A8\uC5B4\uC9C4 \uBBF8\uC9C0\uC758 \uC678\uACC4
+    \uD589\uC131\uC5D0 \uC548\uC804\uD558\uAC8C \uBC1C\uC744\n\uB514\uB51C \uC218
+    \uC788\uAC8C \uB418\uC5C8\uC2B5\uB2C8\uB2E4!"
+  - "[\uCCB4\uD5D8\uC790] \uB2D8\uC774 \uC124\uACC4\uD55C \uC6B0\uC8FC \uD0D0\uC0AC
+    \uC2DC\uC2A4\uD15C\uC740\n\uC911\uB825\uC744 \uB6AB\uACE0 \uC62C\uB77C\uAC04
+    \uC644\uBCBD\uD55C \uB85C\uCF13 \uBC1C\uC0AC\uBD80\uD130,\n\uC2A4\uC2A4\uB85C
+    \uC7A5\uC560\uBB3C\uC744 \uD53C\uD574 \uC0D8\uD50C\uC744 \uBAA8\uC740 \uB611\uB611\uD55C
+    \uD0D0\uC0AC \uB85C\uBD07,\n\uADF8\uB9AC\uACE0 \uC0DD\uBA85\uC744 \uC9C0\uCF1C\uB0B8
+    \uC6B0\uC8FC \uC815\uAC70\uC7A5\uAE4C\uC9C0 \uBAA8\uB4E0 \uAC83\uC774 \uC644\uBCBD\uD588\uC2B5\uB2C8\uB2E4."
+  - "\uC6B0\uC8FC\uB97C \uC6C0\uC9C1\uC778 \uC774 \uBA4B\uC9C4 \uCF54\uB529 \uC54C\uACE0\uB9AC\uC998\uC758
+    \uD798\uC744 \uAF2D \uAE30\uC5B5\uD574 \uC8FC\uC138\uC694.\n\uD654\uBA74 \uC18D
+    \uBBF8\uC9C0\uC758 \uD589\uC131\uC744 \uC815\uBCF5\uD55C \uAC83\uCC98\uB7FC,\n\uC55E\uC73C\uB85C
+    \uD3BC\uCCD0\uC9C8 \uC5EC\uB7EC\uBD84\uC758 \uBBF8\uB798\uB3C4 \uC800 \uB113\uC740
+    \uC6B0\uC8FC\uCC98\uB7FC \uBB34\uD55C\uD55C \uAC00\uB2A5\uC131\uC73C\uB85C\n\uAC00\uB4DD
+    \uCC28 \uC788\uC73C\uB2C8\uAE4C\uC694."
+  - "\uBBF8\uC158\uC744 \uD6CC\uB96D\uD558\uAC8C \uC644\uC218\uD558\uC600\uC2B5\uB2C8\uB2E4."
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
