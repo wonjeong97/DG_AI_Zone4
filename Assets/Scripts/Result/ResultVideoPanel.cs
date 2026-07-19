@@ -1,5 +1,6 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DGAIZone.App;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.Video;
@@ -9,7 +10,7 @@ using ZLogger;
 namespace DGAIZone.Result
 {
     /// <summary>
-    /// 결과 씬 진입 시 성공/실패 영상 중 하나를 무작위로 선택해 재생함. 반복 재생은 하지 않으며,
+    /// 결과 씬 진입 시 게임 결과(성공/실패)에 맞는 영상을 재생함. 반복 재생은 하지 않으며,
     /// 재생이 끝나면 컴플리트 패널로 전환함.
     /// </summary>
     public class ResultVideoPanel : MonoBehaviour
@@ -17,29 +18,34 @@ namespace DGAIZone.Result
         [SerializeField] private VideoPlayer videoPlayer;
         [SerializeField] private ResultFlowController flowController;
         [SerializeField] private string videoFolderName = "Videos";
-        [SerializeField] private string[] videoFileNames = { "4-1 success.mp4", "4-1 fail.mp4" };
+        [SerializeField] private string successVideoFileName = "4-1 success.mp4";
+        [SerializeField] private string failVideoFileName = "4-1 fail.mp4";
 
+        private GameResultStore _resultStore;
         private ILogger<ResultVideoPanel> _logger;
 
-        /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 게임 결과 저장소와 로거를 할당함. </summary>
         [Inject]
-        public void Construct(ILogger<ResultVideoPanel> logger)
+        public void Construct(GameResultStore resultStore, ILogger<ResultVideoPanel> logger)
         {
+            _resultStore = resultStore;
             _logger = logger;
         }
 
         /// <summary> 씬 진입 시 무작위 영상 재생을 시작함. </summary>
         private void Start()
         {
-            PlayRandomVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
+            PlayResultVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 영상 목록 중 하나를 무작위로 골라 준비 후 재생하고, 끝나면 컴플리트 패널을 표시함. </summary>
-        private async UniTaskVoid PlayRandomVideoAsync(CancellationToken token)
+        /// <summary> 게임 결과에 맞는 영상을 준비 후 재생하고, 끝나면 컴플리트 패널을 표시함. </summary>
+        private async UniTaskVoid PlayResultVideoAsync(CancellationToken token)
         {
-            if (videoPlayer == null || videoFileNames == null || videoFileNames.Length == 0) return;
+            if (videoPlayer == null) return;
 
-            string fileName = videoFileNames[Random.Range(0, videoFileNames.Length)];
+            bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
+            string fileName = success ? successVideoFileName : failVideoFileName;
+            if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] Result={(success ? "Success" : "Fail")}. Playing {fileName}.");
             string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, fileName);
 
             videoPlayer.source = VideoSource.Url;

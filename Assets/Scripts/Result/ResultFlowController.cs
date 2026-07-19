@@ -19,7 +19,6 @@ namespace DGAIZone.Result
         [SerializeField] private CanvasGroup completePanel;
         [SerializeField] private Button resultNextButton;
         [SerializeField] private Button completeNextButton;
-        [SerializeField] private string outroSceneName = "4_Outro";
         [SerializeField] private float panelFadeDuration = 0.4f;
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
@@ -75,12 +74,12 @@ namespace DGAIZone.Result
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[ResultFlowController] sceneTransition is null. Cannot load {outroSceneName}.");
+                if (_logger != null) _logger.ZLogError($"[ResultFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Outro}.");
                 return;
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(outroSceneName, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Outro, sceneFadeDuration).Forget();
         }
 
         /// <summary> 결과 패널을 페이드아웃한 뒤 컴플리트 패널을 페이드인하는 크로스페이드. </summary>

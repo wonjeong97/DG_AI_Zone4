@@ -8,10 +8,11 @@ namespace DGAIZone.Tutorial
     /// </summary>
     public class TutorialLifetimeScope : LifetimeScope
     {
-        /// <summary> 튜토리얼 흐름 컨트롤러를 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 튜토리얼 흐름 컨트롤러와 영상 패널을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<TutorialFlowController>();
+            builder.RegisterComponentInHierarchy<TutorialVideoPanel>();
         }
     }
 }

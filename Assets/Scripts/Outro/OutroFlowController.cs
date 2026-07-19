@@ -14,7 +14,6 @@ namespace DGAIZone.Outro
     public class OutroFlowController : MonoBehaviour
     {
         [SerializeField] private Button homeButton;
-        [SerializeField] private string titleSceneName = "0_Title";
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
         private SceneTransitionService _sceneTransition;
@@ -49,12 +48,12 @@ namespace DGAIZone.Outro
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[OutroFlowController] sceneTransition is null. Cannot load {titleSceneName}.");
+                if (_logger != null) _logger.ZLogError($"[OutroFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Title}.");
                 return;
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(titleSceneName, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, sceneFadeDuration).Forget();
         }
     }
 }
