@@ -19,7 +19,6 @@ namespace DGAIZone.Title
         [SerializeField] private CanvasGroup introPanel;
         [SerializeField] private Button startButton;
         [SerializeField] private Button nextButton;
-        [SerializeField] private string gameSceneName = "1_Tutorial";
         [SerializeField] private float panelFadeDuration = 0.4f;
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
@@ -69,12 +68,12 @@ namespace DGAIZone.Title
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[TitleFlowController] sceneTransition is null. Cannot load {gameSceneName}.");
+                if (_logger != null) _logger.ZLogError($"[TitleFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Tutorial}.");
                 return;
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(gameSceneName, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Tutorial, sceneFadeDuration).Forget();
         }
 
         /// <summary> 타이틀 패널을 페이드아웃한 뒤 인트로 패널을 페이드인하는 크로스페이드. </summary>

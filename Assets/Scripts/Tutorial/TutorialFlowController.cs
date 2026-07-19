@@ -14,7 +14,6 @@ namespace DGAIZone.Tutorial
     public class TutorialFlowController : MonoBehaviour
     {
         [SerializeField] private Button understandButton;
-        [SerializeField] private string gameSceneName = "2_Game";
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
         private SceneTransitionService _sceneTransition;
@@ -49,12 +48,12 @@ namespace DGAIZone.Tutorial
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[TutorialFlowController] sceneTransition is null. Cannot load {gameSceneName}.");
+                if (_logger != null) _logger.ZLogError($"[TutorialFlowController] sceneTransition is null. Cannot load {Constants.Scenes.LevelSelect}.");
                 return;
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(gameSceneName, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.LevelSelect, sceneFadeDuration).Forget();
         }
     }
 }

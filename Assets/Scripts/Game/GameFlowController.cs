@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
 using ZLogger;
@@ -10,15 +11,19 @@ using ZLogger;
 namespace DGAIZone.Game
 {
     /// <summary>
-    /// 게임 씬의 화면 흐름 제어. 씬 진입 시 스토리 패널을 보여주고, 시작 버튼으로 스토리에서 게임 패널로 크로스페이드함.
+    /// 게임 씬의 화면 흐름 제어. 씬 진입 시 게임 패널을 보여주고, 스토리 버튼으로 스토리 패널을 열며, 스토리 표시 중 화면을 클릭하면 게임 패널로 돌아옴.
     /// </summary>
     public class GameFlowController : MonoBehaviour
     {
         [SerializeField] private CanvasGroup storyPanel;
         [SerializeField] private CanvasGroup gamePanel;
-        [SerializeField] private Button startButton;
         [SerializeField] private Button storyButton;
         [SerializeField] private float panelFadeDuration = 0.4f;
+
+        [Header("Story Level")]
+        [SerializeField] private Image storyImage;          // Image_Story
+        [SerializeField] private GameObject[] storyLevels;  // Story_Level1..5 순서
+        [SerializeField] private int selectedLevel = 1;     // 활성화된 레벨(1부터). 현재는 1레벨만 존재함.
 
         private ILogger<GameFlowController> _logger;
         private bool _isBusy;
@@ -30,33 +35,65 @@ namespace DGAIZone.Game
             _logger = logger;
         }
 
-        /// <summary> 초기 패널 상태(스토리 표시, 게임 숨김)를 적용하고 버튼 이벤트를 연결함. </summary>
+        /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리를 설정한 뒤 버튼 이벤트를 연결함. </summary>
         private void Start()
         {
-            ApplyPanelState(storyPanel, true);
-            ApplyPanelState(gamePanel, false);
+            ApplyPanelState(gamePanel, true);
+            ApplyPanelState(storyPanel, false);
 
-            if (startButton) startButton.onClick.AddListener(OnStartClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] startButton is null.");
+            SetupStoryLevel();
 
             if (storyButton) storyButton.onClick.AddListener(OnStoryClicked);
+            else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyButton is null.");
+        }
+
+        /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 게임 패널로 전환함. </summary>
+        private void Update()
+        {
+            if (_isBusy) return;
+            if (storyPanel == null || !storyPanel.interactable) return;
+
+            if (IsPointerPressed())
+            {
+                SwitchToGameAsync().Forget();
+            }
+        }
+
+        /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함. </summary>
+        private bool IsPointerPressed()
+        {
+            Pointer pointer = Pointer.current;
+            return pointer != null && pointer.press.wasPressedThisFrame;
+        }
+
+        /// <summary> 활성화된 레벨에 맞춰 스토리 이미지와 스토리 텍스트 오브젝트를 설정함. </summary>
+        private void SetupStoryLevel()
+        {
+            int index = selectedLevel - 1;
+
+            if (storyImage != null)
+            {
+                Sprite sprite = Resources.Load<Sprite>($"Level{selectedLevel}");
+                if (sprite != null) storyImage.sprite = sprite;
+                else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] Level image 'Level{selectedLevel}' not found in Resources.");
+            }
+
+            if (storyLevels != null)
+            {
+                for (int i = 0; i < storyLevels.Length; i++)
+                {
+                    if (storyLevels[i] != null) storyLevels[i].SetActive(i == index);
+                }
+            }
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
         private void OnDestroy()
         {
-            if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
             if (storyButton) storyButton.onClick.RemoveListener(OnStoryClicked);
         }
 
-        /// <summary> 시작 버튼 클릭 시 스토리에서 게임 패널로 전환함. </summary>
-        private void OnStartClicked()
-        {
-            if (_isBusy) return;
-            SwitchToGameAsync().Forget();
-        }
-
-        /// <summary> 스토리 패널을 페이드아웃한 뒤 게임 패널을 페이드인하는 크로스페이드. </summary>
+        /// <summary> 스토리 패널을 페이드아웃한 뒤 게임 패널을 페이드인하는 크로스페이드. 스토리 표시 중 화면 클릭 시 호출됨. </summary>
         private async UniTaskVoid SwitchToGameAsync()
         {
             _isBusy = true;

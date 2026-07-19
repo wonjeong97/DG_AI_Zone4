@@ -17,7 +17,9 @@ namespace DGAIZone.Game
         {
             builder.RegisterComponentInHierarchy<GameFlowController>();
             builder.RegisterComponentInHierarchy<RfidReaderService>();
+            builder.RegisterComponentInHierarchy<KeyboardRfidSimulator>();
             builder.RegisterComponentInHierarchy<IngredientSelectionController>();
+            builder.RegisterComponentInHierarchy<MissionBoardController>();
 
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<RfidTagEvent>(options);

@@ -31,6 +31,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Button buttonConfirm;
         [SerializeField] private Button buttonCancel;
         [SerializeField] private Button buttonCodingComplete;
+        [SerializeField] private Button buttonSkip;
 
         [Header("Design Panel")]
         [SerializeField] private Transform designContent;
@@ -39,11 +40,14 @@ namespace DGAIZone.Game.UI
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
 
         [Header("Scene Transition")]
-        [SerializeField] private string resultSceneName = "3_Result";
         [SerializeField] private float sceneFadeDuration = 0.5f;
+
+        private const string FuelIngredientName = "연료량";
 
         private ISubscriber<RfidTagEvent> _subscriber;
         private SceneTransitionService _sceneTransition;
+        private MissionBoardController _missionBoard;
+        private GameResultStore _resultStore;
         private ILogger<IngredientSelectionController> _logger;
         private bool _isBusy;
 
@@ -68,10 +72,12 @@ namespace DGAIZone.Game.UI
         /// VContainer 의존성 주입. MessagePipe 구독자, 씬 전환 서비스, 로거를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, SceneTransitionService sceneTransition, ILogger<IngredientSelectionController> logger)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, SceneTransitionService sceneTransition, MissionBoardController missionBoard, GameResultStore resultStore, ILogger<IngredientSelectionController> logger)
         {
             _subscriber = subscriber;
             _sceneTransition = sceneTransition;
+            _missionBoard = missionBoard;
+            _resultStore = resultStore;
             _logger = logger;
         }
 
@@ -85,6 +91,7 @@ namespace DGAIZone.Game.UI
             if (buttonConfirm != null) buttonConfirm.onClick.AddListener(OnConfirmButtonClicked);
             if (buttonCancel != null) buttonCancel.onClick.AddListener(OnCancelButtonClicked);
             if (buttonCodingComplete != null) buttonCodingComplete.onClick.AddListener(OnCodingCompleteClicked);
+            if (buttonSkip != null) buttonSkip.onClick.AddListener(OnSkipButtonClicked);
 
             if (_subscriber != null)
             {
@@ -107,7 +114,7 @@ namespace DGAIZone.Game.UI
         {
             try
             {
-                var settings = await Wonjeong.Utils.JsonLoader.LoadAsync<RfidSettings>("RfidMappings.json", this.GetCancellationTokenOnDestroy());
+                var settings = await Wonjeong.Utils.JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
                 if (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0)
                 {
                     _stageReadCounts = settings.stageReadCounts;
@@ -327,7 +334,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 코딩완료 버튼 클릭 시 화면 페이드와 함께 결과 씬으로 전환함.
+        /// 코딩완료 버튼 클릭 시 확정된 연료량을 목적지 조건과 대조해 성공/실패를 기록하고, 화면 페이드와 함께 결과 씬으로 전환함.
         /// </summary>
         private void OnCodingCompleteClicked()
         {
@@ -335,13 +342,66 @@ namespace DGAIZone.Game.UI
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] sceneTransition is null. Cannot load {resultSceneName}.");
+                if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] sceneTransition is null. Cannot load {Constants.Scenes.Result}.");
                 return;
             }
 
+            bool success = EvaluateFuel();
+            if (_resultStore != null) _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
+
             _isBusy = true;
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] Coding complete. Loading {resultSceneName}.");
-            _sceneTransition.LoadSceneWithFadeAsync(resultSceneName, sceneFadeDuration).Forget();
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] Coding complete. Result={(success ? "Success" : "Fail")}. Loading {Constants.Scenes.Result}.");
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, sceneFadeDuration).Forget();
+        }
+
+        /// <summary>
+        /// 스킵 버튼 클릭 시 결과를 실패로 기록하고 화면 페이드와 함께 결과 씬으로 전환함.
+        /// </summary>
+        private void OnSkipButtonClicked()
+        {
+            if (_isBusy) return;
+
+            if (_sceneTransition == null)
+            {
+                if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] sceneTransition is null. Cannot load {Constants.Scenes.Result}.");
+                return;
+            }
+
+            if (_resultStore != null) _resultStore.Result = MissionResult.Fail;
+
+            _isBusy = true;
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] Skipped. Result=Fail. Loading {Constants.Scenes.Result}.");
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, sceneFadeDuration).Forget();
+        }
+
+        /// <summary>
+        /// 확정된 재료 중 연료량 값을 찾아 이번 목적지의 조건 범위를 만족하는지 판정함. 연료량 미설정/파싱 실패/미션보드 부재 시 실패로 처리함.
+        /// </summary>
+        private bool EvaluateFuel()
+        {
+            if (_missionBoard == null || _confirmedIngredients == null || _confirmedMatters == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Cannot evaluate fuel (missionBoard/confirmed data missing). Treated as fail.");
+                return false;
+            }
+
+            for (int i = 0; i < _confirmedIngredients.Length; i++)
+            {
+                if (!string.Equals(_confirmedIngredients[i], FuelIngredientName, StringComparison.Ordinal)) continue;
+
+                if (int.TryParse(_confirmedMatters[i], out int fuel))
+                {
+                    bool valid = _missionBoard.IsFuelValid(fuel);
+                    if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] Fuel {fuel} vs destination '{_missionBoard.Destination}' -> {(valid ? "valid" : "invalid")}");
+                    return valid;
+                }
+
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Fuel value '{_confirmedMatters[i]}' is not a number. Treated as fail.");
+                return false;
+            }
+
+            if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] No fuel ingredient confirmed. Treated as fail.");
+            return false;
         }
 
         /// <summary>
@@ -423,6 +483,7 @@ namespace DGAIZone.Game.UI
             if (buttonConfirm != null) buttonConfirm.onClick.RemoveListener(OnConfirmButtonClicked);
             if (buttonCancel != null) buttonCancel.onClick.RemoveListener(OnCancelButtonClicked);
             if (buttonCodingComplete != null) buttonCodingComplete.onClick.RemoveListener(OnCodingCompleteClicked);
+            if (buttonSkip != null) buttonSkip.onClick.RemoveListener(OnSkipButtonClicked);
 
             _disposables.Dispose();
             _currentIngredient?.Dispose();

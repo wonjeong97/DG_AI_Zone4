@@ -2,6 +2,7 @@ using System;
 using System.IO.Ports;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DGAIZone.App;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using MessagePipe;
@@ -59,7 +60,7 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private async UniTaskVoid InitializeAsync()
         {
-            _settings = await JsonLoader.LoadAsync<RfidSettings>("RfidMappings.json", this.GetCancellationTokenOnDestroy());
+            _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
             if (_settings == null)
             {
                 if (_logger != null) _logger.ZLogError($"[RfidReaderService] Failed to load RfidMappings.json.");
