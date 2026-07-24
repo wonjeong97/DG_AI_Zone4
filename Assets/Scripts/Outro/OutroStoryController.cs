@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -50,19 +51,17 @@ namespace DGAIZone.Outro
             TypeAsync(storyText.textInfo.characterCount, _typingCts.Token).Forget();
         }
 
-        /// <summary> 글자를 하나씩 노출하는 타이핑 루프. </summary>
+        /// <summary> DOTween으로 글자를 하나씩 노출하는 타이핑 연출. </summary>
         private async UniTaskVoid TypeAsync(int total, CancellationToken token)
         {
             _isTyping = true;
             try
             {
-                float shown = 0f;
-                while (shown < total)
-                {
-                    shown += Mathf.Max(1f, charsPerSecond) * Time.deltaTime;
-                    storyText.maxVisibleCharacters = Mathf.Min(total, Mathf.FloorToInt(shown));
-                    await UniTask.Yield(PlayerLoopTiming.Update, token);
-                }
+                await DOTween.To(() => storyText.maxVisibleCharacters,
+                        x => storyText.maxVisibleCharacters = x, total, total / Mathf.Max(1f, charsPerSecond))
+                    .SetEase(Ease.Linear)
+                    .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
+
                 storyText.maxVisibleCharacters = total;
                 OnFullyShown();
             }
