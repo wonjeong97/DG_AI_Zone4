@@ -812,7 +812,24 @@ PlayerSettings:
   webGLMemoryGeometricGrowthStep: 0.2
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    Android: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    EmbeddedLinux: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    GameCoreScarlett: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    GameCoreXboxOne: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    LinuxHeadlessSimulation: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    Nintendo Switch: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    PS4: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    PS5: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    QNX: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    Stadia: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    Standalone: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    VisionOS: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    WebGL: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    Windows Store Apps: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    XboxOne: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    iPhone: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
+    tvOS: DOTWEEN;UNITASK_DOTWEEN_SUPPORT
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend: {}
@@ -844,7 +861,7 @@ PlayerSettings:
   apiCompatibilityLevelPerPlatform: {}
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: DG_AI_Zone4
+  metroPackageName: DGAIZone4
   metroPackageVersion: 1.0.0.0
   metroCertificatePath: 
   metroCertificatePassword: 

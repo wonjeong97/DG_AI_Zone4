@@ -22,5 +22,18 @@ namespace DGAIZone.App
         {
             public const string RfidMappings = "RfidMappings.json";
         }
+
+        /// <summary> 타이틀 씬 관련 연출 상수. </summary>
+        public static class Title
+        {
+            /// <summary> 스토리 텍스트 각 줄이 올라오는 이동/페이드 연출 시간 (초, 크면 천천히 올라옴) </summary>
+            public const float StoryLineMoveDuration = 0.7f;
+
+            /// <summary> 다음 줄 연출 시작 전 대기 간격 (초) </summary>
+            public const float StoryLineInterval = 0.35f;
+
+            /// <summary> 한 줄 올라올 때 시작 Y 오프셋 거리 (픽셀) </summary>
+            public const float StoryLineYOffset = 22.0f;
+        }
     }
 }

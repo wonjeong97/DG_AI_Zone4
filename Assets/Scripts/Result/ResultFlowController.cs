@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using DGAIZone.App;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
@@ -105,7 +106,7 @@ namespace DGAIZone.Result
             finally { _isBusy = false; }
         }
 
-        /// <summary> 프레임 단위 보간으로 CanvasGroup 알파를 변경하는 페이드 핵심 로직. </summary>
+        /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>
         private async UniTask FadeCanvasGroupAsync(CanvasGroup group, float startAlpha, float endAlpha, float duration, CancellationToken token)
         {
             if (!group) return;
@@ -115,14 +116,9 @@ namespace DGAIZone.Result
             group.interactable = false;
             group.blocksRaycasts = false;
 
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                group.alpha = Mathf.Lerp(startAlpha, endAlpha, elapsed / duration);
-                await UniTask.Yield(PlayerLoopTiming.Update, token);
-            }
-            group.alpha = endAlpha;
+            await group.DOFade(endAlpha, duration)
+                .SetEase(Ease.InOutQuad)
+                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
         /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. </summary>

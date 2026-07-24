@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using DGAIZone.App;
 using Microsoft.Extensions.Logging;
 using TMPro;
@@ -189,7 +190,7 @@ namespace DGAIZone.LevelSelect
             finally { _isBusy = false; }
         }
 
-        /// <summary> 스토리 텍스트를 한 글자씩 노출함. 도중 마우스/터치 클릭이 감지되면 나머지를 한 번에 출력함. </summary>
+        /// <summary> DOTween으로 스토리 텍스트를 한 글자씩 노출함. 도중 마우스/터치 클릭이 감지되면 나머지를 한 번에 출력함. </summary>
         private async UniTask TypeStoryAsync(TMP_Text storyText, CancellationToken token)
         {
             if (storyText == null) return;
@@ -197,16 +198,25 @@ namespace DGAIZone.LevelSelect
             storyText.ForceMeshUpdate();
             int total = storyText.textInfo.characterCount;
             storyText.maxVisibleCharacters = 0;
+            if (total <= 0) return;
 
-            float shown = 0f;
-            while (shown < total)
+            Tween typingTween = DOTween.To(() => storyText.maxVisibleCharacters,
+                    x => storyText.maxVisibleCharacters = x, total, total / Mathf.Max(1f, charsPerSecond))
+                .SetEase(Ease.Linear);
+            try
             {
-                if (IsSkipRequested()) break; // 클릭 시 나머지를 한 번에 출력
-                shown += Mathf.Max(1f, charsPerSecond) * Time.deltaTime;
-                storyText.maxVisibleCharacters = Mathf.Min(total, Mathf.FloorToInt(shown));
-                await UniTask.Yield(PlayerLoopTiming.Update, token);
+                while (typingTween.IsActive() && !typingTween.IsComplete())
+                {
+                    if (IsSkipRequested()) break; // 클릭 시 나머지를 한 번에 출력
+                    await UniTask.Yield(PlayerLoopTiming.Update, token);
+                }
+                storyText.maxVisibleCharacters = total;
             }
-            storyText.maxVisibleCharacters = total;
+            finally
+            {
+                // 스킵 또는 취소(파괴) 시 남은 트윈을 정리함
+                if (typingTween.IsActive()) typingTween.Kill();
+            }
         }
 
         /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함(타이핑 스킵용). </summary>
@@ -216,7 +226,7 @@ namespace DGAIZone.LevelSelect
             return pointer != null && pointer.press.wasPressedThisFrame;
         }
 
-        /// <summary> 프레임 단위 보간으로 CanvasGroup 알파를 변경하는 페이드 핵심 로직. </summary>
+        /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>
         private async UniTask FadeCanvasGroupAsync(CanvasGroup group, float startAlpha, float endAlpha, float duration, CancellationToken token)
         {
             if (!group) return;
@@ -226,14 +236,9 @@ namespace DGAIZone.LevelSelect
             group.interactable = false;
             group.blocksRaycasts = false;
 
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                group.alpha = Mathf.Lerp(startAlpha, endAlpha, elapsed / duration);
-                await UniTask.Yield(PlayerLoopTiming.Update, token);
-            }
-            group.alpha = endAlpha;
+            await group.DOFade(endAlpha, duration)
+                .SetEase(Ease.InOutQuad)
+                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
         /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. </summary>
