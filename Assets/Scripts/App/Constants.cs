@@ -23,8 +23,8 @@ namespace DGAIZone.App
             public const string RfidMappings = "RfidMappings.json";
         }
 
-        /// <summary> 타이틀 씬 관련 연출 상수. </summary>
-        public static class Title
+        /// <summary> 스토리 텍스트가 한 줄씩 올라오는 연출 상수(타이틀/레벨 선택 공용). </summary>
+        public static class StoryLine
         {
             /// <summary> 스토리 텍스트 각 줄이 올라오는 이동/페이드 연출 시간 (초, 크면 천천히 올라옴) </summary>
             public const float StoryLineMoveDuration = 0.7f;
