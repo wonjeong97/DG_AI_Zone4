@@ -33,7 +33,7 @@ namespace DGAIZone.Title
         private bool _isBusy;
         private bool _isIntroActive;
         private bool _isTextAnimating;
-        private CancellationTokenSource _textAnimationCts;
+        private bool _skipStoryRequested;
         private Color _originalStoryColor;
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
@@ -79,7 +79,7 @@ namespace DGAIZone.Title
             {
                 if (_isTextAnimating)
                 {
-                    CompleteTextAnimation();
+                    _skipStoryRequested = true;
                 }
                 else
                 {
@@ -95,10 +95,9 @@ namespace DGAIZone.Title
             return pointer != null && pointer.press.wasPressedThisFrame;
         }
 
-        /// <summary> 버튼 리스너 및 애니메이션 작업 해제. </summary>
+        /// <summary> 버튼 리스너 해제. </summary>
         private void OnDestroy()
         {
-            CancelTextAnimation();
             if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
             if (nextButton) nextButton.onClick.RemoveListener(OnNextClicked);
         }
@@ -181,170 +180,28 @@ namespace DGAIZone.Title
         }
 
         /// <summary> 텍스트 한 줄씩 올라오는 연출을 시작함. </summary>
-        private void StartTextAnimation(CancellationToken parentToken)
+        private void StartTextAnimation(CancellationToken token)
         {
             if (storyText == null) return;
 
-            CancelTextAnimation();
-            _textAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
-            AnimateLinesAsync(_textAnimationCts.Token).Forget();
+            _skipStoryRequested = false;
+            AnimateStoryAsync(token).Forget();
         }
 
-        /// <summary> 스토리 텍스트가 한 줄씩 아래에서 위로 올라오며 페이드인되는 연출. </summary>
-        private async UniTaskVoid AnimateLinesAsync(CancellationToken token)
+        /// <summary> 공용 유틸로 스토리 텍스트를 한 줄씩 올리는 연출을 실행함. 연출 중 화면 클릭 시 즉시 전체 표시함. </summary>
+        private async UniTaskVoid AnimateStoryAsync(CancellationToken token)
         {
             _isTextAnimating = true;
             try
             {
-                if (storyText == null) return;
-
-                // 연출 전 본래 텍스트 색상(알파 1.0) 복원 후 메쉬 업데이트
-                Color baseColor = _originalStoryColor != default ? _originalStoryColor : storyText.color;
-                storyText.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
-                storyText.ForceMeshUpdate();
-
-                TMP_TextInfo textInfo = storyText.textInfo;
-                int totalLines = textInfo.lineCount;
-
-                if (totalLines <= 0)
-                {
-                    ResetTextMesh();
-                    _isTextAnimating = false;
-                    return;
-                }
-
-                // 원본 정점 위치 및 색상 캐싱 (불투명 255 기준)
-                int materialCount = textInfo.meshInfo.Length;
-                Vector3[][] cachedVertices = new Vector3[materialCount][];
-                Color32[][] cachedColors = new Color32[materialCount][];
-
-                for (int m = 0; m < materialCount; m++)
-                {
-                    Vector3[] verts = textInfo.meshInfo[m].vertices;
-                    Color32[] colors = textInfo.meshInfo[m].colors32;
-                    cachedVertices[m] = new Vector3[verts.Length];
-                    cachedColors[m] = new Color32[colors.Length];
-                    Array.Copy(verts, cachedVertices[m], verts.Length);
-                    for (int i = 0; i < colors.Length; i++)
-                    {
-                        Color32 orig = colors[i];
-                        cachedColors[m][i] = new Color32(orig.r, orig.g, orig.b, 255);
-                    }
-                }
-
-                // 초기 상태: 모든 버텍스의 알파를 0으로 숨김
-                for (int m = 0; m < materialCount; m++)
-                {
-                    Color32[] colors = textInfo.meshInfo[m].colors32;
-                    for (int i = 0; i < colors.Length; i++)
-                    {
-                        colors[i].a = 0;
-                    }
-                }
-                storyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
-
-                // 라인별로 하나씩 올라오는 연출 진행
-                for (int l = 0; l < totalLines; l++)
-                {
-                    TMP_LineInfo lineInfo = textInfo.lineInfo[l];
-                    float duration = Constants.Title.StoryLineMoveDuration;
-                    float elapsed = 0f;
-
-                    while (elapsed < duration)
-                    {
-                        float progress = Mathf.Clamp01(elapsed / duration);
-                        float easeT = Mathf.SmoothStep(0f, 1f, progress);
-                        float yOffset = Mathf.Lerp(-Constants.Title.StoryLineYOffset, 0f, easeT);
-                        byte alpha = (byte)Mathf.Lerp(0, 255, easeT);
-
-                        for (int c = lineInfo.firstCharacterIndex; c <= lineInfo.lastCharacterIndex && c < textInfo.characterCount; c++)
-                        {
-                            TMP_CharacterInfo charInfo = textInfo.characterInfo[c];
-                            if (!charInfo.isVisible) continue;
-
-                            int matIdx = charInfo.materialReferenceIndex;
-                            int vertexIdx = charInfo.vertexIndex;
-
-                            Vector3[] destVerts = textInfo.meshInfo[matIdx].vertices;
-                            Color32[] destColors = textInfo.meshInfo[matIdx].colors32;
-
-                            for (int k = 0; k < 4; k++)
-                            {
-                                Vector3 orig = cachedVertices[matIdx][vertexIdx + k];
-                                destVerts[vertexIdx + k] = new Vector3(orig.x, orig.y + yOffset, orig.z);
-
-                                Color32 origColor = cachedColors[matIdx][vertexIdx + k];
-                                destColors[vertexIdx + k] = new Color32(origColor.r, origColor.g, origColor.b, alpha);
-                            }
-                        }
-
-                        storyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
-
-                        elapsed += Time.deltaTime;
-                        await UniTask.Yield(PlayerLoopTiming.Update, token);
-                    }
-
-                    // 해당 줄의 애니메이션 완료 상태 보장
-                    for (int c = lineInfo.firstCharacterIndex; c <= lineInfo.lastCharacterIndex && c < textInfo.characterCount; c++)
-                    {
-                        TMP_CharacterInfo charInfo = textInfo.characterInfo[c];
-                        if (!charInfo.isVisible) continue;
-
-                        int matIdx = charInfo.materialReferenceIndex;
-                        int vertexIdx = charInfo.vertexIndex;
-
-                        Vector3[] destVerts = textInfo.meshInfo[matIdx].vertices;
-                        Color32[] destColors = textInfo.meshInfo[matIdx].colors32;
-
-                        for (int k = 0; k < 4; k++)
-                        {
-                            destVerts[vertexIdx + k] = cachedVertices[matIdx][vertexIdx + k];
-                            destColors[vertexIdx + k] = cachedColors[matIdx][vertexIdx + k];
-                        }
-                    }
-                    storyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
-
-                    if (l < totalLines - 1)
-                    {
-                        await UniTask.Delay(TimeSpan.FromSeconds(Constants.Title.StoryLineInterval), cancellationToken: token);
-                    }
-                }
+                await StoryLineAnimator.AnimateAsync(storyText,
+                    Constants.StoryLine.StoryLineMoveDuration,
+                    Constants.StoryLine.StoryLineInterval,
+                    Constants.StoryLine.StoryLineYOffset,
+                    () => _skipStoryRequested, token);
             }
             catch (OperationCanceledException) { }
-            finally
-            {
-                ResetTextMesh();
-                _isTextAnimating = false;
-            }
-        }
-
-        /// <summary> 텍스트 메쉬 및 알파 상태를 원래대로 복원함. </summary>
-        private void ResetTextMesh()
-        {
-            if (storyText == null) return;
-            Color baseColor = _originalStoryColor != default ? _originalStoryColor : storyText.color;
-            storyText.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
-            storyText.ForceMeshUpdate();
-            storyText.maxVisibleLines = int.MaxValue;
-        }
-
-        /// <summary> 텍스트 연출을 즉시 완료(캔슬)하고 전체 텍스트를 정위치에 고정함. </summary>
-        private void CompleteTextAnimation()
-        {
-            CancelTextAnimation();
-            ResetTextMesh();
-            _isTextAnimating = false;
-        }
-
-        /// <summary> 진행 중인 텍스트 연출 작업 취소. </summary>
-        private void CancelTextAnimation()
-        {
-            if (_textAnimationCts != null)
-            {
-                _textAnimationCts.Cancel();
-                _textAnimationCts.Dispose();
-                _textAnimationCts = null;
-            }
+            finally { _isTextAnimating = false; }
         }
 
         /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>

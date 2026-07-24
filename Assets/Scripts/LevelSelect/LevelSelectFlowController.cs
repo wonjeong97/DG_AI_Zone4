@@ -29,7 +29,6 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
         [SerializeField] private int unlockedLevelCount = 1; // 앞에서부터 열린 레벨 수
         [SerializeField] private float panelFadeDuration = 0.4f;
-        [SerializeField] private float charsPerSecond = 30f; // 스토리 타이핑 속도
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
         private SceneTransitionService _sceneTransition;
@@ -138,6 +137,7 @@ namespace DGAIZone.LevelSelect
             if (storyImage != null && levelButtons[index] != null)
             {
                 storyImage.sprite = levelButtons[index].image != null ? levelButtons[index].image.sprite : null;
+                if (storyImage.sprite != null) storyImage.SetNativeSize();
             }
 
             TMP_Text storyText = null;
@@ -163,7 +163,7 @@ namespace DGAIZone.LevelSelect
             SwitchToStoryAsync(storyText).Forget();
         }
 
-        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 스토리 텍스트 타이핑이 끝나면 시작 버튼을 활성화함. </summary>
+        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 스토리 텍스트가 한 줄씩 올라오는 연출이 끝나면 시작 버튼을 활성화함. </summary>
         private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText)
         {
             _isBusy = true;
@@ -182,7 +182,11 @@ namespace DGAIZone.LevelSelect
                     ApplyPanelState(storyPanel, true);
                 }
 
-                await TypeStoryAsync(storyText, token);
+                await StoryLineAnimator.AnimateAsync(storyText,
+                    Constants.StoryLine.StoryLineMoveDuration,
+                    Constants.StoryLine.StoryLineInterval,
+                    Constants.StoryLine.StoryLineYOffset,
+                    IsSkipRequested, token);
 
                 if (startButton != null) startButton.interactable = true;
             }
@@ -190,36 +194,7 @@ namespace DGAIZone.LevelSelect
             finally { _isBusy = false; }
         }
 
-        /// <summary> DOTween으로 스토리 텍스트를 한 글자씩 노출함. 도중 마우스/터치 클릭이 감지되면 나머지를 한 번에 출력함. </summary>
-        private async UniTask TypeStoryAsync(TMP_Text storyText, CancellationToken token)
-        {
-            if (storyText == null) return;
-
-            storyText.ForceMeshUpdate();
-            int total = storyText.textInfo.characterCount;
-            storyText.maxVisibleCharacters = 0;
-            if (total <= 0) return;
-
-            Tween typingTween = DOTween.To(() => storyText.maxVisibleCharacters,
-                    x => storyText.maxVisibleCharacters = x, total, total / Mathf.Max(1f, charsPerSecond))
-                .SetEase(Ease.Linear);
-            try
-            {
-                while (typingTween.IsActive() && !typingTween.IsComplete())
-                {
-                    if (IsSkipRequested()) break; // 클릭 시 나머지를 한 번에 출력
-                    await UniTask.Yield(PlayerLoopTiming.Update, token);
-                }
-                storyText.maxVisibleCharacters = total;
-            }
-            finally
-            {
-                // 스킵 또는 취소(파괴) 시 남은 트윈을 정리함
-                if (typingTween.IsActive()) typingTween.Kill();
-            }
-        }
-
-        /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함(타이핑 스킵용). </summary>
+        /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함(연출 스킵용). </summary>
         private bool IsSkipRequested()
         {
             Pointer pointer = Pointer.current;
