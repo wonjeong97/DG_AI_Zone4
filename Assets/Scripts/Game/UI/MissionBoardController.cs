@@ -81,7 +81,7 @@ namespace DGAIZone.Game.UI
             }
 
             goalPlanetNameText.text = _current.Destination;
-            LoadGoalSpriteAsync(ResolveGoalSpriteAddressableKey(_current.Destination)).Forget();
+            LoadGoalSpriteAsync(_current.SpriteKey).Forget();
         }
 
         /// <summary> Addressables에서 목적지 이미지를 비동기로 불러와 Image_Goal에 적용함. </summary>
@@ -104,12 +104,6 @@ namespace DGAIZone.Game.UI
                 }
             }
             catch (OperationCanceledException) { }
-        }
-
-        /// <summary> 목적지 이름을 Addressables 주소로 변환함(예: "외계 행성" -> "외계행성"). </summary>
-        private static string ResolveGoalSpriteAddressableKey(string destination)
-        {
-            return destination == "외계 행성" ? "외계행성" : destination;
         }
 
         /// <summary> 연료량 입력에 따라 Image_Fill의 fillAmount를 목적지 조건에 맞춰 갱신함. 정답 범위 안이면 1, 멀어질수록 0에 가까워짐. </summary>

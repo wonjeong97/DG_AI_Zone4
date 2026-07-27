@@ -23,8 +23,8 @@ namespace DGAIZone.Game.UI
     public class IngredientSelectionController : MonoBehaviour
     {
         [Header("UI References")]
-        [SerializeField] private TMP_Text textIngredient;
-        [SerializeField] private TMP_Text textMatter;
+        [SerializeField] private TMP_Text textIngredient; // Text_Material
+        [SerializeField] private TMP_Text textMatter; // Text_Matter
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
 
