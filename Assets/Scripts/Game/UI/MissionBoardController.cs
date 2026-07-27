@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using VContainer;
 using ZLogger;
 
@@ -37,6 +38,8 @@ namespace DGAIZone.Game.UI
         };
 
         [SerializeField] private TMP_Text missionText;
+        [SerializeField] private Image goalImage;
+        [SerializeField] private TMP_Text goalPlanetNameText;
 
         private ILogger<MissionBoardController> _logger;
         private Mission _current = Missions[0];
@@ -54,13 +57,19 @@ namespace DGAIZone.Game.UI
             _logger = logger;
         }
 
-        /// <summary> 씬 시작 시 무작위 목적지를 골라 미션 보드 텍스트를 구성함. </summary>
+        /// <summary> 씬 시작 시 무작위 목적지를 골라 미션 보드 텍스트와 목적지 표시를 구성함. </summary>
         private void Start()
         {
             _current = Missions[Random.Range(0, Missions.Length)];
 
             if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Mission set: {_current.Destination} / {_current.FuelRequirement}");
 
+            ApplyMissionText();
+            ApplyGoalDisplay();
+        }
+
+        private void ApplyMissionText()
+        {
             if (missionText == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText is null. Cannot set mission text.");
@@ -71,6 +80,36 @@ namespace DGAIZone.Game.UI
                 $"목적지는 [<color=yellow>{_current.Destination}</color>] 입니다.\n" +
                 $"[<color=yellow>{_current.FuelRequirement}</color>]을 입력하고,\n" +
                 $"추진체와 탑재 종류를 설정해주세요.";
+        }
+
+        /// <summary> 목적지에 맞는 이미지(Resources 폴더)와 행성 이름 텍스트를 Image_Goal에 적용함. </summary>
+        private void ApplyGoalDisplay()
+        {
+            if (goalImage == null || goalPlanetNameText == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] goalImage or goalPlanetNameText is null. Cannot apply goal display.");
+                return;
+            }
+
+            string resourceName = ResolveGoalSpriteResourceName(_current.Destination);
+            Sprite sprite = Resources.Load<Sprite>(resourceName);
+            if (sprite == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] Goal sprite not found for destination '{_current.Destination}' (Resources/{resourceName}).");
+            }
+            else
+            {
+                goalImage.sprite = sprite;
+                goalImage.SetNativeSize();
+            }
+
+            goalPlanetNameText.text = _current.Destination;
+        }
+
+        /// <summary> 목적지 이름을 Resources 폴더의 이미지 파일명으로 변환함(예: "외계 행성" -> "외계행성"). </summary>
+        private static string ResolveGoalSpriteResourceName(string destination)
+        {
+            return destination == "외계 행성" ? "외계행성" : destination;
         }
     }
 }

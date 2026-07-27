@@ -4359,7 +4359,7 @@ GameObject:
   - component: {fileID: 1230299619}
   - component: {fileID: 1230299618}
   m_Layer: 5
-  m_Name: Text_StartPlanetName
+  m_Name: Text_GoalPlanetName
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5087,6 +5087,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   missionText: {fileID: 1690934957}
+  goalImage: {fileID: 1818054174}
+  goalPlanetNameText: {fileID: 1230299618}
 --- !u!1 &1499980681
 GameObject:
   m_ObjectHideFlags: 0
