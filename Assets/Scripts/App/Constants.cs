@@ -35,5 +35,38 @@ namespace DGAIZone.App
             /// <summary> 한 줄 올라올 때 시작 Y 오프셋 거리 (픽셀) </summary>
             public const float StoryLineYOffset = 22.0f;
         }
+
+        /// <summary> 목적지별 미션(연료량 조건) 상수. MissionBoardController가 참조함. </summary>
+        public static class Mission
+        {
+            /// <summary> 연료량 입력이 가질 수 있는 값의 범위(RfidMappings.json "연료량" matterNames: "0".."10"). </summary>
+            public const int FuelDomainMin = 0;
+            public const int FuelDomainMax = 10;
+
+            /// <summary> 목적지 하나에 대한 연료량 조건 정의. </summary>
+            public readonly struct Definition
+            {
+                public readonly string Destination;
+                public readonly string FuelRequirement;
+                public readonly int MinFuel;
+                public readonly int MaxFuel;
+
+                public Definition(string destination, string fuelRequirement, int minFuel, int maxFuel)
+                {
+                    Destination = destination;
+                    FuelRequirement = fuelRequirement;
+                    MinFuel = minFuel;
+                    MaxFuel = maxFuel;
+                }
+            }
+
+            /// <summary> 목적지별 연료량 조건(포함 범위). </summary>
+            public static readonly Definition[] Definitions =
+            {
+                new Definition("달", "3보다 적은 연료량", 0, 2),
+                new Definition("화성", "4에서 7 사이의 연료량", 4, 7),
+                new Definition("외계 행성", "8에서 10 사이의 연료량", 8, 10),
+            };
+        }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
@@ -26,6 +27,11 @@ namespace DGAIZone.Game.UI
         [SerializeField] private TMP_Text textMatter;
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
+
+        [Header("Right Arrow Hint")]
+        [SerializeField] private Image rightArrowImage; // Image_RightArrow
+        [SerializeField] private float rightArrowFillDuration = 1.0f;
+        [SerializeField] private float rightArrowFadeDuration = 0.5f;
 
         [Header("Workflow Buttons")]
         [SerializeField] private Button buttonConfirm;
@@ -67,6 +73,7 @@ namespace DGAIZone.Game.UI
         private readonly ReactiveProperty<int> _currentMatterIndex = new ReactiveProperty<int>(0);
 
         private R3.DisposableBag _disposables = new R3.DisposableBag();
+        private Sequence _rightArrowSequence;
 
         /// <summary>
         /// VContainer 의존성 주입. MessagePipe 구독자, 씬 전환 서비스, 로거를 할당함.
@@ -102,6 +109,7 @@ namespace DGAIZone.Game.UI
             _currentMatterIndex.Subscribe(_ => UpdateMatterText()).AddTo(ref _disposables);
 
             UpdateCodingCompleteButton();
+            ResetRightArrow();
 
             // 비동기로 설정을 로드하여 워크플로우 단계를 설정함
             InitializeWorkflowAsync().Forget();
@@ -214,6 +222,12 @@ namespace DGAIZone.Game.UI
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
             AddDesignItem(ingredient, chosenMatter);
 
+            // 연료량이 확정되면 목적지 조건에 맞춰 진행도(Image_Fill)를 갱신함
+            if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal) && int.TryParse(chosenMatter, out int fuelValue) && _missionBoard != null)
+            {
+                _missionBoard.SetFuelProgress(fuelValue);
+            }
+
             // 현재 카드 선택 대기 상태 초기화
             _currentIngredient.Value = "";
             _currentMatters.Value = Array.Empty<string>();
@@ -248,6 +262,12 @@ namespace DGAIZone.Game.UI
 
             // 이전 단계로 롤백
             _currentStepIndex--;
+
+            // 되돌리는 항목이 연료량이면 진행도(Image_Fill)를 초기 상태로 되돌림
+            if (string.Equals(_confirmedIngredients[_currentStepIndex], FuelIngredientName, StringComparison.Ordinal) && _missionBoard != null)
+            {
+                _missionBoard.ResetFuelProgress();
+            }
 
             // 이전 단계의 확정 내역 삭제
             _confirmedMatters[_currentStepIndex] = null;
@@ -451,6 +471,8 @@ namespace DGAIZone.Game.UI
             {
                 textIngredient.text = ingredientName;
             }
+
+            UpdateRightArrowAnimation();
         }
 
         /// <summary>
@@ -471,6 +493,64 @@ namespace DGAIZone.Game.UI
             {
                 textMatter.text = "";
             }
+
+            UpdateRightArrowAnimation();
+        }
+
+        /// <summary>
+        /// Text_Matter 또는 Text_Material에 값이 있는지(RFID 태그/디버그 키로 재료가 선택된 상태인지)에 따라
+        /// Image_RightArrow의 반복 펄스 애니메이션을 시작하거나 멈춤.
+        /// </summary>
+        private void UpdateRightArrowAnimation()
+        {
+            if (rightArrowImage == null) return;
+
+            bool hasValue = (textMatter != null && !string.IsNullOrEmpty(textMatter.text))
+                          || (textIngredient != null && !string.IsNullOrEmpty(textIngredient.text));
+
+            if (hasValue) StartRightArrowLoop();
+            else ResetRightArrow();
+        }
+
+        /// <summary>
+        /// FillAmount 0->1로 차오른 뒤 FadeOut하고 다시 FillAmount 0으로 되돌리는 동작을 무한 반복함. 이미 재생 중이면 무시함.
+        /// </summary>
+        private void StartRightArrowLoop()
+        {
+            if (_rightArrowSequence != null && _rightArrowSequence.IsActive()) return;
+
+            rightArrowImage.fillAmount = 0f;
+            SetRightArrowAlpha(1f);
+
+            _rightArrowSequence = DOTween.Sequence();
+            _rightArrowSequence.Append(rightArrowImage.DOFillAmount(1f, rightArrowFillDuration));
+            _rightArrowSequence.Append(rightArrowImage.DOFade(0f, rightArrowFadeDuration));
+            _rightArrowSequence.AppendCallback(() =>
+            {
+                rightArrowImage.fillAmount = 0f;
+                SetRightArrowAlpha(1f);
+            });
+            _rightArrowSequence.SetLoops(-1);
+        }
+
+        /// <summary>
+        /// 반복 애니메이션을 멈추고 Image_RightArrow를 FillAmount 0의 시작 상태로 되돌림.
+        /// </summary>
+        private void ResetRightArrow()
+        {
+            _rightArrowSequence?.Kill();
+            _rightArrowSequence = null;
+
+            if (rightArrowImage == null) return;
+            rightArrowImage.fillAmount = 0f;
+            SetRightArrowAlpha(1f);
+        }
+
+        private void SetRightArrowAlpha(float alpha)
+        {
+            Color color = rightArrowImage.color;
+            color.a = alpha;
+            rightArrowImage.color = color;
         }
 
         /// <summary>
@@ -489,6 +569,8 @@ namespace DGAIZone.Game.UI
             _currentIngredient?.Dispose();
             _currentMatters?.Dispose();
             _currentMatterIndex?.Dispose();
+
+            _rightArrowSequence?.Kill();
         }
     }
 }

@@ -577,7 +577,7 @@ MonoBehaviour:
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
-  m_FillAmount: 1
+  m_FillAmount: 0
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -3790,7 +3790,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1166330104
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4824,7 +4824,7 @@ MonoBehaviour:
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 0
-  m_FillAmount: 1
+  m_FillAmount: 0
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -5089,6 +5089,8 @@ MonoBehaviour:
   missionText: {fileID: 1690934957}
   goalImage: {fileID: 1818054174}
   goalPlanetNameText: {fileID: 1230299618}
+  progressFillImage: {fileID: 266491278}
+  fillTweenDuration: 0.5
 --- !u!1 &1499980681
 GameObject:
   m_ObjectHideFlags: 0
@@ -5571,6 +5573,9 @@ MonoBehaviour:
   textMatter: {fileID: 216926069}
   buttonLeft: {fileID: 1033277504}
   buttonRight: {fileID: 1262166067}
+  rightArrowImage: {fileID: 1330324432}
+  rightArrowFillDuration: 1
+  rightArrowFadeDuration: 0.5
   buttonConfirm: {fileID: 1709456944}
   buttonCancel: {fileID: 1499980683}
   buttonCodingComplete: {fileID: 1031142014}
@@ -6375,14 +6380,11 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
-    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uC800 \uB192\uC740
-    \uD558\uB298\uC744 \uB6AB\uACE0 \uC6B0\uC8FC\uB85C \uB0A0\uC544\uAC00\uB824\uBA74,\n\uAC15\uB825\uD55C
-    \uB85C\uCF13\uC774 \uD544\uC694\uD574\uC694.\n\n\uB85C\uCF13 \uC124\uACC4\uC758
+    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uB85C\uCF13 \uC124\uACC4\uC758
     \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 \uC801\uC808\uD558\uAC8C
     \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n\xB7 \uC5D4\uC9C4 \uCD9C\uB825\n\xB7
-    \uC5F0\uB8CC\uB7C9\n\xB7 \uB85C\uBD07 \uBB34\uAC8C \uD0D1\uC7AC \uC911\uB7C9\n</color>\n\uC9C0\uAD6C\uC758
-    \uAC15\uD55C \uC911\uB825\uC744 \uC774\uACA8\uB0B4\uC11C,\n\uBA4B\uC9C0\uAC8C
-    \uC19F\uC544\uC624\uB97C \uD669\uAE08 \uBE44\uC728\uC758 \uB85C\uCF13\uC744 \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
+    \uC5F0\uB8CC\uB7C9\n\xB7 \uB85C\uBD07 \uBB34\uAC8C \uD0D1\uC7AC \uC911\uB7C9\n</color>\n\uB85C\uCF13\uC744
+    \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -6418,7 +6420,7 @@ MonoBehaviour:
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -6622,16 +6624,16 @@ RectTransform:
   m_GameObject: {fileID: 2081176775}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: -1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 1
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 266916970}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -630.5, y: -240}
-  m_SizeDelta: {x: 606, y: 610}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 82, y: -540}
+  m_SizeDelta: {x: 537, y: 540}
+  m_Pivot: {x: 0, y: 1}
 --- !u!114 &2081176777
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6652,7 +6654,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 7d737952c8813124e982e301a5113226, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 68fd435e3af6d764a93a03fa19f82e5a, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
