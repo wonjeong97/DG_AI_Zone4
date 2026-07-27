@@ -118,3 +118,7 @@ InitTestScene*.unity*
 
 # Unity DirMonitor sync temp files
 *~UnityDirMonSyncFile~*
+
+# Auto-generated build metadata (machine name/timestamp), changes on every build
+/[Aa]ssets/StreamingAssets/build_info
+/[Aa]ssets/StreamingAssets/build_info.meta
