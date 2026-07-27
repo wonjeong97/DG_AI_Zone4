@@ -4,7 +4,9 @@ using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using VContainer;
 using ZLogger;
@@ -28,6 +30,7 @@ namespace DGAIZone.Game
 
         private ILogger<GameFlowController> _logger;
         private bool _isBusy;
+        private AsyncOperationHandle<Sprite> _storyImageHandle;
 
         /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
         [Inject]
@@ -72,12 +75,7 @@ namespace DGAIZone.Game
         {
             int index = selectedLevel - 1;
 
-            if (storyImage != null)
-            {
-                Sprite sprite = Resources.Load<Sprite>($"Level{selectedLevel}");
-                if (sprite != null) storyImage.sprite = sprite;
-                else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] Level image 'Level{selectedLevel}' not found in Resources.");
-            }
+            LoadStoryImageAsync().Forget();
 
             if (storyLevels != null)
             {
@@ -88,10 +86,35 @@ namespace DGAIZone.Game
             }
         }
 
-        /// <summary> 버튼 리스너를 해제함. </summary>
+        /// <summary> Addressables에서 활성화된 레벨의 스토리 이미지를 비동기로 불러와 적용함. </summary>
+        private async UniTaskVoid LoadStoryImageAsync()
+        {
+            if (storyImage == null) return;
+
+            string key = $"Level{selectedLevel}";
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
+            try
+            {
+                _storyImageHandle = Addressables.LoadAssetAsync<Sprite>(key);
+                Sprite sprite = await _storyImageHandle.Task.AsUniTask().AttachExternalCancellation(token);
+
+                if (_storyImageHandle.Status == AsyncOperationStatus.Succeeded && sprite != null)
+                {
+                    storyImage.sprite = sprite;
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[GameFlowController] Level image '{key}' not found in Addressables.");
+                }
+            }
+            catch (OperationCanceledException) { }
+        }
+
+        /// <summary> 버튼 리스너를 해제하고 Addressables 핸들을 반환함. </summary>
         private void OnDestroy()
         {
             if (storyButton) storyButton.onClick.RemoveListener(OnStoryClicked);
+            if (_storyImageHandle.IsValid()) Addressables.Release(_storyImageHandle);
         }
 
         /// <summary> 스토리 패널을 페이드아웃한 뒤 게임 패널을 페이드인하는 크로스페이드. 스토리 표시 중 화면 클릭 시 호출됨. </summary>
