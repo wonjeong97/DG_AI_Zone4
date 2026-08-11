@@ -25,6 +25,7 @@ namespace DGAIZone.Game.UI
         [Header("UI References")]
         [SerializeField] private TMP_Text textIngredient; // Text_Material
         [SerializeField] private TMP_Text textMatter; // Text_Matter
+        [SerializeField] private float numberFontSize = 45f; // Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
 
@@ -41,6 +42,7 @@ namespace DGAIZone.Game.UI
 
         [Header("Design Panel")]
         [SerializeField] private Transform designContent;
+        [SerializeField] private TextMeshProUGUI designItemPrefab;
 
         [Header("Activation")]
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
@@ -291,25 +293,10 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void AddDesignItem(string ingredient, string matter)
         {
-            if (designContent == null) return;
+            if (designContent == null || designItemPrefab == null) return;
 
-            var go = new GameObject("DesignItem", typeof(RectTransform), typeof(TextMeshProUGUI));
-            go.layer = designContent.gameObject.layer;
-
-            var rt = go.GetComponent<RectTransform>();
-            rt.SetParent(designContent, false);
-            rt.sizeDelta = new Vector2(rt.sizeDelta.x, 56f);
-
-            var text = go.GetComponent<TextMeshProUGUI>();
-            text.font = textIngredient != null ? textIngredient.font
-                      : (textMatter != null ? textMatter.font : null);
-            text.fontSize = 44;
-            text.color = Color.white;
-            text.alignment = TextAlignmentOptions.Left;
-            text.richText = true;
-            text.enableWordWrapping = true;
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.text = $"- {ingredient} [<color=yellow>{matter}</color>]";
+            var text = Instantiate(designItemPrefab, designContent);
+            text.text = $"- {ingredient} [<color=yellow>{ApplyNumberSizeTag(matter)}</color>]";
 
             _designItems.Add(text);
             UpdateCodingCompleteButton();
@@ -487,7 +474,7 @@ namespace DGAIZone.Game.UI
 
             if (matters != null && idx >= 0 && idx < matters.Length)
             {
-                textMatter.text = matters[idx];
+                textMatter.text = ApplyNumberSizeTag(matters[idx]);
             }
             else
             {
@@ -495,6 +482,21 @@ namespace DGAIZone.Game.UI
             }
 
             UpdateRightArrowAnimation();
+        }
+
+        /// <summary>
+        /// 값이 숫자로만 구성되어 있으면 <size> 리치 텍스트 태그로 감싸 강조 크기를 적용하고, 아니면 원본 값을 그대로 반환함.
+        /// </summary>
+        private string ApplyNumberSizeTag(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] value is null or empty. Skipping number size tag.");
+                return value;
+            }
+
+            bool isNumber = float.TryParse(value, out _);
+            return isNumber ? $"<size={numberFontSize}>{value}</size>" : value;
         }
 
         /// <summary>

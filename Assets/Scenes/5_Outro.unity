@@ -156,11 +156,11 @@ RectTransform:
   - {fileID: 705678527}
   m_Father: {fileID: 908776763}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 1, y: 0}
-  m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -257, y: 74}
-  m_SizeDelta: {x: 351, y: 85}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 1573, y: -961}
+  m_SizeDelta: {x: 305, y: 95}
+  m_Pivot: {x: 0, y: 1}
 --- !u!114 &238961221
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -225,7 +225,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 99a0bc4bdbfb9eb46be63bc93302e745, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 5a0dbf997cb0ad74e91ecdf59b8e4ff9, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -755,7 +755,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC885\uB8CC \uD558\uAE30"
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -783,7 +783,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
+  m_fontSize: 14
   m_fontSizeBase: 14
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -907,11 +907,11 @@ RectTransform:
   - {fileID: 920011206}
   m_Father: {fileID: 908776763}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 1, y: 0.5}
-  m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -692, y: 0}
-  m_SizeDelta: {x: 1331, y: 752}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 582, y: -167}
+  m_SizeDelta: {x: 1296, y: 768}
+  m_Pivot: {x: 0, y: 1}
 --- !u!114 &851598209
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -932,7 +932,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: d7d9cdf78f079d04ca3d8f2da848d2e1, type: 3}
+  m_Sprite: {fileID: 21300000, guid: be2523a0a56cd8744bcfc25572b3ac54, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1035,8 +1035,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 16, y: -54}
-  m_SizeDelta: {x: -32, y: -108}
+  m_AnchoredPosition: {x: 44, y: 0}
+  m_SizeDelta: {x: -88, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &920011207
 MonoBehaviour:
@@ -1058,19 +1058,13 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uD6CC\uB8E1\uD574\uC694!\n[<color=yellow>\uCCB4\uD5D8\uC790</color>]
-    \uB2D8\uC774 \uCC28\uADFC\uCC28\uADFC \uC124\uACC4\uD55C \uB85C\uBD07\uACFC\n\uD0D0\uC0AC
-    \uC2DC\uC2A4\uD15C \uCF54\uB529 \uB355\uBD84\uC5D0, \uC778\uB958\uB294 \uC218\uC5B5
-    \uD0AC\uB85C\uBBF8\uD130 \uB5A8\uC5B4\uC9C4\n\uBBF8\uC9C0\uC758 \uC678\uACC4
-    \uD589\uC131\uC5D0 \uC548\uC804\uD558\uAC8C \uBC1C\uC744 \uB514\uB51C \uC218
-    \uC788\uAC8C \uB418\uC5C8\uC2B5\uB2C8\uB2E4!\n\n\uC6B0\uC8FC\uB97C \uC6C0\uC9C1\uC778
+  m_text: "\uD6CC\uB8E1\uD574\uC694!\n\n<color=yellow>[\uCCB4\uD5D8\uC790]</color>
+    \uB2D8\uC774 \uCC28\uADFC\uCC28\uADFC \uC124\uACC4\uD55C \uCF54\uB529 \uB355\uBD84\uC5D0\n\uC778\uB958\uB294
+    \uBBF8\uC9C0\uC758 \uC6B0\uC8FC\uC5D0 \uC548\uC804\uD558\uAC8C \uBC1C\uC744 \uB514\uB51C
+    \uC218 \uC788\uAC8C \uB418\uC5C8\uC2B5\uB2C8\uB2E4!\n\uC6B0\uC8FC\uB97C \uC6C0\uC9C1\uC778
     \uC774 \uBA4B\uC9C4 \uCF54\uB529 \uC54C\uACE0\uB9AC\uC998\uC758 \uD798\uC744
-    \uAF2D \uAE30\uC5B5\uD574\uC8FC\uC138\uC694..\n\uD654\uBA74 \uC18D \uBBF8\uC9C0\uC758
-    \uD589\uC131\uC744 \uC815\uBCF5\uD55C \uAC83\uCC98\uB7FC,\n\uC55E\uC73C\uB85C
-    \uD3BC\uCCD0\uC9C8 \uC5EC\uB7EC\uBD84\uC758 \uBBF8\uB798\uB3C4\n\uC800 \uB113\uC740
-    \uC6B0\uC8FC\uCC98\uB7FC \uBB34\uD55C\uD55C \uAC00\uB2A5\uC131\uC73C\uB85C \uAC00\uB4DD
-    \uCC28 \uC788\uC73C\uB2C8\uAE4C\uC694.\n\n<color=yellow>\uBBF8\uC158\uC744 \uD6CC\uB8E1\uD558\uAC8C
-    \uC644\uC218\uD558\uC600\uC2B5\uB2C8\uB2E4.</color>"
+    \uAF2D \uAE30\uC5B5\uD574 \uC8FC\uC138\uC694.\n\n<color=yellow>\uBBF8\uC158\uC744
+    \uD6CC\uB8E1\uD558\uAC8C \uC644\uC218\uD558\uC600\uC2B5\uB2C8\uB2E4.</color>"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -1098,19 +1092,19 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 42
-  m_fontSizeBase: 42
+  m_fontSize: 36
+  m_fontSizeBase: 36
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
-  m_lineSpacing: 12
+  m_lineSpacing: 36
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
@@ -1537,7 +1531,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   storyText: {fileID: 920011207}
-  charsPerSecond: 30
   homeButton: {fileID: 238961219}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

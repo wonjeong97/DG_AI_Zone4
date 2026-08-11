@@ -67,9 +67,9 @@ namespace DGAIZone.App
             /// <summary> 목적지별 연료량 조건(포함 범위). </summary>
             public static readonly Definition[] Definitions =
             {
-                new Definition("달", "3보다 적은 연료량", 0, 2, "달"),
-                new Definition("화성", "4에서 7 사이의 연료량", 4, 7, "화성"),
-                new Definition("외계 행성", "8에서 10 사이의 연료량", 8, 10, "외계행성"),
+                new Definition("달", "3보다 적은 연료량", 0, 2, "Moon"),
+                new Definition("화성", "4에서 7 사이의 연료량", 4, 7, "Mars"),
+                new Definition("외계 행성", "8에서 10 사이의 연료량", 8, 10, "ExoPlanet"),
             };
         }
     }
