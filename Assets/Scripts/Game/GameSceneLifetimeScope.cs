@@ -1,3 +1,4 @@
+using DGAIZone.App;
 using DGAIZone.Game.Events;
 using DGAIZone.Game.Hardware;
 using DGAIZone.Game.UI;
@@ -20,6 +21,7 @@ namespace DGAIZone.Game
             builder.RegisterComponentInHierarchy<KeyboardRfidSimulator>();
             builder.RegisterComponentInHierarchy<IngredientSelectionController>();
             builder.RegisterComponentInHierarchy<MissionBoardController>();
+            builder.RegisterComponentInHierarchy<RobotVideoPanel>();
 
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<RfidTagEvent>(options);

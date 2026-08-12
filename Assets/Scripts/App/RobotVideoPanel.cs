@@ -1,34 +1,37 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using DGAIZone.App;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Video;
 using VContainer;
 using ZLogger;
 
-namespace DGAIZone.Tutorial
+namespace DGAIZone.App
 {
     /// <summary>
-    /// 튜토리얼 씬 진입 시 안내 영상을 반복 재생함. 사용자가 "이해했어요" 버튼을 눌러 씬을 벗어날 때까지 계속 재생함.
+    /// 정적 로봇 이미지 대신 로봇 영상을 반복 재생하는 패널. 씬 진입과 동시에 준비를 시작하되,
+    /// RenderTexture에 실제 프레임이 그려진 뒤에야 화면에 노출해 잔상/빈 프레임 노출을 방지함.
     /// </summary>
-    public class TutorialVideoPanel : MonoBehaviour, ISceneVideoReadiness
+    public class RobotVideoPanel : MonoBehaviour, ISceneVideoReadiness
     {
         [SerializeField] private VideoPlayer videoPlayer;
+        [SerializeField] private RawImage rawImage;
+        [SerializeField] private RenderTexture targetTexture;
         [SerializeField] private string videoFolderName = "Videos";
-        [SerializeField] private string videoFileName = "Tutorial.mp4";
+        [SerializeField] private string videoFileName = "robot_0811.webm";
 
         private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
-        private ILogger<TutorialVideoPanel> _logger;
+        private ILogger<RobotVideoPanel> _logger;
 
         /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
         [Inject]
-        public void Construct(ILogger<TutorialVideoPanel> logger)
+        public void Construct(ILogger<RobotVideoPanel> logger)
         {
             _logger = logger;
         }
 
-        /// <summary> 씬 진입 시 안내 영상 반복 재생을 시작함. </summary>
+        /// <summary> 씬 진입 시 로봇 영상 재생 준비를 시작함. </summary>
         private void Start()
         {
             PlayVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
@@ -40,14 +43,27 @@ namespace DGAIZone.Tutorial
             return _readySignal.Task.AttachExternalCancellation(token);
         }
 
-        /// <summary> 스트리밍 에셋의 튜토리얼 영상을 준비 후 반복 재생하고, 첫 프레임이 실제로 그려진 뒤 준비 완료를 알림. </summary>
+        /// <summary>
+        /// 스트리밍 에셋의 로봇 영상을 준비, 재생하고, 첫 프레임이 실제로 그려진 뒤에 RawImage를 노출함.
+        /// RenderTexture는 씬 간 공유되므로 Prepare 전에 검게 초기화해 이전 프레임 잔상을 막음.
+        /// </summary>
         private async UniTaskVoid PlayVideoAsync(CancellationToken token)
         {
             if (videoPlayer == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[TutorialVideoPanel] videoPlayer is null. Cannot play tutorial video.");
+                if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] videoPlayer is null. Cannot play robot video.");
                 _readySignal.TrySetResult();
                 return;
+            }
+
+            if (rawImage != null) rawImage.enabled = false;
+
+            if (targetTexture != null)
+            {
+                RenderTexture previousActive = RenderTexture.active;
+                RenderTexture.active = targetTexture;
+                GL.Clear(true, true, Color.black);
+                RenderTexture.active = previousActive;
             }
 
             string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, videoFileName);
@@ -61,6 +77,8 @@ namespace DGAIZone.Tutorial
             videoPlayer.Play();
 
             await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+
+            if (rawImage != null) rawImage.enabled = true;
             _readySignal.TrySetResult();
         }
     }

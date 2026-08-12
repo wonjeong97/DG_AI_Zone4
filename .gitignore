@@ -109,8 +109,10 @@ InitTestScene*.unity*
 # JetBrains IDE
 .idea/
 
-# Claude Code machine-local settings
-.claude/settings.local.json
+# Claude Code / agent tooling (local dev tooling, not project source)
+.claude/
+.agents/
+CLAUDE.md
 
 # Editor/MCP screenshot captures (session artifacts)
 /[Aa]ssets/[Ss]creenshots/
