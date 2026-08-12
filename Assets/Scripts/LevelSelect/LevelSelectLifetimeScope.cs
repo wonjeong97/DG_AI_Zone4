@@ -1,3 +1,4 @@
+using DGAIZone.App;
 using VContainer;
 using VContainer.Unity;
 
@@ -8,10 +9,11 @@ namespace DGAIZone.LevelSelect
     /// </summary>
     public class LevelSelectLifetimeScope : LifetimeScope
     {
-        /// <summary> 레벨 선택 흐름 컨트롤러를 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 레벨 선택 흐름 컨트롤러와 로봇 영상 패널을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<LevelSelectFlowController>();
+            builder.RegisterComponentInHierarchy<RobotVideoPanel>();
         }
     }
 }

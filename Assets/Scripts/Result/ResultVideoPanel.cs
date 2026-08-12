@@ -13,7 +13,7 @@ namespace DGAIZone.Result
     /// 결과 씬 진입 시 게임 결과(성공/실패)에 맞는 영상을 재생함. 반복 재생은 하지 않으며,
     /// 재생이 끝나면 컴플리트 패널로 전환함.
     /// </summary>
-    public class ResultVideoPanel : MonoBehaviour
+    public class ResultVideoPanel : MonoBehaviour, ISceneVideoReadiness
     {
         [SerializeField] private VideoPlayer videoPlayer;
         [SerializeField] private ResultFlowController flowController;
@@ -21,6 +21,7 @@ namespace DGAIZone.Result
         [SerializeField] private string successVideoFileName = "4-1 success.mp4";
         [SerializeField] private string failVideoFileName = "4-1 fail.mp4";
 
+        private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
         private GameResultStore _resultStore;
         private ILogger<ResultVideoPanel> _logger;
 
@@ -38,10 +39,20 @@ namespace DGAIZone.Result
             PlayResultVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
+        /// <summary> 이 영상이 화면에 실제로 그려질 때까지 대기함. 씬 전환 페이드인을 시작하기 전 SceneTransitionService가 호출함. </summary>
+        public UniTask WaitUntilVideoReadyAsync(CancellationToken token)
+        {
+            return _readySignal.Task.AttachExternalCancellation(token);
+        }
+
         /// <summary> 게임 결과에 맞는 영상을 준비 후 재생하고, 끝나면 컴플리트 패널을 표시함. </summary>
         private async UniTaskVoid PlayResultVideoAsync(CancellationToken token)
         {
-            if (videoPlayer == null) return;
+            if (videoPlayer == null)
+            {
+                _readySignal.TrySetResult();
+                return;
+            }
 
             bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
             string fileName = success ? successVideoFileName : failVideoFileName;
@@ -55,6 +66,9 @@ namespace DGAIZone.Result
             videoPlayer.Prepare();
             await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
             videoPlayer.Play();
+
+            await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+            _readySignal.TrySetResult();
 
             // loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않는 경우가 있어
             // isPlaying 상태 전이를 직접 폴링해 재생 종료를 감지함.
