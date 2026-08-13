@@ -59,21 +59,17 @@ namespace DGAIZone.App
         }
 
         /// <summary>
-        /// 새로 로드된 씬 안에서 ISceneVideoReadiness를 구현한 영상 패널을 모두 찾아, 실제로 화면에
+        /// 레지스트리에 등록된 ISceneVideoReadiness를 구현한 영상 패널들을 찾아, 실제로 화면에
         /// 그려질 때까지 대기함. 해당 패널이 없는 씬은 즉시 통과함. 대기가 지나치게 길어지면
-        /// (예: 영상 파일 문제) 페이드인이 영원히 막히지 않도록 타임아웃 후 경고를 남기고 진행함.
+        /// (예: 영상 파일 문제) 씬전환이 영원히 막히지 않도록 타임아웃 후 경고를 남기고 진행함.
         /// </summary>
         private async UniTask WaitForSceneVideoReadinessAsync()
         {
-            MonoBehaviour[] all = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
             List<UniTask> readinessTasks = null;
-            foreach (MonoBehaviour behaviour in all)
+            foreach (ISceneVideoReadiness readiness in VideoReadinessRegistry.ActivePanels)
             {
-                if (behaviour is ISceneVideoReadiness readiness)
-                {
-                    readinessTasks ??= new List<UniTask>();
-                    readinessTasks.Add(readiness.WaitUntilVideoReadyAsync(default));
-                }
+                readinessTasks ??= new List<UniTask>();
+                readinessTasks.Add(readiness.WaitUntilVideoReadyAsync(default));
             }
 
             if (readinessTasks == null) return;

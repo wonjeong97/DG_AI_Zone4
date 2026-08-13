@@ -1,4 +1,6 @@
+using System;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
@@ -42,15 +44,22 @@ namespace DGAIZone.Game.Hardware
         /// <summary> 실제 리더기와 동일한 RfidMappings.json에서 카드 매핑 목록을 로드함. </summary>
         private async UniTaskVoid LoadMappingsAsync(CancellationToken token)
         {
-            var settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
-            if (settings == null || settings.mappings == null || settings.mappings.Length == 0)
+            try
             {
-                if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] No mappings loaded. Keyboard simulation disabled.");
-                return;
-            }
+                var settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
+                if (settings == null || settings.mappings == null || settings.mappings.Length == 0)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] No mappings loaded. Keyboard simulation disabled.");
+                    return;
+                }
 
-            _mappings = settings.mappings;
-            if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Loaded {_mappings.Length} card mappings. Press number keys 1-{_mappings.Length} to simulate.");
+                _mappings = settings.mappings;
+                if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Loaded {_mappings.Length} card mappings. Press number keys 1-{_mappings.Length} to simulate.");
+            }
+            catch (OperationCanceledException)
+            {
+                // 토큰 취소 시 예외 무시
+            }
         }
 
         /// <summary> 매 프레임 숫자키 입력을 확인해 해당 카드 인식을 발행함. </summary>
@@ -84,7 +93,7 @@ namespace DGAIZone.Game.Hardware
             string ingredientName = item.ingredientName;
             string[] matterNames = (item.matterNames != null && item.matterNames.Length > 0)
                 ? item.matterNames
-                : new string[] { $"{ingredientName}-1", $"{ingredientName}-2", $"{ingredientName}-3" };
+                : new string[] { ZString.Format("{0}-1", ingredientName), ZString.Format("{0}-2", ingredientName), ZString.Format("{0}-3", ingredientName) };
 
             _publisher.Publish(new RfidTagEvent(simulatedReaderId, ingredientName, matterNames));
             if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Simulated card {index + 1}: {ingredientName} ({matterNames.Length} matters)");
