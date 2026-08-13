@@ -1,6 +1,7 @@
 using System;
 using System.IO.Ports;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
@@ -60,37 +61,44 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private async UniTaskVoid InitializeAsync()
         {
-            _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
-            if (_settings == null)
+            try
             {
-                if (_logger != null) _logger.ZLogError($"[RfidReaderService] Failed to load RfidMappings.json.");
-                return;
-            }
-
-            if (_settings.readers == null || _settings.readers.Length == 0)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] No readers configured in RfidMappings.json.");
-                return;
-            }
-
-            foreach (var readerConfig in _settings.readers)
-            {
-                if (readerConfig == null) continue;
-                string portName = SerialPortFinder.FindPortByInstancePath(readerConfig.deviceInstancePath, _logger);
-
-                if (string.IsNullOrEmpty(portName))
+                _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
+                if (_settings == null)
                 {
-                    portName = readerConfig.fallbackPort;
-                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] Reader {readerConfig.readerId} port not found by path. Using fallback: {portName}");
+                    if (_logger != null) _logger.ZLogError($"[RfidReaderService] Failed to load RfidMappings.json.");
+                    return;
                 }
 
-                if (string.IsNullOrEmpty(portName))
+                if (_settings.readers == null || _settings.readers.Length == 0)
                 {
-                    if (_logger != null) _logger.ZLogError($"[RfidReaderService] Reader {readerConfig.readerId} has no valid COM port.");
-                    continue;
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] No readers configured in RfidMappings.json.");
+                    return;
                 }
 
-                ConnectPort(readerConfig.readerId, portName, _settings.baudRate);
+                foreach (var readerConfig in _settings.readers)
+                {
+                    if (readerConfig == null) continue;
+                    string portName = SerialPortFinder.FindPortByInstancePath(readerConfig.deviceInstancePath, _logger);
+
+                    if (string.IsNullOrEmpty(portName))
+                    {
+                        portName = readerConfig.fallbackPort;
+                        if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] Reader {readerConfig.readerId} port not found by path. Using fallback: {portName}");
+                    }
+
+                    if (string.IsNullOrEmpty(portName))
+                    {
+                        if (_logger != null) _logger.ZLogError($"[RfidReaderService] Reader {readerConfig.readerId} has no valid COM port.");
+                        continue;
+                    }
+
+                    ConnectPort(readerConfig.readerId, portName, _settings.baudRate);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 토큰 취소 시 예외 무시
             }
         }
 
@@ -202,15 +210,17 @@ namespace DGAIZone.Game.Hardware
         private string CleanRawData(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
-            var sb = new System.Text.StringBuilder();
-            foreach (char c in input)
+            using (var sb = ZString.CreateStringBuilder())
             {
-                if (char.IsLetterOrDigit(c))
+                foreach (char c in input)
                 {
-                    sb.Append(c);
+                    if (char.IsLetterOrDigit(c))
+                    {
+                        sb.Append(c);
+                    }
                 }
+                return sb.ToString();
             }
-            return sb.ToString();
         }
 
         /// <summary>

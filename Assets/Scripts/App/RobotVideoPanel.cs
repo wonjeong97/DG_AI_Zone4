@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,16 @@ namespace DGAIZone.App
             PlayVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
+        private void OnEnable()
+        {
+            VideoReadinessRegistry.Register(this);
+        }
+
+        private void OnDisable()
+        {
+            VideoReadinessRegistry.Unregister(this);
+        }
+
         /// <summary> 이 영상이 화면에 실제로 그려질 때까지 대기함. 씬 전환 페이드인을 시작하기 전 SceneTransitionService가 호출함. </summary>
         public UniTask WaitUntilVideoReadyAsync(CancellationToken token)
         {
@@ -49,37 +60,44 @@ namespace DGAIZone.App
         /// </summary>
         private async UniTaskVoid PlayVideoAsync(CancellationToken token)
         {
-            if (videoPlayer == null)
+            try
             {
-                if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] videoPlayer is null. Cannot play robot video.");
+                if (videoPlayer == null)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] videoPlayer is null. Cannot play robot video.");
+                    _readySignal.TrySetResult();
+                    return;
+                }
+
+                if (rawImage != null) rawImage.enabled = false;
+
+                if (targetTexture != null)
+                {
+                    RenderTexture previousActive = RenderTexture.active;
+                    RenderTexture.active = targetTexture;
+                    GL.Clear(true, true, Color.black);
+                    RenderTexture.active = previousActive;
+                }
+
+                string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, videoFileName);
+
+                videoPlayer.source = VideoSource.Url;
+                videoPlayer.url = path;
+                videoPlayer.isLooping = true;
+
+                videoPlayer.Prepare();
+                await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
+                videoPlayer.Play();
+
+                await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+
+                if (rawImage != null) rawImage.enabled = true;
                 _readySignal.TrySetResult();
-                return;
             }
-
-            if (rawImage != null) rawImage.enabled = false;
-
-            if (targetTexture != null)
+            catch (OperationCanceledException)
             {
-                RenderTexture previousActive = RenderTexture.active;
-                RenderTexture.active = targetTexture;
-                GL.Clear(true, true, Color.black);
-                RenderTexture.active = previousActive;
+                // 토큰 취소 시 예외 무시
             }
-
-            string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, videoFileName);
-
-            videoPlayer.source = VideoSource.Url;
-            videoPlayer.url = path;
-            videoPlayer.isLooping = true;
-
-            videoPlayer.Prepare();
-            await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
-            videoPlayer.Play();
-
-            await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
-
-            if (rawImage != null) rawImage.enabled = true;
-            _readySignal.TrySetResult();
         }
     }
 }

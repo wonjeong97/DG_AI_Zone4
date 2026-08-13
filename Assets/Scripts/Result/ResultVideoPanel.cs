@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
@@ -39,6 +40,16 @@ namespace DGAIZone.Result
             PlayResultVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
+        private void OnEnable()
+        {
+            VideoReadinessRegistry.Register(this);
+        }
+
+        private void OnDisable()
+        {
+            VideoReadinessRegistry.Unregister(this);
+        }
+
         /// <summary> 이 영상이 화면에 실제로 그려질 때까지 대기함. 씬 전환 페이드인을 시작하기 전 SceneTransitionService가 호출함. </summary>
         public UniTask WaitUntilVideoReadyAsync(CancellationToken token)
         {
@@ -48,40 +59,47 @@ namespace DGAIZone.Result
         /// <summary> 게임 결과에 맞는 영상을 준비 후 재생하고, 끝나면 컴플리트 패널을 표시함. </summary>
         private async UniTaskVoid PlayResultVideoAsync(CancellationToken token)
         {
-            if (videoPlayer == null)
+            try
             {
+                if (videoPlayer == null)
+                {
+                    _readySignal.TrySetResult();
+                    return;
+                }
+
+                bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
+                string fileName = success ? successVideoFileName : failVideoFileName;
+                if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] Result={(success ? "Success" : "Fail")}. Playing {fileName}.");
+                string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, fileName);
+
+                videoPlayer.source = VideoSource.Url;
+                videoPlayer.url = path;
+                videoPlayer.isLooping = false;
+
+                videoPlayer.Prepare();
+                await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
+                videoPlayer.Play();
+
+                await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
                 _readySignal.TrySetResult();
-                return;
+
+                // loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않는 경우가 있어
+                // isPlaying 상태 전이를 직접 폴링해 재생 종료를 감지함.
+                await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
+                await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
+
+                if (flowController != null)
+                {
+                    flowController.ShowCompletePanel();
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[ResultVideoPanel] flowController is null. CompletePanel will not fade in.");
+                }
             }
-
-            bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
-            string fileName = success ? successVideoFileName : failVideoFileName;
-            if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] Result={(success ? "Success" : "Fail")}. Playing {fileName}.");
-            string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, fileName);
-
-            videoPlayer.source = VideoSource.Url;
-            videoPlayer.url = path;
-            videoPlayer.isLooping = false;
-
-            videoPlayer.Prepare();
-            await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
-            videoPlayer.Play();
-
-            await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
-            _readySignal.TrySetResult();
-
-            // loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않는 경우가 있어
-            // isPlaying 상태 전이를 직접 폴링해 재생 종료를 감지함.
-            await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
-            await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
-
-            if (flowController != null)
+            catch (OperationCanceledException)
             {
-                flowController.ShowCompletePanel();
-            }
-            else if (_logger != null)
-            {
-                _logger.ZLogWarning($"[ResultVideoPanel] flowController is null. CompletePanel will not fade in.");
+                // 토큰 취소 시 예외 무시
             }
         }
     }
