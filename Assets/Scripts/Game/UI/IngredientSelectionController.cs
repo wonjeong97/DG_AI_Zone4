@@ -108,7 +108,7 @@ namespace DGAIZone.Game.UI
             }
 
             _currentIngredient.Subscribe(UpdateIngredientText).AddTo(ref _disposables);
-            _currentMatterIndex.Subscribe(_ => UpdateMatterText()).AddTo(ref _disposables);
+            _currentMatterIndex.Subscribe(_ => { UpdateMatterText(); UpdateFuelPreview(); }).AddTo(ref _disposables);
 
             UpdateCodingCompleteButton();
             ResetRightArrow();
@@ -189,6 +189,7 @@ namespace DGAIZone.Game.UI
             _currentMatters.Value = evt.MatterNames ?? Array.Empty<string>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
+            UpdateFuelPreview();
         }
 
         /// <summary>
@@ -235,6 +236,7 @@ namespace DGAIZone.Game.UI
             _currentMatters.Value = Array.Empty<string>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
+            UpdateFuelPreview();
 
             // 다음 단계로 인덱스 증가
             _currentStepIndex++;
@@ -259,6 +261,7 @@ namespace DGAIZone.Game.UI
                 _currentMatters.Value = Array.Empty<string>();
                 _currentMatterIndex.Value = 0;
                 UpdateMatterText();
+                UpdateFuelPreview();
                 return;
             }
 
@@ -281,6 +284,7 @@ namespace DGAIZone.Game.UI
             _currentMatters.Value = Array.Empty<string>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
+            UpdateFuelPreview();
 
             if (_logger != null)
             {
@@ -482,6 +486,33 @@ namespace DGAIZone.Game.UI
             }
 
             UpdateRightArrowAnimation();
+        }
+
+        /// <summary>
+        /// 설정하기로 확정하기 전, 사용자가 좌우 버튼으로 연료량을 조절하는 동안 미리보기 게이지(Image_Fill_Preview)를 갱신함.
+        /// 현재 선택 중인 재료가 연료량이 아니면 미리보기를 초기 상태로 되돌림.
+        /// </summary>
+        private void UpdateFuelPreview()
+        {
+            if (_missionBoard == null) return;
+
+            var matters = _currentMatters.Value;
+            int idx = _currentMatterIndex.Value;
+
+            if (string.Equals(_currentIngredient.Value, FuelIngredientName, StringComparison.Ordinal)
+                && matters != null && idx >= 0 && idx < matters.Length
+                && int.TryParse(matters[idx], out int fuelValue))
+            {
+                if (_logger != null)
+                {
+                    _logger.ZLogInformation($"[IngredientSelectionController] Fuel amount adjusting: {fuelValue}");
+                }
+                _missionBoard.UpdateFuelPreview(fuelValue);
+            }
+            else
+            {
+                _missionBoard.ResetFuelPreview();
+            }
         }
 
         /// <summary>
