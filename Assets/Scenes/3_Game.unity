@@ -5135,6 +5135,7 @@ MonoBehaviour:
   fillTweenDuration: 0.5
   previewBlinkFadeDuration: 0.8
   previewBlinkMinAlpha: 0.5
+  previewApplyFadeDuration: 0.3
 --- !u!1 &1499980681
 GameObject:
   m_ObjectHideFlags: 0
@@ -5428,7 +5429,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.25, g: 0.25, b: 0.3, a: 0.75}
+  m_Color: {r: 0.5566038, g: 0.5566038, b: 0.5566038, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
