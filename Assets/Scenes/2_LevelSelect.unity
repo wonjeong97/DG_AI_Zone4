@@ -300,7 +300,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &212928610
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1102,15 +1102,13 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
-    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uC800 \uB192\uC740
-    \uD558\uB298\uC744 \uB6AB\uACE0 \uC6B0\uC8FC\uB85C \uB0A0\uC544\uAC00\uB824\uBA74,\n\uAC15\uB825\uD55C
-    \uB85C\uCF13\uC774 \uD544\uC694\uD574\uC694.\n\n\uB85C\uCF13 \uC124\uACC4\uC758
-    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 \uC801\uC808\uD558\uAC8C
-    \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n\xB7 \uC5D4\uC9C4 \uCD9C\uB825\n\xB7
-    \uC5F0\uB8CC\uB7C9\n\xB7 \uB85C\uBD07 \uBB34\uAC8C \uD0D1\uC7AC \uC911\uB7C9\n</color>\n\uC9C0\uAD6C\uC758
-    \uAC15\uD55C \uC911\uB825\uC744 \uC774\uACA8\uB0B4\uC11C,\n\uBA4B\uC9C0\uAC8C
-    \uC19F\uC544\uC624\uB97C \uD669\uAE08 \uBE44\uC728\uC758 \uB85C\uCF13\uC744 \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
+  m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uBC1C\uC0AC\uB300\uC5D0
+    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\n<color=yellow>\uB85C\uCF13
+    \uC810\uD654\uBD80\uD130 \uC6B0\uC8FC \uC815\uAC70\uC7A5\uC758 \uADA4\uB3C4\uC5D0
+    \uC9C4\uC785</color>\uD558\uAE30\uAE4C\uC9C0,\n\uC62C\uBC14\uB978 \uC21C\uC11C\uB300\uB85C
+    <color=#2750FF>[\uB3D9\uC791 \uBE14\uB85D]</color>\uC744 \uCC28\uACE1\uCC28\uACE1
+    \uC870\uB9BD\uD574 \uC8FC\uC138\uC694.\n\n\uBAA8\uB450 \uC6B0\uB9AC\uC758 \uBC1C\uC0AC
+    \uBC84\uD2BC\uC744 \uC9C0\uCF1C\uBCF4\uACE0 \uC788\uC2B5\uB2C8\uB2E4!"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -1146,7 +1144,7 @@ MonoBehaviour:
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -1326,15 +1324,17 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
-    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uC800 \uB192\uC740
-    \uD558\uB298\uC744 \uB6AB\uACE0 \uC6B0\uC8FC\uB85C \uB0A0\uC544\uAC00\uB824\uBA74,\n\uAC15\uB825\uD55C
-    \uB85C\uCF13\uC774 \uD544\uC694\uD574\uC694.\n\n\uB85C\uCF13 \uC124\uACC4\uC758
-    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 \uC801\uC808\uD558\uAC8C
-    \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n\xB7 \uC5D4\uC9C4 \uCD9C\uB825\n\xB7
-    \uC5F0\uB8CC\uB7C9\n\xB7 \uB85C\uBD07 \uBB34\uAC8C \uD0D1\uC7AC \uC911\uB7C9\n</color>\n\uC9C0\uAD6C\uC758
-    \uAC15\uD55C \uC911\uB825\uC744 \uC774\uACA8\uB0B4\uC694,\n\uBA4B\uC9C0\uAC8C
-    \uC19F\uC544\uC624\uB97C \uD669\uAE08 \uBE44\uC728\uC758 \uB85C\uCF13\uC744 \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
+  m_text: "\n\uC774\uACF3\uC740 \uC778\uB958\uAC00 \uC0DD\uC874\uD560 \uC218 \uC788\uB294
+    \uC678\uACC4 \uD589\uC131\uC785\uB2C8\uB2E4.\n\uC774\uACF3\uC5D0 \uC548\uC804\uD55C
+    \uC6B0\uC8FC \uB3C4\uC2DC\uB97C \uAC74\uC124\uD558\uB824\uBA74 \uC138 \uAC00\uC9C0
+    \uC124\uACC4 \uC2DC\uC2A4\uD15C\uC744 \n\uB9CC\uB4E4\uC5B4\uC57C \uD574\uC694.\n<color=yellow>\n\xB7
+    \uC6B0\uC8FC \uC815\uAC70\uC7A5\uC5D0 \uC4F0\uC778 \uAE30\uC9C0 \uC6B4\uC601
+    \uCF54\uB4DC\n\xB7 \uD0D0\uC0AC\uB85C\uBD07\uC5D0 \uC4F0\uC778 \uC790\uC6D0\uC218\uC9D1
+    \uCF54\uB4DC\n\xB7 \uADF8\uB9AC\uACE0 \uC548\uC804\uD558\uAC8C \uD1B5\uC2E0\uC744
+    \uD560 \uC218 \uC788\uB294 \uD1B5\uC2E0 \uC2DC\uC2A4\uD15C\n</color>\n\uD568\uC218
+    \uBE14\uB85D\uC744 \uC0AC\uC6A9\uD558\uC5EC \uC774\uC804 \uCF54\uB4DC\uB97C \uCC98\uC74C\uBD80\uD130
+    \uB2E4\uC2DC \uC785\uB825\uD560 \uD544\uC694 \uC5C6\uC774\n\uC7AC\uC0AC\uC6A9\uD558\uC5EC
+    \uD589\uC131\uC5D0 \uBA4B\uC9C4 \uB3C4\uC2DC\uB97C \uC644\uC131\uD574 \uC8FC\uC138\uC694!"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -1370,7 +1370,7 @@ MonoBehaviour:
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -1471,7 +1471,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
     \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uB85C\uCF13 \uC124\uACC4\uC758
-    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 \uC801\uC808\uD558\uAC8C
+    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 <color=#2750FF>[\uB3D9\uC791
+    \uBE14\uB85D]</color>\uC744 \uC0AC\uC6A9\uD558\uC5EC\n\uC801\uC808\uD558\uAC8C
     \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n\xB7 \uCD94\uC9C4\uCCB4 \uC885\uB958\n\xB7
     \uC6B0\uC8FC \uC7A5\uBE44 \uC885\uB958\n\xB7 \uC5F0\uB8CC\uB7C9\n</color>\n\uB85C\uCF13\uC744
     \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
@@ -1883,7 +1884,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &911368706
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2036,15 +2037,14 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
-    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uC800 \uB192\uC740
-    \uD558\uB298\uC744 \uB6AB\uACE0 \uC6B0\uC8FC\uB85C \uB0A0\uC544\uAC00\uB824\uBA74,\n\uAC15\uB825\uD55C
-    \uB85C\uCF13\uC774 \uD544\uC694\uD574\uC694.\n\n\uB85C\uCF13 \uC124\uACC4\uC758
-    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 \uC801\uC808\uD558\uAC8C
-    \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n\xB7 \uC5D4\uC9C4 \uCD9C\uB825\n\xB7
-    \uC5F0\uB8CC\uB7C9\n\xB7 \uB85C\uBD07 \uBB34\uAC8C \uD0D1\uC7AC \uC911\uB7C9\n</color>\n\uC9C0\uAD6C\uC758
-    \uAC15\uD55C \uC911\uB825\uC744 \uC774\uACA8\uB0B4\uC11C,\n\uBA4B\uC9C0\uAC8C
-    \uC19F\uC544\uC624\uB97C \uD669\uAE08 \uBE44\uC728\uC758 \uB85C\uCF13\uC744 \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
+  m_text: "\uC6B0\uC8FC \uC815\uAC70\uC7A5\uC758 \uC778\uACF5\uC9C0\uB2A5 \uAD00\uC81C\uC2E4\uC5D0
+    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4!\n\uC6B0\uC8FC \uC815\uAC70\uC7A5\uC758\n<color=yellow>\n-
+    \uC804\uAE30\uB7C9\n- \uC0B0\uC18C\uB7C9\n</color>\uC744 \uC870\uAC74\uC5D0 \uB9DE\uAC8C
+    \uD558\uC5EC \uC6B0\uC8FC \uC815\uAC70\uC7A5\uC744 \uC548\uC804\uD558\uAC8C \uC720\uC9C0\uD574\uC8FC\uC138\uC694!\n\n<color=yellow>[\uB9CC\uC57D
+    \uBE14\uB85D]</color>\uC744 \uC0AC\uC6A9\uD558\uC5EC \uC870\uAC74\uC744 \uC124\uC815
+    \uD574\uC8FC\uC138\uC694.\n\uADF8\uB9AC\uACE0 <color=green>[\uB17C\uB9AC \uBE14\uB85D]</color>\uC744
+    \uC0AC\uC6A9\uD558\uBA74 <color=#2750FF>[\uB3D9\uC791 \uBE14\uB85D]</color>\uC744
+    \uBB36\uC744 \uC218 \uC788\uC5B4\uC694."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -2080,7 +2080,7 @@ MonoBehaviour:
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -2573,15 +2573,13 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
-    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uC800 \uB192\uC740
-    \uD558\uB298\uC744 \uB6AB\uACE0 \uC6B0\uC8FC\uB85C \uB0A0\uC544\uAC00\uB824\uBA74,\n\uAC15\uB825\uD55C
-    \uB85C\uCF13\uC774 \uD544\uC694\uD574\uC694.\n\n\uB85C\uCF13 \uC124\uACC4\uC758
-    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 \uC801\uC808\uD558\uAC8C
-    \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n\xB7 \uC5D4\uC9C4 \uCD9C\uB825\n\xB7
-    \uC5F0\uB8CC\uB7C9\n\xB7 \uB85C\uBD07 \uBB34\uAC8C \uD0D1\uC7AC \uC911\uB7C9\n</color>\n\uC9C0\uAD6C\uC758
-    \uAC15\uD55C \uC911\uB825\uC744 \uC774\uACA8\uB0B4\uC11C,\n\uBA4B\uC9C0\uAC8C
-    \uC19F\uC544\uC624\uB97C \uD669\uAE08 \uBE44\uC728\uC758 \uB85C\uCF13\uC744 \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
+  m_text: "\uB0AF\uC120 \uC678\uACC4 \uD589\uC131\uC758 \uD45C\uBA74\uC5D0 \uBB34\uC0AC\uD788
+    \uCC29\uB959\uD588\uC2B5\uB2C8\uB2E4!\n\n\uC778\uACF5\uC9C0\uB2A5 \uD0D0\uC0AC
+    \uB85C\uBD07\uC774 \uC6B0\uC8FC \uC790\uC6D0\uC744 \uC218\uC9D1\uD558\uB7EC \uC654\uC5B4\uC694.\n\n<color=yellow>[\uBC18\uBCF5
+    \uBE14\uB85D]</color>\uACFC<color=#2750FF> [\uB3D9\uC791 \uBE14\uB85D]</color>\uC744
+    \uC0AC\uC6A9\uD558\uC5EC \uC7A5\uC560\uBB3C\uC744 \uD53C\uD574 \uC774\uB3D9\uD558\uACE0\n\uC790\uC6D0
+    \uC218\uC9D1 \uBA85\uB839\uC744 \uC62C\uBC14\uB974\uAC8C \uC218\uD589\uD558\uB3C4\uB85D
+    \uCF54\uB529 \uD574\uC8FC\uC138\uC694! "
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
   m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
@@ -2617,7 +2615,7 @@ MonoBehaviour:
   m_fontSizeMax: 72
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -3024,7 +3022,7 @@ GameObject:
   - component: {fileID: 1808189253}
   - component: {fileID: 1808189252}
   m_Layer: 5
-  m_Name: BG
+  m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
