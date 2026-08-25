@@ -19,6 +19,7 @@ namespace DGAIZone.App
             builder.RegisterComponentInHierarchy<GameManager>();
             builder.Register<SceneTransitionService>(Lifetime.Singleton);
             builder.Register<GameResultStore>(Lifetime.Singleton);
+            builder.Register<SelectedLevelStore>(Lifetime.Singleton);
         }
     }
 }

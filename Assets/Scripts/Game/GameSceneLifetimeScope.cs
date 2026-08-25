@@ -17,6 +17,7 @@ namespace DGAIZone.Game
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<GameFlowController>();
+            builder.RegisterComponentInHierarchy<TopCornerLocationIcon>();
             builder.RegisterComponentInHierarchy<RfidReaderService>();
             builder.RegisterComponentInHierarchy<KeyboardRfidSimulator>();
             builder.RegisterComponentInHierarchy<IngredientSelectionController>();
