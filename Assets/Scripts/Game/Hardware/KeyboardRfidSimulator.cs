@@ -24,14 +24,16 @@ namespace DGAIZone.Game.Hardware
         [SerializeField] private string simulatedReaderId = "Keyboard";
 
         private IPublisher<RfidTagEvent> _publisher;
+        private SelectedLevelStore _selectedLevelStore;
         private ILogger<KeyboardRfidSimulator> _logger;
         private RfidMappingItem[] _mappings;
 
-        /// <summary> VContainer 의존성 주입. MessagePipe 발행자와 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. MessagePipe 발행자, 선택된 레벨 저장소, 로거를 할당함. </summary>
         [Inject]
-        public void Construct(IPublisher<RfidTagEvent> publisher, ILogger<KeyboardRfidSimulator> logger)
+        public void Construct(IPublisher<RfidTagEvent> publisher, SelectedLevelStore selectedLevelStore, ILogger<KeyboardRfidSimulator> logger)
         {
             _publisher = publisher;
+            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
         }
 
@@ -47,14 +49,16 @@ namespace DGAIZone.Game.Hardware
             try
             {
                 var settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
-                if (settings == null || settings.mappings == null || settings.mappings.Length == 0)
+                int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+                var mappings = settings != null ? settings.GetMappingsForLevel(level) : null;
+                if (mappings == null || mappings.Length == 0)
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] No mappings loaded. Keyboard simulation disabled.");
+                    if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] No mappings loaded for level {level}. Keyboard simulation disabled.");
                     return;
                 }
 
-                _mappings = settings.mappings;
-                if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Loaded {_mappings.Length} card mappings. Press number keys 1-{_mappings.Length} to simulate.");
+                _mappings = mappings;
+                if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Loaded {_mappings.Length} card mappings for level {level}. Press number keys 1-{_mappings.Length} to simulate.");
             }
             catch (OperationCanceledException)
             {
@@ -95,7 +99,7 @@ namespace DGAIZone.Game.Hardware
                 ? item.matterNames
                 : new string[] { ZString.Format("{0}-1", ingredientName), ZString.Format("{0}-2", ingredientName), ZString.Format("{0}-3", ingredientName) };
 
-            _publisher.Publish(new RfidTagEvent(simulatedReaderId, ingredientName, matterNames));
+            _publisher.Publish(new RfidTagEvent(simulatedReaderId, item.category, ingredientName, matterNames));
             if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Simulated card {index + 1}: {ingredientName} ({matterNames.Length} matters)");
         }
     }

@@ -30,20 +30,23 @@ namespace DGAIZone.Game.Hardware
         }
 
         private IPublisher<RfidTagEvent> _publisher;
+        private SelectedLevelStore _selectedLevelStore;
         private ILogger<RfidReaderService> _logger;
 
         private readonly System.Collections.Generic.List<ReaderSession> _sessions = new System.Collections.Generic.List<ReaderSession>();
         private RfidSettings _settings;
+        private RfidMappingItem[] _mappings;
         private readonly Subject<(string readerId, string rawData)> _messageSubject = new Subject<(string readerId, string rawData)>();
         private IDisposable _subscription;
 
         /// <summary>
-        /// VContainer 의존성 주입. MessagePipe 발행자와 로거를 할당함.
+        /// VContainer 의존성 주입. MessagePipe 발행자, 선택된 레벨 저장소, 로거를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(IPublisher<RfidTagEvent> publisher, ILogger<RfidReaderService> logger)
+        public void Construct(IPublisher<RfidTagEvent> publisher, SelectedLevelStore selectedLevelStore, ILogger<RfidReaderService> logger)
         {
             _publisher = publisher;
+            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
         }
 
@@ -68,6 +71,13 @@ namespace DGAIZone.Game.Hardware
                 {
                     if (_logger != null) _logger.ZLogError($"[RfidReaderService] Failed to load RfidMappings.json.");
                     return;
+                }
+
+                int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+                _mappings = _settings.GetMappingsForLevel(level);
+                if (_mappings == null || _mappings.Length == 0)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] No card mappings found for level {level} in RfidMappings.json.");
                 }
 
                 if (_settings.readers == null || _settings.readers.Length == 0)
@@ -179,14 +189,14 @@ namespace DGAIZone.Game.Hardware
         {
             if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] Raw Tag from {data.readerId}: {data.rawData}");
 
-            if (_settings == null || _settings.mappings == null)
+            if (_mappings == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] Mappings not loaded. Cannot process tag.");
                 return;
             }
 
             RfidMappingItem matchedItem = null;
-            foreach (var item in _settings.mappings)
+            foreach (var item in _mappings)
             {
                 if (item != null && string.Equals(item.uid, data.rawData, StringComparison.OrdinalIgnoreCase))
                 {
@@ -196,13 +206,14 @@ namespace DGAIZone.Game.Hardware
             }
 
             string ingredientName = matchedItem != null ? matchedItem.ingredientName : data.rawData;
+            string category = matchedItem != null ? matchedItem.category : null;
             string[] matterNames = (matchedItem != null && matchedItem.matterNames != null && matchedItem.matterNames.Length > 0)
                 ? matchedItem.matterNames
                 : new string[] { $"{ingredientName}-1", $"{ingredientName}-2", $"{ingredientName}-3" };
 
             if (_publisher != null)
             {
-                _publisher.Publish(new RfidTagEvent(data.readerId, ingredientName, matterNames));
+                _publisher.Publish(new RfidTagEvent(data.readerId, category, ingredientName, matterNames));
                 if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] Published RfidTagEvent: {data.readerId} -> {ingredientName} ({matterNames.Length} matters)");
             }
         }

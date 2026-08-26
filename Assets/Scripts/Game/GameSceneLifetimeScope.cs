@@ -22,6 +22,7 @@ namespace DGAIZone.Game
             builder.RegisterComponentInHierarchy<KeyboardRfidSimulator>();
             builder.RegisterComponentInHierarchy<IngredientSelectionController>();
             builder.RegisterComponentInHierarchy<MissionBoardController>();
+            builder.RegisterComponentInHierarchy<CodingCategoryIndicatorController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
 
             MessagePipeOptions options = builder.RegisterMessagePipe();
