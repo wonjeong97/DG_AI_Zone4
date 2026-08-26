@@ -32,14 +32,16 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
         private SceneTransitionService _sceneTransition;
+        private SelectedLevelStore _selectedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
         private bool _isBusy;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, ILogger<LevelSelectFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, ILogger<LevelSelectFlowController> logger)
         {
             _sceneTransition = sceneTransition;
+            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
         }
 
@@ -131,6 +133,15 @@ namespace DGAIZone.LevelSelect
         {
             if (_isBusy) return;
             if (index < 0 || index >= unlockedLevelCount) return;
+
+            if (_selectedLevelStore != null)
+            {
+                _selectedLevelStore.SelectedLevel = index + 1;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelStore is null. Cannot record selected level.");
+            }
 
             if (startButton != null) startButton.interactable = false;
 

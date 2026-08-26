@@ -51,6 +51,8 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
         private const string FuelIngredientName = "연료량";
+        private const string EngineIngredientName = "추진체 종류";
+        private const string PayloadIngredientName = "탑재 종류";
 
         private ISubscriber<RfidTagEvent> _subscriber;
         private SceneTransitionService _sceneTransition;
@@ -65,6 +67,11 @@ namespace DGAIZone.Game.UI
         private int[] _stageReadCounts = { 3 }; // 스테이지별 read 횟수 (JSON stageReadCounts)
         private string[] _confirmedMatters;
         private string[] _confirmedIngredients;
+
+        // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)에 쓰이는 역할별 확정 값. 미확정 상태의 기본값은 0.
+        private int _confirmedEngineValue = 0;
+        private int _confirmedFuelValue = 0;
+        private int _confirmedPayloadValue = 0;
 
         // 디자인 컨테이너에 동적으로 추가된 확정 항목 텍스트 목록
         private readonly List<TMP_Text> _designItems = new List<TMP_Text>();
@@ -108,7 +115,7 @@ namespace DGAIZone.Game.UI
             }
 
             _currentIngredient.Subscribe(UpdateIngredientText).AddTo(ref _disposables);
-            _currentMatterIndex.Subscribe(_ => { UpdateMatterText(); UpdateFuelPreview(); }).AddTo(ref _disposables);
+            _currentMatterIndex.Subscribe(_ => { UpdateMatterText(); UpdateProgressPreview(); }).AddTo(ref _disposables);
 
             UpdateCodingCompleteButton();
             ResetRightArrow();
@@ -189,7 +196,7 @@ namespace DGAIZone.Game.UI
             _currentMatters.Value = evt.MatterNames ?? Array.Empty<string>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
-            UpdateFuelPreview();
+            UpdateProgressPreview();
         }
 
         /// <summary>
@@ -214,21 +221,23 @@ namespace DGAIZone.Game.UI
 
             string ingredient = _currentIngredient.Value;
             string chosenMatter = matters[_currentMatterIndex.Value];
+            int value = ParseIngredientValue(ingredient, chosenMatter);
             _confirmedMatters[_currentStepIndex] = chosenMatter;
             _confirmedIngredients[_currentStepIndex] = ingredient;
+            ApplyConfirmedValue(ingredient, value);
 
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[IngredientSelectionController] Confirmed step {_currentStepIndex + 1}: {ingredient} -> {chosenMatter}");
+                _logger.ZLogInformation($"[IngredientSelectionController] Confirmed step {_currentStepIndex + 1}: {ingredient} -> {chosenMatter} (value={value})");
             }
 
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
             AddDesignItem(ingredient, chosenMatter);
 
-            // 연료량이 확정되면 목적지 조건에 맞춰 진행도(Image_Fill)를 갱신함
-            if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal) && int.TryParse(chosenMatter, out int fuelValue) && _missionBoard != null)
+            // 확정된 엔진 출력량/연료량/탑재 중량을 계산식에 반영해 진행도(Image_Fill)를 갱신함
+            if (_missionBoard != null)
             {
-                _missionBoard.SetFuelProgress(fuelValue);
+                _missionBoard.SetProgress(CalculateTotalThrust());
             }
 
             // 현재 카드 선택 대기 상태 초기화
@@ -236,7 +245,7 @@ namespace DGAIZone.Game.UI
             _currentMatters.Value = Array.Empty<string>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
-            UpdateFuelPreview();
+            UpdateProgressPreview();
 
             // 다음 단계로 인덱스 증가
             _currentStepIndex++;
@@ -261,30 +270,32 @@ namespace DGAIZone.Game.UI
                 _currentMatters.Value = Array.Empty<string>();
                 _currentMatterIndex.Value = 0;
                 UpdateMatterText();
-                UpdateFuelPreview();
+                UpdateProgressPreview();
                 return;
             }
 
             // 이전 단계로 롤백
             _currentStepIndex--;
 
-            // 되돌리는 항목이 연료량이면 진행도(Image_Fill)를 초기 상태로 되돌림
-            if (string.Equals(_confirmedIngredients[_currentStepIndex], FuelIngredientName, StringComparison.Ordinal) && _missionBoard != null)
-            {
-                _missionBoard.ResetFuelProgress();
-            }
+            // 되돌리는 항목의 확정 값을 계산식에서 제외(0으로 리셋)하고, 남은 확정 값들로 진행도(Image_Fill)를 다시 계산함
+            ApplyConfirmedValue(_confirmedIngredients[_currentStepIndex], 0);
 
             // 이전 단계의 확정 내역 삭제
             _confirmedMatters[_currentStepIndex] = null;
             _confirmedIngredients[_currentStepIndex] = null;
             RemoveLastDesignItem();
 
+            if (_missionBoard != null)
+            {
+                _missionBoard.SetProgress(CalculateTotalThrust());
+            }
+
             // 현재 임시 선택 상태 초기화
             _currentIngredient.Value = "";
             _currentMatters.Value = Array.Empty<string>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
-            UpdateFuelPreview();
+            UpdateProgressPreview();
 
             if (_logger != null)
             {
@@ -345,7 +356,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 코딩완료 버튼 클릭 시 확정된 연료량을 목적지 조건과 대조해 성공/실패를 기록하고, 화면 페이드와 함께 결과 씬으로 전환함.
+        /// 코딩완료 버튼 클릭 시 확정된 추진력(엔진 출력량 x 연료량 - 탑재 중량)을 목적지 조건과 대조해 성공/실패를 기록하고, 화면 페이드와 함께 결과 씬으로 전환함.
         /// </summary>
         private void OnCodingCompleteClicked()
         {
@@ -357,7 +368,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            bool success = EvaluateFuel();
+            bool success = EvaluateMission();
             if (_resultStore != null) _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
 
             _isBusy = true;
@@ -386,33 +397,104 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 재료 중 연료량 값을 찾아 이번 목적지의 조건 범위를 만족하는지 판정함. 연료량 미설정/파싱 실패/미션보드 부재 시 실패로 처리함.
+        /// 확정된 엔진 출력량 x 연료량 - 탑재 중량 계산 결과가 이번 목적지의 조건 범위를 만족하는지 판정함.
+        /// 모든 단계가 확정되지 않았거나 미션보드가 없으면 실패로 처리함.
         /// </summary>
-        private bool EvaluateFuel()
+        private bool EvaluateMission()
         {
-            if (_missionBoard == null || _confirmedIngredients == null || _confirmedMatters == null)
+            if (_missionBoard == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Cannot evaluate fuel (missionBoard/confirmed data missing). Treated as fail.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Cannot evaluate mission (missionBoard missing). Treated as fail.");
                 return false;
             }
 
-            for (int i = 0; i < _confirmedIngredients.Length; i++)
+            if (_designItems.Count < _totalSteps)
             {
-                if (!string.Equals(_confirmedIngredients[i], FuelIngredientName, StringComparison.Ordinal)) continue;
-
-                if (int.TryParse(_confirmedMatters[i], out int fuel))
-                {
-                    bool valid = _missionBoard.IsFuelValid(fuel);
-                    if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] Fuel {fuel} vs destination '{_missionBoard.Destination}' -> {(valid ? "valid" : "invalid")}");
-                    return valid;
-                }
-
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Fuel value '{_confirmedMatters[i]}' is not a number. Treated as fail.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Not all steps confirmed ({_designItems.Count}/{_totalSteps}). Treated as fail.");
                 return false;
             }
 
-            if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] No fuel ingredient confirmed. Treated as fail.");
-            return false;
+            int totalThrust = CalculateTotalThrust();
+            bool valid = _missionBoard.IsThrustValid(totalThrust);
+            if (_logger != null)
+            {
+                _logger.ZLogInformation($"[IngredientSelectionController] Total thrust {totalThrust} (engine={_confirmedEngineValue} x fuel={_confirmedFuelValue} - payload={_confirmedPayloadValue}) vs destination '{_missionBoard.Destination}' -> {(valid ? "valid" : "invalid")}");
+            }
+            return valid;
+        }
+
+        /// <summary>
+        /// 확정된 엔진 출력량 x 연료량 - 탑재 중량으로 총 추진력을 계산함.
+        /// </summary>
+        private int CalculateTotalThrust() => CalculateThrust(_confirmedEngineValue, _confirmedFuelValue, _confirmedPayloadValue);
+
+        /// <summary> 엔진 출력량 x 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
+        private int CalculateThrust(int engine, int fuel, int payload) => engine * fuel - payload;
+
+        /// <summary>
+        /// 확정된 역할(엔진/연료/탑재)별 값에, 현재 조절 중인 임시 선택값을 해당 역할에 대입해 미리보기용 추진력을 계산함.
+        /// 조절 중인 항목이 없으면 확정된 값만으로 계산함.
+        /// </summary>
+        private int CalculatePreviewThrust()
+        {
+            int engine = _confirmedEngineValue;
+            int fuel = _confirmedFuelValue;
+            int payload = _confirmedPayloadValue;
+
+            string ingredient = _currentIngredient.Value;
+            if (!string.IsNullOrEmpty(ingredient))
+            {
+                int tempValue = ParseIngredientValue(ingredient, CurrentSelectedMatter());
+                if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) engine = tempValue;
+                else if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal)) fuel = tempValue;
+                else if (string.Equals(ingredient, PayloadIngredientName, StringComparison.Ordinal)) payload = tempValue;
+            }
+
+            return CalculateThrust(engine, fuel, payload);
+        }
+
+        /// <summary> 현재 좌우 버튼으로 선택 중인 물질 문자열을 반환함. 선택된 것이 없으면 null. </summary>
+        private string CurrentSelectedMatter()
+        {
+            var matters = _currentMatters.Value;
+            int idx = _currentMatterIndex.Value;
+            return (matters != null && idx >= 0 && idx < matters.Length) ? matters[idx] : null;
+        }
+
+        /// <summary>
+        /// 확정된 값을 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌리는 데도 사용됨.
+        /// </summary>
+        private void ApplyConfirmedValue(string ingredient, int value)
+        {
+            if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) _confirmedEngineValue = value;
+            else if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal)) _confirmedFuelValue = value;
+            else if (string.Equals(ingredient, PayloadIngredientName, StringComparison.Ordinal)) _confirmedPayloadValue = value;
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Unknown ingredient role '{ingredient}'. Value not applied to thrust formula.");
+        }
+
+        /// <summary>
+        /// 물질 문자열에서 계산식에 쓸 정수 값(항상 양수 크기)을 파싱함. 연료량은 값 자체가 숫자("0".."10")이고,
+        /// 엔진 출력량/탑재 중량은 "고체 로켓 (+5)", "인공위성 (-3)"처럼 괄호 안의 부호 있는 숫자를 파싱함.
+        /// 괄호 안 부호는 화면 표시용(플레이어에게 보너스/페널티를 직관적으로 보여주기 위함)이고,
+        /// 실제 공식(엔진 출력량 x 연료량 - 탑재 중량)은 연산자 자체가 방향을 담당하므로 크기(절댓값)만 사용함.
+        /// 실패 시 0.
+        /// </summary>
+        private int ParseIngredientValue(string ingredientName, string matterValue)
+        {
+            if (string.IsNullOrEmpty(matterValue)) return 0;
+
+            if (string.Equals(ingredientName, FuelIngredientName, StringComparison.Ordinal))
+            {
+                if (int.TryParse(matterValue, out int fuel)) return fuel;
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Fuel value '{matterValue}' is not a number. Treated as 0.");
+                return 0;
+            }
+
+            var match = System.Text.RegularExpressions.Regex.Match(matterValue, @"\(([+-]?\d+)\)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int parsed)) return Math.Abs(parsed);
+
+            if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] Could not parse numeric value from '{matterValue}' for ingredient '{ingredientName}'. Treated as 0.");
+            return 0;
         }
 
         /// <summary>
@@ -489,30 +571,26 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설정하기로 확정하기 전, 사용자가 좌우 버튼으로 연료량을 조절하는 동안 미리보기 게이지(Image_Fill_Preview)를 갱신함.
-        /// 현재 선택 중인 재료가 연료량이 아니면 미리보기를 초기 상태로 되돌림.
+        /// 설정하기로 확정하기 전, 사용자가 좌우 버튼으로 엔진 출력량/연료량/탑재 중량 중 하나를 조절하는 동안
+        /// 확정된 값 + 현재 조절 중인 임시 값을 결합한 추진력을 미리보기 게이지(Image_Fill_Preview)에 반영함.
+        /// 현재 조절 중인 재료가 없으면 미리보기를 초기 상태로 되돌림.
         /// </summary>
-        private void UpdateFuelPreview()
+        private void UpdateProgressPreview()
         {
             if (_missionBoard == null) return;
 
-            var matters = _currentMatters.Value;
-            int idx = _currentMatterIndex.Value;
+            if (string.IsNullOrEmpty(_currentIngredient.Value))
+            {
+                _missionBoard.ResetPreview();
+                return;
+            }
 
-            if (string.Equals(_currentIngredient.Value, FuelIngredientName, StringComparison.Ordinal)
-                && matters != null && idx >= 0 && idx < matters.Length
-                && int.TryParse(matters[idx], out int fuelValue))
+            int previewThrust = CalculatePreviewThrust();
+            if (_logger != null)
             {
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[IngredientSelectionController] Fuel amount adjusting: {fuelValue}");
-                }
-                _missionBoard.UpdateFuelPreview(fuelValue);
+                _logger.ZLogInformation($"[IngredientSelectionController] Preview thrust adjusting: {previewThrust} (ingredient={_currentIngredient.Value})");
             }
-            else
-            {
-                _missionBoard.ResetFuelPreview();
-            }
+            _missionBoard.UpdatePreview(previewThrust);
         }
 
         /// <summary>
