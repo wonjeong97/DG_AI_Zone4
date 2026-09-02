@@ -152,7 +152,8 @@ namespace DGAIZone.Game.UI
             Tween tween = overlay.DOFade(0f, hintFadeDuration)
                 .SetDelay(idleHintDelay)
                 .SetLoops(-1, LoopType.Yoyo)
-                .SetEase(Ease.InOutSine);
+                .SetEase(Ease.InOutSine)
+                .SetLink(gameObject);
             _hintTweens.Add(tween);
         }
 
