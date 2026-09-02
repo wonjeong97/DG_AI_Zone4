@@ -52,6 +52,12 @@ namespace DGAIZone.Game.UI
         /// <summary> 계산된 추진력이 이번 목적지의 목표 거리에 도달(이상)했는지 반환함. </summary>
         public bool IsThrustValid(int totalThrust) => totalThrust >= _current.TargetDistance;
 
+        /// <summary> 레벨 3: 전기량이 이 값을 넘으면 안 됨(3~5 중 무작위로 정해짐). </summary>
+        public int MaxElectricity { get; private set; }
+
+        /// <summary> 레벨 3: 산소량이 이 값보다 낮으면 안 됨(3~5 중 무작위로 정해짐). </summary>
+        public int MinOxygen { get; private set; }
+
         /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. </summary>
         [Inject]
         public void Construct(SelectedLevelStore selectedLevelStore, ILogger<MissionBoardController> logger)
@@ -62,7 +68,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 씬 시작 시 레벨에 맞는 미션 보드 텍스트를 구성함. 레벨 1은 무작위 목적지를 골라 목적지/목표 표시까지 구성하고,
-        /// 레벨 2는 고정된 코딩 안내 문구만 표시함.
+        /// 레벨 2는 고정된 코딩 안내 문구만 표시하며, 레벨 3은 전기량 상한/산소량 하한을 무작위로 정해 안내함.
         /// </summary>
         private void Start()
         {
@@ -71,6 +77,10 @@ namespace DGAIZone.Game.UI
             if (level == 2)
             {
                 ApplyLevel2MissionText();
+            }
+            else if (level == 3)
+            {
+                ApplyLevel3MissionText();
             }
             else
             {
@@ -116,6 +126,30 @@ namespace DGAIZone.Game.UI
             missionText.text =
                 "설계한 로켓이 우주까지 날아 갈 수 있도록\n" +
                 "<color=yellow>[동작 블록]</color> 5개를 사용하여 순서대로 코딩해주세요.";
+        }
+
+        /// <summary>
+        /// 레벨 3 전용 미션 텍스트를 적용함. 전기량 상한(MaxElectricity)과 산소량 하한(MinOxygen)을 각각 3~5 중 무작위로 정해 안내함.
+        /// </summary>
+        private void ApplyLevel3MissionText()
+        {
+            MaxElectricity = UnityEngine.Random.Range(3, 6);
+            MinOxygen = UnityEngine.Random.Range(3, 6);
+
+            if (_logger != null)
+            {
+                _logger.ZLogInformation($"[MissionBoardController] 레벨 3 미션 설정됨: 전기량 상한={MaxElectricity}, 산소량 하한={MinOxygen}");
+            }
+
+            if (missionText == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
+                return;
+            }
+
+            missionText.text =
+                $"현재 우주정거장은 전기량이 <color=yellow>[{MaxElectricity}]</color>을 넘으면 안되고,\n" +
+                $"산소량은 <color=yellow>[{MinOxygen}]</color>보다 낮으면 안돼요!";
         }
 
         /// <summary> 목적지에 맞는 행성 이름 텍스트를 적용하고, 이미지는 Addressables에서 비동기로 불러와 Image_Goal에 적용함. </summary>

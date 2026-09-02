@@ -68,6 +68,36 @@
           "categories": [ "동작" ]
         }
       ]
+    },
+    {
+      "level": 3,
+      "steps": [
+        {
+          "ingredientName": "만약 전기량이",
+          "matterNames": [ "3 이상", "4 이상", "5 이상" ],
+          "categories": [ "제어" ]
+        },
+        {
+          "ingredientName": "전기량",
+          "matterNames": [ "올리기", "낮추기" ],
+          "categories": [ "동작" ]
+        },
+        {
+          "ingredientName": "",
+          "matterNames": [ "그리고", "또는" ],
+          "categories": [ "논리" ]
+        },
+        {
+          "ingredientName": "만약 산소량이",
+          "matterNames": [ "3 이하", "4 이하", "5 이하" ],
+          "categories": [ "제어" ]
+        },
+        {
+          "ingredientName": "산소량",
+          "matterNames": [ "올리기", "낮추기" ],
+          "categories": [ "동작" ]
+        }
+      ]
     }
   ]
 }
