@@ -14,7 +14,6 @@ namespace DGAIZone.LevelSelect
         {
             builder.RegisterComponentInHierarchy<LevelSelectFlowController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
-            builder.RegisterComponentInHierarchy<TopCornerLocationIcon>();
         }
     }
 }
