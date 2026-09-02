@@ -387,7 +387,8 @@ namespace DGAIZone.Game.UI
             _level3OxygenGaugeTween?.Kill();
             _level3OxygenGaugeTween = level3OxygenGauge.DOFillAmount(_level3OxygenFill, level3GaugeTweenDuration)
                 .SetEase(Ease.OutQuad)
-                .OnUpdate(() => SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount));
+                .OnUpdate(() => SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount))
+                .SetLink(level3OxygenGauge.gameObject);
         }
 
         /// <summary>
@@ -402,7 +403,8 @@ namespace DGAIZone.Game.UI
             _level3ElectricGaugeTween?.Kill();
             _level3ElectricGaugeTween = level3ElectricGauge.DOFillAmount(_level3ElectricFill, level3GaugeTweenDuration)
                 .SetEase(Ease.OutQuad)
-                .OnUpdate(() => SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount));
+                .OnUpdate(() => SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount))
+                .SetLink(level3ElectricGauge.gameObject);
         }
 
         /// <summary>
