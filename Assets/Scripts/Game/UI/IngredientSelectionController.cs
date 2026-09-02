@@ -53,6 +53,15 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float level2FillTweenDuration = 0.45f;
         [SerializeField] private float level2FillOvershoot = 1.2f; // Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
 
+        [Header("Level 3 Gauges")]
+        [SerializeField] private Image level3OxygenGauge;   // Panel_Level3/Group_O2/Image_CircleGage
+        [SerializeField] private Image level3ElectricGauge; // Panel_Level3/Group_Electric/Image_CircleGage
+        [SerializeField] private Image level3OxygenIcon;    // Panel_Level3/Group_O2/Image_Icon
+        [SerializeField] private Image level3ElectricIcon;  // Panel_Level3/Group_Electric/Image_Icon
+        [SerializeField] private float level3GaugeTweenDuration = 0.4f;
+        [SerializeField] private float level3IconBlinkMinAlpha = 0.25f; // "또는" 선택 시 불안정하게 깜빡이는 최소 알파
+        [SerializeField] private float level3IconBlinkDuration = 0.12f; // 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
+
         [Header("Activation")]
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
 
@@ -107,6 +116,15 @@ namespace DGAIZone.Game.UI
         private R3.DisposableBag _disposables = new R3.DisposableBag();
         private Sequence _rightArrowSequence;
         private Tween _level2FillTween;
+
+        // 레벨 3 게이지(전기/산소) 상태. fillAmount는 애니메이션 도중일 수 있어 목표값을 별도로 추적함.
+        private float _level3OxygenFill;
+        private float _level3ElectricFill;
+        private Tween _level3OxygenGaugeTween;
+        private Tween _level3ElectricGaugeTween;
+        private Tween _level3OxygenIconBlinkTween;
+        private Tween _level3ElectricIconBlinkTween;
+        private bool _level3InstabilityPending; // "또는"이 선택된 상태. 5단계를 전부 완료해야 실제 깜빡임이 시작됨.
 
         /// <summary>
         /// VContainer 의존성 주입. MessagePipe 구독자, 씬 전환 서비스, 로거를 할당함.
@@ -181,6 +199,7 @@ namespace DGAIZone.Game.UI
             _confirmedIngredients = new string[_totalSteps];
             ClearDesignItems();
             InitializeStepBalls();
+            InitializeLevel3Gauges();
             UpdateCategoryHint();
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_currentStageIndex + 1}번째 스테이지 초기화 완료: 총 {_totalSteps}회 read 필요.");
@@ -270,6 +289,168 @@ namespace DGAIZone.Game.UI
             ballText.text = (textIndex >= 0 && textIndex < Level2StepBallTexts.Length) ? Level2StepBallTexts[textIndex] : "";
         }
 
+        /// <summary> 레벨 3의 산소/전기 게이지와 아이콘 알파를 0%로, 깜빡임을 정지 상태로 되돌림. </summary>
+        private void InitializeLevel3Gauges()
+        {
+            _level3OxygenFill = 0f;
+            _level3ElectricFill = 0f;
+            _level3InstabilityPending = false;
+
+            _level3OxygenGaugeTween?.Kill();
+            _level3ElectricGaugeTween?.Kill();
+            if (level3OxygenGauge != null) level3OxygenGauge.fillAmount = 0f;
+            if (level3ElectricGauge != null) level3ElectricGauge.fillAmount = 0f;
+
+            // 게이지가 이미 0으로 세팅된 상태이므로, 게이지 값을 그대로 따라가는 아이콘 알파도 0이 됨
+            StopLevel3IconInstability();
+        }
+
+        /// <summary>
+        /// 레벨 3에서 확정된 단계(stepIndex, 0부터)와 값(matter)에 따라 게이지/아이콘 연출을 갱신함.
+        /// 전기량 조건(0)·전기량 조작(1)이 정답이면 산소 게이지가, 산소량 조건(3)·산소량 조작(4)이 정답이면 전기 게이지가
+        /// 각각 50%씩 채워짐(엇갈려 연결된 생명유지장치라는 설정). 논리 연결어(2)에서 "또는"을 고르면 불안정 상태가 예약되고,
+        /// 실제 깜빡임은 5단계를 전부 완료한 시점에 OnConfirmButtonClicked에서 시작됨.
+        /// </summary>
+        private void UpdateLevel3Effects(int stepIndex, string matter)
+        {
+            if (_selectedLevel != 3) return;
+
+            switch (stepIndex)
+            {
+                case 0:
+                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MaxElectricity} 이상", StringComparison.Ordinal))
+                    {
+                        AddOxygenGaugeFill(0.5f);
+                    }
+                    break;
+                case 1:
+                    if (string.Equals(matter, "낮추기", StringComparison.Ordinal)) AddOxygenGaugeFill(0.5f);
+                    break;
+                case 2:
+                    _level3InstabilityPending = string.Equals(matter, "또는", StringComparison.Ordinal);
+                    break;
+                case 3:
+                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MinOxygen} 이하", StringComparison.Ordinal))
+                    {
+                        AddElectricGaugeFill(0.5f);
+                    }
+                    break;
+                case 4:
+                    if (string.Equals(matter, "올리기", StringComparison.Ordinal)) AddElectricGaugeFill(0.5f);
+                    break;
+            }
+        }
+
+        /// <summary> 취소(되돌리기) 시 UpdateLevel3Effects로 적용됐던 효과를 반대로 되돌림. </summary>
+        private void RevertLevel3Effects(int stepIndex, string matter)
+        {
+            if (_selectedLevel != 3) return;
+
+            // 어떤 단계를 되돌리든 "5단계 완료" 상태가 깨지므로, 예약/진행 중이던 깜빡임은 항상 멈춤
+            StopLevel3IconInstability();
+
+            switch (stepIndex)
+            {
+                case 0:
+                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MaxElectricity} 이상", StringComparison.Ordinal))
+                    {
+                        AddOxygenGaugeFill(-0.5f);
+                    }
+                    break;
+                case 1:
+                    if (string.Equals(matter, "낮추기", StringComparison.Ordinal)) AddOxygenGaugeFill(-0.5f);
+                    break;
+                case 2:
+                    _level3InstabilityPending = false;
+                    break;
+                case 3:
+                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MinOxygen} 이하", StringComparison.Ordinal))
+                    {
+                        AddElectricGaugeFill(-0.5f);
+                    }
+                    break;
+                case 4:
+                    if (string.Equals(matter, "올리기", StringComparison.Ordinal)) AddElectricGaugeFill(-0.5f);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 산소 게이지의 목표 fillAmount를 amount만큼(0~1로 clamp) 조절하고 부드럽게 애니메이션함.
+        /// Image_Icon의 알파도 게이지 진행률(0~1)을 그대로 따라가도록 매 프레임 동기화함.
+        /// </summary>
+        private void AddOxygenGaugeFill(float amount)
+        {
+            if (level3OxygenGauge == null) return;
+
+            _level3OxygenFill = Mathf.Clamp01(_level3OxygenFill + amount);
+            _level3OxygenGaugeTween?.Kill();
+            _level3OxygenGaugeTween = level3OxygenGauge.DOFillAmount(_level3OxygenFill, level3GaugeTweenDuration)
+                .SetEase(Ease.OutQuad)
+                .OnUpdate(() => SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount));
+        }
+
+        /// <summary>
+        /// 전기 게이지의 목표 fillAmount를 amount만큼(0~1로 clamp) 조절하고 부드럽게 애니메이션함.
+        /// Image_Icon의 알파도 게이지 진행률(0~1)을 그대로 따라가도록 매 프레임 동기화함.
+        /// </summary>
+        private void AddElectricGaugeFill(float amount)
+        {
+            if (level3ElectricGauge == null) return;
+
+            _level3ElectricFill = Mathf.Clamp01(_level3ElectricFill + amount);
+            _level3ElectricGaugeTween?.Kill();
+            _level3ElectricGaugeTween = level3ElectricGauge.DOFillAmount(_level3ElectricFill, level3GaugeTweenDuration)
+                .SetEase(Ease.OutQuad)
+                .OnUpdate(() => SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount));
+        }
+
+        /// <summary>
+        /// 5단계를 전부 완료했고 "또는"이 선택되어 있었을 때만 호출됨. 산소/전기 두 Image_Icon을
+        /// 서로 다른 주기로 어긋나게 깜빡여 불안정한 느낌을 줌.
+        /// </summary>
+        private void StartLevel3IconInstability()
+        {
+            StartIconBlink(level3OxygenIcon, ref _level3OxygenIconBlinkTween, level3IconBlinkDuration);
+            StartIconBlink(level3ElectricIcon, ref _level3ElectricIconBlinkTween, level3IconBlinkDuration * 1.4f);
+        }
+
+        /// <summary> 아이콘 하나를 알파 1~level3IconBlinkMinAlpha 사이로 무한 반복(Yoyo) 깜빡이게 함. </summary>
+        private void StartIconBlink(Image icon, ref Tween tween, float duration)
+        {
+            if (icon == null) return;
+
+            tween?.Kill();
+            SetImageAlpha(icon, 1f);
+            tween = icon.DOFade(level3IconBlinkMinAlpha, duration)
+                .SetLoops(-1, LoopType.Yoyo)
+                .SetEase(Ease.InOutSine)
+                .SetLink(icon.gameObject);
+        }
+
+        /// <summary>
+        /// 두 아이콘의 깜빡임을 멈추고, 알파를 각 게이지의 현재 fillAmount에 맞춰 되돌림(1이 아니라 진행률만큼).
+        /// </summary>
+        private void StopLevel3IconInstability()
+        {
+            _level3OxygenIconBlinkTween?.Kill();
+            _level3OxygenIconBlinkTween = null;
+            _level3ElectricIconBlinkTween?.Kill();
+            _level3ElectricIconBlinkTween = null;
+
+            if (level3OxygenGauge != null) SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount);
+            if (level3ElectricGauge != null) SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount);
+        }
+
+        private void SetImageAlpha(Image image, float alpha)
+        {
+            if (image == null) return;
+
+            Color color = image.color;
+            color.a = alpha;
+            image.color = color;
+        }
+
         /// <summary>
         /// RFID 태그(또는 디버그 키) 이벤트 수신 시, 현재 단계(_currentStepIndex)가 허용하는 category와 일치하면
         /// 해당 단계의 재료로 진행함. 카드는 더 이상 재료 이름을 알려주지 않으므로, 진행 순서(추진체 종류 -> 탑재 종류 -> 연료량)는
@@ -324,7 +505,7 @@ namespace DGAIZone.Game.UI
             }
 
             _currentIngredient.Value = step.ingredientName;
-            _currentMatters.Value = ExcludeConfirmedMatters(step.matterNames);
+            _currentMatters.Value = ExcludeConfirmedMatters(step.ingredientName, step.matterNames);
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
@@ -343,13 +524,14 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 여러 단계가 같은 matterNames 목록을 공유할 때(예: 레벨 2의 발사 코딩 순서), 이미 다른 단계에서 확정된
-        /// 값은 다시 고를 수 없도록 목록에서 제외함. 겹치는 값이 없는 단계(예: 레벨 1)에는 영향이 없음.
+        /// 같은 ingredientName을 쓰는 여러 단계가 matterNames 목록을 공유할 때(예: 레벨 2의 발사 코딩 순서), 이미 다른 단계에서
+        /// 확정된 값은 다시 고를 수 없도록 목록에서 제외함. ingredientName까지 함께 비교하므로, 서로 다른 ingredient가
+        /// 우연히 같은 값 텍스트를 공유해도(예: 레벨 3의 전기량/산소량이 둘 다 "올리기"/"낮추기") 서로 간섭하지 않음.
         /// </summary>
-        private string[] ExcludeConfirmedMatters(string[] matterNames)
+        private string[] ExcludeConfirmedMatters(string ingredientName, string[] matterNames)
         {
             if (matterNames == null || matterNames.Length == 0) return Array.Empty<string>();
-            if (_confirmedMatters == null) return matterNames;
+            if (_confirmedMatters == null || _confirmedIngredients == null) return matterNames;
 
             var available = new List<string>(matterNames.Length);
             foreach (string matter in matterNames)
@@ -357,7 +539,8 @@ namespace DGAIZone.Game.UI
                 bool alreadyConfirmed = false;
                 for (int i = 0; i < _confirmedMatters.Length; i++)
                 {
-                    if (string.Equals(_confirmedMatters[i], matter, StringComparison.Ordinal))
+                    if (string.Equals(_confirmedIngredients[i], ingredientName, StringComparison.Ordinal) &&
+                        string.Equals(_confirmedMatters[i], matter, StringComparison.Ordinal))
                     {
                         alreadyConfirmed = true;
                         break;
@@ -377,8 +560,10 @@ namespace DGAIZone.Game.UI
         {
             if (_confirmedMatters == null) return;
 
+            // ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 있으므로, "스캔된 것이 없음"은
+            // ingredient가 아니라 matters 목록의 존재 여부로 판단함.
             var matters = _currentMatters.Value;
-            if (string.IsNullOrEmpty(_currentIngredient.Value) || matters == null || matters.Length == 0)
+            if (matters == null || matters.Length == 0)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정할 RFID 태그가 스캔되어 있지 않음.");
                 return;
@@ -408,6 +593,9 @@ namespace DGAIZone.Game.UI
             // 레벨 2: 확정된 matter에 대응하는 Image_StepN_Ball을 원래 색으로 되돌리고 완료 문구를 표시함
             UpdateStepBallDisplay(_currentStepIndex, chosenMatter, true);
 
+            // 레벨 3: 확정된 단계/값에 따라 산소/전기 게이지와 아이콘 깜빡임을 갱신함
+            UpdateLevel3Effects(_currentStepIndex, chosenMatter);
+
             // 확정된 엔진 출력량/연료량/탑재 중량을 계산식에 반영해 진행도(Image_Fill)를 갱신함
             if (_missionBoard != null)
             {
@@ -431,6 +619,12 @@ namespace DGAIZone.Game.UI
             if (_currentStepIndex >= _totalSteps)
             {
                 if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 총 {_totalSteps}단계 모두 완료됨!");
+
+                // 레벨 3: "또는"이 선택된 채로 5단계를 전부 완료한 시점에 비로소 불안정 깜빡임을 시작함
+                if (_selectedLevel == 3 && _level3InstabilityPending)
+                {
+                    StartLevel3IconInstability();
+                }
             }
         }
 
@@ -462,6 +656,9 @@ namespace DGAIZone.Game.UI
             // 레벨 2: 되돌리는 matter에 대응하는 Image_StepN_Ball을 다시 흑백으로 되돌리고 완료 문구를 지움
             UpdateStepBallDisplay(_currentStepIndex, _confirmedMatters[_currentStepIndex], false);
 
+            // 레벨 3: 되돌리는 단계/값에 적용됐던 게이지/아이콘 효과를 반대로 되돌림
+            RevertLevel3Effects(_currentStepIndex, _confirmedMatters[_currentStepIndex]);
+
             // 이전 단계의 확정 내역 삭제
             _confirmedMatters[_currentStepIndex] = null;
             _confirmedIngredients[_currentStepIndex] = null;
@@ -490,15 +687,15 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 확정된 재료/물질을 "· 재료 [물질]" 형태의 Text로 만들어 디자인 컨테이너의 자식으로 추가함. 물질은 노란색으로 표시함.
-        /// 레벨 2는 모든 단계의 ingredientName이 "발사 코딩 순서"로 동일해 매번 반복 표시할 필요가 없으므로,
-        /// 재료 이름 없이 "· [물질]" 형태로만 표시함.
+        /// 레벨 2는 모든 단계의 ingredientName이 "발사 코딩 순서"로 동일해 매번 반복 표시할 필요가 없고,
+        /// ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 재료 이름 없이 "· [물질]" 형태로만 표시함.
         /// </summary>
         private void AddDesignItem(string ingredient, string matter)
         {
             if (designContent == null || designItemPrefab == null) return;
 
             TextMeshProUGUI text = Instantiate(designItemPrefab, designContent);
-            text.text = _selectedLevel == 2
+            text.text = _selectedLevel == 2 || string.IsNullOrEmpty(ingredient)
                 ? $" · [<color=yellow>{ApplyNumberSizeTag(matter)}</color>]"
                 : $" · {ingredient} [<color=yellow>{ApplyNumberSizeTag(matter)}</color>]";
 
@@ -756,7 +953,9 @@ namespace DGAIZone.Game.UI
         {
             if (_missionBoard == null) return;
 
-            if (string.IsNullOrEmpty(_currentIngredient.Value))
+            // ingredientName이 빈 문자열인 단계도 있으므로, "조절 중인 재료 없음"은 ingredient가 아니라
+            // matters 목록의 존재 여부로 판단함.
+            if (_currentMatters.Value == null || _currentMatters.Value.Length == 0)
             {
                 _missionBoard.ResetPreview();
                 return;
@@ -860,6 +1059,10 @@ namespace DGAIZone.Game.UI
 
             _rightArrowSequence?.Kill();
             _level2FillTween?.Kill();
+            _level3OxygenGaugeTween?.Kill();
+            _level3ElectricGaugeTween?.Kill();
+            _level3OxygenIconBlinkTween?.Kill();
+            _level3ElectricIconBlinkTween?.Kill();
         }
     }
 }
