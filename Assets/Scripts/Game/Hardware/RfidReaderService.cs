@@ -30,7 +30,6 @@ namespace DGAIZone.Game.Hardware
         }
 
         private IPublisher<RfidTagEvent> _publisher;
-        private SelectedLevelStore _selectedLevelStore;
         private ILogger<RfidReaderService> _logger;
 
         private readonly System.Collections.Generic.List<ReaderSession> _sessions = new System.Collections.Generic.List<ReaderSession>();
@@ -40,13 +39,12 @@ namespace DGAIZone.Game.Hardware
         private IDisposable _subscription;
 
         /// <summary>
-        /// VContainer 의존성 주입. MessagePipe 발행자, 선택된 레벨 저장소, 로거를 할당함.
+        /// VContainer 의존성 주입. MessagePipe 발행자와 로거를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(IPublisher<RfidTagEvent> publisher, SelectedLevelStore selectedLevelStore, ILogger<RfidReaderService> logger)
+        public void Construct(IPublisher<RfidTagEvent> publisher, ILogger<RfidReaderService> logger)
         {
             _publisher = publisher;
-            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
         }
 
@@ -69,20 +67,19 @@ namespace DGAIZone.Game.Hardware
                 _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
                 if (_settings == null)
                 {
-                    if (_logger != null) _logger.ZLogError($"[RfidReaderService] Failed to load RfidMappings.json.");
+                    if (_logger != null) _logger.ZLogError($"[RfidReaderService] RfidMappings.json 로드 실패.");
                     return;
                 }
 
-                int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
-                _mappings = _settings.GetMappingsForLevel(level);
+                _mappings = _settings.mappings;
                 if (_mappings == null || _mappings.Length == 0)
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] No card mappings found for level {level} in RfidMappings.json.");
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] RfidMappings.json에 카드 매핑이 없음.");
                 }
 
                 if (_settings.readers == null || _settings.readers.Length == 0)
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] No readers configured in RfidMappings.json.");
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] RfidMappings.json에 설정된 리더기가 없음.");
                     return;
                 }
 
@@ -94,12 +91,12 @@ namespace DGAIZone.Game.Hardware
                     if (string.IsNullOrEmpty(portName))
                     {
                         portName = readerConfig.fallbackPort;
-                        if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] Reader {readerConfig.readerId} port not found by path. Using fallback: {portName}");
+                        if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {readerConfig.readerId} 리더기의 포트를 경로로 찾지 못함. 폴백 포트 사용: {portName}");
                     }
 
                     if (string.IsNullOrEmpty(portName))
                     {
-                        if (_logger != null) _logger.ZLogError($"[RfidReaderService] Reader {readerConfig.readerId} has no valid COM port.");
+                        if (_logger != null) _logger.ZLogError($"[RfidReaderService] {readerConfig.readerId} 리더기에 유효한 COM 포트가 없음.");
                         continue;
                     }
 
@@ -139,11 +136,11 @@ namespace DGAIZone.Game.Hardware
 
                 _sessions.Add(session);
 
-                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] Reader {readerId} connected to {portName} ({baudRate}bps)");
+                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {readerId} 리더기가 {portName}에 연결됨 ({baudRate}bps)");
             }
             catch (Exception e)
             {
-                if (_logger != null) _logger.ZLogError($"[RfidReaderService] Reader {readerId} failed to open port {portName}: {e.Message}");
+                if (_logger != null) _logger.ZLogError($"[RfidReaderService] {readerId} 리더기가 {portName} 포트를 여는 데 실패함: {e.Message}");
             }
         }
 
@@ -175,7 +172,7 @@ namespace DGAIZone.Game.Hardware
                 {
                     if (session.IsRunning && _logger != null)
                     {
-                        _logger.ZLogWarning($"[RfidReaderService] Serial read exception on {session.ReaderId}: {e.Message}");
+                        _logger.ZLogWarning($"[RfidReaderService] {session.ReaderId} 시리얼 읽기 중 예외 발생: {e.Message}");
                     }
                 }
                 Thread.Sleep(1);
@@ -187,11 +184,11 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private void OnSerialDataReceived((string readerId, string rawData) data)
         {
-            if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] Raw Tag from {data.readerId}: {data.rawData}");
+            if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {data.readerId}에서 받은 원시 태그: {data.rawData}");
 
             if (_mappings == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] Mappings not loaded. Cannot process tag.");
+                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] 매핑이 로드되지 않아 태그를 처리할 수 없음.");
                 return;
             }
 
@@ -205,16 +202,16 @@ namespace DGAIZone.Game.Hardware
                 }
             }
 
-            string ingredientName = matchedItem != null ? matchedItem.ingredientName : data.rawData;
-            string category = matchedItem != null ? matchedItem.category : null;
-            string[] matterNames = (matchedItem != null && matchedItem.matterNames != null && matchedItem.matterNames.Length > 0)
-                ? matchedItem.matterNames
-                : new string[] { $"{ingredientName}-1", $"{ingredientName}-2", $"{ingredientName}-3" };
+            if (matchedItem == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {data.readerId}에서 등록되지 않은 카드 uid '{data.rawData}' 수신. 무시함.");
+                return;
+            }
 
             if (_publisher != null)
             {
-                _publisher.Publish(new RfidTagEvent(data.readerId, category, ingredientName, matterNames));
-                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] Published RfidTagEvent: {data.readerId} -> {ingredientName} ({matterNames.Length} matters)");
+                _publisher.Publish(new RfidTagEvent(data.readerId, matchedItem.category));
+                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] RfidTagEvent 발행됨: {data.readerId} -> category={matchedItem.category}");
             }
         }
 

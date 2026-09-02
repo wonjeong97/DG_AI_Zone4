@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
@@ -16,24 +15,22 @@ using ZLogger;
 namespace DGAIZone.Game.Hardware
 {
     /// <summary>
-    /// RFID 리더기가 없는 환경에서 키보드 숫자키(1~9)로 카드 인식을 대체하는 개발용 시뮬레이터.
-    /// 숫자키 N을 누르면 RfidMappings.json의 N번째 매핑 값을 실제 리더기와 동일하게 RfidTagEvent로 발행함.
+    /// RFID 리더기가 없는 환경에서 키보드 숫자키 1번으로 "동작" 카드 인식을 대체하는 개발용 시뮬레이터.
+    /// 1번 키를 누르면 RfidMappings.json에 등록된 카드의 category를 실제 리더기와 동일하게 RfidTagEvent로 발행함.
     /// </summary>
     public class KeyboardRfidSimulator : MonoBehaviour
     {
         [SerializeField] private string simulatedReaderId = "Keyboard";
 
         private IPublisher<RfidTagEvent> _publisher;
-        private SelectedLevelStore _selectedLevelStore;
         private ILogger<KeyboardRfidSimulator> _logger;
         private RfidMappingItem[] _mappings;
 
-        /// <summary> VContainer 의존성 주입. MessagePipe 발행자, 선택된 레벨 저장소, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. MessagePipe 발행자와 로거를 할당함. </summary>
         [Inject]
-        public void Construct(IPublisher<RfidTagEvent> publisher, SelectedLevelStore selectedLevelStore, ILogger<KeyboardRfidSimulator> logger)
+        public void Construct(IPublisher<RfidTagEvent> publisher, ILogger<KeyboardRfidSimulator> logger)
         {
             _publisher = publisher;
-            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
         }
 
@@ -49,16 +46,15 @@ namespace DGAIZone.Game.Hardware
             try
             {
                 var settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
-                int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
-                var mappings = settings != null ? settings.GetMappingsForLevel(level) : null;
+                var mappings = settings != null ? settings.mappings : null;
                 if (mappings == null || mappings.Length == 0)
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] No mappings loaded for level {level}. Keyboard simulation disabled.");
+                    if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] 매핑이 로드되지 않아 키보드 시뮬레이션이 비활성화됨.");
                     return;
                 }
 
                 _mappings = mappings;
-                if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Loaded {_mappings.Length} card mappings for level {level}. Press number keys 1-{_mappings.Length} to simulate.");
+                if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] 카드 매핑 {_mappings.Length}개 로드됨. 1번 키를 눌러 동작 카드를 시뮬레이션하세요.");
             }
             catch (OperationCanceledException)
             {
@@ -66,7 +62,7 @@ namespace DGAIZone.Game.Hardware
             }
         }
 
-        /// <summary> 매 프레임 숫자키 입력을 확인해 해당 카드 인식을 발행함. </summary>
+        /// <summary> 매 프레임 1번 키 입력을 확인해 "동작" 카드 인식을 발행함. </summary>
         private void Update()
         {
             if (_mappings == null) return;
@@ -74,33 +70,22 @@ namespace DGAIZone.Game.Hardware
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
 
-            for (int i = 0; i < _mappings.Length; i++)
+            if (keyboard[Key.Digit1].wasPressedThisFrame)
             {
-                Key key = Key.Digit1 + i; // Digit1..Digit9 는 열거형에서 연속됨
-                if (key > Key.Digit9) break;
-
-                if (keyboard[key].wasPressedThisFrame)
-                {
-                    PublishCard(i);
-                }
+                PublishActionCard();
             }
         }
 
-        /// <summary> 지정한 인덱스의 카드 매핑을 실제 리더기와 동일한 형태의 RfidTagEvent로 발행함. </summary>
-        private void PublishCard(int index)
+        /// <summary> 매핑 목록의 첫 카드 category를 실제 리더기와 동일한 형태의 RfidTagEvent로 발행함. </summary>
+        private void PublishActionCard()
         {
-            if (_publisher == null || _mappings == null || index < 0 || index >= _mappings.Length) return;
+            if (_publisher == null || _mappings == null || _mappings.Length == 0) return;
 
-            RfidMappingItem item = _mappings[index];
+            RfidMappingItem item = _mappings[0];
             if (item == null) return;
 
-            string ingredientName = item.ingredientName;
-            string[] matterNames = (item.matterNames != null && item.matterNames.Length > 0)
-                ? item.matterNames
-                : new string[] { ZString.Format("{0}-1", ingredientName), ZString.Format("{0}-2", ingredientName), ZString.Format("{0}-3", ingredientName) };
-
-            _publisher.Publish(new RfidTagEvent(simulatedReaderId, item.category, ingredientName, matterNames));
-            if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] Simulated card {index + 1}: {ingredientName} ({matterNames.Length} matters)");
+            _publisher.Publish(new RfidTagEvent(simulatedReaderId, item.category));
+            if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] 카드 시뮬레이션됨: category={item.category}");
         }
     }
 }

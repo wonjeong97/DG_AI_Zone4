@@ -60,7 +60,7 @@ namespace DGAIZone.LevelSelect
 
             if (levelButtons == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons is null. No buttons to configure.");
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons가 null이라 설정할 버튼이 없음.");
                 return;
             }
 
@@ -69,7 +69,7 @@ namespace DGAIZone.LevelSelect
                 Button button = levelButtons[i];
                 if (button == null)
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}] is null.");
+                    if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}]가 null임.");
                     continue;
                 }
 
@@ -100,7 +100,7 @@ namespace DGAIZone.LevelSelect
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[LevelSelectFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Game}.");
+                if (_logger != null) _logger.ZLogError($"[LevelSelectFlowController] sceneTransition이 null이라 {Constants.Scenes.Game} 씬을 로드할 수 없음.");
                 return;
             }
 
@@ -140,7 +140,7 @@ namespace DGAIZone.LevelSelect
             }
             else if (_logger != null)
             {
-                _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelStore is null. Cannot record selected level.");
+                _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelStore가 null이라 선택한 레벨을 기록할 수 없음.");
             }
 
             if (startButton != null) startButton.interactable = false;

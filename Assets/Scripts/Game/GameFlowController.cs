@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using DGAIZone.App;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -26,29 +27,51 @@ namespace DGAIZone.Game
         [Header("Story Level")]
         [SerializeField] private Image storyImage;          // Image_Story
         [SerializeField] private GameObject[] storyLevels;  // Story_Level1..5 순서
-        [SerializeField] private int selectedLevel = 1;     // 활성화된 레벨(1부터). 현재는 1레벨만 존재함.
 
+        [Header("Current Situation Panel")]
+        [SerializeField] private GameObject[] situationPanels; // Image_CurrentSituation 하위 Panel_Level1..5 순서
+
+        [Header("Debug (Editor Testing)")]
+        [Range(0, 5)]
+        [SerializeField] private int debugStartLevel = 0; // 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정.
+
+        private SelectedLevelStore _selectedLevelStore;
         private ILogger<GameFlowController> _logger;
         private bool _isBusy;
+        private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
 
-        /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
+        /// <summary>
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. debugStartLevel이 설정되어 있으면(1~5)
+        /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
+        /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함.
+        /// </summary>
         [Inject]
-        public void Construct(ILogger<GameFlowController> logger)
+        public void Construct(SelectedLevelStore selectedLevelStore, ILogger<GameFlowController> logger)
         {
+            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+
+            if (debugStartLevel > 0 && _selectedLevelStore != null)
+            {
+                _selectedLevelStore.SelectedLevel = debugStartLevel;
+                if (_logger != null) _logger.ZLogInformation($"[GameFlowController] 디버그 시작 레벨 오버라이드 적용됨: {debugStartLevel}");
+            }
         }
 
-        /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리를 설정한 뒤 버튼 이벤트를 연결함. </summary>
+        /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리/상황 패널을 설정한 뒤 버튼 이벤트를 연결함. </summary>
         private void Start()
         {
             ApplyPanelState(gamePanel, true);
             ApplyPanelState(storyPanel, false);
 
+            _selectedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+
             SetupStoryLevel();
+            SetupSituationPanel();
 
             if (storyButton) storyButton.onClick.AddListener(OnStoryClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyButton is null.");
+            else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyButton이 null임.");
         }
 
         /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 게임 패널로 전환함. </summary>
@@ -73,7 +96,7 @@ namespace DGAIZone.Game
         /// <summary> 활성화된 레벨에 맞춰 스토리 이미지와 스토리 텍스트 오브젝트를 설정함. </summary>
         private void SetupStoryLevel()
         {
-            int index = selectedLevel - 1;
+            int index = _selectedLevel - 1;
 
             LoadStoryImageAsync().Forget();
 
@@ -86,12 +109,24 @@ namespace DGAIZone.Game
             }
         }
 
+        /// <summary> 활성화된 레벨에 맞춰 Image_CurrentSituation 하위의 Panel_Level(N)만 표시함. </summary>
+        private void SetupSituationPanel()
+        {
+            if (situationPanels == null) return;
+
+            int index = _selectedLevel - 1;
+            for (int i = 0; i < situationPanels.Length; i++)
+            {
+                if (situationPanels[i] != null) situationPanels[i].SetActive(i == index);
+            }
+        }
+
         /// <summary> Addressables에서 활성화된 레벨의 스토리 이미지를 비동기로 불러와 적용함. </summary>
         private async UniTaskVoid LoadStoryImageAsync()
         {
             if (storyImage == null) return;
 
-            string key = $"Level{selectedLevel}";
+            string key = $"Level{_selectedLevel}";
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             try
             {
@@ -104,7 +139,7 @@ namespace DGAIZone.Game
                 }
                 else if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[GameFlowController] Level image '{key}' not found in Addressables.");
+                    _logger.ZLogWarning($"[GameFlowController] Addressables에서 레벨 이미지 '{key}'를 찾을 수 없음.");
                 }
             }
             catch (OperationCanceledException) { }

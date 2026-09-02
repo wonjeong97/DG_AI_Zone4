@@ -31,6 +31,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float previewBlinkMinAlpha = 0.5f;
         [SerializeField] private float previewApplyFadeDuration = 0.3f;
 
+        private SelectedLevelStore _selectedLevelStore;
         private ILogger<MissionBoardController> _logger;
         private Constants.Mission.Definition _current = Constants.Mission.Definitions[0];
         private AsyncOperationHandle<Sprite> _goalSpriteHandle;
@@ -51,23 +52,37 @@ namespace DGAIZone.Game.UI
         /// <summary> 계산된 추진력이 이번 목적지의 목표 거리에 도달(이상)했는지 반환함. </summary>
         public bool IsThrustValid(int totalThrust) => totalThrust >= _current.TargetDistance;
 
-        /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. </summary>
         [Inject]
-        public void Construct(ILogger<MissionBoardController> logger)
+        public void Construct(SelectedLevelStore selectedLevelStore, ILogger<MissionBoardController> logger)
         {
+            _selectedLevelStore = selectedLevelStore;
             _logger = logger;
         }
 
-        /// <summary> 씬 시작 시 무작위 목적지를 골라 미션 보드 텍스트와 목적지 표시를 구성함. </summary>
+        /// <summary>
+        /// 씬 시작 시 레벨에 맞는 미션 보드 텍스트를 구성함. 레벨 1은 무작위 목적지를 골라 목적지/목표 표시까지 구성하고,
+        /// 레벨 2는 고정된 코딩 안내 문구만 표시함.
+        /// </summary>
         private void Start()
         {
-            Constants.Mission.Definition[] definitions = Constants.Mission.Definitions;
-            _current = definitions[UnityEngine.Random.Range(0, definitions.Length)];
+            int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
 
-            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Mission set: {_current.Destination} (targetDistance={_current.TargetDistance})");
+            if (level == 2)
+            {
+                ApplyLevel2MissionText();
+            }
+            else
+            {
+                Constants.Mission.Definition[] definitions = Constants.Mission.Definitions;
+                _current = definitions[UnityEngine.Random.Range(0, definitions.Length)];
 
-            ApplyMissionText();
-            ApplyGoalDisplay();
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 미션 설정됨: {_current.Destination} (목표거리={_current.TargetDistance})");
+
+                ApplyMissionText();
+                ApplyGoalDisplay();
+            }
+
             EnsurePreviewCanvasGroup();
             ResetProgress();
             ResetPreview();
@@ -79,7 +94,7 @@ namespace DGAIZone.Game.UI
         {
             if (missionText == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText is null. Cannot set mission text.");
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
                 return;
             }
 
@@ -89,12 +104,26 @@ namespace DGAIZone.Game.UI
                 $"추진체와 탑재 종류를 설정해주세요.";
         }
 
+        /// <summary> 레벨 2 전용 고정 미션 텍스트(목적지/목표 개념 없이 5개 동작 블록을 순서대로 코딩하라는 안내)를 적용함. </summary>
+        private void ApplyLevel2MissionText()
+        {
+            if (missionText == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
+                return;
+            }
+
+            missionText.text =
+                "설계한 로켓이 우주까지 날아 갈 수 있도록\n" +
+                "<color=yellow>[동작 블록]</color> 5개를 사용하여 순서대로 코딩해주세요.";
+        }
+
         /// <summary> 목적지에 맞는 행성 이름 텍스트를 적용하고, 이미지는 Addressables에서 비동기로 불러와 Image_Goal에 적용함. </summary>
         private void ApplyGoalDisplay()
         {
             if (goalImage == null || goalPlanetNameText == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] goalImage or goalPlanetNameText is null. Cannot apply goal display.");
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] goalImage 또는 goalPlanetNameText가 null이라 목표 표시를 적용할 수 없음.");
                 return;
             }
 
@@ -118,7 +147,7 @@ namespace DGAIZone.Game.UI
                 }
                 else if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[MissionBoardController] Goal sprite not found for destination '{_current.Destination}' (Addressables key '{key}').");
+                    _logger.ZLogWarning($"[MissionBoardController] 목적지 '{_current.Destination}'에 대한 목표 이미지 없음 (Addressables 키 '{key}').");
                 }
             }
             catch (OperationCanceledException) { }
@@ -133,14 +162,14 @@ namespace DGAIZone.Game.UI
         {
             if (progressFillImage == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] progressFillImage is null. Cannot set progress.");
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] progressFillImage가 null이라 진행도를 설정할 수 없음.");
                 return;
             }
 
             float target = CalculateFillAmount(totalThrust);
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[MissionBoardController] Progress apply requested: totalThrust={totalThrust}, previewFillAmount={_previewFillAmount.Value:F2}, targetFillAmount={target:F2}");
+                _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 요청: 총추진력={totalThrust}, 미리보기게이지={_previewFillAmount.Value:F2}, 목표게이지={target:F2}");
             }
 
             ApplyProgressAsync(totalThrust, target).Forget();
@@ -164,7 +193,7 @@ namespace DGAIZone.Game.UI
                 // 1. 깜빡임(블링크) 강제 중지
                 _blinkTween?.Kill();
                 _blinkTween = null;
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Progress apply sequence: blink stopped. totalThrust={totalThrust}");
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 깜빡임 중지됨. 총추진력={totalThrust}");
 
                 // 2. 미리보기는 fillAmount 변경 없이 알파만 페이드아웃하고, 그와 동시에 실제 Image_Fill을 타겟 값까지 부드럽게 채움
                 EnsurePreviewCanvasGroup();
@@ -177,9 +206,9 @@ namespace DGAIZone.Game.UI
                 Tween fillTween = AnimateFillAmount(target);
                 UniTask fillTask = fillTween.ToUniTask(cancellationToken: token);
 
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Progress apply sequence: preview fade-out and fill rise started in parallel, target={target:F2}.");
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 미리보기 페이드아웃과 게이지 상승을 동시에 시작함, 목표값={target:F2}.");
                 await UniTask.WhenAll(fadeTask, fillTask);
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Progress apply sequence: applied fillAmount={target:F2}");
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: fillAmount={target:F2} 적용됨");
 
                 // 3. 미리보기 오브젝트 비활성화. 그림자 게이지 컨셉에 맞춰 fillAmount는 0으로 리셋하지 않고
                 // 방금 적용된 실제 Image_Fill 값과 동일하게 유지함(다음에 다시 켜졌을 때도 실제 값을 그대로 반영한 상태로 시작함).
@@ -194,11 +223,11 @@ namespace DGAIZone.Game.UI
                 if (_previewCanvasGroup != null) _previewCanvasGroup.alpha = 1f;
                 _previewFillAmount.Value = target;
 
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Progress apply sequence: preview deactivated, kept in sync with applied fillAmount={target:F2}.");
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 미리보기 비활성화, 적용된 fillAmount={target:F2}와 동기화 유지함.");
             }
             catch (OperationCanceledException)
             {
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Progress apply sequence canceled (scene destroyed or superseded by a newer request).");
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스 취소됨 (씬 파괴 또는 더 최신 요청으로 대체됨).");
             }
             finally
             {
@@ -212,7 +241,7 @@ namespace DGAIZone.Game.UI
         {
             if (progressFillImage == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] progressFillImage is null. Cannot reset progress.");
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] progressFillImage가 null이라 진행도를 초기화할 수 없음.");
                 return;
             }
 
@@ -228,7 +257,7 @@ namespace DGAIZone.Game.UI
         {
             if (previewFillImage == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] previewFillImage is null. Cannot update preview.");
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] previewFillImage가 null이라 미리보기를 갱신할 수 없음.");
                 return;
             }
 
@@ -242,7 +271,7 @@ namespace DGAIZone.Game.UI
             _previewFillAmount.Value = CalculateFillAmount(totalThrust);
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[MissionBoardController] Preview adjusting: totalThrust={totalThrust}, previewFillAmount={_previewFillAmount.Value:F2}");
+                _logger.ZLogInformation($"[MissionBoardController] 미리보기 조정 중: 총추진력={totalThrust}, 미리보기게이지={_previewFillAmount.Value:F2}");
             }
         }
 
@@ -293,7 +322,7 @@ namespace DGAIZone.Game.UI
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetLink(gameObject);
 
-            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Fuel preview blink started.");
+            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 연료 미리보기 깜빡임 시작됨.");
         }
 
         /// <summary> 연료량 조절이 끝나면(설정 확정/취소, 다른 재료로 전환) Image_Fill_Preview 깜빡임을 멈추고 불투명 상태로 되돌림. </summary>
@@ -305,7 +334,7 @@ namespace DGAIZone.Game.UI
             _blinkTween = null;
             if (_previewCanvasGroup != null) _previewCanvasGroup.alpha = 1f;
 
-            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] Fuel preview blink stopped.");
+            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 연료 미리보기 깜빡임 중지됨.");
         }
 
         /// <summary>

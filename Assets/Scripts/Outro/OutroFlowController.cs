@@ -32,7 +32,7 @@ namespace DGAIZone.Outro
         private void Start()
         {
             if (homeButton) homeButton.onClick.AddListener(OnHomeClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] homeButton is null.");
+            else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] homeButton이 null임.");
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
@@ -48,7 +48,7 @@ namespace DGAIZone.Outro
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[OutroFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Title}.");
+                if (_logger != null) _logger.ZLogError($"[OutroFlowController] sceneTransition이 null이라 {Constants.Scenes.Title} 씬을 로드할 수 없음.");
                 return;
             }
 

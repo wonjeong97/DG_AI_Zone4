@@ -32,7 +32,7 @@ namespace DGAIZone.Title
         private void Start()
         {
             if (startButton) startButton.onClick.AddListener(OnStartClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] startButton is null.");
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] startButton이 null임.");
         }
 
         /// <summary> 버튼 리스너 해제. </summary>
@@ -48,7 +48,7 @@ namespace DGAIZone.Title
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[TitleFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Intro}.");
+                if (_logger != null) _logger.ZLogError($"[TitleFlowController] sceneTransition이 null이라 {Constants.Scenes.Intro} 씬을 로드할 수 없음.");
                 return;
             }
 

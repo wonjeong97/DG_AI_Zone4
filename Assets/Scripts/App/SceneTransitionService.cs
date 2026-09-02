@@ -36,7 +36,7 @@ namespace DGAIZone.App
         {
             if (_isTransitioning)
             {
-                if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] Already transitioning. Ignored request for {sceneName}.");
+                if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] 이미 전환 중이라 {sceneName} 요청을 무시함.");
                 return;
             }
 
@@ -44,7 +44,7 @@ namespace DGAIZone.App
             try
             {
                 if (_fadeManager != null) await _fadeManager.FadeOutAsync(fadeDuration);
-                else if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] fadeManager is null. Loading {sceneName} without fade-out.");
+                else if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] fadeManager가 null이라 페이드아웃 없이 {sceneName}을 로드함.");
 
                 await SceneManager.LoadSceneAsync(sceneName).ToUniTask();
 
@@ -80,7 +80,7 @@ namespace DGAIZone.App
             }
             catch (TimeoutException)
             {
-                if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] Timed out waiting for scene video readiness after {VideoReadinessTimeoutSeconds}s. Fading in anyway.");
+                if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] 씬 영상 준비 대기 {VideoReadinessTimeoutSeconds}초 초과. 그대로 페이드인함.");
             }
         }
     }
