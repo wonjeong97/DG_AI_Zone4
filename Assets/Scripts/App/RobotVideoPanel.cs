@@ -64,7 +64,7 @@ namespace DGAIZone.App
             {
                 if (videoPlayer == null)
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] videoPlayer is null. Cannot play robot video.");
+                    if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] videoPlayer가 null이라 로봇 영상을 재생할 수 없음.");
                     _readySignal.TrySetResult();
                     return;
                 }

@@ -69,7 +69,7 @@ namespace DGAIZone.Result
 
                 bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
                 string fileName = success ? successVideoFileName : failVideoFileName;
-                if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] Result={(success ? "Success" : "Fail")}. Playing {fileName}.");
+                if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
                 string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, fileName);
 
                 videoPlayer.source = VideoSource.Url;
@@ -94,7 +94,7 @@ namespace DGAIZone.Result
                 }
                 else if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[ResultVideoPanel] flowController is null. CompletePanel will not fade in.");
+                    _logger.ZLogWarning($"[ResultVideoPanel] flowController가 null이라 CompletePanel이 페이드인되지 않음.");
                 }
             }
             catch (OperationCanceledException)

@@ -21,16 +21,16 @@ namespace DGAIZone.Game.Hardware
 
             if (logger != null)
             {
-                logger.ZLogInformation($"[SerialPortFinder] Active USB Serial Ports diagnostic count: {activePorts.Count}");
+                logger.ZLogInformation($"[SerialPortFinder] 활성 USB 시리얼 포트 진단 개수: {activePorts.Count}");
                 foreach (var info in activePorts)
                 {
-                    logger.ZLogInformation($"[SerialPortFinder] Detected Port: {info.port} | ID: {info.vidPid} | Desc: {info.desc}");
+                    logger.ZLogInformation($"[SerialPortFinder] 감지된 포트: {info.port} | ID: {info.vidPid} | 설명: {info.desc}");
                 }
             }
 
             if (string.IsNullOrWhiteSpace(targetVid) && string.IsNullOrWhiteSpace(targetPid))
             {
-                if (logger != null) logger.ZLogWarning($"[SerialPortFinder] Target VID and PID are empty. Skipping discovery.");
+                if (logger != null) logger.ZLogWarning($"[SerialPortFinder] 대상 VID/PID가 비어 있어 탐색을 건너뜀.");
                 return null;
             }
 
@@ -45,12 +45,12 @@ namespace DGAIZone.Game.Hardware
 
                 if (vidMatch && pidMatch)
                 {
-                    if (logger != null) logger.ZLogInformation($"[SerialPortFinder] Successfully matched RFID Reader at {info.port} (VID: {cleanVid}, PID: {cleanPid})");
+                    if (logger != null) logger.ZLogInformation($"[SerialPortFinder] {info.port}에서 RFID 리더기 매칭 성공 (VID: {cleanVid}, PID: {cleanPid})");
                     return info.port;
                 }
             }
 
-            if (logger != null) logger.ZLogWarning($"[SerialPortFinder] Could not find active port matching VID: {cleanVid}, PID: {cleanPid}");
+            if (logger != null) logger.ZLogWarning($"[SerialPortFinder] VID: {cleanVid}, PID: {cleanPid}에 일치하는 활성 포트를 찾을 수 없음.");
             return null;
         }
 
@@ -61,7 +61,7 @@ namespace DGAIZone.Game.Hardware
         {
             if (string.IsNullOrWhiteSpace(targetInstancePath))
             {
-                if (logger != null) logger.ZLogWarning($"[SerialPortFinder] Target Instance Path is empty. Skipping discovery.");
+                if (logger != null) logger.ZLogWarning($"[SerialPortFinder] 대상 Instance Path가 비어 있어 탐색을 건너뜀.");
                 return null;
             }
 
@@ -73,12 +73,12 @@ namespace DGAIZone.Game.Hardware
                 string upperId = info.vidPid.ToUpper();
                 if (upperId == cleanPath || upperId.Contains(cleanPath))
                 {
-                    if (logger != null) logger.ZLogInformation($"[SerialPortFinder] Successfully matched RFID Reader at {info.port} (InstancePath: {targetInstancePath})");
+                    if (logger != null) logger.ZLogInformation($"[SerialPortFinder] {info.port}에서 RFID 리더기 매칭 성공 (InstancePath: {targetInstancePath})");
                     return info.port;
                 }
             }
 
-            if (logger != null) logger.ZLogWarning($"[SerialPortFinder] Could not find active port matching Instance Path: {targetInstancePath}");
+            if (logger != null) logger.ZLogWarning($"[SerialPortFinder] Instance Path: {targetInstancePath}에 일치하는 활성 포트를 찾을 수 없음.");
             return null;
         }
 

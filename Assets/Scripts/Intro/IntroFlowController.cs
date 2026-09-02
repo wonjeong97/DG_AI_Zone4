@@ -61,7 +61,7 @@ namespace DGAIZone.Intro
             _isIntroActive = true;
 
             if (understandButton) understandButton.onClick.AddListener(OnUnderstandClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] understandButton is null.");
+            else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] understandButton이 null임.");
 
             StartTextAnimation(this.GetCancellationTokenOnDestroy());
         }
@@ -104,7 +104,7 @@ namespace DGAIZone.Intro
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[IntroFlowController] sceneTransition is null. Cannot load {Constants.Scenes.LevelSelect}.");
+                if (_logger != null) _logger.ZLogError($"[IntroFlowController] sceneTransition이 null이라 {Constants.Scenes.LevelSelect} 씬을 로드할 수 없음.");
                 return;
             }
 

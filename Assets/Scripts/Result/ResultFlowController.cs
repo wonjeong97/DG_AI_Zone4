@@ -42,10 +42,10 @@ namespace DGAIZone.Result
             ApplyPanelState(completePanel, false);
 
             if (resultNextButton) resultNextButton.onClick.AddListener(OnResultNextClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] resultNextButton is null.");
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] resultNextButton이 null임.");
 
             if (completeNextButton) completeNextButton.onClick.AddListener(OnCompleteNextClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton is null.");
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null임.");
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
@@ -75,7 +75,7 @@ namespace DGAIZone.Result
 
             if (_sceneTransition == null)
             {
-                if (_logger != null) _logger.ZLogError($"[ResultFlowController] sceneTransition is null. Cannot load {Constants.Scenes.Outro}.");
+                if (_logger != null) _logger.ZLogError($"[ResultFlowController] sceneTransition이 null이라 {Constants.Scenes.Outro} 씬을 로드할 수 없음.");
                 return;
             }
 

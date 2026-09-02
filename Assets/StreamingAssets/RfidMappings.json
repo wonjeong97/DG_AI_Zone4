@@ -13,38 +13,59 @@
       "fallbackPort": "COM3"
     }
   ],
+  "mappings": [
+    { "uid": "55009FE62C", "category": "동작" },
+    { "uid": "55009FC910", "category": "동작" },
+    { "uid": "5500A0A524", "category": "동작" }
+  ],
   "levelMappings": [
     {
       "level": 1,
-      "mappings": [
+      "steps": [
         {
-          "uid": "55009FE62C",
-          "category": "동작",
           "ingredientName": "추진체 종류",
-          "matterNames": [ "고체 로켓 (+5)", "액체 로켓 (+7)", "핵 추진 엔진 (+10)" ]
+          "matterNames": [ "고체 로켓 (+5)", "액체 로켓 (+7)", "핵 추진 엔진 (+10)" ],
+          "categories": [ "동작" ]
         },
         {
-          "uid": "55009FC910",
-          "category": "동작",
           "ingredientName": "탑재 종류",
-          "matterNames": [ "인공위성 (-3)", "탐사 로봇 (-2)", "우주왕복선 (-5)" ]
+          "matterNames": [ "인공위성 (-3)", "탐사 로봇 (-2)", "우주왕복선 (-5)" ],
+          "categories": [ "동작" ]
         },
         {
-          "uid": "5500A0A524",
-          "category": "동작",
           "ingredientName": "연료량",
-          "matterNames": [ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
+          "matterNames": [ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ],
+          "categories": [ "동작" ]
         }
       ]
     },
     {
       "level": 2,
-      "mappings": [
+      "steps": [
         {
-          "uid": "55009FE62C",
-          "category": "동작",
           "ingredientName": "발사 코딩 순서",
-          "matterNames": [ "점화 시퀀스", "상승 시퀀스", "1차 로켓", "2차 로켓", "진입 궤도" ]
+          "matterNames": [ "점화하기", "상승하기", "1차 로켓 분리하기", "2차 로켓 분리하기", "우주정거장 궤도 진입하기" ],
+          "categories": [ "동작" ]
+        },
+        {
+          "ingredientName": "발사 코딩 순서",
+          "matterNames": [ "점화하기", "상승하기", "1차 로켓 분리하기", "2차 로켓 분리하기", "우주정거장 궤도 진입하기" ],
+          "categories": [ "동작" ]
+        },
+        {
+          "ingredientName": "발사 코딩 순서",
+          "matterNames": [ "점화하기", "상승하기", "1차 로켓 분리하기", "2차 로켓 분리하기", "우주정거장 궤도 진입하기" ],
+          "categories": [ "동작" ]
+        },
+        {
+          "ingredientName": "발사 코딩 순서",
+          "matterNames": [ "점화하기", "상승하기", "1차 로켓 분리하기", "2차 로켓 분리하기", "우주정거장 궤도 진입하기" ],
+          "categories": [ "동작" ]
+        },
+        {
+          "ingredientName": "발사 코딩 순서",
+          "matterNames": [ "점화하기", "상승하기", "1차 로켓 분리하기", "2차 로켓 분리하기", "우주정거장 궤도 진입하기" ],
+          "categories": [ "동작" ]
         }
       ]
     }

@@ -7,18 +7,14 @@ namespace DGAIZone.Game.Events
     {
         public readonly string ReaderId;
         public readonly string Category;
-        public readonly string IngredientName;
-        public readonly string[] MatterNames;
 
         /// <summary>
-        /// 인식된 리더기 ID, 카드 분류, 재료 이름, 세부 물질 목록을 초기화함.
+        /// 인식된 리더기 ID와 카드 분류를 초기화함.
         /// </summary>
-        public RfidTagEvent(string readerId, string category, string ingredientName, string[] matterNames)
+        public RfidTagEvent(string readerId, string category)
         {
             ReaderId = readerId;
             Category = category;
-            IngredientName = ingredientName;
-            MatterNames = matterNames;
         }
     }
 }
