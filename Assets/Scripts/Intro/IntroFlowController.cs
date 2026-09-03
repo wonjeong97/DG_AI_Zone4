@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
@@ -27,7 +28,10 @@ namespace DGAIZone.Intro
         [SerializeField] private float crossFadeDuration = 0.4f;
         [SerializeField] private float sceneFadeDuration = 0.5f;
 
+        private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함
+
         private SceneTransitionService _sceneTransition;
+        private VisitorInfoProvider _visitorInfoProvider;
         private ILogger<IntroFlowController> _logger;
         private bool _isBusy;
         private bool _isIntroActive;
@@ -35,11 +39,12 @@ namespace DGAIZone.Intro
         private bool _skipStoryRequested;
         private Color _originalStoryColor;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, ILogger<IntroFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, ILogger<IntroFlowController> logger)
         {
             _sceneTransition = sceneTransition;
+            _visitorInfoProvider = visitorInfoProvider;
             _logger = logger;
         }
 
@@ -63,7 +68,38 @@ namespace DGAIZone.Intro
             if (understandButton) understandButton.onClick.AddListener(OnUnderstandClicked);
             else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] understandButton이 null임.");
 
-            StartTextAnimation(this.GetCancellationTokenOnDestroy());
+            InitializeStoryTextAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary>
+        /// 체험자 이름을 불러와 storyText 안의 "체험자" 자리표시자를 실제 이름으로 교체한 뒤,
+        /// 줄별로 올라오는 등장 연출을 시작함. 알파가 이미 0으로 설정돼 있어(Start에서) 이름을
+        /// 불러오는 동안에도 자리표시자 텍스트가 잠깐 보이는 일은 없음.
+        /// </summary>
+        private async UniTaskVoid InitializeStoryTextAsync(CancellationToken token)
+        {
+            try
+            {
+                await ApplyVisitorNameAsync(token);
+            }
+            catch (OperationCanceledException) { }
+
+            StartTextAnimation(token);
+        }
+
+        /// <summary> Visitor.json(또는 추후 서버/QR)에서 체험자 이름을 가져와 storyText의 자리표시자를 교체함. </summary>
+        private async UniTask ApplyVisitorNameAsync(CancellationToken token)
+        {
+            if (storyText == null || _visitorInfoProvider == null) return;
+
+            string visitorName = await _visitorInfoProvider.GetNameAsync(token);
+
+            using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
+            {
+                sb.Append(storyText.text);
+                sb.Replace(VisitorPlaceholder, visitorName);
+                storyText.text = sb.ToString();
+            }
         }
 
         /// <summary> 인트로 패널 활성화 상태에서 연출 중 터치 시 스킵, 연출 종료 또는 스킵 후 터치 시 튜토리얼 패널로 크로스페이드. </summary>

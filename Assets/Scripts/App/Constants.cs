@@ -21,6 +21,7 @@ namespace DGAIZone.App
         public static class Files
         {
             public const string RfidMappings = "RfidMappings.json";
+            public const string Visitor = "Visitor.json";
         }
 
         /// <summary> 스토리 텍스트가 한 줄씩 올라오는 연출 상수(타이틀/레벨 선택 공용). </summary>

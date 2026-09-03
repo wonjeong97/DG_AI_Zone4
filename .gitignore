@@ -124,3 +124,7 @@ CLAUDE.md
 # Auto-generated build metadata (machine name/timestamp), changes on every build
 /[Aa]ssets/StreamingAssets/build_info
 /[Aa]ssets/StreamingAssets/build_info.meta
+
+# Locally-published exe (~150MB, com.wonjeong.template's Tools/Build Shutdown Scheduler Exe) - not committed per template convention
+/[Aa]ssets/StreamingAssets/ShutdownScheduleEditor.exe
+/[Aa]ssets/StreamingAssets/ShutdownScheduleEditor.exe.meta
