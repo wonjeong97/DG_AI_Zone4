@@ -24,7 +24,7 @@
     "time": "17:35"
   },
   "sunday": {
-    "enabled": true,
+    "enabled": false,
     "time": "17:35"
   },
   "dateOverrides": [],
