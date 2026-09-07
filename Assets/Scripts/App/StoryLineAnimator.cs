@@ -3,24 +3,50 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using Wonjeong.Core;
 
 namespace DGAIZone.App
 {
     /// <summary>
     /// TMP 텍스트가 한 줄씩 아래에서 위로 올라오며 페이드인되는 연출을 제공하는 공용 유틸.
-    /// 타이틀 씬과 레벨 선택 씬의 스토리 텍스트 연출이 동일한 로직을 공유함.
+    /// 타이틀 씬과 레벨 선택 씬, 아웃트로 씬의 스토리 텍스트 연출이 동일한 로직을 공유함.
     /// </summary>
     public static class StoryLineAnimator
     {
         /// <summary>
+        /// 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함 (연출 스킵용 기본 판정).
+        /// </summary>
+        public static bool IsPointerPressedThisFrame()
+        {
+            Pointer pointer = Pointer.current;
+            return pointer != null && pointer.press.wasPressedThisFrame;
+        }
+
+        /// <summary>
         /// storyText의 각 줄을 아래에서 위로 올리며 순차적으로 페이드인함. 보이는 문자가 없는 줄(간격용 빈 줄/스페이스)은
         /// 연출과 대기 없이 즉시 통과함. skipRequested가 true를 반환하면 남은 줄까지 전체를 즉시 표시하고 종료함.
         /// token 취소(오브젝트 파괴 등) 시 OperationCanceledException을 그대로 전파하므로 호출부에서 처리해야 함.
+        /// inactivityTimer를 넘기면 연출이 진행되는 동안 비활동 타이머를 멈추고(Pause), 연출이 끝나면 재개(Resume)하여 카운트를 처음부터 시작함.
         /// </summary>
-        public static async UniTask AnimateAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset, Func<bool> skipRequested, CancellationToken token)
+        public static async UniTask AnimateAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset,
+            Func<bool> skipRequested, CancellationToken token, InactivityTimer inactivityTimer = null)
         {
             if (text == null) return;
 
+            inactivityTimer?.Pause();
+            try
+            {
+                await AnimateLinesAsync(text, lineMoveDuration, lineInterval, lineYOffset, skipRequested, token);
+            }
+            finally
+            {
+                inactivityTimer?.Resume();
+            }
+        }
+
+        private static async UniTask AnimateLinesAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset, Func<bool> skipRequested, CancellationToken token)
+        {
             // 호출부에서 미리 숨겨 둔 경우(maxVisibleCharacters=0)를 대비해 전체 노출로 되돌린 뒤 메쉬를 갱신함
             text.maxVisibleCharacters = int.MaxValue;
 

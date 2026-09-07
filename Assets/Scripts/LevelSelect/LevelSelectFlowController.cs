@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Core;
 using Wonjeong.Utils;
 using ZLogger;
 
@@ -41,19 +42,21 @@ namespace DGAIZone.LevelSelect
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
+        private InactivityTimer _inactivityTimer;
         private bool _isBusy;
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private LevelSelectSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, ILogger<LevelSelectFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _inactivityTimer = inactivityTimer;
         }
 
         /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
@@ -265,7 +268,7 @@ namespace DGAIZone.LevelSelect
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
                     _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
                     _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
-                    IsSkipRequested, token);
+                    IsSkipRequested, token, _inactivityTimer);
 
                 if (startButton != null) startButton.interactable = true;
             }

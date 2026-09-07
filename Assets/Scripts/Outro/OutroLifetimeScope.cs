@@ -13,6 +13,7 @@ namespace DGAIZone.Outro
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<OutroFlowController>();
+            builder.RegisterComponentInHierarchy<OutroStoryController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
         }
     }

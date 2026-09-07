@@ -11,6 +11,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Core;
 using Wonjeong.Utils;
 using ZLogger;
 
@@ -35,6 +36,7 @@ namespace DGAIZone.Intro
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
         private ILogger<IntroFlowController> _logger;
+        private InactivityTimer _inactivityTimer;
         private bool _isBusy;
         private bool _isIntroActive;
         private bool _isTextAnimating;
@@ -45,13 +47,14 @@ namespace DGAIZone.Intro
         private IntroSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, ILogger<IntroFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, ILogger<IntroFlowController> logger, InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
             _logger = logger;
+            _inactivityTimer = inactivityTimer;
         }
 
         /// <summary> 초기 패널 상태를 설정하고 스토리 연출 및 버튼 이벤트를 시작함. </summary>
@@ -235,7 +238,7 @@ namespace DGAIZone.Intro
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
                     _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
                     _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
-                    () => _skipStoryRequested, token);
+                    () => _skipStoryRequested, token, _inactivityTimer);
             }
             catch (OperationCanceledException) { }
             finally { _isTextAnimating = false; }
