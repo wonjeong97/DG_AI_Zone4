@@ -34,6 +34,8 @@ namespace DGAIZone.LevelSelect
         [Header("Difficulty Display")]
         [SerializeField] private RectTransform difficultyPanel;
         [SerializeField] private GameObject[] difficultyStars;
+        [Header("Debug (Editor Testing)")]
+        [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
         private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
@@ -101,8 +103,9 @@ namespace DGAIZone.LevelSelect
             }
 
             // 폴백 unlockedLevelCount로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
-            // 로드가 끝나면 실제 값으로 다시 적용함
-            ApplyLevelButtonLocks(unlockedLevelCount);
+            // 로드가 끝나면 실제 값으로 다시 적용함 (debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
+            int initialCount = debugUnlockedLevelCount > 0 ? debugUnlockedLevelCount : unlockedLevelCount;
+            ApplyLevelButtonLocks(initialCount);
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
@@ -115,11 +118,14 @@ namespace DGAIZone.LevelSelect
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            ApplyLevelButtonLocks(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
+            int targetCount = debugUnlockedLevelCount > 0
+                ? debugUnlockedLevelCount
+                : (_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
+            ApplyLevelButtonLocks(targetCount);
         }
 
         /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용하고, 난이도 패널(별 개수 및 너비)을 갱신함. </summary>
-        private void ApplyLevelButtonLocks(int count)
+        public void ApplyLevelButtonLocks(int count)
         {
             if (levelButtons != null)
             {
@@ -133,7 +139,7 @@ namespace DGAIZone.LevelSelect
         }
 
         /// <summary> 플레이어가 선택 가능한 난이도(열린 레벨 수)에 맞춰 별 표시 개수와 난이도 패널 너비를 동적으로 조정함. </summary>
-        private void ApplyDifficulty(int count)
+        public void ApplyDifficulty(int count)
         {
             if (difficultyPanel == null && (difficultyStars == null || difficultyStars.Length == 0)) return;
 
