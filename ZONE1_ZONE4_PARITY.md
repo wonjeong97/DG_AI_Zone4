@@ -66,16 +66,3 @@ Zone4는 이번 세션에서 페이드 시간·딜레이·조작 감도 등을 `
 값이 코드/인스펙터에 하드코딩되어 있음. 현장 운영 편의성을 위해 Zone1에도 같은 구조를
 적용할지는 별도 논의 필요(이 세션 범위 밖).
 
-## 6. 2_LevelSelect 레벨 버튼 선택 연출 (스토리 위치 이동 연출)
-
-- Zone1: 레벨 버튼 클릭 시, 해당 버튼을 두 패널의 공통 부모(`Image_Window3`)로 옮겨(`worldPositionStays: false`)
-  패널 페이드 알파 영향에서 분리하고, 하위 별 아이콘(`Image_StarN`)을 숨긴 뒤 스토리 패널 페이드인과
-  동시에 `SelectedLevelButtonPosition`(`(-932f, 224f)`)으로 `Ease.OutBack` 트윈 이동.
-- Zone4 기존: 클릭된 버튼의 스프라이트를 `Image_Story`에 복사하고 제자리에서 단순히 스프라이트만 교체.
-- Zone4 변경: Zone1 방식으로 일체화.
-  - `Start()`에서 기존 `storyImage` 플레이스홀더 오브젝트를 비활성화.
-  - 레벨 버튼 클릭 시 해당 버튼을 `storyPanel.transform.parent`로 계층 분리, 인터랙션 비활성화, 자식(별 등) 숨김 처리.
-  - `storyPanel` 페이드인 비동기 시퀀스 중에 `DOAnchorPos(targetPos, duration).SetEase(Ease.OutBack, overshoot)` 동시 실행.
-  - 연출 파라미터(`selectedLevelButtonMoveDuration: 1.0`, `selectedLevelButtonMoveOvershoot: 1.3`)를
-    `LevelSelectSceneSettings` 및 `StreamingAssets/Json/2_LevelSelect.json`에 외부화하여 재빌드 없이 튜닝 가능하도록 구성.
-
