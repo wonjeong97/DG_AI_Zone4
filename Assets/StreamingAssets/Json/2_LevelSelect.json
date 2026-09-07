@@ -3,6 +3,8 @@
   "panelFadeDuration": 0.4,
   "selectedLevelButtonMoveDuration": 1.0,
   "selectedLevelButtonMoveOvershoot": 1.3,
+  "selectedLevelButtonTargetPosition": { "x": 85.0, "y": -181.0 },
+  "selectedLevelButtonTargetSize": { "x": 450.0, "y": 229.0 },
   "difficultyPanelBaseWidth": 239.0,
   "difficultyPanelWidthPerStar": 51.0
 }

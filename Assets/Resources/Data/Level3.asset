@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dbb7757c4226604586871442baa7a24, type: 3}
+  m_Name: Level3
+  m_EditorClassIdentifier: 
+  storyText: "\uC6B0\uC8FC \uC815\uAC70\uC7A5\uC758 \uC778\uACF5\uC9C0\uB2A5 \uAD00\uC81C\uC2E4\uC5D0
+    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4!\n\uC6B0\uC8FC \uC815\uAC70\uC7A5\uC758\n<color=yellow>\n
+    \xB7 \uC804\uAE30\uB7C9\uACFC \uC0B0\uC18C\uB7C9 \n</color>\n\uB450 \uC870\uAC74\uC744
+    \uB3D9\uC2DC\uC5D0 \uB9DE\uAC8C \uD558\uC5EC \uC6B0\uC8FC \uC815\uAC70\uC7A5\uC744
+    \uC548\uC804\uD558\uAC8C \uC720\uC9C0\uD574\uC8FC\uC138\uC694!\n\n<color=yellow>[\uB9CC\uC57D
+    \uBE14\uB85D]</color>\uC744 \uC0AC\uC6A9\uD558\uC5EC \uC870\uAC74\uC744 \uC124\uC815
+    \uD574\uC8FC\uC138\uC694.\n\uADF8\uB9AC\uACE0 <color=green>[\uB17C\uB9AC \uBE14\uB85D]</color>\uC744
+    \uC0AC\uC6A9\uD558\uBA74 <color=#2750FF>[\uB3D9\uC791 \uBE14\uB85D]</color>\uC744
+    \uBB36\uC744 \uC218 \uC788\uC5B4\uC694."

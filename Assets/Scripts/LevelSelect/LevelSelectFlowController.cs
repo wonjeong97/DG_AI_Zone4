@@ -19,8 +19,8 @@ namespace DGAIZone.LevelSelect
 {
     /// <summary>
     /// 레벨 선택 씬의 화면 흐름 제어. 시작 시 잠긴 레벨 버튼을 흑백 처리해 비활성화하고, 열린 레벨 버튼을 누르면
-    /// 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼 이미지를 스토리 이미지로 복사하고
-    /// 해당 레벨의 스토리 오브젝트만 활성화함.
+    /// 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼을 Background로 옮겨
+    /// 목표 위치·크기로 튀어 들어오도록(OutBack) 이동시키고, 해당 레벨의 스토리 오브젝트만 활성화함.
     /// </summary>
     public class LevelSelectFlowController : MonoBehaviour
     {
@@ -31,9 +31,12 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Image storyImage;           // Image_Story
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
+        [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 3_Game(스토리 다시보기)과 공유하는 스토리 텍스트 소스
         [Header("Difficulty Display")]
         [SerializeField] private RectTransform difficultyPanel;
         [SerializeField] private GameObject[] difficultyStars;
+        [Header("Selected Level Button Move")]
+        [SerializeField] private RectTransform selectedLevelButtonParent; // 선택된 버튼이 이동해 들어갈 부모(Background)
         [Header("Debug (Editor Testing)")]
         [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
         private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
@@ -43,9 +46,8 @@ namespace DGAIZone.LevelSelect
         private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float difficultyPanelBaseWidth = 239f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float difficultyPanelWidthPerStar = 51f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-
-        // 선택된 레벨 버튼이 storyPanel 바깥에서 이동해 안착하는 위치 (Zone1 StoryManager와 동일한 방식)
-        private static readonly Vector2 SelectedLevelButtonPosition = new(-932f, 224f);
+        private readonly Vector2 selectedLevelButtonTargetPosition = new(85f, -181f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly Vector2 selectedLevelButtonTargetSize = new(450f, 229f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
@@ -270,16 +272,16 @@ namespace DGAIZone.LevelSelect
 
             if (startButton != null) startButton.interactable = false;
 
-            // 선택한 레벨 버튼을 클릭 즉시 두 패널(levelSelectPanel·storyPanel) 바깥의 공통 부모로 옮김.
+            // 선택한 레벨 버튼을 클릭 즉시 두 패널(levelSelectPanel·storyPanel) 바깥의 Background로 완전히 옮김.
             // 두 패널 모두 CanvasGroup으로 페이드되는데, 그 자식으로 두면 페이드 도중 알파 블렌딩 때문에
             // 이미지가 흐릿하게 보여서, 페이드에 영향받지 않는 위치로 미리 빼둔다.
-            // levelSelectPanel·storyPanel은 같은 부모 안에서 정확히 같은 영역을 꽉 채우고 있어 좌표계가 동일하므로
-            // 이동해도 시각적으로 튀지 않는다. 실제 이동은 storyPanel이 페이드인되는 시점에 맞춰 트윈으로 처리한다 (Zone1 StoryManager와 동일한 방식).
+            // worldPositionStays: false로 옮기므로 이 시점엔 시각적으로 튀지 않고, 목표 위치·크기로의 실제 이동은
+            // storyPanel이 페이드인되는 시점에 맞춰 트윈으로 처리한다.
             RectTransform selectedButtonRect = null;
             if (levelButtons != null && index < levelButtons.Length && levelButtons[index] != null)
             {
                 selectedButtonRect = (RectTransform)levelButtons[index].transform;
-                selectedButtonRect.SetParent(storyPanel.transform.parent, worldPositionStays: false);
+                selectedButtonRect.SetParent(selectedLevelButtonParent, worldPositionStays: false);
                 levelButtons[index].interactable = false;
 
                 // 버튼에 달려있던 별(Image_StarN) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
@@ -300,9 +302,20 @@ namespace DGAIZone.LevelSelect
                 if (index < storyLevels.Length && storyLevels[index] != null)
                 {
                     storyText = storyLevels[index].GetComponentInChildren<TMP_Text>(true);
-                    // 페이드인 도중 전체 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠
                     if (storyText != null)
                     {
+                        // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 3_Game(스토리 다시보기)과 같은 에셋을 참조하므로
+                        // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
+                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index] != null)
+                        {
+                            storyText.text = levelDataList[index].storyText;
+                        }
+                        else if (_logger != null)
+                        {
+                            _logger.ZLogWarning($"[LevelSelectFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
+                        }
+
+                        // 페이드인 도중 전체 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠
                         storyText.ForceMeshUpdate();
                         storyText.maxVisibleCharacters = 0;
                     }
@@ -328,16 +341,22 @@ namespace DGAIZone.LevelSelect
 
                 if (storyPanel)
                 {
-                    // storyPanel이 페이드인되는 동안 선택된 레벨 버튼도 함께 제자리로 튀어 들어오도록(OutBack) 이동.
-                    // 이동 시간·반동 크기는 2_LevelSelect.json의 selectedLevelButtonMoveDuration/selectedLevelButtonMoveOvershoot로 재빌드 없이 조정 가능.
-                    // 페이드와 동시에 진행되어야 하므로 의도적으로 await하지 않는다.
+                    // storyPanel이 페이드인되는 동안 선택된 레벨 버튼도 함께 목표 위치·크기로 튀어 들어오도록(OutBack) 이동.
+                    // 목표 위치·크기, 이동 시간·반동 크기는 2_LevelSelect.json(selectedLevelButtonTargetPosition/TargetSize/
+                    // MoveDuration/MoveOvershoot)으로 재빌드 없이 조정 가능. 페이드와 동시에 진행되어야 하므로 의도적으로 await하지 않는다.
                     if (selectedButtonRect != null)
                     {
-                        Vector2 targetPos = storyImage != null ? storyImage.rectTransform.anchoredPosition : SelectedLevelButtonPosition;
+                        Vector2 targetPos = _sceneSettings?.selectedLevelButtonTargetPosition ?? selectedLevelButtonTargetPosition;
+                        Vector2 targetSize = _sceneSettings?.selectedLevelButtonTargetSize ?? selectedLevelButtonTargetSize;
                         float moveDuration = _sceneSettings?.selectedLevelButtonMoveDuration ?? selectedLevelButtonMoveDuration;
                         float overshoot = _sceneSettings?.selectedLevelButtonMoveOvershoot ?? selectedLevelButtonMoveOvershoot;
 
                         _ = selectedButtonRect.DOAnchorPos(targetPos, moveDuration)
+                            .SetEase(Ease.OutBack, overshoot)
+                            .SetUpdate(true)
+                            .SetLink(selectedButtonRect.gameObject);
+
+                        _ = selectedButtonRect.DOSizeDelta(targetSize, moveDuration)
                             .SetEase(Ease.OutBack, overshoot)
                             .SetUpdate(true)
                             .SetLink(selectedButtonRect.gameObject);
