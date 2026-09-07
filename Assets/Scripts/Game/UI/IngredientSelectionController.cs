@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using MessagePipe;
@@ -13,6 +15,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Game.UI
@@ -25,14 +28,14 @@ namespace DGAIZone.Game.UI
         [Header("UI References")]
         [SerializeField] private TMP_Text textIngredient; // Text_Material
         [SerializeField] private TMP_Text textMatter; // Text_Matter
-        [SerializeField] private float numberFontSize = 45f; // Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
+        [SerializeField] private float numberFontSize = 45f; // 3_Game.json 로드 전까지의 폴백 기본값. Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
 
         [Header("Right Arrow Hint")]
         [SerializeField] private Image rightArrowImage; // Image_RightArrow
-        [SerializeField] private float rightArrowFillDuration = 1.0f;
-        [SerializeField] private float rightArrowFadeDuration = 0.5f;
+        [SerializeField] private float rightArrowFillDuration = 1.0f; // 3_Game.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float rightArrowFadeDuration = 0.5f; // 3_Game.json 로드 전까지의 폴백 기본값
 
         [Header("Workflow Buttons")]
         [SerializeField] private Button buttonConfirm;
@@ -50,23 +53,23 @@ namespace DGAIZone.Game.UI
 
         [Header("Level 2 Progress Bar")]
         [SerializeField] private Image level2FillImage; // Panel_Level2/Image_Bar/Image_Fill
-        [SerializeField] private float level2FillTweenDuration = 0.45f;
-        [SerializeField] private float level2FillOvershoot = 1.2f; // Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
+        [SerializeField] private float level2FillTweenDuration = 0.45f; // 3_Game.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float level2FillOvershoot = 1.2f; // 3_Game.json 로드 전까지의 폴백 기본값. Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
 
         [Header("Level 3 Gauges")]
         [SerializeField] private Image level3OxygenGauge;   // Panel_Level3/Group_O2/Image_CircleGage
         [SerializeField] private Image level3ElectricGauge; // Panel_Level3/Group_Electric/Image_CircleGage
         [SerializeField] private Image level3OxygenIcon;    // Panel_Level3/Group_O2/Image_Icon
         [SerializeField] private Image level3ElectricIcon;  // Panel_Level3/Group_Electric/Image_Icon
-        [SerializeField] private float level3GaugeTweenDuration = 0.4f;
-        [SerializeField] private float level3IconBlinkMinAlpha = 0.25f; // "또는" 선택 시 불안정하게 깜빡이는 최소 알파
-        [SerializeField] private float level3IconBlinkDuration = 0.12f; // 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
+        [SerializeField] private float level3GaugeTweenDuration = 0.4f; // 3_Game.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float level3IconBlinkMinAlpha = 0.25f; // 3_Game.json 로드 전까지의 폴백 기본값. "또는" 선택 시 불안정하게 깜빡이는 최소 알파
+        [SerializeField] private float level3IconBlinkDuration = 0.12f; // 3_Game.json 로드 전까지의 폴백 기본값. 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
 
         [Header("Activation")]
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
 
         [Header("Scene Transition")]
-        [SerializeField] private float sceneFadeDuration = 0.5f;
+        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
 
         private const string FuelIngredientName = "연료량";
         private const string EngineIngredientName = "추진체 종류";
@@ -116,6 +119,10 @@ namespace DGAIZone.Game.UI
         private R3.DisposableBag _disposables = new R3.DisposableBag();
         private Sequence _rightArrowSequence;
         private Tween _level2FillTween;
+
+        // 3_Game.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private GameSceneSettings _sceneSettings;
+        private CommonSettings _commonSettings;
 
         // 레벨 3 게이지(전기/산소) 상태. fillAmount는 애니메이션 도중일 수 있어 목표값을 별도로 추적함.
         private float _level3OxygenFill;
@@ -170,12 +177,20 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// JSON 설정파일을 로드하여 현재 레벨의 재료 진행 순서(steps)와 총 단계 수를 파악하고 슬롯을 준비함.
+        /// 3_Game.json(GameSceneSettings) 연출 타이밍도 함께 불러옴.
         /// </summary>
         private async UniTaskVoid InitializeWorkflowAsync()
         {
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
+
+            string sceneSettingsPath = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}";
+            UniTask<GameSceneSettings> sceneSettingsTask = JsonLoader.LoadAsync<GameSceneSettings>(sceneSettingsPath, token);
+            UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+            (_sceneSettings, _commonSettings) = await UniTask.WhenAll(sceneSettingsTask, commonTask);
+
             try
             {
-                var settings = await Wonjeong.Utils.JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
+                var settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
                 if (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0)
                 {
                     _stageReadCounts = settings.stageReadCounts;
@@ -256,8 +271,8 @@ namespace DGAIZone.Game.UI
             float target = Mathf.Clamp01((_designItems.Count - 1) / 4f);
 
             _level2FillTween?.Kill();
-            _level2FillTween = level2FillImage.DOFillAmount(target, level2FillTweenDuration)
-                .SetEase(Ease.OutBack, level2FillOvershoot);
+            _level2FillTween = level2FillImage.DOFillAmount(target, _sceneSettings?.level2FillTweenDuration ?? level2FillTweenDuration)
+                .SetEase(Ease.OutBack, _sceneSettings?.level2FillOvershoot ?? level2FillOvershoot);
         }
 
         /// <summary>
@@ -385,7 +400,7 @@ namespace DGAIZone.Game.UI
 
             _level3OxygenFill = Mathf.Clamp01(_level3OxygenFill + amount);
             _level3OxygenGaugeTween?.Kill();
-            _level3OxygenGaugeTween = level3OxygenGauge.DOFillAmount(_level3OxygenFill, level3GaugeTweenDuration)
+            _level3OxygenGaugeTween = level3OxygenGauge.DOFillAmount(_level3OxygenFill, _sceneSettings?.level3GaugeTweenDuration ?? level3GaugeTweenDuration)
                 .SetEase(Ease.OutQuad)
                 .OnUpdate(() => SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount))
                 .SetLink(level3OxygenGauge.gameObject);
@@ -401,7 +416,7 @@ namespace DGAIZone.Game.UI
 
             _level3ElectricFill = Mathf.Clamp01(_level3ElectricFill + amount);
             _level3ElectricGaugeTween?.Kill();
-            _level3ElectricGaugeTween = level3ElectricGauge.DOFillAmount(_level3ElectricFill, level3GaugeTweenDuration)
+            _level3ElectricGaugeTween = level3ElectricGauge.DOFillAmount(_level3ElectricFill, _sceneSettings?.level3GaugeTweenDuration ?? level3GaugeTweenDuration)
                 .SetEase(Ease.OutQuad)
                 .OnUpdate(() => SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount))
                 .SetLink(level3ElectricGauge.gameObject);
@@ -413,8 +428,9 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void StartLevel3IconInstability()
         {
-            StartIconBlink(level3OxygenIcon, ref _level3OxygenIconBlinkTween, level3IconBlinkDuration);
-            StartIconBlink(level3ElectricIcon, ref _level3ElectricIconBlinkTween, level3IconBlinkDuration * 1.4f);
+            float blinkDuration = _sceneSettings?.level3IconBlinkDuration ?? level3IconBlinkDuration;
+            StartIconBlink(level3OxygenIcon, ref _level3OxygenIconBlinkTween, blinkDuration);
+            StartIconBlink(level3ElectricIcon, ref _level3ElectricIconBlinkTween, blinkDuration * 1.4f);
         }
 
         /// <summary> 아이콘 하나를 알파 1~level3IconBlinkMinAlpha 사이로 무한 반복(Yoyo) 깜빡이게 함. </summary>
@@ -424,7 +440,7 @@ namespace DGAIZone.Game.UI
 
             tween?.Kill();
             SetImageAlpha(icon, 1f);
-            tween = icon.DOFade(level3IconBlinkMinAlpha, duration)
+            tween = icon.DOFade(_sceneSettings?.level3IconBlinkMinAlpha ?? level3IconBlinkMinAlpha, duration)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetEase(Ease.InOutSine)
                 .SetLink(icon.gameObject);
@@ -763,7 +779,7 @@ namespace DGAIZone.Game.UI
 
             _isBusy = true;
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}. {Constants.Scenes.Result} 씬으로 이동.");
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 
         /// <summary>
@@ -783,7 +799,7 @@ namespace DGAIZone.Game.UI
 
             _isBusy = true;
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 
         /// <summary>
@@ -983,7 +999,7 @@ namespace DGAIZone.Game.UI
             }
 
             bool isNumber = float.TryParse(value, out _);
-            return isNumber ? $"<size={numberFontSize}>{value}</size>" : value;
+            return isNumber ? $"<size={_sceneSettings?.numberFontSize ?? numberFontSize}>{value}</size>" : value;
         }
 
         /// <summary>
@@ -1012,8 +1028,8 @@ namespace DGAIZone.Game.UI
             SetRightArrowAlpha(1f);
 
             _rightArrowSequence = DOTween.Sequence();
-            _rightArrowSequence.Append(rightArrowImage.DOFillAmount(1f, rightArrowFillDuration));
-            _rightArrowSequence.Append(rightArrowImage.DOFade(0f, rightArrowFadeDuration));
+            _rightArrowSequence.Append(rightArrowImage.DOFillAmount(1f, _sceneSettings?.rightArrowFillDuration ?? rightArrowFillDuration));
+            _rightArrowSequence.Append(rightArrowImage.DOFade(0f, _sceneSettings?.rightArrowFadeDuration ?? rightArrowFadeDuration));
             _rightArrowSequence.AppendCallback(() =>
             {
                 rightArrowImage.fillAmount = 0f;

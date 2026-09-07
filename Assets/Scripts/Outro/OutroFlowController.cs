@@ -1,9 +1,12 @@
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Outro
@@ -14,11 +17,14 @@ namespace DGAIZone.Outro
     public class OutroFlowController : MonoBehaviour
     {
         [SerializeField] private Button homeButton;
-        [SerializeField] private float sceneFadeDuration = 0.5f;
+        [SerializeField] private float sceneFadeDuration = 0.5f; // 5_Outro.json 로드 전까지의 폴백 기본값
 
         private SceneTransitionService _sceneTransition;
         private ILogger<OutroFlowController> _logger;
         private bool _isBusy;
+
+        // 5_Outro.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private OutroSceneSettings _sceneSettings;
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
         [Inject]
@@ -28,11 +34,20 @@ namespace DGAIZone.Outro
             _logger = logger;
         }
 
-        /// <summary> 버튼 이벤트를 연결함. </summary>
+        /// <summary> 버튼 이벤트를 연결하고 5_Outro.json 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
             if (homeButton) homeButton.onClick.AddListener(OnHomeClicked);
             else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] homeButton이 null임.");
+
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary> 5_Outro.json(OutroSceneSettings)을 비동기로 로드함. </summary>
+        private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
+        {
+            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Outro}";
+            _sceneSettings = await JsonLoader.LoadAsync<OutroSceneSettings>(path, token);
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
@@ -53,7 +68,7 @@ namespace DGAIZone.Outro
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, _sceneSettings?.sceneFadeDuration ?? sceneFadeDuration).Forget();
         }
     }
 }

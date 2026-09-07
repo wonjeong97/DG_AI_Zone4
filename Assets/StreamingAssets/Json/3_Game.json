@@ -1,0 +1,17 @@
+{
+  "debugStartLevel": 0,
+  "idleHintDelay": 10.0,
+  "hintFadeDuration": 0.9,
+  "numberFontSize": 45.0,
+  "rightArrowFillDuration": 1.0,
+  "rightArrowFadeDuration": 0.5,
+  "level2FillTweenDuration": 0.45,
+  "level2FillOvershoot": 1.2,
+  "level3GaugeTweenDuration": 0.4,
+  "level3IconBlinkMinAlpha": 0.25,
+  "level3IconBlinkDuration": 0.12,
+  "fillTweenDuration": 0.5,
+  "previewBlinkFadeDuration": 0.8,
+  "previewBlinkMinAlpha": 0.5,
+  "previewApplyFadeDuration": 0.3
+}

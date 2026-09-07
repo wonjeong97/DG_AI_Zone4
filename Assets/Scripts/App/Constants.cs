@@ -24,7 +24,27 @@ namespace DGAIZone.App
             public const string Visitor = "Visitor.json";
         }
 
-        /// <summary> 스토리 텍스트가 한 줄씩 올라오는 연출 상수(타이틀/레벨 선택 공용). </summary>
+        /// <summary> 리소스 경로 및 Addressables 주소/라벨 상수. </summary>
+        public static class ResourcePaths
+        {
+            /// <summary> 씬별 연출 타이밍 JSON이 모여 있는 StreamingAssets 하위 폴더. </summary>
+            public const string SceneSettingsFolder = "Json";
+
+            /// <summary> 특정 씬이 아닌 공통 연출 타이밍(씬 전환 페이드 등)을 담는 JSON 파일명. </summary>
+            public const string CommonSettingsFileName = "00_Common";
+
+            /// <summary>
+            /// Addressables로 관리하는 TMP 폰트(SDF Font Asset)에 붙은 라벨. Assets/AddressableAssets/Fonts 하위 폰트들이
+            /// 이 라벨을 가지며, GameLifetimeScope가 부팅 시 이 라벨로 전부 불러와 MaterialReferenceManager에 등록해
+            /// TMP의 &lt;font="..."&gt; 태그가 해석되도록 함.
+            /// </summary>
+            public const string TmpFontLabel = "TMPFont";
+        }
+
+        /// <summary>
+        /// 스토리 텍스트가 한 줄씩 올라오는 연출 상수(타이틀/레벨 선택/아웃트로 공용).
+        /// 실제 값은 00_Common.json(Data.CommonSettings)에서 재빌드 없이 조정 가능하며, 여기 값은 로드 전/실패 시 폴백으로만 쓰임.
+        /// </summary>
         public static class StoryLine
         {
             /// <summary> 스토리 텍스트 각 줄이 올라오는 이동/페이드 연출 시간 (초, 크면 천천히 올라옴) </summary>

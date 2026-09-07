@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -10,6 +11,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Game
@@ -22,7 +24,7 @@ namespace DGAIZone.Game
         [SerializeField] private CanvasGroup storyPanel;
         [SerializeField] private CanvasGroup gamePanel;
         [SerializeField] private Button storyButton;
-        [SerializeField] private float panelFadeDuration = 0.4f;
+        [SerializeField] private float panelFadeDuration = 0.4f; // 00_Common.json 로드 전까지의 폴백 기본값
 
         [Header("Story Level")]
         [SerializeField] private Image storyImage;          // Image_Story
@@ -33,7 +35,7 @@ namespace DGAIZone.Game
 
         [Header("Debug (Editor Testing)")]
         [Range(0, 5)]
-        [SerializeField] private int debugStartLevel = 0; // 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정.
+        [SerializeField] private int debugStartLevel = 0; // 3_Game.json 로드 전까지의 폴백 기본값. 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정.
 
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<GameFlowController> _logger;
@@ -41,10 +43,13 @@ namespace DGAIZone.Game
         private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
 
+        // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private CommonSettings _commonSettings;
+
         /// <summary>
-        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. debugStartLevel이 설정되어 있으면(1~5)
-        /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
-        /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함.
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. 3_Game.json(GameSceneSettings)의 debugStartLevel을
+        /// 동기 로드해 곧바로 반영함 — 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에)
+        /// SelectedLevelStore에 반영해야 하므로 비동기 로드로는 순서를 보장할 수 없어 동기 API(JsonLoader.Load)를 사용함.
         /// </summary>
         [Inject]
         public void Construct(SelectedLevelStore selectedLevelStore, ILogger<GameFlowController> logger)
@@ -52,14 +57,18 @@ namespace DGAIZone.Game
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
 
-            if (debugStartLevel > 0 && _selectedLevelStore != null)
+            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}";
+            GameSceneSettings sceneSettings = JsonLoader.Load<GameSceneSettings>(path);
+            int resolvedDebugStartLevel = sceneSettings?.debugStartLevel ?? debugStartLevel;
+
+            if (resolvedDebugStartLevel > 0 && _selectedLevelStore != null)
             {
-                _selectedLevelStore.SelectedLevel = debugStartLevel;
-                if (_logger != null) _logger.ZLogInformation($"[GameFlowController] 디버그 시작 레벨 오버라이드 적용됨: {debugStartLevel}");
+                _selectedLevelStore.SelectedLevel = resolvedDebugStartLevel;
+                if (_logger != null) _logger.ZLogInformation($"[GameFlowController] 디버그 시작 레벨 오버라이드 적용됨: {resolvedDebugStartLevel}");
             }
         }
 
-        /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리/상황 패널을 설정한 뒤 버튼 이벤트를 연결함. </summary>
+        /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리/상황 패널을 설정한 뒤 버튼 이벤트를 연결하고 00_Common.json을 비동기로 불러옴. </summary>
         private void Start()
         {
             ApplyPanelState(gamePanel, true);
@@ -72,6 +81,14 @@ namespace DGAIZone.Game
 
             if (storyButton) storyButton.onClick.AddListener(OnStoryClicked);
             else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyButton이 null임.");
+
+            LoadCommonSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary> 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
+        private async UniTaskVoid LoadCommonSettingsAsync(CancellationToken token)
+        {
+            _commonSettings = await CommonSettingsProvider.GetAsync(token);
         }
 
         /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 게임 패널로 전환함. </summary>
@@ -157,17 +174,18 @@ namespace DGAIZone.Game
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
+            float duration = _commonSettings?.panelFadeDuration ?? panelFadeDuration;
             try
             {
                 if (storyPanel)
                 {
-                    await FadeCanvasGroupAsync(storyPanel, 1f, 0f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(storyPanel, 1f, 0f, duration, token);
                     ApplyPanelState(storyPanel, false);
                 }
 
                 if (gamePanel)
                 {
-                    await FadeCanvasGroupAsync(gamePanel, 0f, 1f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(gamePanel, 0f, 1f, duration, token);
                     ApplyPanelState(gamePanel, true);
                 }
             }
@@ -187,17 +205,18 @@ namespace DGAIZone.Game
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
+            float duration = _commonSettings?.panelFadeDuration ?? panelFadeDuration;
             try
             {
                 if (gamePanel)
                 {
-                    await FadeCanvasGroupAsync(gamePanel, 1f, 0f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(gamePanel, 1f, 0f, duration, token);
                     ApplyPanelState(gamePanel, false);
                 }
 
                 if (storyPanel)
                 {
-                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
                 }
             }

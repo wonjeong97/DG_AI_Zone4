@@ -4,12 +4,14 @@ using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Intro
@@ -25,8 +27,8 @@ namespace DGAIZone.Intro
         [SerializeField] private CanvasGroup tutorialPanel;
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private Button understandButton;
-        [SerializeField] private float crossFadeDuration = 0.4f;
-        [SerializeField] private float sceneFadeDuration = 0.5f;
+        [SerializeField] private float crossFadeDuration = 0.4f; // 1_Intro.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
 
         private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함
 
@@ -38,6 +40,10 @@ namespace DGAIZone.Intro
         private bool _isTextAnimating;
         private bool _skipStoryRequested;
         private Color _originalStoryColor;
+
+        // 1_Intro.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private IntroSceneSettings _sceneSettings;
+        private CommonSettings _commonSettings;
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거를 할당함. </summary>
         [Inject]
@@ -72,15 +78,24 @@ namespace DGAIZone.Intro
         }
 
         /// <summary>
-        /// 체험자 이름을 불러와 storyText 안의 "체험자" 자리표시자를 실제 이름으로 교체한 뒤,
-        /// 줄별로 올라오는 등장 연출을 시작함. 알파가 이미 0으로 설정돼 있어(Start에서) 이름을
-        /// 불러오는 동안에도 자리표시자 텍스트가 잠깐 보이는 일은 없음.
+        /// 1_Intro.json/00_Common.json 연출 타이밍을 불러오고, 체험자 이름을 불러와 storyText 안의 "체험자" 자리표시자를
+        /// 실제 이름으로 교체한 뒤, storyTextStartDelay만큼 대기했다가 줄별로 올라오는 등장 연출을 시작함. 알파가 이미
+        /// 0으로 설정돼 있어(Start에서) 이름을 불러오는 동안에도 자리표시자 텍스트가 잠깐 보이는 일은 없음.
         /// </summary>
         private async UniTaskVoid InitializeStoryTextAsync(CancellationToken token)
         {
             try
             {
+                string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Intro}";
+                UniTask<IntroSceneSettings> settingsTask = JsonLoader.LoadAsync<IntroSceneSettings>(path, token);
+                UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+
+                (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
+
                 await ApplyVisitorNameAsync(token);
+
+                float startDelay = _sceneSettings?.storyTextStartDelay ?? 0f;
+                if (startDelay > 0f) await UniTask.Delay(TimeSpan.FromSeconds(startDelay), cancellationToken: token);
             }
             catch (OperationCanceledException) { }
 
@@ -145,7 +160,7 @@ namespace DGAIZone.Intro
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.LevelSelect, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.LevelSelect, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 
         /// <summary> 인트로 패널을 페이드아웃한 뒤 튜토리얼 패널을 페이드인하는 크로스페이드 실행. </summary>
@@ -154,17 +169,18 @@ namespace DGAIZone.Intro
             _isBusy = true;
             _isIntroActive = false;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
+            float duration = _sceneSettings?.crossFadeDuration ?? crossFadeDuration;
             try
             {
                 if (introPanel)
                 {
-                    await FadeCanvasGroupAsync(introPanel, 1f, 0f, crossFadeDuration, token);
+                    await FadeCanvasGroupAsync(introPanel, 1f, 0f, duration, token);
                     ApplyPanelState(introPanel, false);
                 }
 
                 if (tutorialPanel)
                 {
-                    await FadeCanvasGroupAsync(tutorialPanel, 0f, 1f, crossFadeDuration, token);
+                    await FadeCanvasGroupAsync(tutorialPanel, 0f, 1f, duration, token);
                     ApplyPanelVisibility(tutorialPanel, true);
                 }
             }
@@ -212,9 +228,9 @@ namespace DGAIZone.Intro
             try
             {
                 await StoryLineAnimator.AnimateAsync(storyText,
-                    Constants.StoryLine.StoryLineMoveDuration,
-                    Constants.StoryLine.StoryLineInterval,
-                    Constants.StoryLine.StoryLineYOffset,
+                    _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
+                    _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
+                    _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
                     () => _skipStoryRequested, token);
             }
             catch (OperationCanceledException) { }

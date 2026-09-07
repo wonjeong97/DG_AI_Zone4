@@ -3,12 +3,14 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.LevelSelect
@@ -27,14 +29,18 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Image storyImage;           // Image_Story
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
-        [SerializeField] private int unlockedLevelCount = 1; // 앞에서부터 열린 레벨 수
-        [SerializeField] private float panelFadeDuration = 0.4f;
-        [SerializeField] private float sceneFadeDuration = 0.5f;
+        [SerializeField] private int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수)
+        [SerializeField] private float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
         private bool _isBusy;
+
+        // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private LevelSelectSceneSettings _sceneSettings;
+        private CommonSettings _commonSettings;
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거를 할당함. </summary>
         [Inject]
@@ -45,7 +51,7 @@ namespace DGAIZone.LevelSelect
             _logger = logger;
         }
 
-        /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정함. </summary>
+        /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
             ApplyPanelState(levelSelectPanel, true);
@@ -73,11 +79,36 @@ namespace DGAIZone.LevelSelect
                     continue;
                 }
 
-                bool unlocked = i < unlockedLevelCount;
-                ApplyLockState(button, unlocked);
-
                 int index = i;
                 button.onClick.AddListener(() => OnLevelClicked(index));
+            }
+
+            // 폴백 unlockedLevelCount로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
+            // 로드가 끝나면 실제 값으로 다시 적용함
+            ApplyLevelButtonLocks(unlockedLevelCount);
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary> 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함. </summary>
+        private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
+        {
+            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.LevelSelect}";
+            UniTask<LevelSelectSceneSettings> settingsTask = JsonLoader.LoadAsync<LevelSelectSceneSettings>(path, token);
+            UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+
+            (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
+
+            ApplyLevelButtonLocks(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
+        }
+
+        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
+        private void ApplyLevelButtonLocks(int count)
+        {
+            if (levelButtons == null) return;
+
+            for (int i = 0; i < levelButtons.Length; i++)
+            {
+                if (levelButtons[i] != null) ApplyLockState(levelButtons[i], i < count);
             }
         }
 
@@ -105,7 +136,7 @@ namespace DGAIZone.LevelSelect
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 
         /// <summary> 버튼의 잠금 여부에 따라 상호작용 가능 상태와 흑백 머티리얼을 적용함. </summary>
@@ -132,7 +163,7 @@ namespace DGAIZone.LevelSelect
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
-            if (index < 0 || index >= unlockedLevelCount) return;
+            if (index < 0 || index >= (_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount)) return;
 
             if (_selectedLevelStore != null)
             {
@@ -179,24 +210,25 @@ namespace DGAIZone.LevelSelect
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
+            float duration = _sceneSettings?.panelFadeDuration ?? panelFadeDuration;
             try
             {
                 if (levelSelectPanel && levelSelectPanel.gameObject.activeInHierarchy)
                 {
-                    await FadeCanvasGroupAsync(levelSelectPanel, 1f, 0f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(levelSelectPanel, 1f, 0f, duration, token);
                     ApplyPanelState(levelSelectPanel, false);
                 }
 
                 if (storyPanel)
                 {
-                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
                 }
 
                 await StoryLineAnimator.AnimateAsync(storyText,
-                    Constants.StoryLine.StoryLineMoveDuration,
-                    Constants.StoryLine.StoryLineInterval,
-                    Constants.StoryLine.StoryLineYOffset,
+                    _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
+                    _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
+                    _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
                     IsSkipRequested, token);
 
                 if (startButton != null) startButton.interactable = true;

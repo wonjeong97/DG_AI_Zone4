@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
+using DGAIZone.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -20,6 +21,9 @@ namespace DGAIZone.Outro
 
         private bool _isAnimating;
         private bool _skipRequested;
+
+        // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 Constants.StoryLine 폴백 값을 그대로 사용함
+        private CommonSettings _commonSettings;
 
         /// <summary> 스토리 텍스트를 한 줄씩 올라오는 연출로 표시함. </summary>
         private void Start()
@@ -42,17 +46,19 @@ namespace DGAIZone.Outro
             if (_isAnimating) _skipRequested = true;
         }
 
-        /// <summary> 공용 유틸로 스토리 텍스트를 한 줄씩 올리는 연출을 실행하고, 끝나면 홈 버튼을 활성화함. </summary>
+        /// <summary> 00_Common.json 연출 타이밍을 불러온 뒤 공용 유틸로 스토리 텍스트를 한 줄씩 올리는 연출을 실행하고, 끝나면 홈 버튼을 활성화함. </summary>
         private async UniTaskVoid AnimateStoryAsync(CancellationToken token)
         {
             _isAnimating = true;
             _skipRequested = false;
             try
             {
+                _commonSettings = await CommonSettingsProvider.GetAsync(token);
+
                 await StoryLineAnimator.AnimateAsync(storyText,
-                    Constants.StoryLine.StoryLineMoveDuration,
-                    Constants.StoryLine.StoryLineInterval,
-                    Constants.StoryLine.StoryLineYOffset,
+                    _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
+                    _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
+                    _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
                     () => _skipRequested, token);
 
                 OnFullyShown();
