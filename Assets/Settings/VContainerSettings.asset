@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9cf4d8df1d704d5689f3c69bd70d1cb9, type: 3}
+  m_Script: {fileID: 0}
   m_Name: VContainerSettings
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: VContainer:VContainer.Unity:VContainerSettings
   RootLifetimeScope: {fileID: 7621887946588076676, guid: 487f15dd76a19ed468972bbef7391948,
     type: 3}
   EnableDiagnostics: 0
