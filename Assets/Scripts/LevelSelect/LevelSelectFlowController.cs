@@ -255,7 +255,8 @@ namespace DGAIZone.LevelSelect
             group.blocksRaycasts = false;
 
             await group.DOFade(endAlpha, duration)
-                .SetEase(Ease.InOutQuad)
+                .SetEase(Ease.Linear)
+                .SetUpdate(true) // Zone1과 동일하게 Time.timeScale과 무관하게 동작하도록 함
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
