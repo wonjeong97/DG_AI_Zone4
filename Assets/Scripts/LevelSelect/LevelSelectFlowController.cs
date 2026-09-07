@@ -32,6 +32,11 @@ namespace DGAIZone.LevelSelect
         private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float selectedLevelButtonMoveDuration = 1.0f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+
+        // 선택된 레벨 버튼이 storyPanel 바깥에서 이동해 안착하는 위치 (Zone1 StoryManager와 동일한 방식)
+        private static readonly Vector2 SelectedLevelButtonPosition = new(-932f, 224f);
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
@@ -56,6 +61,9 @@ namespace DGAIZone.LevelSelect
         {
             ApplyPanelState(levelSelectPanel, true);
             ApplyPanelState(storyPanel, false);
+
+            // 선택된 레벨 버튼이 날아와서 표시되므로 스토리 이미지 플레이스홀더는 숨겨둠
+            if (storyImage != null) storyImage.gameObject.SetActive(false);
 
             // 시작 버튼은 스토리 타이핑이 끝나기 전까지 누를 수 없음
             if (startButton != null)
@@ -159,7 +167,7 @@ namespace DGAIZone.LevelSelect
             }
         }
 
-        /// <summary> 열린 레벨 버튼 클릭 시 스토리 이미지/레벨을 갱신하고 패널을 크로스페이드함. </summary>
+        /// <summary> 열린 레벨 버튼 클릭 시 선택한 버튼을 분리해 스토리 영역으로 트윈 이동시키고 패널을 전환함 (Zone1과 동일한 연출). </summary>
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
@@ -176,10 +184,23 @@ namespace DGAIZone.LevelSelect
 
             if (startButton != null) startButton.interactable = false;
 
-            if (storyImage != null && levelButtons[index] != null)
+            // 선택한 레벨 버튼을 클릭 즉시 두 패널(levelSelectPanel·storyPanel) 바깥의 공통 부모로 옮김.
+            // 두 패널 모두 CanvasGroup으로 페이드되는데, 그 자식으로 두면 페이드 도중 알파 블렌딩 때문에
+            // 이미지가 흐릿하게 보여서, 페이드에 영향받지 않는 위치로 미리 빼둔다.
+            // levelSelectPanel·storyPanel은 같은 부모 안에서 정확히 같은 영역을 꽉 채우고 있어 좌표계가 동일하므로
+            // 이동해도 시각적으로 튀지 않는다. 실제 이동은 storyPanel이 페이드인되는 시점에 맞춰 트윈으로 처리한다 (Zone1 StoryManager와 동일한 방식).
+            RectTransform selectedButtonRect = null;
+            if (levelButtons != null && index < levelButtons.Length && levelButtons[index] != null)
             {
-                storyImage.sprite = levelButtons[index].image != null ? levelButtons[index].image.sprite : null;
-                if (storyImage.sprite != null) storyImage.SetNativeSize();
+                selectedButtonRect = (RectTransform)levelButtons[index].transform;
+                selectedButtonRect.SetParent(storyPanel.transform.parent, worldPositionStays: false);
+                levelButtons[index].interactable = false;
+
+                // 버튼에 달려있던 별(Image_StarN) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
+                foreach (Transform child in selectedButtonRect)
+                {
+                    child.gameObject.SetActive(false);
+                }
             }
 
             TMP_Text storyText = null;
@@ -202,11 +223,11 @@ namespace DGAIZone.LevelSelect
                 }
             }
 
-            SwitchToStoryAsync(storyText).Forget();
+            SwitchToStoryAsync(storyText, selectedButtonRect).Forget();
         }
 
-        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 스토리 텍스트가 한 줄씩 올라오는 연출이 끝나면 시작 버튼을 활성화함. </summary>
-        private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText)
+        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 선택된 버튼을 목표 위치로 이동시키며, 스토리 텍스트 연출이 끝나면 시작 버튼을 활성화함. </summary>
+        private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText, RectTransform selectedButtonRect)
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
@@ -221,6 +242,21 @@ namespace DGAIZone.LevelSelect
 
                 if (storyPanel)
                 {
+                    // storyPanel이 페이드인되는 동안 선택된 레벨 버튼도 함께 제자리로 튀어 들어오도록(OutBack) 이동.
+                    // 이동 시간·반동 크기는 2_LevelSelect.json의 selectedLevelButtonMoveDuration/selectedLevelButtonMoveOvershoot로 재빌드 없이 조정 가능.
+                    // 페이드와 동시에 진행되어야 하므로 의도적으로 await하지 않는다.
+                    if (selectedButtonRect != null)
+                    {
+                        Vector2 targetPos = storyImage != null ? storyImage.rectTransform.anchoredPosition : SelectedLevelButtonPosition;
+                        float moveDuration = _sceneSettings?.selectedLevelButtonMoveDuration ?? selectedLevelButtonMoveDuration;
+                        float overshoot = _sceneSettings?.selectedLevelButtonMoveOvershoot ?? selectedLevelButtonMoveOvershoot;
+
+                        _ = selectedButtonRect.DOAnchorPos(targetPos, moveDuration)
+                            .SetEase(Ease.OutBack, overshoot)
+                            .SetUpdate(true)
+                            .SetLink(selectedButtonRect.gameObject);
+                    }
+
                     await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
                 }
