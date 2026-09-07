@@ -77,13 +77,35 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8ccbf66e76a5ff1469236375d98d03dd
+    m_Address: DungGeunMo SDF
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - TMPFont
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9fae74a415518db4f941a00b0d8b78e4
+    m_Address: GamtanRoadTantan
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: cb6fcf7d95a77854980002a07ea24c59
     m_Address: Level4
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d0d2f5797b1d2f34ea9ffb7c01ef8fd6
+    m_Address: GamtanRoadTantan SDF
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - TMPFont
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f0aea1271a99d3a4eb78f08281fdf297
     m_Address: Tutorial6
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f0e495bff2dacb44694ba158900cd30d
+    m_Address: DungGeunMo
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -3,10 +3,12 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Result
@@ -20,12 +22,16 @@ namespace DGAIZone.Result
         [SerializeField] private CanvasGroup completePanel;
         [SerializeField] private Button resultNextButton;
         [SerializeField] private Button completeNextButton;
-        [SerializeField] private float panelFadeDuration = 0.4f;
-        [SerializeField] private float sceneFadeDuration = 0.5f;
+        [SerializeField] private float panelFadeDuration = 0.4f; // 4_Result.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
 
         private SceneTransitionService _sceneTransition;
         private ILogger<ResultFlowController> _logger;
         private bool _isBusy;
+
+        // 4_Result.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private ResultSceneSettings _sceneSettings;
+        private CommonSettings _commonSettings;
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
         [Inject]
@@ -35,7 +41,7 @@ namespace DGAIZone.Result
             _logger = logger;
         }
 
-        /// <summary> 초기 패널 상태(결과 표시, 컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. </summary>
+        /// <summary> 초기 패널 상태(결과 표시, 컴플리트 숨김)를 적용하고 버튼 이벤트를 연결한 뒤 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
             ApplyPanelState(resultPanel, true);
@@ -46,6 +52,18 @@ namespace DGAIZone.Result
 
             if (completeNextButton) completeNextButton.onClick.AddListener(OnCompleteNextClicked);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null임.");
+
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary> 4_Result.json(ResultSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
+        private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
+        {
+            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Result}";
+            UniTask<ResultSceneSettings> settingsTask = JsonLoader.LoadAsync<ResultSceneSettings>(path, token);
+            UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+
+            (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
@@ -80,7 +98,7 @@ namespace DGAIZone.Result
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Outro, sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Outro, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 
         /// <summary> 결과 패널을 페이드아웃한 뒤 컴플리트 패널을 페이드인하는 크로스페이드. </summary>
@@ -88,17 +106,18 @@ namespace DGAIZone.Result
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
+            float duration = _sceneSettings?.panelFadeDuration ?? panelFadeDuration;
             try
             {
                 if (resultPanel && resultPanel.gameObject.activeInHierarchy)
                 {
-                    await FadeCanvasGroupAsync(resultPanel, 1f, 0f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(resultPanel, 1f, 0f, duration, token);
                     ApplyPanelState(resultPanel, false);
                 }
 
                 if (completePanel)
                 {
-                    await FadeCanvasGroupAsync(completePanel, 0f, 1f, panelFadeDuration, token);
+                    await FadeCanvasGroupAsync(completePanel, 0f, 1f, duration, token);
                     ApplyPanelState(completePanel, true);
                 }
             }

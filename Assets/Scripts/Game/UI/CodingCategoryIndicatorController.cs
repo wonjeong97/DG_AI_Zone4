@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using DGAIZone.Data;
 using DGAIZone.Game.Events;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
@@ -35,13 +38,16 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Image imageFuncOverlay; // Image_Func_GrayscaleOverlay
 
         [Header("Next Category Hint")]
-        [SerializeField] private float idleHintDelay = 10f;      // 카드를 이 시간(초) 이상 올려놓지 않으면 힌트 페이드를 시작함
-        [SerializeField] private float hintFadeDuration = 0.9f;  // 색상 <-> 흑백 한쪽 방향 전환에 걸리는 시간
+        [SerializeField] private float idleHintDelay = 10f;      // 3_Game.json 로드 전까지의 폴백 기본값. 카드를 이 시간(초) 이상 올려놓지 않으면 힌트 페이드를 시작함
+        [SerializeField] private float hintFadeDuration = 0.9f;  // 3_Game.json 로드 전까지의 폴백 기본값. 색상 <-> 흑백 한쪽 방향 전환에 걸리는 시간
 
         private ISubscriber<RfidTagEvent> _subscriber;
         private ILogger<CodingCategoryIndicatorController> _logger;
         private IDisposable _subscription;
         private readonly List<Tween> _hintTweens = new List<Tween>();
+
+        // 3_Game.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
+        private GameSceneSettings _sceneSettings;
 
         /// <summary> VContainer 의존성 주입. MessagePipe 구독자와 로거를 할당함. </summary>
         [Inject]
@@ -51,7 +57,7 @@ namespace DGAIZone.Game.UI
             _logger = logger;
         }
 
-        /// <summary> 시작 시 네 이미지를 모두 흑백으로 두고 RFID 태그 이벤트를 구독함. </summary>
+        /// <summary> 시작 시 네 이미지를 모두 흑백으로 두고 RFID 태그 이벤트를 구독한 뒤 3_Game.json 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
             HighlightCategory(null);
@@ -64,6 +70,14 @@ namespace DGAIZone.Game.UI
             {
                 _logger.ZLogWarning($"[CodingCategoryIndicatorController] subscriber가 null이라 카테고리 강조 표시가 비활성화됨.");
             }
+
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary> 3_Game.json(GameSceneSettings)을 GameSceneSettingsProvider를 통해 비동기로 불러옴(씬 내 다른 컨트롤러와 로드를 공유함). </summary>
+        private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
+        {
+            _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
         /// <summary> RFID 태그 인식 시 해당 카드의 category만 색을 표시하고 나머지는 흑백으로 되돌림. 진행 중이던 힌트 페이드는 중단됨. </summary>
@@ -149,8 +163,8 @@ namespace DGAIZone.Game.UI
         private void StartBreathing(Image overlay)
         {
             SetAlpha(overlay, 1f);
-            Tween tween = overlay.DOFade(0f, hintFadeDuration)
-                .SetDelay(idleHintDelay)
+            Tween tween = overlay.DOFade(0f, _sceneSettings?.hintFadeDuration ?? hintFadeDuration)
+                .SetDelay(_sceneSettings?.idleHintDelay ?? idleHintDelay)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetEase(Ease.InOutSine)
                 .SetLink(gameObject);
