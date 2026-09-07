@@ -4,14 +4,12 @@ namespace DGAIZone.Data
 {
     /// <summary>
     /// StreamingAssets/Json/3_Game.json 매핑 — 3_Game 씬의 연출 타이밍과 조작 감도.
-    /// GameFlowController, CodingCategoryIndicatorController, IngredientSelectionController, MissionBoardController가 함께 참조함.
+    /// CodingCategoryIndicatorController, IngredientSelectionController, MissionBoardController가 함께 참조함.
+    /// (GameFlowController의 debugStartLevel은 에디터 테스트 전용이라 JSON으로 분리하지 않고 인스펙터 값만 사용함)
     /// </summary>
     [Serializable]
     public class GameSceneSettings
     {
-        /// <summary> 에디터 테스트용 기본 레벨(0=사용 안 함, 1~5면 2_LevelSelect를 거치지 않고 이 레벨로 강제 설정). </summary>
-        public int debugStartLevel = 0;
-
         /// <summary> 카드를 이 시간(초) 이상 올려놓지 않으면 다음 카테고리 힌트 페이드가 시작됨. </summary>
         public float idleHintDelay = 10.0f;
 

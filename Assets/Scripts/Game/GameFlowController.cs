@@ -11,7 +11,6 @@ using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Game
@@ -35,7 +34,7 @@ namespace DGAIZone.Game
 
         [Header("Debug (Editor Testing)")]
         [Range(0, 5)]
-        [SerializeField] private int debugStartLevel = 0; // 3_Game.json 로드 전까지의 폴백 기본값. 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정.
+        [SerializeField] private int debugStartLevel = 0; // 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
 
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<GameFlowController> _logger;
@@ -47,9 +46,9 @@ namespace DGAIZone.Game
         private CommonSettings _commonSettings;
 
         /// <summary>
-        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. 3_Game.json(GameSceneSettings)의 debugStartLevel을
-        /// 동기 로드해 곧바로 반영함 — 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에)
-        /// SelectedLevelStore에 반영해야 하므로 비동기 로드로는 순서를 보장할 수 없어 동기 API(JsonLoader.Load)를 사용함.
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. debugStartLevel이 설정되어 있으면(1~5)
+        /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
+        /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함.
         /// </summary>
         [Inject]
         public void Construct(SelectedLevelStore selectedLevelStore, ILogger<GameFlowController> logger)
@@ -57,14 +56,10 @@ namespace DGAIZone.Game
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
 
-            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}";
-            GameSceneSettings sceneSettings = JsonLoader.Load<GameSceneSettings>(path);
-            int resolvedDebugStartLevel = sceneSettings?.debugStartLevel ?? debugStartLevel;
-
-            if (resolvedDebugStartLevel > 0 && _selectedLevelStore != null)
+            if (debugStartLevel > 0 && _selectedLevelStore != null)
             {
-                _selectedLevelStore.SelectedLevel = resolvedDebugStartLevel;
-                if (_logger != null) _logger.ZLogInformation($"[GameFlowController] 디버그 시작 레벨 오버라이드 적용됨: {resolvedDebugStartLevel}");
+                _selectedLevelStore.SelectedLevel = debugStartLevel;
+                if (_logger != null) _logger.ZLogInformation($"[GameFlowController] 디버그 시작 레벨 오버라이드 적용됨: {debugStartLevel}");
             }
         }
 
