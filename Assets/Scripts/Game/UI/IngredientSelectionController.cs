@@ -128,6 +128,7 @@ namespace DGAIZone.Game.UI
         private Sequence _rightArrowSequence;
         private Tween _level2FillTween;
         private Sequence _warningSequence;
+        private CancellationTokenSource _warningCts;
 
         // 3_Game.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private GameSceneSettings _sceneSettings;
@@ -577,7 +578,12 @@ namespace DGAIZone.Game.UI
         {
             if (warningPanel == null) return;
 
-            CancellationToken token = this.GetCancellationTokenOnDestroy();
+            // 이전 호출의 UniTask.Delay 등 진행 중이던 비동기 흐름을 확실히 취소함(_warningSequence.Kill()만으로는
+            // DOTween 트윈만 멈출 뿐, 이전 호출이 대기 중인 await까지 중단시키진 못해 레이스 컨디션이 발생할 수 있음).
+            _warningCts?.Cancel();
+            _warningCts?.Dispose();
+            _warningCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+            CancellationToken token = _warningCts.Token;
             float fadeDuration = _sceneSettings?.warningFadeDuration ?? warningFadeDuration;
 
             try
@@ -1115,7 +1121,7 @@ namespace DGAIZone.Game.UI
 
             for (int i = 0; i < rightArrowImages.Length; i++) SetImageAlpha(rightArrowImages[i], 0f);
 
-            _rightArrowSequence = DOTween.Sequence();
+            _rightArrowSequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject);
             for (int i = 0; i < rightArrowImages.Length; i++)
             {
                 _rightArrowSequence.Append(rightArrowImages[i].DOFade(1f, stepDuration));
@@ -1168,6 +1174,8 @@ namespace DGAIZone.Game.UI
 
             _rightArrowSequence?.Kill();
             _warningSequence?.Kill();
+            _warningCts?.Cancel();
+            _warningCts?.Dispose();
             _level2FillTween?.Kill();
             _level3OxygenGaugeTween?.Kill();
             _level3ElectricGaugeTween?.Kill();

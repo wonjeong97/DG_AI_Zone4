@@ -20,10 +20,13 @@ namespace DGAIZone.App
 
         /// <summary>
         /// 00_Common.json을 로드하여 반환함. 이미 로드를 시작했다면(완료 여부 무관) 그 결과를 그대로 공유함.
-        /// 여러 호출자가 동시에 불러도 안전함(로드 자체는 한 번만 실행됨).
+        /// 여러 호출자가 동시에 불러도 안전함(로드 자체는 한 번만 실행됨). 이미 로드가 끝난 뒤의 호출은
+        /// WaitUntil 폴링 없이 캐시된 값을 즉시 반환함.
         /// </summary>
         public static async UniTask<CommonSettings> GetAsync(CancellationToken cancellationToken = default)
         {
+            if (_isLoaded) return _cached;
+
             if (!_isLoadStarted)
             {
                 _isLoadStarted = true;
@@ -36,9 +39,23 @@ namespace DGAIZone.App
 
         private static async UniTaskVoid LoadAndCacheAsync()
         {
-            _cached = await JsonLoader.LoadAsync<CommonSettings>(
-                $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.ResourcePaths.CommonSettingsFileName}");
-            _isLoaded = true;
+            try
+            {
+                _cached = await JsonLoader.LoadAsync<CommonSettings>(
+                    $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.ResourcePaths.CommonSettingsFileName}");
+            }
+            catch (System.Exception e)
+            {
+                // JsonLoader.LoadAsync는 내부적으로 예외를 잡아 기본값을 반환하므로 정상적으로는 여기 도달하지 않지만,
+                // 혹시라도 예외가 새어 나오면 _isLoaded가 영영 true가 되지 않아 GetAsync 호출자 전원이 무한 대기하게
+                // 되므로, 폴백 기본값으로라도 로드를 완료 처리함.
+                UnityEngine.Debug.LogError($"[CommonSettingsProvider] 00_Common.json 로드 실패, 기본값으로 대체함: {e.Message}");
+                _cached = new CommonSettings();
+            }
+            finally
+            {
+                _isLoaded = true;
+            }
         }
     }
 }

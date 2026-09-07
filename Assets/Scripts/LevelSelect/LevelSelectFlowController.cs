@@ -281,7 +281,16 @@ namespace DGAIZone.LevelSelect
             if (levelButtons != null && index < levelButtons.Length && levelButtons[index] != null)
             {
                 selectedButtonRect = (RectTransform)levelButtons[index].transform;
-                selectedButtonRect.SetParent(selectedLevelButtonParent, worldPositionStays: false);
+
+                // selectedLevelButtonParent가 인스펙터에 할당되지 않았으면 씬 루트(부모 없음)로 빠져 캔버스 밖으로
+                // 이탈할 수 있으므로, storyPanel의 부모를 폴백으로 사용함.
+                Transform targetParent = selectedLevelButtonParent != null ? (Transform)selectedLevelButtonParent : storyPanel.transform.parent;
+                if (selectedLevelButtonParent == null && _logger != null)
+                {
+                    _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelButtonParent가 null이라 storyPanel의 부모로 대체함.");
+                }
+
+                selectedButtonRect.SetParent(targetParent, worldPositionStays: false);
                 levelButtons[index].interactable = false;
 
                 // 버튼에 달려있던 별(Image_StarN) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
