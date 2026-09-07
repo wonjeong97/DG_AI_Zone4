@@ -23,7 +23,8 @@ namespace DGAIZone.Game
         [SerializeField] private CanvasGroup storyPanel;
         [SerializeField] private CanvasGroup gamePanel;
         [SerializeField] private Button storyButton;
-        [SerializeField] private float panelFadeDuration = 0.4f; // 00_Common.json 로드 전까지의 폴백 기본값
+
+        private readonly float panelFadeDuration = 0.4f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         [Header("Story Level")]
         [SerializeField] private Image storyImage;          // Image_Story

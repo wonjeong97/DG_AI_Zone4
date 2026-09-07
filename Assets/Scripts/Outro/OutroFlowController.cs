@@ -16,7 +16,8 @@ namespace DGAIZone.Outro
     public class OutroFlowController : MonoBehaviour
     {
         [SerializeField] private Button homeButton;
-        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
+
+        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private SceneTransitionService _sceneTransition;
         private ILogger<OutroFlowController> _logger;

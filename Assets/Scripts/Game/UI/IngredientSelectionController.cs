@@ -28,14 +28,11 @@ namespace DGAIZone.Game.UI
         [Header("UI References")]
         [SerializeField] private TMP_Text textIngredient; // Text_Material
         [SerializeField] private TMP_Text textMatter; // Text_Matter
-        [SerializeField] private float numberFontSize = 45f; // 3_Game.json 로드 전까지의 폴백 기본값. Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
 
         [Header("Right Arrow Hint")]
         [SerializeField] private Image rightArrowImage; // Image_RightArrow
-        [SerializeField] private float rightArrowFillDuration = 1.0f; // 3_Game.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float rightArrowFadeDuration = 0.5f; // 3_Game.json 로드 전까지의 폴백 기본값
 
         [Header("Workflow Buttons")]
         [SerializeField] private Button buttonConfirm;
@@ -53,23 +50,26 @@ namespace DGAIZone.Game.UI
 
         [Header("Level 2 Progress Bar")]
         [SerializeField] private Image level2FillImage; // Panel_Level2/Image_Bar/Image_Fill
-        [SerializeField] private float level2FillTweenDuration = 0.45f; // 3_Game.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float level2FillOvershoot = 1.2f; // 3_Game.json 로드 전까지의 폴백 기본값. Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
 
         [Header("Level 3 Gauges")]
         [SerializeField] private Image level3OxygenGauge;   // Panel_Level3/Group_O2/Image_CircleGage
         [SerializeField] private Image level3ElectricGauge; // Panel_Level3/Group_Electric/Image_CircleGage
         [SerializeField] private Image level3OxygenIcon;    // Panel_Level3/Group_O2/Image_Icon
         [SerializeField] private Image level3ElectricIcon;  // Panel_Level3/Group_Electric/Image_Icon
-        [SerializeField] private float level3GaugeTweenDuration = 0.4f; // 3_Game.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float level3IconBlinkMinAlpha = 0.25f; // 3_Game.json 로드 전까지의 폴백 기본값. "또는" 선택 시 불안정하게 깜빡이는 최소 알파
-        [SerializeField] private float level3IconBlinkDuration = 0.12f; // 3_Game.json 로드 전까지의 폴백 기본값. 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
 
         [Header("Activation")]
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
 
-        [Header("Scene Transition")]
-        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
+        // 3_Game.json / 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float numberFontSize = 45f; // Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
+        private readonly float rightArrowFillDuration = 1.0f;
+        private readonly float rightArrowFadeDuration = 0.5f;
+        private readonly float level2FillTweenDuration = 0.45f;
+        private readonly float level2FillOvershoot = 1.2f; // Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
+        private readonly float level3GaugeTweenDuration = 0.4f;
+        private readonly float level3IconBlinkMinAlpha = 0.25f; // "또는" 선택 시 불안정하게 깜빡이는 최소 알파
+        private readonly float level3IconBlinkDuration = 0.12f; // 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
+        private readonly float sceneFadeDuration = 0.5f;
 
         private const string FuelIngredientName = "연료량";
         private const string EngineIngredientName = "추진체 종류";
