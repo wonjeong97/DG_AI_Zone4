@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace DGAIZone.Data
 {
@@ -19,6 +20,12 @@ namespace DGAIZone.Data
 
         /// <summary> 버튼 이동 시 Ease.OutBack 오버슈트 계수. </summary>
         public float selectedLevelButtonMoveOvershoot = 1.3f;
+
+        /// <summary> 선택된 레벨 버튼이 이동해 안착하는 목표 위치(Background 기준 anchoredPosition). </summary>
+        public Vector2 selectedLevelButtonTargetPosition = new(85f, -181f);
+
+        /// <summary> 선택된 레벨 버튼이 이동하며 커지는 목표 크기(sizeDelta). </summary>
+        public Vector2 selectedLevelButtonTargetSize = new(450f, 229f);
 
         /// <summary> 난이도 패널(Image_Difficulty) 기본 너비(별 1개 기준). </summary>
         public float difficultyPanelBaseWidth = 239f;

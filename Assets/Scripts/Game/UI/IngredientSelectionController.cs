@@ -32,7 +32,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Button buttonRight;
 
         [Header("Right Arrow Hint")]
-        [SerializeField] private Image rightArrowImage; // Image_RightArrow
+        [SerializeField] private Image[] rightArrowImages; // Arrows/Image_Arrow1..5 순서
 
         [Header("Workflow Buttons")]
         [SerializeField] private Button buttonConfirm;
@@ -60,16 +60,24 @@ namespace DGAIZone.Game.UI
         [Header("Activation")]
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
 
+        [Header("Warning")]
+        [SerializeField] private CanvasGroup warningPanel; // Image_Warning: 레벨/스텝에 맞지 않는 카드 인식 시 표시
+
         // 3_Game.json / 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float numberFontSize = 45f; // Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
-        private readonly float rightArrowFillDuration = 1.0f;
-        private readonly float rightArrowFadeDuration = 0.5f;
+        private readonly float rightArrowStepFadeDuration = 0.15f;
+        private readonly float rightArrowFadeOutDuration = 0.3f;
+        private readonly float rightArrowHoldDuration = 0.5f;
         private readonly float level2FillTweenDuration = 0.45f;
         private readonly float level2FillOvershoot = 1.2f; // Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
         private readonly float level3GaugeTweenDuration = 0.4f;
         private readonly float level3IconBlinkMinAlpha = 0.25f; // "또는" 선택 시 불안정하게 깜빡이는 최소 알파
         private readonly float level3IconBlinkDuration = 0.12f; // 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
         private readonly float sceneFadeDuration = 0.5f;
+        private readonly float warningFadeDuration = 0.25f;
+        private readonly float warningShakeAmount = 15f;
+        private readonly float warningShakeCycleDuration = 0.08f;
+        private readonly float warningHoldDuration = 1.0f;
 
         private const string FuelIngredientName = "연료량";
         private const string EngineIngredientName = "추진체 종류";
@@ -119,6 +127,8 @@ namespace DGAIZone.Game.UI
         private R3.DisposableBag _disposables = new R3.DisposableBag();
         private Sequence _rightArrowSequence;
         private Tween _level2FillTween;
+        private Sequence _warningSequence;
+        private CancellationTokenSource _warningCts;
 
         // 3_Game.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private GameSceneSettings _sceneSettings;
@@ -170,6 +180,7 @@ namespace DGAIZone.Game.UI
 
             UpdateCodingCompleteButton();
             ResetRightArrow();
+            InitializeWarningPanel();
 
             // 비동기로 설정을 로드하여 워크플로우 단계를 설정함
             InitializeWorkflowAsync().Forget();
@@ -513,6 +524,7 @@ namespace DGAIZone.Game.UI
                 {
                     _logger.ZLogInformation($"[IngredientSelectionController] '{evt.Category}' 카테고리는 {_currentStepIndex + 1}번째 단계({step.ingredientName})에서 허용되지 않아 {evt.ReaderId} 태그를 무시함.");
                 }
+                ShowInvalidCategoryWarningAsync().Forget();
                 return;
             }
 
@@ -520,6 +532,9 @@ namespace DGAIZone.Game.UI
             {
                 _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {step.ingredientName}");
             }
+
+            // 현재 단계에 허용된 카드로 확인된 경우에만 CodingCategories 강조를 갱신함(허용되지 않으면 흑백 상태가 그대로 유지됨)
+            if (_codingCategoryIndicator != null) _codingCategoryIndicator.HighlightCategory(evt.Category);
 
             _currentIngredient.Value = step.ingredientName;
             _currentMatters.Value = ExcludeConfirmedMatters(step.ingredientName, step.matterNames);
@@ -538,6 +553,81 @@ namespace DGAIZone.Game.UI
                 if (string.Equals(step.categories[i], category, StringComparison.Ordinal)) return true;
             }
             return false;
+        }
+
+        /// <summary> Image_Warning의 알파를 0으로 스냅해 시작 시 숨겨진 상태로 만듦. </summary>
+        private void InitializeWarningPanel()
+        {
+            if (warningPanel == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] warningPanel이 null이라 경고 표시가 비활성화됨.");
+                return;
+            }
+
+            warningPanel.alpha = 0f;
+            warningPanel.interactable = false;
+            warningPanel.blocksRaycasts = false;
+        }
+
+        /// <summary>
+        /// 현재 레벨/스텝에서 허용되지 않는 카드가 인식됐을 때: Image_Warning을 페이드인하고, 게임 패널(GamePanel)을
+        /// 좌우로 3회 흔든 뒤, warningHoldDuration(초)만큼 더 붙잡아 보여주고 나서 Image_Warning을 페이드아웃해 숨김.
+        /// 연달아 잘못된 카드가 인식되면 진행 중이던 연출을 정지하고 처음부터 다시 시작함.
+        /// </summary>
+        private async UniTaskVoid ShowInvalidCategoryWarningAsync()
+        {
+            if (warningPanel == null) return;
+
+            // 이전 호출의 UniTask.Delay 등 진행 중이던 비동기 흐름을 확실히 취소함(_warningSequence.Kill()만으로는
+            // DOTween 트윈만 멈출 뿐, 이전 호출이 대기 중인 await까지 중단시키진 못해 레이스 컨디션이 발생할 수 있음).
+            _warningCts?.Cancel();
+            _warningCts?.Dispose();
+            _warningCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+            CancellationToken token = _warningCts.Token;
+            float fadeDuration = _sceneSettings?.warningFadeDuration ?? warningFadeDuration;
+
+            try
+            {
+                _warningSequence?.Kill();
+                if (gamePanel != null) ((RectTransform)gamePanel.transform).anchoredPosition = Vector2.zero;
+
+                warningPanel.interactable = false;
+                warningPanel.blocksRaycasts = false;
+                await warningPanel.DOFade(1f, fadeDuration).SetUpdate(true)
+                    .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
+
+                await ShakeGamePanelAsync(token);
+
+                float holdDuration = _sceneSettings?.warningHoldDuration ?? warningHoldDuration;
+                await UniTask.Delay(TimeSpan.FromSeconds(holdDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
+
+                await warningPanel.DOFade(0f, fadeDuration).SetUpdate(true)
+                    .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
+            }
+            catch (OperationCanceledException) { }
+        }
+
+        /// <summary> GamePanel의 RectTransform을 좌우로 3회(왕복) 흔들고 원위치로 되돌림. </summary>
+        private UniTask ShakeGamePanelAsync(CancellationToken token)
+        {
+            if (gamePanel == null) return UniTask.CompletedTask;
+
+            RectTransform target = (RectTransform)gamePanel.transform;
+            Vector2 originalPos = target.anchoredPosition;
+            float amount = _sceneSettings?.warningShakeAmount ?? warningShakeAmount;
+            float cycleDuration = _sceneSettings?.warningShakeCycleDuration ?? warningShakeCycleDuration;
+            float half = cycleDuration / 2f;
+
+            _warningSequence?.Kill();
+            _warningSequence = DOTween.Sequence().SetUpdate(true);
+            for (int i = 0; i < 3; i++)
+            {
+                _warningSequence.Append(target.DOAnchorPos(originalPos + new Vector2(amount, 0f), half).SetEase(Ease.InOutSine));
+                _warningSequence.Append(target.DOAnchorPos(originalPos - new Vector2(amount, 0f), half).SetEase(Ease.InOutSine));
+            }
+            _warningSequence.Append(target.DOAnchorPos(originalPos, half).SetEase(Ease.InOutSine));
+
+            return _warningSequence.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
         /// <summary>
@@ -1007,7 +1097,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateRightArrowAnimation()
         {
-            if (rightArrowImage == null) return;
+            if (rightArrowImages == null || rightArrowImages.Length == 0) return;
 
             bool hasValue = (textMatter != null && !string.IsNullOrEmpty(textMatter.text))
                           || (textIngredient != null && !string.IsNullOrEmpty(textIngredient.text));
@@ -1017,44 +1107,52 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// FillAmount 0->1로 차오른 뒤 FadeOut하고 다시 FillAmount 0으로 되돌리는 동작을 무한 반복함. 이미 재생 중이면 무시함.
+        /// Image_Arrow1..5를 순서대로 알파 0->1로 페이드인한 뒤(하나씩 차례로 켜짐), 다 켜진 상태로
+        /// rightArrowHoldDuration(초)만큼 붙잡아 보여주고, 다섯 개를 동시에 페이드아웃함. 페이드아웃이 끝난 뒤에도
+        /// 바로 다음 루프를 시작하지 않고 다시 rightArrowHoldDuration(초)만큼 대기했다가 반복함. 이미 재생 중이면 무시함.
         /// </summary>
         private void StartRightArrowLoop()
         {
             if (_rightArrowSequence != null && _rightArrowSequence.IsActive()) return;
 
-            rightArrowImage.fillAmount = 0f;
-            SetRightArrowAlpha(1f);
+            float stepDuration = _sceneSettings?.rightArrowStepFadeDuration ?? rightArrowStepFadeDuration;
+            float fadeOutDuration = _sceneSettings?.rightArrowFadeOutDuration ?? rightArrowFadeOutDuration;
+            float holdDuration = _sceneSettings?.rightArrowHoldDuration ?? rightArrowHoldDuration;
 
-            _rightArrowSequence = DOTween.Sequence();
-            _rightArrowSequence.Append(rightArrowImage.DOFillAmount(1f, _sceneSettings?.rightArrowFillDuration ?? rightArrowFillDuration));
-            _rightArrowSequence.Append(rightArrowImage.DOFade(0f, _sceneSettings?.rightArrowFadeDuration ?? rightArrowFadeDuration));
-            _rightArrowSequence.AppendCallback(() =>
+            for (int i = 0; i < rightArrowImages.Length; i++) SetImageAlpha(rightArrowImages[i], 0f);
+
+            _rightArrowSequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject);
+            for (int i = 0; i < rightArrowImages.Length; i++)
             {
-                rightArrowImage.fillAmount = 0f;
-                SetRightArrowAlpha(1f);
-            });
+                _rightArrowSequence.Append(rightArrowImages[i].DOFade(1f, stepDuration));
+            }
+
+            _rightArrowSequence.AppendInterval(holdDuration);
+
+            if (rightArrowImages.Length > 0)
+            {
+                _rightArrowSequence.Append(rightArrowImages[0].DOFade(0f, fadeOutDuration));
+                for (int i = 1; i < rightArrowImages.Length; i++)
+                {
+                    _rightArrowSequence.Join(rightArrowImages[i].DOFade(0f, fadeOutDuration));
+                }
+            }
+
+            _rightArrowSequence.AppendInterval(holdDuration);
+
             _rightArrowSequence.SetLoops(-1);
         }
 
         /// <summary>
-        /// 반복 애니메이션을 멈추고 Image_RightArrow를 FillAmount 0의 시작 상태로 되돌림.
+        /// 반복 애니메이션을 멈추고 Image_Arrow1..5를 전부 알파 0의 시작 상태로 되돌림.
         /// </summary>
         private void ResetRightArrow()
         {
             _rightArrowSequence?.Kill();
             _rightArrowSequence = null;
 
-            if (rightArrowImage == null) return;
-            rightArrowImage.fillAmount = 0f;
-            SetRightArrowAlpha(1f);
-        }
-
-        private void SetRightArrowAlpha(float alpha)
-        {
-            Color color = rightArrowImage.color;
-            color.a = alpha;
-            rightArrowImage.color = color;
+            if (rightArrowImages == null) return;
+            for (int i = 0; i < rightArrowImages.Length; i++) SetImageAlpha(rightArrowImages[i], 0f);
         }
 
         /// <summary>
@@ -1075,6 +1173,9 @@ namespace DGAIZone.Game.UI
             _currentMatterIndex?.Dispose();
 
             _rightArrowSequence?.Kill();
+            _warningSequence?.Kill();
+            _warningCts?.Cancel();
+            _warningCts?.Dispose();
             _level2FillTween?.Kill();
             _level3OxygenGaugeTween?.Kill();
             _level3ElectricGaugeTween?.Kill();

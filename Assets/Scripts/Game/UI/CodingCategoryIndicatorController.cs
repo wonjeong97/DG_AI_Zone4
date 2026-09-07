@@ -4,8 +4,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.Data;
-using DGAIZone.Game.Events;
-using MessagePipe;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,10 +14,12 @@ namespace DGAIZone.Game.UI
 {
     /// <summary>
     /// CodingCategories 하위의 Image_Action/Control/Logic/Func를 평소 흑백으로 표시하다가,
-    /// RFID 카드가 인식되면 해당 카드의 category만 원래 색으로 표시함.
+    /// 현재 단계에 허용되는 카드가 인식되면 해당 카드의 category만 원래 색으로 표시함.
     /// 각 이미지 위에 흑백 머티리얼을 미리 입혀 둔 오버레이 이미지(씬에 미리 배치됨)를 겹쳐두고 그 알파만 조절하는 방식으로 색상/흑백을 전환함.
     /// 대기 중(사용자가 아직 카드를 찍지 않은 상태)에 idleHintDelay(초) 동안 카드가 올라오지 않으면, 다음에 찍어야 할 카테고리의
     /// 오버레이 알파를 0~1로 반복시켜 색상과 흑백 사이를 부드럽게 오가며 숨쉬듯 안내함. 그 전에 카드가 올라오면 대기 자체가 취소됨.
+    /// RFID 태그를 직접 구독하지 않고, IngredientSelectionController가 현재 단계에 허용된 카드로 판정했을 때만
+    /// HighlightCategory를 호출해줌(허용되지 않는 카드는 경고만 뜨고 흑백 상태가 그대로 유지되도록 하기 위함).
     /// </summary>
     public class CodingCategoryIndicatorController : MonoBehaviour
     {
@@ -41,35 +41,23 @@ namespace DGAIZone.Game.UI
         private readonly float idleHintDelay = 10f;      // 카드를 이 시간(초) 이상 올려놓지 않으면 힌트 페이드를 시작함
         private readonly float hintFadeDuration = 0.9f;  // 색상 <-> 흑백 한쪽 방향 전환에 걸리는 시간
 
-        private ISubscriber<RfidTagEvent> _subscriber;
         private ILogger<CodingCategoryIndicatorController> _logger;
-        private IDisposable _subscription;
         private readonly List<Tween> _hintTweens = new List<Tween>();
 
         // 3_Game.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private GameSceneSettings _sceneSettings;
 
-        /// <summary> VContainer 의존성 주입. MessagePipe 구독자와 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, ILogger<CodingCategoryIndicatorController> logger)
+        public void Construct(ILogger<CodingCategoryIndicatorController> logger)
         {
-            _subscriber = subscriber;
             _logger = logger;
         }
 
-        /// <summary> 시작 시 네 이미지를 모두 흑백으로 두고 RFID 태그 이벤트를 구독한 뒤 3_Game.json 연출 타이밍을 비동기로 불러옴. </summary>
+        /// <summary> 시작 시 네 이미지를 모두 흑백으로 둔 뒤 3_Game.json 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
             HighlightCategory(null);
-
-            if (_subscriber != null)
-            {
-                _subscription = _subscriber.Subscribe(OnRfidTagReceived);
-            }
-            else if (_logger != null)
-            {
-                _logger.ZLogWarning($"[CodingCategoryIndicatorController] subscriber가 null이라 카테고리 강조 표시가 비활성화됨.");
-            }
 
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
@@ -78,12 +66,6 @@ namespace DGAIZone.Game.UI
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
-        }
-
-        /// <summary> RFID 태그 인식 시 해당 카드의 category만 색을 표시하고 나머지는 흑백으로 되돌림. 진행 중이던 힌트 페이드는 중단됨. </summary>
-        private void OnRfidTagReceived(RfidTagEvent evt)
-        {
-            HighlightCategory(evt.Category);
         }
 
         /// <summary>
@@ -127,8 +109,11 @@ namespace DGAIZone.Game.UI
             return null;
         }
 
-        /// <summary> 주어진 category와 일치하는 이미지만 원래 색으로(오버레이 알파 0), 나머지는 흑백으로(오버레이 알파 1) 전환함. 힌트 페이드는 항상 먼저 정리됨. </summary>
-        private void HighlightCategory(string category)
+        /// <summary>
+        /// 주어진 category와 일치하는 이미지만 원래 색으로(오버레이 알파 0), 나머지는 흑백으로(오버레이 알파 1) 전환함. 힌트 페이드는 항상 먼저 정리됨.
+        /// IngredientSelectionController가 현재 단계에 허용된 카드로 판정했을 때만 호출함(허용되지 않으면 호출하지 않아 흑백 상태가 그대로 유지됨).
+        /// </summary>
+        public void HighlightCategory(string category)
         {
             StopHint();
 
@@ -178,11 +163,9 @@ namespace DGAIZone.Game.UI
             image.color = color;
         }
 
-        /// <summary> 오브젝트 파괴 시 MessagePipe 구독 해제 및 힌트 트윈을 정리함. </summary>
+        /// <summary> 오브젝트 파괴 시 힌트 트윈을 정리함. </summary>
         private void OnDestroy()
         {
-            _subscription?.Dispose();
-
             for (int i = 0; i < _hintTweens.Count; i++) _hintTweens[i]?.Kill();
             _hintTweens.Clear();
         }

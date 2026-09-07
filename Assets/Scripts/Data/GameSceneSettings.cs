@@ -19,11 +19,14 @@ namespace DGAIZone.Data
         /// <summary> Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기. </summary>
         public float numberFontSize = 45f;
 
-        /// <summary> Image_RightArrow가 0->1로 차오르는 데 걸리는 시간(초). </summary>
-        public float rightArrowFillDuration = 1.0f;
+        /// <summary> Image_Arrow1..5가 순서대로 하나씩 페이드인되는 화살표 1개당 소요 시간(초). </summary>
+        public float rightArrowStepFadeDuration = 0.15f;
 
-        /// <summary> Image_RightArrow가 다 차오른 뒤 페이드아웃되는 데 걸리는 시간(초). </summary>
-        public float rightArrowFadeDuration = 0.5f;
+        /// <summary> 다섯 화살표가 모두 켜진 뒤 동시에 페이드아웃되는 데 걸리는 시간(초). </summary>
+        public float rightArrowFadeOutDuration = 0.3f;
+
+        /// <summary> 다섯 화살표가 모두 켜진 뒤 페이드아웃이 시작되기 전까지 그대로 붙잡아 보여주는 대기 시간(초). </summary>
+        public float rightArrowHoldDuration = 0.5f;
 
         /// <summary> 레벨 2 진행바(Image_Fill)가 목표 값까지 채워지는 데 걸리는 시간(초). </summary>
         public float level2FillTweenDuration = 0.45f;
@@ -51,5 +54,17 @@ namespace DGAIZone.Data
 
         /// <summary> 설정하기 확정 시 미리보기 게이지가 페이드아웃되는 데 걸리는 시간(초). </summary>
         public float previewApplyFadeDuration = 0.3f;
+
+        /// <summary> 레벨/스텝에 맞지 않는 카드 인식 시 Image_Warning이 페이드인/아웃되는 데 걸리는 시간(초). </summary>
+        public float warningFadeDuration = 0.25f;
+
+        /// <summary> 경고 시 화면(GamePanel)이 좌우로 흔들리는 폭(px). </summary>
+        public float warningShakeAmount = 15f;
+
+        /// <summary> 경고 화면 흔들림 1회(좌우 왕복)에 걸리는 시간(초). 3회 반복됨. </summary>
+        public float warningShakeCycleDuration = 0.08f;
+
+        /// <summary> 화면 흔들림이 끝난 뒤 Image_Warning을 페이드아웃하기 전까지 더 붙잡아 보여주는 시간(초). </summary>
+        public float warningHoldDuration = 1.0f;
     }
 }

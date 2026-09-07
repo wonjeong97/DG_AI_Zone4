@@ -5,6 +5,7 @@ using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
+using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
@@ -29,6 +30,7 @@ namespace DGAIZone.Game
         [Header("Story Level")]
         [SerializeField] private Image storyImage;          // Image_Story
         [SerializeField] private GameObject[] storyLevels;  // Story_Level1..5 순서
+        [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 2_LevelSelect와 공유하는 스토리 텍스트 소스
 
         [Header("Current Situation Panel")]
         [SerializeField] private GameObject[] situationPanels; // Image_CurrentSituation 하위 Panel_Level1..5 순서
@@ -118,6 +120,24 @@ namespace DGAIZone.Game
                 for (int i = 0; i < storyLevels.Length; i++)
                 {
                     if (storyLevels[i] != null) storyLevels[i].SetActive(i == index);
+                }
+
+                // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
+                // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
+                if (index >= 0 && index < storyLevels.Length && storyLevels[index] != null)
+                {
+                    TMP_Text storyText = storyLevels[index].GetComponentInChildren<TMP_Text>(true);
+                    if (storyText != null)
+                    {
+                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index] != null)
+                        {
+                            storyText.text = levelDataList[index].storyText;
+                        }
+                        else if (_logger != null)
+                        {
+                            _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
+                        }
+                    }
                 }
             }
         }
