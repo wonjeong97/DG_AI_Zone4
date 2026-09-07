@@ -29,9 +29,9 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Image storyImage;           // Image_Story
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
-        [SerializeField] private int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수)
-        [SerializeField] private float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
+        private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
@@ -255,7 +255,8 @@ namespace DGAIZone.LevelSelect
             group.blocksRaycasts = false;
 
             await group.DOFade(endAlpha, duration)
-                .SetEase(Ease.InOutQuad)
+                .SetEase(Ease.Linear)
+                .SetUpdate(true) // Zone1과 동일하게 Time.timeScale과 무관하게 동작하도록 함
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 

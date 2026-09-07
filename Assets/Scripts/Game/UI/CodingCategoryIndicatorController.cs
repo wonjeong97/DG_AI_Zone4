@@ -37,9 +37,9 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Image imageFunc;    // Image_Func
         [SerializeField] private Image imageFuncOverlay; // Image_Func_GrayscaleOverlay
 
-        [Header("Next Category Hint")]
-        [SerializeField] private float idleHintDelay = 10f;      // 3_Game.json 로드 전까지의 폴백 기본값. 카드를 이 시간(초) 이상 올려놓지 않으면 힌트 페이드를 시작함
-        [SerializeField] private float hintFadeDuration = 0.9f;  // 3_Game.json 로드 전까지의 폴백 기본값. 색상 <-> 흑백 한쪽 방향 전환에 걸리는 시간
+        // 3_Game.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float idleHintDelay = 10f;      // 카드를 이 시간(초) 이상 올려놓지 않으면 힌트 페이드를 시작함
+        private readonly float hintFadeDuration = 0.9f;  // 색상 <-> 흑백 한쪽 방향 전환에 걸리는 시간
 
         private ISubscriber<RfidTagEvent> _subscriber;
         private ILogger<CodingCategoryIndicatorController> _logger;

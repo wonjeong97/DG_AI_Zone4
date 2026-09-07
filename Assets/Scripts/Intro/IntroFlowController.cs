@@ -27,8 +27,8 @@ namespace DGAIZone.Intro
         [SerializeField] private CanvasGroup tutorialPanel;
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private Button understandButton;
-        [SerializeField] private float crossFadeDuration = 0.4f; // 1_Intro.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
+        private readonly float crossFadeDuration = 0.4f; // 1_Intro.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함
 
@@ -252,7 +252,8 @@ namespace DGAIZone.Intro
             group.blocksRaycasts = false;
 
             await group.DOFade(endAlpha, duration)
-                .SetEase(Ease.InOutQuad)
+                .SetEase(Ease.Linear)
+                .SetUpdate(true) // Zone1과 동일하게 Time.timeScale과 무관하게 동작하도록 함
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 

@@ -189,8 +189,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "QR \uCF54\uB4DC\uB97C \uC778\uC2DD\uD558\uC5EC \uC8FC\uC138\uC694."
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8ccbf66e76a5ff1469236375d98d03dd, type: 2}
-  m_sharedMaterial: {fileID: -5712403025347832177, guid: 8ccbf66e76a5ff1469236375d98d03dd,
+  m_fontAsset: {fileID: 11400000, guid: d0d2f5797b1d2f34ea9ffb7c01ef8fd6, type: 2}
+  m_sharedMaterial: {fileID: -958249402790162185, guid: d0d2f5797b1d2f34ea9ffb7c01ef8fd6,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -215,8 +215,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
-  m_fontSizeBase: 40
+  m_fontSize: 52
+  m_fontSizeBase: 52
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 10
@@ -938,8 +938,9 @@ GameObject:
   - component: {fileID: 1226213114}
   - component: {fileID: 1226213116}
   - component: {fileID: 1226213115}
+  - component: {fileID: 1226213117}
   m_Layer: 5
-  m_Name: Image_ReadQR
+  m_Name: Image_QR
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1003,6 +1004,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1226213113}
   m_CullTransparentMesh: 1
+--- !u!225 &1226213117
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226213113}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1640765040
 GameObject:
   m_ObjectHideFlags: 0
@@ -1039,7 +1052,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 790, y: -916}
+  m_AnchoredPosition: {x: 790, y: -870}
   m_SizeDelta: {x: 340, y: 95}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1640765042
@@ -1366,6 +1379,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   startButton: {fileID: 1640765042}
   sceneFadeDuration: 0.5
+  qrCanvasGroup: {fileID: 1226213117}
+  qrFadeDuration: 1.2
+  qrBlinkMinAlpha: 0.3
 --- !u!4 &2136993115
 Transform:
   m_ObjectHideFlags: 0

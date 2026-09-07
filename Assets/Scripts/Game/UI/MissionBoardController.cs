@@ -27,10 +27,12 @@ namespace DGAIZone.Game.UI
         [SerializeField] private TMP_Text goalPlanetNameText;
         [SerializeField] private Image progressFillImage; // Image_Fill
         [SerializeField] private Image previewFillImage; // Image_Fill_Preview
-        [SerializeField] private float fillTweenDuration = 0.5f; // 3_Game.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float previewBlinkFadeDuration = 0.8f; // 3_Game.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float previewBlinkMinAlpha = 0.5f; // 3_Game.json 로드 전까지의 폴백 기본값
-        [SerializeField] private float previewApplyFadeDuration = 0.3f; // 3_Game.json 로드 전까지의 폴백 기본값
+
+        // 3_Game.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float fillTweenDuration = 0.5f;
+        private readonly float previewBlinkFadeDuration = 0.8f;
+        private readonly float previewBlinkMinAlpha = 0.5f;
+        private readonly float previewApplyFadeDuration = 0.3f;
 
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<MissionBoardController> _logger;

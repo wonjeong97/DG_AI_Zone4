@@ -41,6 +41,31 @@ namespace DGAIZone.App
         /// </summary>
         public async UniTask<string> GetNameAsync(CancellationToken cancellationToken = default)
         {
+            VisitorData data = await LoadDataAsync(cancellationToken);
+
+            if (data != null && data.isServerConnected)
+            {
+                // TODO: 서버 연동(QR 스캔)으로 체험자 이름을 조회하도록 구현. 서버가 준비되기 전까지는 기본 이름으로 대체함.
+                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] isServerConnected가 true이지만 서버 연동이 아직 구현되지 않아 기본 이름으로 대체함.");
+                return DefaultName;
+            }
+
+            return (data != null && !string.IsNullOrEmpty(data.defaultUserName)) ? data.defaultUserName : DefaultName;
+        }
+
+        /// <summary>
+        /// 서버(QR 스캔) 연동 여부를 비동기로 반환함. Visitor.json의 isServerConnected를 그대로 노출하며,
+        /// GetNameAsync와 같은 로드 결과를 공유함(중복 로드 없음). 타이틀 씬에서 QR 안내 표시 여부를 결정하는 데 사용함.
+        /// </summary>
+        public async UniTask<bool> IsServerConnectedAsync(CancellationToken cancellationToken = default)
+        {
+            VisitorData data = await LoadDataAsync(cancellationToken);
+            return data != null && data.isServerConnected;
+        }
+
+        /// <summary> Visitor.json을 최초 호출 시에만 로드하고, 이후 호출들은 같은 로드 결과를 공유함. </summary>
+        private async UniTask<VisitorData> LoadDataAsync(CancellationToken cancellationToken)
+        {
             Task<VisitorData> loadTask;
 
             lock (_lock)
@@ -56,15 +81,7 @@ namespace DGAIZone.App
 
             VisitorData data = await loadTask.AsUniTask().AttachExternalCancellation(cancellationToken);
             await UniTask.SwitchToMainThread(cancellationToken);
-
-            if (data != null && data.isServerConnected)
-            {
-                // TODO: 서버 연동(QR 스캔)으로 체험자 이름을 조회하도록 구현. 서버가 준비되기 전까지는 기본 이름으로 대체함.
-                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] isServerConnected가 true이지만 서버 연동이 아직 구현되지 않아 기본 이름으로 대체함.");
-                return DefaultName;
-            }
-
-            return (data != null && !string.IsNullOrEmpty(data.defaultUserName)) ? data.defaultUserName : DefaultName;
+            return data;
         }
 
         /// <summary> 컨테이너 파기 시 진행 중인 로드를 취소하고 리소스를 해제함. </summary>
