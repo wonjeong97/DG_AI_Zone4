@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -10,6 +11,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.Core;
 using Wonjeong.Utils;
 using ZLogger;
 
@@ -29,26 +31,40 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Image storyImage;           // Image_Story
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
+        [Header("Difficulty Display")]
+        [SerializeField] private RectTransform difficultyPanel;
+        [SerializeField] private GameObject[] difficultyStars;
+        [Header("Debug (Editor Testing)")]
+        [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
         private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float selectedLevelButtonMoveDuration = 1.0f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float difficultyPanelBaseWidth = 239f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float difficultyPanelWidthPerStar = 51f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+
+        // 선택된 레벨 버튼이 storyPanel 바깥에서 이동해 안착하는 위치 (Zone1 StoryManager와 동일한 방식)
+        private static readonly Vector2 SelectedLevelButtonPosition = new(-932f, 224f);
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
+        private InactivityTimer _inactivityTimer;
         private bool _isBusy;
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private LevelSelectSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, ILogger<LevelSelectFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _inactivityTimer = inactivityTimer;
         }
 
         /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
@@ -56,6 +72,9 @@ namespace DGAIZone.LevelSelect
         {
             ApplyPanelState(levelSelectPanel, true);
             ApplyPanelState(storyPanel, false);
+
+            // 선택된 레벨 버튼이 날아와서 표시되므로 스토리 이미지 플레이스홀더는 숨겨둠
+            if (storyImage != null) storyImage.gameObject.SetActive(false);
 
             // 시작 버튼은 스토리 타이핑이 끝나기 전까지 누를 수 없음
             if (startButton != null)
@@ -84,8 +103,9 @@ namespace DGAIZone.LevelSelect
             }
 
             // 폴백 unlockedLevelCount로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
-            // 로드가 끝나면 실제 값으로 다시 적용함
-            ApplyLevelButtonLocks(unlockedLevelCount);
+            // 로드가 끝나면 실제 값으로 다시 적용함 (debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
+            int initialCount = debugUnlockedLevelCount > 0 ? debugUnlockedLevelCount : unlockedLevelCount;
+            ApplyLevelButtonLocks(initialCount);
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
@@ -98,17 +118,91 @@ namespace DGAIZone.LevelSelect
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            ApplyLevelButtonLocks(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
+            int targetCount = debugUnlockedLevelCount > 0
+                ? debugUnlockedLevelCount
+                : (_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
+            ApplyLevelButtonLocks(targetCount);
         }
 
-        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
-        private void ApplyLevelButtonLocks(int count)
+        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용하고, 난이도 패널(별 개수 및 너비)을 갱신함. </summary>
+        public void ApplyLevelButtonLocks(int count)
         {
-            if (levelButtons == null) return;
-
-            for (int i = 0; i < levelButtons.Length; i++)
+            if (levelButtons != null)
             {
-                if (levelButtons[i] != null) ApplyLockState(levelButtons[i], i < count);
+                for (int i = 0; i < levelButtons.Length; i++)
+                {
+                    if (levelButtons[i] != null) ApplyLockState(levelButtons[i], i < count);
+                }
+            }
+
+            ApplyDifficulty(count);
+        }
+
+        /// <summary> 플레이어가 선택 가능한 난이도(열린 레벨 수)에 맞춰 별 표시 개수와 난이도 패널 너비를 동적으로 조정함. </summary>
+        public void ApplyDifficulty(int count)
+        {
+            if (difficultyPanel == null && (difficultyStars == null || difficultyStars.Length == 0)) return;
+
+            count = Mathf.Clamp(count, 1, 5);
+
+            EnsureAndSetDifficultyStars(count);
+
+            if (difficultyPanel != null)
+            {
+                float baseWidth = _sceneSettings?.difficultyPanelBaseWidth ?? difficultyPanelBaseWidth;
+                float widthPerStar = _sceneSettings?.difficultyPanelWidthPerStar ?? difficultyPanelWidthPerStar;
+                float targetWidth = baseWidth + Mathf.Max(0, count - 1) * widthPerStar;
+
+                difficultyPanel.sizeDelta = new Vector2(targetWidth, difficultyPanel.sizeDelta.y);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(difficultyPanel);
+            }
+        }
+
+        /// <summary> difficultyStars 배열 및 difficultyPanel 자식 오브젝트의 별 개수를 확보하고 활성/비활성 상태를 설정함. </summary>
+        private void EnsureAndSetDifficultyStars(int count)
+        {
+            if (difficultyStars != null && difficultyStars.Length > 0)
+            {
+                for (int i = 0; i < difficultyStars.Length; i++)
+                {
+                    if (difficultyStars[i] != null)
+                    {
+                        difficultyStars[i].SetActive(i < count);
+                    }
+                }
+
+                if (difficultyStars.Length < count && difficultyStars[0] != null && difficultyPanel != null)
+                {
+                    List<GameObject> list = new List<GameObject>(difficultyStars);
+                    while (list.Count < count)
+                    {
+                        GameObject newStar = Instantiate(difficultyStars[0], difficultyPanel);
+                        newStar.name = $"Image_Star{list.Count + 1}";
+                        newStar.SetActive(true);
+                        list.Add(newStar);
+                    }
+                    difficultyStars = list.ToArray();
+                }
+                return;
+            }
+
+            if (difficultyPanel != null)
+            {
+                List<GameObject> foundStars = new List<GameObject>();
+                for (int i = 0; i < difficultyPanel.childCount; i++)
+                {
+                    Transform child = difficultyPanel.GetChild(i);
+                    if (child.name.StartsWith("Image_Star", StringComparison.OrdinalIgnoreCase))
+                    {
+                        foundStars.Add(child.gameObject);
+                    }
+                }
+
+                if (foundStars.Count > 0)
+                {
+                    difficultyStars = foundStars.ToArray();
+                    EnsureAndSetDifficultyStars(count);
+                }
             }
         }
 
@@ -159,7 +253,7 @@ namespace DGAIZone.LevelSelect
             }
         }
 
-        /// <summary> 열린 레벨 버튼 클릭 시 스토리 이미지/레벨을 갱신하고 패널을 크로스페이드함. </summary>
+        /// <summary> 열린 레벨 버튼 클릭 시 선택한 버튼을 분리해 스토리 영역으로 트윈 이동시키고 패널을 전환함 (Zone1과 동일한 연출). </summary>
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
@@ -176,10 +270,23 @@ namespace DGAIZone.LevelSelect
 
             if (startButton != null) startButton.interactable = false;
 
-            if (storyImage != null && levelButtons[index] != null)
+            // 선택한 레벨 버튼을 클릭 즉시 두 패널(levelSelectPanel·storyPanel) 바깥의 공통 부모로 옮김.
+            // 두 패널 모두 CanvasGroup으로 페이드되는데, 그 자식으로 두면 페이드 도중 알파 블렌딩 때문에
+            // 이미지가 흐릿하게 보여서, 페이드에 영향받지 않는 위치로 미리 빼둔다.
+            // levelSelectPanel·storyPanel은 같은 부모 안에서 정확히 같은 영역을 꽉 채우고 있어 좌표계가 동일하므로
+            // 이동해도 시각적으로 튀지 않는다. 실제 이동은 storyPanel이 페이드인되는 시점에 맞춰 트윈으로 처리한다 (Zone1 StoryManager와 동일한 방식).
+            RectTransform selectedButtonRect = null;
+            if (levelButtons != null && index < levelButtons.Length && levelButtons[index] != null)
             {
-                storyImage.sprite = levelButtons[index].image != null ? levelButtons[index].image.sprite : null;
-                if (storyImage.sprite != null) storyImage.SetNativeSize();
+                selectedButtonRect = (RectTransform)levelButtons[index].transform;
+                selectedButtonRect.SetParent(storyPanel.transform.parent, worldPositionStays: false);
+                levelButtons[index].interactable = false;
+
+                // 버튼에 달려있던 별(Image_StarN) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
+                foreach (Transform child in selectedButtonRect)
+                {
+                    child.gameObject.SetActive(false);
+                }
             }
 
             TMP_Text storyText = null;
@@ -202,11 +309,11 @@ namespace DGAIZone.LevelSelect
                 }
             }
 
-            SwitchToStoryAsync(storyText).Forget();
+            SwitchToStoryAsync(storyText, selectedButtonRect).Forget();
         }
 
-        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 스토리 텍스트가 한 줄씩 올라오는 연출이 끝나면 시작 버튼을 활성화함. </summary>
-        private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText)
+        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 선택된 버튼을 목표 위치로 이동시키며, 스토리 텍스트 연출이 끝나면 시작 버튼을 활성화함. </summary>
+        private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText, RectTransform selectedButtonRect)
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
@@ -221,6 +328,21 @@ namespace DGAIZone.LevelSelect
 
                 if (storyPanel)
                 {
+                    // storyPanel이 페이드인되는 동안 선택된 레벨 버튼도 함께 제자리로 튀어 들어오도록(OutBack) 이동.
+                    // 이동 시간·반동 크기는 2_LevelSelect.json의 selectedLevelButtonMoveDuration/selectedLevelButtonMoveOvershoot로 재빌드 없이 조정 가능.
+                    // 페이드와 동시에 진행되어야 하므로 의도적으로 await하지 않는다.
+                    if (selectedButtonRect != null)
+                    {
+                        Vector2 targetPos = storyImage != null ? storyImage.rectTransform.anchoredPosition : SelectedLevelButtonPosition;
+                        float moveDuration = _sceneSettings?.selectedLevelButtonMoveDuration ?? selectedLevelButtonMoveDuration;
+                        float overshoot = _sceneSettings?.selectedLevelButtonMoveOvershoot ?? selectedLevelButtonMoveOvershoot;
+
+                        _ = selectedButtonRect.DOAnchorPos(targetPos, moveDuration)
+                            .SetEase(Ease.OutBack, overshoot)
+                            .SetUpdate(true)
+                            .SetLink(selectedButtonRect.gameObject);
+                    }
+
                     await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
                 }
@@ -229,7 +351,7 @@ namespace DGAIZone.LevelSelect
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
                     _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
                     _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
-                    IsSkipRequested, token);
+                    IsSkipRequested, token, _inactivityTimer);
 
                 if (startButton != null) startButton.interactable = true;
             }

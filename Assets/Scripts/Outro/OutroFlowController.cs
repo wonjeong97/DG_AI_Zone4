@@ -2,10 +2,12 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Data;
+using MessagePipe;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
+using Wonjeong.App;
 using ZLogger;
 
 namespace DGAIZone.Outro
@@ -21,6 +23,7 @@ namespace DGAIZone.Outro
 
         private SceneTransitionService _sceneTransition;
         private ILogger<OutroFlowController> _logger;
+        private IPublisher<MoveIdleEvent> _moveIdlePublisher;
         private bool _isBusy;
 
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함.
@@ -28,12 +31,13 @@ namespace DGAIZone.Outro
         // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 로거, idle 전환 이벤트 퍼블리셔를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, ILogger<OutroFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, ILogger<OutroFlowController> logger, IPublisher<MoveIdleEvent> moveIdlePublisher = null)
         {
             _sceneTransition = sceneTransition;
             _logger = logger;
+            _moveIdlePublisher = moveIdlePublisher;
         }
 
         /// <summary> 버튼 이벤트를 연결하고 00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
@@ -69,6 +73,7 @@ namespace DGAIZone.Outro
             }
 
             _isBusy = true;
+            _moveIdlePublisher?.Publish(new MoveIdleEvent());
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
     }

@@ -6,6 +6,8 @@ using DGAIZone.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using VContainer;
+using Wonjeong.Core;
 
 namespace DGAIZone.Outro
 {
@@ -19,11 +21,19 @@ namespace DGAIZone.Outro
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private GameObject homeButton; // 연출이 끝나면 활성화할 "처음으로" 버튼
 
+        private InactivityTimer _inactivityTimer;
         private bool _isAnimating;
         private bool _skipRequested;
 
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 Constants.StoryLine 폴백 값을 그대로 사용함
         private CommonSettings _commonSettings;
+
+        /// <summary> VContainer 의존성 주입. 비활동 타이머를 주입받아 연출 중 일시정지 및 연출 완료 후 재개함. </summary>
+        [Inject]
+        public void Construct(InactivityTimer inactivityTimer = null)
+        {
+            _inactivityTimer = inactivityTimer;
+        }
 
         /// <summary> 스토리 텍스트를 한 줄씩 올라오는 연출로 표시함. </summary>
         private void Start()
@@ -59,7 +69,7 @@ namespace DGAIZone.Outro
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
                     _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
                     _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
-                    () => _skipRequested, token);
+                    () => _skipRequested, token, _inactivityTimer);
 
                 OnFullyShown();
             }

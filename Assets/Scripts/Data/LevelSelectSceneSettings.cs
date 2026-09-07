@@ -13,5 +13,17 @@ namespace DGAIZone.Data
 
         /// <summary> 레벨 선택 패널 <-> 스토리 패널 전환에 걸리는 페이드 시간(초). </summary>
         public float panelFadeDuration = 0.4f;
+
+        /// <summary> 레벨 선택 후 스토리 패널로 전환될 때 선택된 레벨 버튼이 좌측 스토리 영역으로 이동하는 시간(초). </summary>
+        public float selectedLevelButtonMoveDuration = 1.0f;
+
+        /// <summary> 버튼 이동 시 Ease.OutBack 오버슈트 계수. </summary>
+        public float selectedLevelButtonMoveOvershoot = 1.3f;
+
+        /// <summary> 난이도 패널(Image_Difficulty) 기본 너비(별 1개 기준). </summary>
+        public float difficultyPanelBaseWidth = 239f;
+
+        /// <summary> 난이도 별 1개 추가 시 난이도 패널에 더해질 추가 너비(px). </summary>
+        public float difficultyPanelWidthPerStar = 51f;
     }
 }
