@@ -12,30 +12,34 @@ namespace DGAIZone.Game
     /// </summary>
     public static class GameSceneSettingsProvider
     {
-        // Preserve()로 여러 번 await 가능한 공유 UniTask로 캐싱함 — 값만 캐싱하면 로드가 끝나기 전에
-        // 여러 컴포넌트가 동시에 GetAsync를 호출할 때마다 JsonLoader.LoadAsync가 중복 실행될 수 있음.
-        private static UniTask<GameSceneSettings> _cachedTask;
+        // 값만 캐싱하고, 로드 완료 여부는 폴링(UniTask.WaitUntil)으로 기다림 — UniTask.Preserve()는 로드가 끝나기 전에
+        // 2개 이상의 호출자가 동시에(같은 프레임에) await를 걸면 내부적으로 "Already continuation registered" 예외를
+        // 던지는 문제가 있어(3_Game은 실제로 세 컴포넌트가 Start()에서 동시에 GetAsync를 호출함) 쓰지 않음.
+        private static GameSceneSettings _cached;
+        private static bool _isLoaded;
         private static bool _isLoadStarted;
 
         /// <summary>
-        /// 3_Game.json을 로드하여 반환함. 이미 로드를 시작했다면(완료 여부 무관) 그 태스크를 그대로 공유함.
-        /// 개별 호출자의 취소는 자신의 await에만 적용되고, 공유 로드 자체는 취소되지 않음.
+        /// 3_Game.json을 로드하여 반환함. 이미 로드를 시작했다면(완료 여부 무관) 그 결과를 그대로 공유함.
+        /// 여러 호출자가 동시에 불러도 안전함(로드 자체는 한 번만 실행됨).
         /// </summary>
         public static async UniTask<GameSceneSettings> GetAsync(CancellationToken cancellationToken = default)
         {
             if (!_isLoadStarted)
             {
                 _isLoadStarted = true;
-                _cachedTask = LoadAsync().Preserve();
+                LoadAndCacheAsync().Forget();
             }
 
-            return await _cachedTask.AttachExternalCancellation(cancellationToken);
+            await UniTask.WaitUntil(() => _isLoaded, cancellationToken: cancellationToken);
+            return _cached;
         }
 
-        private static UniTask<GameSceneSettings> LoadAsync()
+        private static async UniTaskVoid LoadAndCacheAsync()
         {
-            return JsonLoader.LoadAsync<GameSceneSettings>(
+            _cached = await JsonLoader.LoadAsync<GameSceneSettings>(
                 $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}");
+            _isLoaded = true;
         }
     }
 }
