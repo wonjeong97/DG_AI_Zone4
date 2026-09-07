@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -50,6 +51,9 @@ namespace DGAIZone.Title
             if (startButton) startButton.onClick.AddListener(OnStartClicked);
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] startButton이 null임.");
 
+            // 서버 연동 여부 확인이 끝나기 전까지 QR이 잠깐 노출됐다 꺼지는 플리커를 방지하기 위해 먼저 숨겨둠
+            if (qrCanvasGroup) qrCanvasGroup.gameObject.SetActive(false);
+
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             ApplyQrVisibilityAsync(token).Forget();
             LoadCommonSettingsAsync(token).Forget();
@@ -63,19 +67,26 @@ namespace DGAIZone.Title
         {
             if (!qrCanvasGroup || _visitorInfoProvider == null) return;
 
-            bool isServerConnected = await _visitorInfoProvider.IsServerConnectedAsync(token);
-            qrCanvasGroup.gameObject.SetActive(isServerConnected);
+            try
+            {
+                bool isServerConnected = await _visitorInfoProvider.IsServerConnectedAsync(token);
+                qrCanvasGroup.gameObject.SetActive(isServerConnected);
 
-            if (!isServerConnected) return;
+                if (!isServerConnected) return;
 
-            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Title}";
-            TitleSceneSettings sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token);
+                string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Title}";
+                TitleSceneSettings sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token);
 
-            // 반환된 Tween은 SetLink로 오브젝트 파괴 시 자동 정리되므로 별도 보관 없이 discard함
-            _ = qrCanvasGroup.DOFade(sceneSettings.qrBlinkMinAlpha, sceneSettings.qrFadeDuration)
-                .SetLoops(-1, LoopType.Yoyo)
-                .SetEase(Ease.InOutSine)
-                .SetLink(qrCanvasGroup.gameObject);
+                // 반환된 Tween은 SetLink로 오브젝트 파괴 시 자동 정리되므로 별도 보관 없이 discard함
+                _ = qrCanvasGroup.DOFade(sceneSettings.qrBlinkMinAlpha, sceneSettings.qrFadeDuration)
+                    .SetLoops(-1, LoopType.Yoyo)
+                    .SetEase(Ease.InOutSine)
+                    .SetLink(qrCanvasGroup.gameObject);
+            }
+            catch (OperationCanceledException)
+            {
+                // 씬 전환 등으로 오브젝트가 파괴되어 취소된 경우 — 정상 종료
+            }
         }
 
         /// <summary> 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
