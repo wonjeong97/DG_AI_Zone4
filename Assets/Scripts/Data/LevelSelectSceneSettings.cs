@@ -19,5 +19,11 @@ namespace DGAIZone.Data
 
         /// <summary> 버튼 이동 시 Ease.OutBack 오버슈트 계수. </summary>
         public float selectedLevelButtonMoveOvershoot = 1.3f;
+
+        /// <summary> 난이도 패널(Image_Difficulty) 기본 너비(별 1개 기준). </summary>
+        public float difficultyPanelBaseWidth = 239f;
+
+        /// <summary> 난이도 별 1개 추가 시 난이도 패널에 더해질 추가 너비(px). </summary>
+        public float difficultyPanelWidthPerStar = 51f;
     }
 }

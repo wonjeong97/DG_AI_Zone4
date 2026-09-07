@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -30,11 +31,16 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Image storyImage;           // Image_Story
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
+        [Header("Difficulty Display")]
+        [SerializeField] private RectTransform difficultyPanel;
+        [SerializeField] private GameObject[] difficultyStars;
         private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float selectedLevelButtonMoveDuration = 1.0f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float difficultyPanelBaseWidth = 239f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float difficultyPanelWidthPerStar = 51f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         // 선택된 레벨 버튼이 storyPanel 바깥에서 이동해 안착하는 위치 (Zone1 StoryManager와 동일한 방식)
         private static readonly Vector2 SelectedLevelButtonPosition = new(-932f, 224f);
@@ -112,14 +118,85 @@ namespace DGAIZone.LevelSelect
             ApplyLevelButtonLocks(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
         }
 
-        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
+        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용하고, 난이도 패널(별 개수 및 너비)을 갱신함. </summary>
         private void ApplyLevelButtonLocks(int count)
         {
-            if (levelButtons == null) return;
-
-            for (int i = 0; i < levelButtons.Length; i++)
+            if (levelButtons != null)
             {
-                if (levelButtons[i] != null) ApplyLockState(levelButtons[i], i < count);
+                for (int i = 0; i < levelButtons.Length; i++)
+                {
+                    if (levelButtons[i] != null) ApplyLockState(levelButtons[i], i < count);
+                }
+            }
+
+            ApplyDifficulty(count);
+        }
+
+        /// <summary> 플레이어가 선택 가능한 난이도(열린 레벨 수)에 맞춰 별 표시 개수와 난이도 패널 너비를 동적으로 조정함. </summary>
+        private void ApplyDifficulty(int count)
+        {
+            if (difficultyPanel == null && (difficultyStars == null || difficultyStars.Length == 0)) return;
+
+            count = Mathf.Clamp(count, 1, 5);
+
+            EnsureAndSetDifficultyStars(count);
+
+            if (difficultyPanel != null)
+            {
+                float baseWidth = _sceneSettings?.difficultyPanelBaseWidth ?? difficultyPanelBaseWidth;
+                float widthPerStar = _sceneSettings?.difficultyPanelWidthPerStar ?? difficultyPanelWidthPerStar;
+                float targetWidth = baseWidth + Mathf.Max(0, count - 1) * widthPerStar;
+
+                difficultyPanel.sizeDelta = new Vector2(targetWidth, difficultyPanel.sizeDelta.y);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(difficultyPanel);
+            }
+        }
+
+        /// <summary> difficultyStars 배열 및 difficultyPanel 자식 오브젝트의 별 개수를 확보하고 활성/비활성 상태를 설정함. </summary>
+        private void EnsureAndSetDifficultyStars(int count)
+        {
+            if (difficultyStars != null && difficultyStars.Length > 0)
+            {
+                for (int i = 0; i < difficultyStars.Length; i++)
+                {
+                    if (difficultyStars[i] != null)
+                    {
+                        difficultyStars[i].SetActive(i < count);
+                    }
+                }
+
+                if (difficultyStars.Length < count && difficultyStars[0] != null && difficultyPanel != null)
+                {
+                    List<GameObject> list = new List<GameObject>(difficultyStars);
+                    while (list.Count < count)
+                    {
+                        GameObject newStar = Instantiate(difficultyStars[0], difficultyPanel);
+                        newStar.name = $"Image_Star{list.Count + 1}";
+                        newStar.SetActive(true);
+                        list.Add(newStar);
+                    }
+                    difficultyStars = list.ToArray();
+                }
+                return;
+            }
+
+            if (difficultyPanel != null)
+            {
+                List<GameObject> foundStars = new List<GameObject>();
+                for (int i = 0; i < difficultyPanel.childCount; i++)
+                {
+                    Transform child = difficultyPanel.GetChild(i);
+                    if (child.name.StartsWith("Image_Star", StringComparison.OrdinalIgnoreCase))
+                    {
+                        foundStars.Add(child.gameObject);
+                    }
+                }
+
+                if (foundStars.Count > 0)
+                {
+                    difficultyStars = foundStars.ToArray();
+                    EnsureAndSetDifficultyStars(count);
+                }
             }
         }
 

@@ -2,5 +2,7 @@
   "unlockedLevelCount": 1,
   "panelFadeDuration": 0.4,
   "selectedLevelButtonMoveDuration": 1.0,
-  "selectedLevelButtonMoveOvershoot": 1.3
+  "selectedLevelButtonMoveOvershoot": 1.3,
+  "difficultyPanelBaseWidth": 239.0,
+  "difficultyPanelWidthPerStar": 51.0
 }
