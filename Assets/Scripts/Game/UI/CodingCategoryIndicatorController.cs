@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
-using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Events;
 using MessagePipe;
@@ -11,7 +10,6 @@ using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Game.UI
@@ -76,11 +74,10 @@ namespace DGAIZone.Game.UI
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 3_Game.json(GameSceneSettings)을 비동기로 로드함. </summary>
+        /// <summary> 3_Game.json(GameSceneSettings)을 GameSceneSettingsProvider를 통해 비동기로 불러옴(씬 내 다른 컨트롤러와 로드를 공유함). </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
-            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}";
-            _sceneSettings = await JsonLoader.LoadAsync<GameSceneSettings>(path, token);
+            _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
         /// <summary> RFID 태그 인식 시 해당 카드의 category만 색을 표시하고 나머지는 흑백으로 되돌림. 진행 중이던 힌트 페이드는 중단됨. </summary>

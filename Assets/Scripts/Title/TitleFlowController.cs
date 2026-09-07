@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Title
@@ -17,14 +16,16 @@ namespace DGAIZone.Title
     public class TitleFlowController : MonoBehaviour
     {
         [SerializeField] private Button startButton;
-        [SerializeField] private float sceneFadeDuration = 0.5f; // 0_Title.json 로드 전까지의 폴백 기본값
+        [SerializeField] private float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값
 
         private SceneTransitionService _sceneTransition;
         private ILogger<TitleFlowController> _logger;
         private bool _isBusy;
 
-        // 0_Title.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private TitleSceneSettings _sceneSettings;
+        // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함.
+        // 씬 전환 페이드 시간은 다른 씬들과 마찬가지로 00_Common.json의 sceneTransitionFadeDuration을 공유해서 쓰며,
+        // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
+        private CommonSettings _commonSettings;
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스와 로거를 할당함. </summary>
         [Inject]
@@ -34,7 +35,7 @@ namespace DGAIZone.Title
             _logger = logger;
         }
 
-        /// <summary> 버튼 이벤트를 연결하고 0_Title.json 연출 타이밍을 비동기로 불러옴. </summary>
+        /// <summary> 버튼 이벤트를 연결하고 00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
             if (startButton) startButton.onClick.AddListener(OnStartClicked);
@@ -43,11 +44,10 @@ namespace DGAIZone.Title
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 0_Title.json(TitleSceneSettings)을 비동기로 로드함. </summary>
+        /// <summary> 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
-            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Title}";
-            _sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token);
+            _commonSettings = await CommonSettingsProvider.GetAsync(token);
         }
 
         /// <summary> 버튼 리스너 해제. </summary>
@@ -68,7 +68,7 @@ namespace DGAIZone.Title
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Intro, _sceneSettings?.sceneFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Intro, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
     }
 }

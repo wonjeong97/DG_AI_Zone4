@@ -11,15 +11,30 @@ namespace DGAIZone.App
     /// </summary>
     public static class CommonSettingsProvider
     {
-        private static CommonSettings _cached;
+        // Preserve()로 여러 번 await 가능한 공유 UniTask로 캐싱함 — 값(CommonSettings)만 캐싱하면 로드가
+        // 끝나기 전에 여러 컴포넌트가 동시에 GetAsync를 호출할 때마다 JsonLoader.LoadAsync가 중복 실행될 수 있음.
+        private static UniTask<CommonSettings> _cachedTask;
+        private static bool _isLoadStarted;
 
-        /// <summary> 00_Common.json을 로드하여 반환함. 이미 로드했다면 캐시된 값을 그대로 반환함. </summary>
+        /// <summary>
+        /// 00_Common.json을 로드하여 반환함. 이미 로드를 시작했다면(완료 여부 무관) 그 태스크를 그대로 공유함.
+        /// 개별 호출자의 취소는 자신의 await에만 적용되고, 공유 로드 자체는 취소되지 않음.
+        /// </summary>
         public static async UniTask<CommonSettings> GetAsync(CancellationToken cancellationToken = default)
         {
-            _cached ??= await JsonLoader.LoadAsync<CommonSettings>(
-                $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.ResourcePaths.CommonSettingsFileName}", cancellationToken);
+            if (!_isLoadStarted)
+            {
+                _isLoadStarted = true;
+                _cachedTask = LoadAsync().Preserve();
+            }
 
-            return _cached;
+            return await _cachedTask.AttachExternalCancellation(cancellationToken);
+        }
+
+        private static UniTask<CommonSettings> LoadAsync()
+        {
+            return JsonLoader.LoadAsync<CommonSettings>(
+                $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.ResourcePaths.CommonSettingsFileName}");
         }
     }
 }

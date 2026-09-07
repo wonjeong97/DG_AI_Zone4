@@ -12,7 +12,6 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
 using ZLogger;
 
 namespace DGAIZone.Game.UI
@@ -107,11 +106,10 @@ namespace DGAIZone.Game.UI
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 3_Game.json(GameSceneSettings)을 비동기로 로드함. </summary>
+        /// <summary> 3_Game.json(GameSceneSettings)을 GameSceneSettingsProvider를 통해 비동기로 불러옴(씬 내 다른 컨트롤러와 로드를 공유함). </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
-            string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}";
-            _sceneSettings = await JsonLoader.LoadAsync<GameSceneSettings>(path, token);
+            _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
         private void ApplyMissionText()

@@ -97,7 +97,11 @@ namespace DGAIZone.Intro
                 float startDelay = _sceneSettings?.storyTextStartDelay ?? 0f;
                 if (startDelay > 0f) await UniTask.Delay(TimeSpan.FromSeconds(startDelay), cancellationToken: token);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                // 씬 전환 등으로 오브젝트가 파괴되어 취소된 경우 — 스토리 연출을 시작하지 않고 종료
+                return;
+            }
 
             StartTextAnimation(token);
         }

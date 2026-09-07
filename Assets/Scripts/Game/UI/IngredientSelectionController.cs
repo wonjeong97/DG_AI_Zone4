@@ -177,14 +177,13 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// JSON 설정파일을 로드하여 현재 레벨의 재료 진행 순서(steps)와 총 단계 수를 파악하고 슬롯을 준비함.
-        /// 3_Game.json(GameSceneSettings) 연출 타이밍도 함께 불러옴.
+        /// 3_Game.json(GameSceneSettings) 연출 타이밍도 GameSceneSettingsProvider를 통해 함께 불러옴(씬 내 다른 컨트롤러와 로드를 공유함).
         /// </summary>
         private async UniTaskVoid InitializeWorkflowAsync()
         {
             CancellationToken token = this.GetCancellationTokenOnDestroy();
 
-            string sceneSettingsPath = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Game}";
-            UniTask<GameSceneSettings> sceneSettingsTask = JsonLoader.LoadAsync<GameSceneSettings>(sceneSettingsPath, token);
+            UniTask<GameSceneSettings> sceneSettingsTask = GameSceneSettingsProvider.GetAsync(token);
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(sceneSettingsTask, commonTask);
 
