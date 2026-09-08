@@ -88,6 +88,10 @@ namespace DGAIZone.Game.UI
             {
                 ApplyLevel3MissionText();
             }
+            else if (level == 4)
+            {
+                ApplyLevel4MissionText();
+            }
             else
             {
                 Constants.Mission.Definition[] definitions = Constants.Mission.Definitions;
@@ -164,6 +168,21 @@ namespace DGAIZone.Game.UI
             missionText.text =
                 $"현재 우주정거장은 전기량이 <color=yellow>[{MaxElectricity}]</color>을 넘으면 안되고,\n" +
                 $"산소량은 <color=yellow>[{MinOxygen}]</color>보다 낮으면 안돼요!";
+        }
+
+        /// <summary> 레벨 4 전용 고정 미션 텍스트(자원 수집 후 기지로 복귀, 함정 회피)를 적용함. </summary>
+        private void ApplyLevel4MissionText()
+        {
+            if (missionText == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
+                return;
+            }
+
+            missionText.text =
+                "<color=yellow>[동작 블록]</color>을 통해 탐사 로봇을 이동하여\n" +
+                "먼저 자원을 수집하고, 기지에 안전하게 돌아올 수 있게\n" +
+                "경로를 코딩해 주세요. 함정은 피해야해요!";
         }
 
         /// <summary> 목적지에 맞는 행성 이름 텍스트를 적용하고, 이미지는 Addressables에서 비동기로 불러와 Image_Goal에 적용함. </summary>

@@ -83,6 +83,12 @@ namespace DGAIZone.Game.UI
         private const string EngineIngredientName = "추진체 종류";
         private const string PayloadIngredientName = "탑재 종류";
 
+        // 레벨 4: 스캔된 카드의 category(동작/제어)에 따라 같은 단계라도 재료/물질이 달라짐(JSON의 단계별 고정값이 아님).
+        private const string Level4MoveIngredientName = "이동하기";
+        private static readonly string[] Level4MoveMatters = { "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" };
+        private const string Level4RepeatIngredientName = "반복하기";
+        private static readonly string[] Level4RepeatMatters = { "1회", "2회", "3회" };
+
         // 레벨 2 발사 코딩 순서 단계 볼(Image_StepN_Ball)의 완료 표시. 인덱스가 stepBallImages 순서와 매칭됨.
         private static readonly string[] Level2StepBallMatters =
         {
@@ -233,6 +239,7 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 현재 단계(_currentStepIndex)가 허용하는 category 목록을 CodingCategoryIndicatorController에 전달해
         /// 다음에 찍어야 할 카테고리 아이콘이 부드럽게 페이드하며 안내되도록 함. 모든 단계가 끝났으면 힌트를 멈춤.
+        /// 레벨 4에서 바로 이전 단계가 "반복하기"였다면(동작 카드만 허용됨) "제어"는 힌트에서 제외함.
         /// </summary>
         private void UpdateCategoryHint()
         {
@@ -240,7 +247,10 @@ namespace DGAIZone.Game.UI
 
             if (_stepDefinitions != null && _currentStepIndex < _totalSteps && _currentStepIndex < _stepDefinitions.Length && _stepDefinitions[_currentStepIndex] != null)
             {
-                _codingCategoryIndicator.ShowNextHint(_stepDefinitions[_currentStepIndex].categories);
+                string[] categories = _stepDefinitions[_currentStepIndex].categories;
+                if (_selectedLevel == 4 && IsRepeatFollowUpRequired()) categories = new[] { "동작" };
+
+                _codingCategoryIndicator.ShowNextHint(categories);
             }
             else
             {
@@ -528,19 +538,56 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            // 레벨 4: "반복하기"(제어)는 반드시 "이동하기"(동작)와 세트로 이어져야 하므로, 바로 이전 단계가
+            // "반복하기"였다면 이번 단계는 "동작" 카드만 허용함(제어 카드는 이 규칙 위반으로 거부됨).
+            if (_selectedLevel == 4 && IsRepeatFollowUpRequired() && !string.Equals(evt.Category, "동작", StringComparison.Ordinal))
+            {
+                if (_logger != null)
+                {
+                    _logger.ZLogInformation($"[IngredientSelectionController] 이전 단계가 '반복하기'라 {_currentStepIndex + 1}번째 단계는 '동작' 카드만 허용되는데 '{evt.Category}' 카드가 인식되어 {evt.ReaderId} 태그를 무시함.");
+                }
+                ShowInvalidCategoryWarningAsync().Forget();
+                return;
+            }
+
+            (string ingredientName, string[] matterNames) = ResolveStepCard(step, evt.Category);
+
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {step.ingredientName}");
+                _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {ingredientName}");
             }
 
             // 현재 단계에 허용된 카드로 확인된 경우에만 CodingCategories 강조를 갱신함(허용되지 않으면 흑백 상태가 그대로 유지됨)
             if (_codingCategoryIndicator != null) _codingCategoryIndicator.HighlightCategory(evt.Category);
 
-            _currentIngredient.Value = step.ingredientName;
-            _currentMatters.Value = ExcludeConfirmedMatters(step.ingredientName, step.matterNames);
+            _currentIngredient.Value = ingredientName;
+            // 레벨 4는 같은 동작(예: "위쪽 한칸")이나 "반복하기"를 경로상 여러 번 다시 써야 하므로 중복 제외를 적용하지 않음
+            _currentMatters.Value = _selectedLevel == 4 ? matterNames : ExcludeConfirmedMatters(ingredientName, matterNames);
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
+        }
+
+        /// <summary>
+        /// 현재 단계에서 실제로 사용할 재료 이름/물질 목록을 결정함. 레벨 4는 카드의 category(동작/제어)에 따라
+        /// 같은 단계라도 다른 값을 써야 하므로(동작="이동하기"+방향 4종, 제어="반복하기"+횟수 3종) JSON의 단계별 고정값 대신
+        /// 스캔된 category로 분기함. 다른 레벨은 JSON에 정의된 단계별 고정값을 그대로 사용함.
+        /// </summary>
+        private (string ingredientName, string[] matterNames) ResolveStepCard(RfidStepDefinition step, string category)
+        {
+            if (_selectedLevel != 4) return (step.ingredientName, step.matterNames);
+
+            bool isAction = string.Equals(category, "동작", StringComparison.Ordinal);
+            return isAction
+                ? (Level4MoveIngredientName, Level4MoveMatters)
+                : (Level4RepeatIngredientName, Level4RepeatMatters);
+        }
+
+        /// <summary> 레벨 4 전용: 바로 이전 단계에서 확정한 재료가 "반복하기"(제어, 횟수 카드)였다면, 이번 단계는 반드시 "이동하기"(동작)여야 함. </summary>
+        private bool IsRepeatFollowUpRequired()
+        {
+            if (_currentStepIndex <= 0 || _confirmedIngredients == null || _currentStepIndex - 1 >= _confirmedIngredients.Length) return false;
+            return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Level4RepeatIngredientName, StringComparison.Ordinal);
         }
 
         /// <summary> 해당 단계가 허용하는 category 목록에 주어진 category가 포함되는지 검사함. </summary>
@@ -841,13 +888,15 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 디자인 컨테이너에 확정 항목이 필요한 만큼(_totalSteps) 채워졌을 때만 코딩완료 버튼을 활성화함.
+        /// 레벨 4는 5단계를 다 채우지 않아도 되므로(경로가 짧아도 됨) 최소 1개만 확정되면 활성화함.
         /// </summary>
         private void UpdateCodingCompleteButton()
         {
-            if (buttonCodingComplete != null)
-            {
-                buttonCodingComplete.interactable = _designItems.Count >= _totalSteps;
-            }
+            if (buttonCodingComplete == null) return;
+
+            buttonCodingComplete.interactable = _selectedLevel == 4
+                ? _designItems.Count > 0
+                : _designItems.Count >= _totalSteps;
         }
 
         /// <summary>
@@ -903,9 +952,11 @@ namespace DGAIZone.Game.UI
                 return false;
             }
 
-            if (_designItems.Count < _totalSteps)
+            // 레벨 4는 5단계를 다 채우지 않아도 되므로 최소 1개만 확정되면 판정을 진행함
+            int requiredCount = _selectedLevel == 4 ? 1 : _totalSteps;
+            if (_designItems.Count < requiredCount)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 모든 단계가 확정되지 않음 ({_designItems.Count}/{_totalSteps}). 실패로 처리함.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정된 단계가 부족함 ({_designItems.Count}/{requiredCount}). 실패로 처리함.");
                 return false;
             }
 

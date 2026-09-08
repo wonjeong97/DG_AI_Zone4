@@ -23,6 +23,7 @@ namespace DGAIZone.Game
             builder.RegisterComponentInHierarchy<MissionBoardController>();
             builder.RegisterComponentInHierarchy<CodingCategoryIndicatorController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
+            builder.RegisterComponentInHierarchy<Level4BoardController>();
 
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<RfidTagEvent>(options);
