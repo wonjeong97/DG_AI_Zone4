@@ -28,6 +28,8 @@ namespace DGAIZone.Title
 
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
+        private SelectedLevelStore _selectedLevelStore;
+        private UnlockedLevelStore _unlockedLevelStore;
         private ILogger<TitleFlowController> _logger;
         private bool _isBusy;
 
@@ -36,18 +38,27 @@ namespace DGAIZone.Title
         // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 로거를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, ILogger<TitleFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, ILogger<TitleFlowController> logger)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
+            _selectedLevelStore = selectedLevelStore;
+            _unlockedLevelStore = unlockedLevelStore;
             _logger = logger;
         }
 
-        /// <summary> 버튼 이벤트를 연결하고, QR 표시 여부/블링크 연출과 00_Common.json 연출 타이밍을 비동기로 처리함. </summary>
+        /// <summary>
+        /// 버튼 이벤트를 연결하고, QR 표시 여부/블링크 연출과 00_Common.json 연출 타이밍을 비동기로 처리함.
+        /// 0_Title은 앱이 처음 켜졌을 때뿐 아니라 아웃트로에서 홈으로 돌아오거나 비활동 타임아웃으로도 진입하므로,
+        /// 여기서 레벨 진행도를 초기화해 이전 체험자의 잠금 해제 상태가 다음 체험자에게 넘어가지 않도록 함.
+        /// </summary>
         private void Start()
         {
+            _unlockedLevelStore?.Reset();
+            if (_selectedLevelStore != null) _selectedLevelStore.SelectedLevel = 1;
+
             if (startButton) startButton.onClick.AddListener(OnStartClicked);
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] startButton이 null임.");
 

@@ -335,6 +335,7 @@ namespace DGAIZone.Game.Hardware
             int consecutiveTimeouts = 0;
             string lastPublishedDecoded = null;
             int discardedCardReads = 0; // 접속 직후 리더기가 백그라운드에서 계속 스캔하다 쌓아둔 잔여 카드 값을 최초 cardReadsToDiscard회만큼 버림
+            bool discardWindowOpen = true; // "무카드" 응답을 한 번이라도 받으면(리더기 상태가 실시간을 반영한다는 뜻) 즉시 닫힘
 
             try
             {
@@ -382,13 +383,16 @@ namespace DGAIZone.Game.Hardware
                             {
                                 lastPublishedDecoded = decoded;
 
-                                if (discardedCardReads < cardReadsToDiscard)
+                                if (discardWindowOpen)
                                 {
                                     // 리더기가 접속 전부터(유니티와 무관하게) 백그라운드에서 계속 스캔하며 쌓아둔 값을
-                                    // 첫 읽기 명령에 그대로 돌려주는 경우가 있어, 접속 후 최초 cardReadsToDiscard회는
-                                    // 발행하지 않고 기준값으로만 저장함.
+                                    // 첫 읽기 명령에 그대로 돌려주는 경우가 있어, 접속 직후(무카드 응답을 아직 한 번도
+                                    // 못 받은 상태)에 한해 최초 cardReadsToDiscard회까지는 발행하지 않고 기준값으로만 저장함.
                                     discardedCardReads++;
                                     if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 접속 초기 잔여값으로 판단해 무시함({discardedCardReads}/{cardReadsToDiscard}): {decoded}");
+
+                                    // 상한에 도달하면(연속 잔여값 대비 안전장치) 그 이후로는 정상 태그로 취급함
+                                    if (discardedCardReads >= cardReadsToDiscard) discardWindowOpen = false;
                                 }
                                 else
                                 {
@@ -405,6 +409,10 @@ namespace DGAIZone.Game.Hardware
                         }
                         else
                         {
+                            // 무카드 응답을 받았다는 것은 리더기 상태가 이미 실시간을 정확히 반영하고 있다는 뜻이므로,
+                            // 잔여값 필터링 창을 즉시 닫음(정상 상황이면 씬 진입 직후 대부분 이 경로로 바로 닫힘).
+                            discardWindowOpen = false;
+
                             if (lastPublishedDecoded != null)
                             {
                                 // 직전까지 인식되어 있던 카드가 방금 떨어짐(짧은 응답으로 전환된 순간) -> 1회만 알림
