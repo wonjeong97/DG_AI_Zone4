@@ -1033,7 +1033,8 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 레벨 3 전용 판정: 산소/전기 게이지(CircleGage)가 둘 다 100%(1.0)까지 채워졌어야 성공.
+        /// 레벨 3 전용 판정: 산소/전기 게이지(CircleGage)가 둘 다 100%(1.0)까지 채워지고, 3번째 단계(논리 연결어)에서
+        /// "또는"을 선택해 시스템이 불안정(_level3InstabilityPending)해지지 않았어야 성공.
         /// 각 게이지는 관련된 두 단계(전기량 조건/조작, 산소량 조건/조작)에 모두 정답을 골라야 0.5씩 채워져 1.0이 됨
         /// (UpdateLevel3Effects). fillAmount는 트윈으로 서서히 올라가므로, 트윈 완료 여부와 무관하게 확정된
         /// 목표값인 _level3OxygenFill/_level3ElectricFill을 기준으로 판정함.
@@ -1042,20 +1043,23 @@ namespace DGAIZone.Game.UI
         {
             bool oxygenFull = _level3OxygenFill >= 1f;
             bool electricFull = _level3ElectricFill >= 1f;
+            bool stable = !_level3InstabilityPending;
+            bool success = oxygenFull && electricFull && stable;
 
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[IngredientSelectionController] 레벨 3 판정: 산소 게이지={_level3OxygenFill:F2}, 전기 게이지={_level3ElectricFill:F2} -> {(oxygenFull && electricFull ? "성공" : "실패")}");
+                _logger.ZLogInformation($"[IngredientSelectionController] 레벨 3 판정: 산소 게이지={_level3OxygenFill:F2}, 전기 게이지={_level3ElectricFill:F2}, 시스템 안정={stable} -> {(success ? "성공" : "실패")}");
             }
 
-            return oxygenFull && electricFull;
+            return success;
         }
 
         /// <summary>
-        /// 레벨 4 전용 판정: 확정된 "반복하기/이동하기" 명령을 Level4BoardController.EvaluateOutcome()이
-        /// 연출 없이 즉시 재계산함(자원을 먼저 수집한 뒤 기지에 도착해야 성공, 그 외는 전부 실패).
+        /// 레벨 4 전용 판정: 확정된 "반복하기/이동하기" 명령을 직접 Level4BoardController.EvaluateOutcome(commands)에
+        /// 인자로 넘겨 연출 없이 즉시 재계산함(자원을 먼저 수집한 뒤 기지에 도착해야 성공, 그 외는 전부 실패).
         /// Level4BoardController도 이 클래스를 참조해서 VContainer로 주입받으면 순환 의존이 되므로,
-        /// 필요할 때(코딩완료 클릭 시, 자주 호출되지 않음) FindObjectOfType으로 찾아 캐시함.
+        /// 보드 인스턴스 자체는 필요할 때(코딩완료 클릭 시, 자주 호출되지 않음) FindObjectOfType으로 찾아 캐시하되,
+        /// 판정에 쓰는 명령 목록은 GetConfirmedCommands()로 직접 전달해 EvaluateOutcome이 이 클래스에 되묻지 않게 함.
         /// </summary>
         private bool EvaluateLevel4Mission()
         {
@@ -1066,7 +1070,7 @@ namespace DGAIZone.Game.UI
                 return false;
             }
 
-            return _level4Board.EvaluateOutcome();
+            return _level4Board.EvaluateOutcome(GetConfirmedCommands());
         }
 
         /// <summary>

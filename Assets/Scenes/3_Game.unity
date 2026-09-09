@@ -11475,7 +11475,7 @@ MonoBehaviour:
   - {fileID: 377601038}
   - {fileID: 1252271897}
   - {fileID: 107690803}
-  debugStartLevel: 4
+  debugStartLevel: 0
 --- !u!4 &1968390942
 Transform:
   m_ObjectHideFlags: 0

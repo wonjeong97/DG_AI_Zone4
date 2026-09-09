@@ -292,10 +292,11 @@ namespace DGAIZone.Game.UI
         /// 함정 셀 도착, 자원 없이 기지 도착, 스텝을 다 써도 기지에 도착하지 못함)는 전부 실패.
         /// ExecuteStepAsync/HandleCellArrivalAsync가 쓰는 것과 동일한 판정 규칙(IsOutOfBounds/IsTrapCell/
         /// IsResourceCell/IsHqCell)을 그대로 재사용해 연출 버전과 판정이 어긋나지 않도록 함.
+        /// commands를 넘기면 그 값을 그대로 평가하고(테스트/외부 호출용), null이면 기존처럼 ingredientSelection에서 직접 읽음.
         /// </summary>
-        public bool EvaluateOutcome()
+        public bool EvaluateOutcome(IReadOnlyList<(string ingredient, string matter)> commands = null)
         {
-            List<Level4MoveStep> steps = BuildMoveSteps();
+            List<Level4MoveStep> steps = BuildMoveSteps(commands);
 
             int column = 0;
             int row = RobotRow;
@@ -360,21 +361,25 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// IngredientSelectionController에 확정된 (재료, 물질) 순서를 실제 이동 스텝 목록으로 변환함.
-        /// "반복하기(N회)" 바로 다음에 "이동하기(방향)"가 오면 그 방향으로 N번 연속 이동하는 스텝으로 펼치고,
-        /// "이동하기(방향)"가 단독이면 1번 이동하는 스텝으로 처리함. 뒤에 이동하기가 없는 반복하기는 무시함.
+        /// (재료, 물질) 순서를 실제 이동 스텝 목록으로 변환함. commands가 주어지지 않으면 IngredientSelectionController에서
+        /// 확정된 명령을 직접 읽어옴(연출 시뮬레이션용). "반복하기(N회)" 바로 다음에 "이동하기(방향)"가 오면 그 방향으로
+        /// N번 연속 이동하는 스텝으로 펼치고, "이동하기(방향)"가 단독이면 1번 이동하는 스텝으로 처리함.
+        /// 뒤에 이동하기가 없는 반복하기는 무시함.
         /// </summary>
-        private List<Level4MoveStep> BuildMoveSteps()
+        private List<Level4MoveStep> BuildMoveSteps(IReadOnlyList<(string ingredient, string matter)> commands = null)
         {
             var steps = new List<Level4MoveStep>();
 
-            if (_ingredientSelection == null)
+            if (commands == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] ingredientSelection이 null이라 확정된 명령을 읽을 수 없음.");
-                return steps;
-            }
+                if (_ingredientSelection == null)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] ingredientSelection이 null이라 확정된 명령을 읽을 수 없음.");
+                    return steps;
+                }
 
-            IReadOnlyList<(string ingredient, string matter)> commands = _ingredientSelection.GetConfirmedCommands();
+                commands = _ingredientSelection.GetConfirmedCommands();
+            }
 
             int i = 0;
             while (i < commands.Count)

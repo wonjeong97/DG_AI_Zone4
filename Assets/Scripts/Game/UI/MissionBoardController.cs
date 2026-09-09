@@ -180,7 +180,7 @@ namespace DGAIZone.Game.UI
             }
 
             missionText.text =
-                "<color=yellow>[동작 블록]</color>을 통해 탐사 로봇을 이동하여\n" +
+                "<color=yellow>[동작 및 제어 블록]</color>을 통해 탐사 로봇을 이동하여\n" +
                 "먼저 자원을 수집하고, 기지에 안전하게 돌아올 수 있게\n" +
                 "경로를 코딩해 주세요. 함정은 피해야해요!";
         }
