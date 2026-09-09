@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -13,40 +12,32 @@ namespace DGAIZone.App
     /// <summary>
     /// 게임 전역 LifetimeScope. 템플릿의 RootLifetimeScope가 구성하는 전역 로깅, MessagePipe, Core(SystemCanvas, GameCloser), Optional(FadeManager 등) 컴포넌트를 그대로 사용하고,
     /// 게임 매니저와 씬 전환 서비스 등 프로젝트 고유 컴포넌트를 컨테이너에 등록함.
+    /// <para>
+    /// VContainerSettings(프리로드 에셋) 기반 자동 루트 스코프 생성 대신, 0_Title 씬에 직접 배치한
+    /// 인스턴스를 사용함. 빌드된 스탠드얼론 플레이어에서는 프리로드 에셋이 BeforeSceneLoad
+    /// 시점까지도 메모리에 로드되지 않는 경우가 확인되어(에디터는 AssetDatabase를 통해 즉시
+    /// 접근 가능하므로 재현되지 않음), VContainerSettings.Instance에 의존하는 자동 부트스트랩은
+    /// 빌드에서 신뢰할 수 없다. 대신 DontDestroyOnLoad로 씬 전환 후에도 유지시키며, 각 씬
+    /// LifetimeScope는 FindParent()로 이 인스턴스를 직접 찾아 부모로 연결한다.
+    /// <br/>
+    /// Awake 실행 순서는 보장되지 않으므로([DefaultExecutionOrder]는 힌트일 뿐 강제가 아님),
+    /// 자식 스코프의 FindParent()가 이 인스턴스를 먼저 발견해 Container == null인 상태로
+    /// 강제 Build()할 수 있다. 그런 경우를 대비해 이 클래스의 Awake()는 이미 빌드되어 있으면
+    /// (Container != null) 재빌드를 건너뛴다.
+    /// </para>
     /// </summary>
+    [DefaultExecutionOrder(-1000)]
     public class GameLifetimeScope : RootLifetimeScope
     {
         /// <summary>
-        /// 빌드 환경에서 VContainerSettings(프리로드 에셋)의 OnEnable 호출 시점이 0_Title의
-        /// TitleLifetimeScope.Awake보다 늦어지는 경우를 대비한 안전장치.
-        /// VContainerSettings는 에디터에서만 RuntimeInitializeOnLoadMethod로 프리로드 에셋을 강제
-        /// 로드하며(내부 주석: "For editor, we need to load the Preload asset manually"), 빌드에서는
-        /// 엔진의 프리로드 타이밍에 전적으로 의존한다. 이 타이밍이 첫 씬 로드보다 늦어지면
-        /// VContainerSettings.Instance가 null인 채로 자식 LifetimeScope가 Build되어 부모 없이
-        /// 독립 컨테이너로 구성되고, SceneTransitionService 등 루트 등록 타입 해석이 실패한다.
-        /// 여기서 BeforeSceneLoad 시점에 프리로드 에셋을 직접 찾아 OnEnable을 강제 호출해
-        /// 루트 스코프가 첫 씬의 Awake보다 반드시 먼저 생성되도록 보장한다.
+        /// 씬 전환 후에도 컨테이너가 유지되도록 파괴되지 않게 함. 자식 스코프가 이미 강제로
+        /// Build()해 두었다면(Container != null) 중복 빌드를 건너뜀.
         /// </summary>
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void EnsureRootLifetimeScopeBootstrapped()
+        protected override void Awake()
         {
-            if (VContainerSettings.Instance != null) return;
-
-            VContainerSettings[] settingsAssets = Resources.FindObjectsOfTypeAll<VContainerSettings>();
-            if (settingsAssets.Length == 0)
-            {
-                Debug.LogWarning("[GameLifetimeScope] VContainerSettings 프리로드 에셋을 찾을 수 없어 루트 스코프 강제 부트스트랩을 건너뜀.");
-                return;
-            }
-
-            MethodInfo onEnable = typeof(VContainerSettings).GetMethod("OnEnable", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (onEnable == null)
-            {
-                Debug.LogWarning("[GameLifetimeScope] VContainerSettings.OnEnable을 찾을 수 없어 루트 스코프 강제 부트스트랩을 건너뜀.");
-                return;
-            }
-
-            onEnable.Invoke(settingsAssets[0], null);
+            DontDestroyOnLoad(gameObject);
+            if (Container != null) return;
+            base.Awake();
         }
 
         /// <summary>
