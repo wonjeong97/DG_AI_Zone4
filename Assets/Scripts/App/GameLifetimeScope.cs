@@ -25,6 +25,7 @@ namespace DGAIZone.App
             builder.Register<SceneTransitionService>(Lifetime.Singleton);
             builder.Register<GameResultStore>(Lifetime.Singleton);
             builder.Register<SelectedLevelStore>(Lifetime.Singleton);
+            builder.Register<UnlockedLevelStore>(Lifetime.Singleton);
             builder.Register<VisitorInfoProvider>(Lifetime.Singleton);
 
             RegisterTmpFonts();

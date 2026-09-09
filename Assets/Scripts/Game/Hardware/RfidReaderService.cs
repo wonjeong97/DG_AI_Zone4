@@ -320,6 +320,8 @@ namespace DGAIZone.Game.Hardware
         /// 카드가 리더기 위에 계속 올라가 있으면 폴링마다(pollIntervalMs 간격) 매번 같은 긴 응답이 반복되므로,
         /// 직전에 발행한 값과 같으면 재발행하지 않고(카드를 계속 대고 있는 동안 이벤트가 수십 번 중복되는 것 방지),
         /// 카드가 떨어져 짧은 응답으로 돌아오면 상태를 리셋해 다음 태그 때 다시 발행되도록 함.
+        /// 리더기가 유니티 접속 여부와 무관하게 백그라운드에서 계속 스캔을 유지하다 첫 읽기 명령에 쌓아둔 잔여값을
+        /// 그대로 돌려주는 경우가 있어, 접속 후 최초 cardReadsToDiscard회의 "새로운 카드 인식"은 발행하지 않고 버림.
         /// </summary>
         private void ReadLoop(ReaderSession session)
         {
@@ -327,10 +329,13 @@ namespace DGAIZone.Game.Hardware
             byte[] pollCommand = ParseHexBytes(_settings?.pollCommandHex);
             int noCardMaxLength = _settings?.noCardResponseMaxLength ?? 7;
             int pollIntervalMs = _settings?.pollIntervalMs ?? 150;
+            int cardReadsToDiscard = _settings?.initialCardReadsToDiscard ?? 2;
             byte[] responseBuffer = new byte[256];
             byte[] drainBuffer = new byte[256];
             int consecutiveTimeouts = 0;
             string lastPublishedDecoded = null;
+            int discardedCardReads = 0; // 접속 직후 리더기가 백그라운드에서 계속 스캔하다 쌓아둔 잔여 카드 값을 최초 cardReadsToDiscard회만큼 버림
+            bool discardWindowOpen = true; // "무카드" 응답을 한 번이라도 받으면(리더기 상태가 실시간을 반영한다는 뜻) 즉시 닫힘
 
             try
             {
@@ -378,18 +383,36 @@ namespace DGAIZone.Game.Hardware
                             {
                                 lastPublishedDecoded = decoded;
 
-                                if (_logger != null)
+                                if (discardWindowOpen)
                                 {
-                                    string hexDump = BitConverter.ToString(responseBuffer, 0, length).Replace("-", " ");
-                                    _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드 인식 응답(HEX, {length}바이트)={hexDump}");
-                                }
+                                    // 리더기가 접속 전부터(유니티와 무관하게) 백그라운드에서 계속 스캔하며 쌓아둔 값을
+                                    // 첫 읽기 명령에 그대로 돌려주는 경우가 있어, 접속 직후(무카드 응답을 아직 한 번도
+                                    // 못 받은 상태)에 한해 최초 cardReadsToDiscard회까지는 발행하지 않고 기준값으로만 저장함.
+                                    discardedCardReads++;
+                                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 접속 초기 잔여값으로 판단해 무시함({discardedCardReads}/{cardReadsToDiscard}): {decoded}");
 
-                                _messageSubject.OnNext((session.ReaderId, decoded));
+                                    // 상한에 도달하면(연속 잔여값 대비 안전장치) 그 이후로는 정상 태그로 취급함
+                                    if (discardedCardReads >= cardReadsToDiscard) discardWindowOpen = false;
+                                }
+                                else
+                                {
+                                    if (_logger != null)
+                                    {
+                                        string hexDump = BitConverter.ToString(responseBuffer, 0, length).Replace("-", " ");
+                                        _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드 인식 응답(HEX, {length}바이트)={hexDump}");
+                                    }
+
+                                    _messageSubject.OnNext((session.ReaderId, decoded));
+                                }
                             }
                             // decoded가 lastPublishedDecoded와 같으면(같은 카드가 계속 올라가 있음) 중복 발행하지 않고 건너뜀
                         }
                         else
                         {
+                            // 무카드 응답을 받았다는 것은 리더기 상태가 이미 실시간을 정확히 반영하고 있다는 뜻이므로,
+                            // 잔여값 필터링 창을 즉시 닫음(정상 상황이면 씬 진입 직후 대부분 이 경로로 바로 닫힘).
+                            discardWindowOpen = false;
+
                             if (lastPublishedDecoded != null)
                             {
                                 // 직전까지 인식되어 있던 카드가 방금 떨어짐(짧은 응답으로 전환된 순간) -> 1회만 알림

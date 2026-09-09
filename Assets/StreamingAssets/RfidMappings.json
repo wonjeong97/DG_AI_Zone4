@@ -4,6 +4,7 @@
   "pollIntervalMs": 1000,
   "pollResponseTimeoutMs": 300,
   "noCardResponseMaxLength": 7,
+  "initialCardReadsToDiscard": 2,
   "stageReadCounts": [ 3 ],
   "readers": [
     {

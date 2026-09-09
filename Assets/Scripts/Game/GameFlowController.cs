@@ -25,6 +25,10 @@ namespace DGAIZone.Game
         [SerializeField] private CanvasGroup gamePanel;
         [SerializeField] private Button storyButton;
 
+        [Header("Theme Background")]
+        [SerializeField] private Image themeBackgroundImage; // Background: 씬 진입 시 선택된 레벨의 테마 스프라이트로 즉시 교체됨
+        [SerializeField] private Sprite[] themeBackgroundSprites; // Level1..5 순서. 레벨 1·2는 같은 스프라이트(Background_1)를 지정하면 됨
+
         private readonly float panelFadeDuration = 0.4f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         [Header("Story Level")]
@@ -74,6 +78,7 @@ namespace DGAIZone.Game
 
             _selectedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
 
+            ApplyThemeBackground();
             SetupStoryLevel();
             SetupSituationPanel();
 
@@ -140,6 +145,29 @@ namespace DGAIZone.Game
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 씬 진입 시(2_LevelSelect에서 페이드아웃 중이라 화면엔 안 보이는 시점) Background의 스프라이트를
+        /// 선택된 레벨(_selectedLevel)에 맞는 테마로 즉시 교체함. 씬 전환 자체가 이미 페이드를 담당하므로
+        /// 별도 페이드인 연출 없이 바로 적용함.
+        /// </summary>
+        private void ApplyThemeBackground()
+        {
+            if (themeBackgroundImage == null) return;
+
+            int index = _selectedLevel - 1;
+            Sprite sprite = (themeBackgroundSprites != null && index >= 0 && index < themeBackgroundSprites.Length)
+                ? themeBackgroundSprites[index]
+                : null;
+
+            if (sprite == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] themeBackgroundSprites[{index}]가 비어 있어 테마 배경을 바꾸지 못함.");
+                return;
+            }
+
+            themeBackgroundImage.sprite = sprite;
         }
 
         /// <summary> 활성화된 레벨에 맞춰 Image_CurrentSituation 하위의 Panel_Level(N)만 표시함. </summary>

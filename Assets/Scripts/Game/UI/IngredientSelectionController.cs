@@ -1119,11 +1119,47 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            _isBusy = true;
+            CompleteCodingAsync().Forget();
+        }
+
+        /// <summary>
+        /// 미션을 판정해 결과를 기록한 뒤 결과 씬으로 전환함. 레벨 4는 결과 씬으로 넘어가기 전에 디자인 창에
+        /// 입력된 명령을 전부 로봇 이동 시뮬레이션으로 재생하고(스페이스바 디버그 트리거와 동일한 연출),
+        /// 1초 대기한 뒤 전환함(플레이어가 결과를 확인할 시간을 줌). 이 재생 구간은 몇 초 이상 걸릴 수 있어,
+        /// 그동안 취소/확인 버튼이나 RFID 태그로 상태가 어긋나지 않도록 gamePanel을 즉시 비활성화함
+        /// (OnRfidTagReceived/OnRfidReaderIdle은 gamePanel.interactable을 이미 가드로 쓰고,
+        /// blocksRaycasts=false로 버튼 클릭도 함께 막힘). 씬을 곧 떠나므로 별도 복구는 하지 않음.
+        /// </summary>
+        private async UniTaskVoid CompleteCodingAsync()
+        {
+            if (gamePanel != null)
+            {
+                gamePanel.interactable = false;
+                gamePanel.blocksRaycasts = false;
+            }
+
             bool success = EvaluateMission();
             if (_resultStore != null) _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
 
-            _isBusy = true;
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}. {Constants.Scenes.Result} 씬으로 이동.");
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}.");
+
+            if (_selectedLevel == 4)
+            {
+                if (_level4Board == null) _level4Board = FindObjectOfType<Level4BoardController>();
+
+                if (_level4Board != null)
+                {
+                    await _level4Board.PlaySimulationAsync();
+                    await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: this.GetCancellationTokenOnDestroy());
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] level4Board를 찾을 수 없어 이동 시뮬레이션 없이 바로 결과 씬으로 전환함.");
+                }
+            }
+
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {Constants.Scenes.Result} 씬으로 이동.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 

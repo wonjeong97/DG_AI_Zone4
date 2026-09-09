@@ -66,6 +66,11 @@ namespace DGAIZone.Game.Data
         public int pollIntervalMs = 1000; // 폴링 명령을 반복 전송하는 주기(ms)
         public int pollResponseTimeoutMs = 300; // 폴링 응답을 기다리는 최대 시간(ms). 초과하면 이번 폴링은 건너뜀
         public int noCardResponseMaxLength = 7; // 이 바이트 수 이하의 응답은 "카드 없음"으로 간주하고 무시함(실측 기준 무카드=7바이트, 카드 인식=22바이트)
+
+        // 리더기는 유니티가 실행되지 않는 동안에도 백그라운드에서 계속 스캔을 유지하다가, 접속 후 첫 읽기 명령을
+        // 보내는 순간 그동안 쌓여있던(유니티와 무관하게 읽힌) 잔여 카드 값을 그대로 돌려주는 경우가 있음.
+        // 접속 후 리더기별로 이 횟수만큼의 "카드 인식" 응답은 발행하지 않고 버림(기준값으로만 저장).
+        public int initialCardReadsToDiscard = 2;
         public RfidReaderConfig[] readers;
         public RfidMappingItem[] mappings; // 모든 레벨에서 공용으로 재사용되는 물리 카드 목록 (uid -> category)
         public RfidLevelMapping[] levelMappings;
