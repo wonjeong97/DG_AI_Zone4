@@ -665,13 +665,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 107690804}
+  - component: {fileID: 107690805}
   m_Layer: 5
   m_Name: Panel_Level4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &107690804
 RectTransform:
   m_ObjectHideFlags: 0
@@ -692,6 +693,23 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &107690805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 107690803}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5276b764894e6104593c57b6d731fbab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotIcon: {fileID: 1014256139}
+  resourceIcon: {fileID: 406000176}
+  trapIcon: {fileID: 630817595}
+  hqIcon: {fileID: 1122542463}
+  gamePanel: {fileID: 1256388731}
 --- !u!1 &128903834
 GameObject:
   m_ObjectHideFlags: 0
@@ -2847,15 +2865,15 @@ RectTransform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 1997201180}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 249.25, y: -136}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -82.75, y: 76.5}
   m_SizeDelta: {x: 78, y: 43}
-  m_Pivot: {x: 0, y: 1}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &406000177
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3171,6 +3189,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 523942386}
+  - component: {fileID: 523942387}
   m_Layer: 0
   m_Name: CellMarkers
   m_TagString: Untagged
@@ -3213,6 +3232,18 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
+--- !u!225 &523942387
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 523942385}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &527008736
 GameObject:
   m_ObjectHideFlags: 0
@@ -4239,11 +4270,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1997201180}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 380.125, y: -98}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 77.125, y: 117.5}
   m_SizeDelta: {x: 136, y: 37}
-  m_Pivot: {x: 0, y: 1}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &630817596
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6117,11 +6148,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1997201180}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 89.75, y: -115}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -249.25, y: 87}
   m_SizeDelta: {x: 64, y: 64}
-  m_Pivot: {x: 0, y: 1}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1014256140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6991,11 +7022,11 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1997201180}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 532.75, y: -18}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 216.75, y: 179.5}
   m_SizeDelta: {x: 110, y: 73}
-  m_Pivot: {x: 0, y: 1}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1122542464
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10053,9 +10084,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uBAA9\uC801\uC9C0\uB294 [<color=yellow>\uB2EC</color>] \uC785\uB2C8\uB2E4.\n[<color=yellow>3\uBCF4\uB2E4
-    \uC801\uC740 \uC5F0\uB8CC\uB7C9</color>]\uC744 \uC785\uB825\uD558\uACE0,\n\uCD94\uC9C4\uCCB4\uC640
-    \uD0D1\uC7AC \uC885\uB958\uB97C \uC124\uC815\uD574\uC8FC\uC138\uC694."
+  m_text: text
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d0d2f5797b1d2f34ea9ffb7c01ef8fd6, type: 2}
   m_sharedMaterial: {fileID: -958249402790162185, guid: d0d2f5797b1d2f34ea9ffb7c01ef8fd6,

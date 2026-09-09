@@ -105,6 +105,7 @@ namespace DGAIZone.Game.UI
         private MissionBoardController _missionBoard;
         private CodingCategoryIndicatorController _codingCategoryIndicator;
         private GameResultStore _resultStore;
+        private Level4BoardController _level4Board; // Level4BoardController가 이 클래스를 참조하는 순환 의존이라 VContainer로 주입하지 않고 필요할 때 FindObjectOfType으로 찾음
         private ILogger<IngredientSelectionController> _logger;
         private bool _isBusy;
 
@@ -590,6 +591,24 @@ namespace DGAIZone.Game.UI
             return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Level4RepeatIngredientName, StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// 레벨 4 전용: 지금까지 확정된 (재료, 물질) 순서 목록을 확정된 순서 그대로 반환함.
+        /// Level4BoardController가 이 목록으로 로봇 이동 경로(스페이스바 시뮬레이션)를 만드는 데 사용함.
+        /// 아직 확정되지 않은 뒤쪽 슬롯은 포함하지 않음(레벨 4는 5단계를 다 채우지 않아도 되므로).
+        /// </summary>
+        public IReadOnlyList<(string ingredient, string matter)> GetConfirmedCommands()
+        {
+            var commands = new List<(string ingredient, string matter)>();
+            if (_confirmedIngredients == null || _confirmedMatters == null) return commands;
+
+            for (int i = 0; i < _currentStepIndex && i < _confirmedIngredients.Length; i++)
+            {
+                commands.Add((_confirmedIngredients[i], _confirmedMatters[i]));
+            }
+
+            return commands;
+        }
+
         /// <summary> 해당 단계가 허용하는 category 목록에 주어진 category가 포함되는지 검사함. </summary>
         private bool IsCategoryAllowedForStep(RfidStepDefinition step, string category)
         {
@@ -731,10 +750,17 @@ namespace DGAIZone.Game.UI
 
             string ingredient = _currentIngredient.Value;
             string chosenMatter = matters[_currentMatterIndex.Value];
-            int value = ParseIngredientValue(ingredient, chosenMatter);
             _confirmedMatters[_currentStepIndex] = chosenMatter;
             _confirmedIngredients[_currentStepIndex] = ingredient;
-            ApplyConfirmedValue(ingredient, value);
+
+            // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)은 레벨 1 전용 재료 이름을 기준으로 하므로,
+            // 다른 레벨의 재료 이름에 대해 매번 "알 수 없는 재료" 경고가 찍히지 않도록 레벨 1에서만 반영함.
+            int value = 0;
+            if (_selectedLevel == 1)
+            {
+                value = ParseIngredientValue(ingredient, chosenMatter);
+                ApplyConfirmedValue(ingredient, value);
+            }
 
             if (_logger != null)
             {
@@ -805,7 +831,8 @@ namespace DGAIZone.Game.UI
             _currentStepIndex--;
 
             // 되돌리는 항목의 확정 값을 계산식에서 제외(0으로 리셋)하고, 남은 확정 값들로 진행도(Image_Fill)를 다시 계산함
-            ApplyConfirmedValue(_confirmedIngredients[_currentStepIndex], 0);
+            // (추진력 계산식은 레벨 1 전용 재료 이름 기준이라, 다른 레벨은 건너뜀 - "알 수 없는 재료" 경고 방지)
+            if (_selectedLevel == 1) ApplyConfirmedValue(_confirmedIngredients[_currentStepIndex], 0);
 
             // 레벨 2: 되돌리는 matter에 대응하는 Image_StepN_Ball을 다시 흑백으로 되돌리고 완료 문구를 지움
             UpdateStepBallDisplay(_currentStepIndex, _confirmedMatters[_currentStepIndex], false);
@@ -960,6 +987,10 @@ namespace DGAIZone.Game.UI
                 return false;
             }
 
+            if (_selectedLevel == 2) return EvaluateLevel2Mission();
+            if (_selectedLevel == 3) return EvaluateLevel3Mission();
+            if (_selectedLevel == 4) return EvaluateLevel4Mission();
+
             int totalThrust = CalculateTotalThrust();
             bool valid = _missionBoard.IsThrustValid(totalThrust);
             if (_logger != null)
@@ -967,6 +998,75 @@ namespace DGAIZone.Game.UI
                 _logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={_confirmedEngineValue} x 연료={_confirmedFuelValue} - 탑재={_confirmedPayloadValue}) vs 목적지 '{_missionBoard.Destination}' -> {(valid ? "성공" : "실패")}");
             }
             return valid;
+        }
+
+        /// <summary>
+        /// 레벨 2 전용 판정: 확정된 5단계의 값이 순서대로 정확히 "점화하기 -> 상승하기 -> 1차 로켓 분리하기 ->
+        /// 2차 로켓 분리하기 -> 우주정거장 궤도 진입하기"(Level2StepBallMatters)와 일치해야만 성공으로 처리함.
+        /// 순서가 하나라도 어긋나면 실패.
+        /// </summary>
+        private bool EvaluateLevel2Mission()
+        {
+            if (_confirmedMatters == null || _confirmedMatters.Length < Level2StepBallMatters.Length)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 2 확정 단계 수가 부족함. 실패로 처리함.");
+                return false;
+            }
+
+            for (int i = 0; i < Level2StepBallMatters.Length; i++)
+            {
+                if (!string.Equals(_confirmedMatters[i], Level2StepBallMatters[i], StringComparison.Ordinal))
+                {
+                    if (_logger != null)
+                    {
+                        _logger.ZLogInformation($"[IngredientSelectionController] 레벨 2 판정: {i + 1}번째 단계가 '{Level2StepBallMatters[i]}'가 아니라 '{_confirmedMatters[i]}'라 순서가 어긋남. 실패로 처리함.");
+                    }
+                    return false;
+                }
+            }
+
+            if (_logger != null)
+            {
+                _logger.ZLogInformation($"[IngredientSelectionController] 레벨 2 판정: 발사 코딩 순서가 정확히 일치함. 성공으로 처리함.");
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 레벨 3 전용 판정: 산소/전기 게이지(CircleGage)가 둘 다 100%(1.0)까지 채워졌어야 성공.
+        /// 각 게이지는 관련된 두 단계(전기량 조건/조작, 산소량 조건/조작)에 모두 정답을 골라야 0.5씩 채워져 1.0이 됨
+        /// (UpdateLevel3Effects). fillAmount는 트윈으로 서서히 올라가므로, 트윈 완료 여부와 무관하게 확정된
+        /// 목표값인 _level3OxygenFill/_level3ElectricFill을 기준으로 판정함.
+        /// </summary>
+        private bool EvaluateLevel3Mission()
+        {
+            bool oxygenFull = _level3OxygenFill >= 1f;
+            bool electricFull = _level3ElectricFill >= 1f;
+
+            if (_logger != null)
+            {
+                _logger.ZLogInformation($"[IngredientSelectionController] 레벨 3 판정: 산소 게이지={_level3OxygenFill:F2}, 전기 게이지={_level3ElectricFill:F2} -> {(oxygenFull && electricFull ? "성공" : "실패")}");
+            }
+
+            return oxygenFull && electricFull;
+        }
+
+        /// <summary>
+        /// 레벨 4 전용 판정: 확정된 "반복하기/이동하기" 명령을 Level4BoardController.EvaluateOutcome()이
+        /// 연출 없이 즉시 재계산함(자원을 먼저 수집한 뒤 기지에 도착해야 성공, 그 외는 전부 실패).
+        /// Level4BoardController도 이 클래스를 참조해서 VContainer로 주입받으면 순환 의존이 되므로,
+        /// 필요할 때(코딩완료 클릭 시, 자주 호출되지 않음) FindObjectOfType으로 찾아 캐시함.
+        /// </summary>
+        private bool EvaluateLevel4Mission()
+        {
+            if (_level4Board == null) _level4Board = FindObjectOfType<Level4BoardController>();
+            if (_level4Board == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] level4Board를 찾을 수 없어 레벨 4 미션을 판정할 수 없음. 실패로 처리함.");
+                return false;
+            }
+
+            return _level4Board.EvaluateOutcome();
         }
 
         /// <summary>
@@ -987,8 +1087,10 @@ namespace DGAIZone.Game.UI
             int fuel = _confirmedFuelValue;
             int payload = _confirmedPayloadValue;
 
+            // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)은 레벨 1 전용 재료 이름을 기준으로 하므로,
+            // 다른 레벨의 재료 이름("이동하기", "발사 코딩 순서" 등)에 대해 매번 파싱 경고가 찍히지 않도록 레벨 1에서만 계산함.
             string ingredient = _currentIngredient.Value;
-            if (!string.IsNullOrEmpty(ingredient))
+            if (_selectedLevel == 1 && !string.IsNullOrEmpty(ingredient))
             {
                 int tempValue = ParseIngredientValue(ingredient, CurrentSelectedMatter());
                 if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) engine = tempValue;
