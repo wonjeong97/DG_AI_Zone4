@@ -1,22 +1,22 @@
 {
-  "baudRate": 9600,
+  "listenPort": 10123,
+  "pollCommandHex": "09 41 31 47 33 45 0D",
+  "pollIntervalMs": 1000,
+  "pollResponseTimeoutMs": 300,
+  "noCardResponseMaxLength": 7,
   "stageReadCounts": [ 3 ],
   "readers": [
     {
       "readerId": "Reader_1",
-      "deviceInstancePath": "USB\\VID_10C4&PID_EA60\\0715\n",
-      "fallbackPort": "COM6"
-    },
-    {
-      "readerId": "Reader_2",
-      "deviceInstancePath": "USB\\VID_10C4&PID_EA60\\8&184227F3&0&3\n",
-      "fallbackPort": "COM3"
+      "ipAddress": "192.168.1.188",
+      "macAddress": "34-46-63-D4-33-CD"
     }
   ],
   "mappings": [
-    { "uid": "55009FE62C", "category": "동작" },
-    { "uid": "55009FC910", "category": "동작" },
-    { "uid": "5500A0A524", "category": "동작" }
+    { "uid": "A1G081736922500B047C", "category": "동작" },
+    { "uid": "A1G0951E0FDA0D0D0402", "category": "제어" },
+    { "uid": "A1G0807369225839040D", "category": "논리" },
+    { "uid": "A1G080736922CBBC040A", "category": "함수" }
   ],
   "levelMappings": [
     {

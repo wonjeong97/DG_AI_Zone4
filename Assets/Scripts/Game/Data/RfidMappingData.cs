@@ -26,14 +26,16 @@ namespace DGAIZone.Game.Data
     }
 
     /// <summary>
-    /// 개별 RFID 리더기 연결 설정 직렬화 클래스.
+    /// 개별 RFID 리더기 연결 설정 직렬화 클래스. 리더기는 네트워크 클라이언트로 PC(서버)에 접속하며,
+    /// 접속해온 소켓의 IP를 이 ipAddress와 대조해 readerId를 식별함(1순위). IP가 일치하지 않으면
+    /// ARP 테이블로 조회한 MAC 주소를 macAddress와 대조함(2순위 폴백, DHCP 등으로 IP가 바뀌어도 식별 가능).
     /// </summary>
     [Serializable]
     public class RfidReaderConfig
     {
         public string readerId;
-        public string deviceInstancePath;
-        public string fallbackPort;
+        public string ipAddress;
+        public string macAddress; // 형식: "34-46-63-D4-33-CD" (구분자는 대조 시 정규화되므로 -, :, 공백 아무거나 가능)
     }
 
     /// <summary>
@@ -53,8 +55,17 @@ namespace DGAIZone.Game.Data
     [Serializable]
     public class RfidSettings
     {
-        public int baudRate = 9600;
+        public int listenPort = 10123; // PC(서버)가 모든 리더기 클라이언트의 접속을 받는 TCP 포트(공용). 리더기(KA-LAN-754) 기본 목적지 포트값과 동일하게 맞춰둠
         public int[] stageReadCounts = { 3 }; // 스테이지별 찍어야 하는 read 횟수 (인덱스 = 스테이지 번호)
+
+        // 리더기(KA-LAN-754)는 데이터를 먼저 push하지 않음(실측 확인됨: 카드만 태그해선 아무 데이터도 안 옴).
+        // 아래 명령이 "1회 읽기" 트리거로 추정되며, 이걸 반복 전송해 폴링해야 함.
+        // 실측: 카드 없음="09 41 31 47 33 45 0D"(그대로 에코) 또는 "0A 41 31 47 33 44 0D"(7바이트),
+        //       카드 있음="0A 41 31 47 30 38 31 37 33 36 39 32 32 35 30 30 42 30 34 37 43 0D"(22바이트, UID 포함).
+        public string pollCommandHex = "09 41 31 47 33 45 0D"; // 폴링(1회 읽기 트리거) 명령(공백으로 구분된 16진수 바이트열)
+        public int pollIntervalMs = 1000; // 폴링 명령을 반복 전송하는 주기(ms)
+        public int pollResponseTimeoutMs = 300; // 폴링 응답을 기다리는 최대 시간(ms). 초과하면 이번 폴링은 건너뜀
+        public int noCardResponseMaxLength = 7; // 이 바이트 수 이하의 응답은 "카드 없음"으로 간주하고 무시함(실측 기준 무카드=7바이트, 카드 인식=22바이트)
         public RfidReaderConfig[] readers;
         public RfidMappingItem[] mappings; // 모든 레벨에서 공용으로 재사용되는 물리 카드 목록 (uid -> category)
         public RfidLevelMapping[] levelMappings;
