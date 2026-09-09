@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Data;
@@ -21,17 +22,21 @@ namespace DGAIZone.Outro
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private GameObject homeButton; // 연출이 끝나면 활성화할 "처음으로" 버튼
 
+        private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함(인트로와 동일한 규칙)
+
         private InactivityTimer _inactivityTimer;
+        private VisitorInfoProvider _visitorInfoProvider;
         private bool _isAnimating;
         private bool _skipRequested;
 
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 Constants.StoryLine 폴백 값을 그대로 사용함
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 비활동 타이머를 주입받아 연출 중 일시정지 및 연출 완료 후 재개함. </summary>
+        /// <summary> VContainer 의존성 주입. 비활동 타이머를 주입받아 연출 중 일시정지 및 연출 완료 후 재개하고, 체험자 이름 제공자를 할당함. </summary>
         [Inject]
-        public void Construct(InactivityTimer inactivityTimer = null)
+        public void Construct(VisitorInfoProvider visitorInfoProvider, InactivityTimer inactivityTimer = null)
         {
+            _visitorInfoProvider = visitorInfoProvider;
             _inactivityTimer = inactivityTimer;
         }
 
@@ -65,6 +70,8 @@ namespace DGAIZone.Outro
             {
                 _commonSettings = await CommonSettingsProvider.GetAsync(token);
 
+                await ApplyVisitorNameAsync(token);
+
                 await StoryLineAnimator.AnimateAsync(storyText,
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
                     _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
@@ -81,6 +88,21 @@ namespace DGAIZone.Outro
         private void OnFullyShown()
         {
             if (homeButton != null) homeButton.SetActive(true);
+        }
+
+        /// <summary> Visitor.json(또는 추후 서버/QR)에서 체험자 이름을 가져와 storyText의 자리표시자를 교체함(인트로와 동일한 규칙). </summary>
+        private async UniTask ApplyVisitorNameAsync(CancellationToken token)
+        {
+            if (storyText == null || _visitorInfoProvider == null) return;
+
+            string visitorName = await _visitorInfoProvider.GetNameAsync(token);
+
+            using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
+            {
+                sb.Append(storyText.text);
+                sb.Replace(VisitorPlaceholder, visitorName);
+                storyText.text = sb.ToString();
+            }
         }
     }
 }

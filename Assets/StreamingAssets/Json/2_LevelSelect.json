@@ -6,5 +6,6 @@
   "selectedLevelButtonTargetPosition": { "x": 85.0, "y": -181.0 },
   "selectedLevelButtonTargetSize": { "x": 450.0, "y": 229.0 },
   "difficultyPanelBaseWidth": 239.0,
-  "difficultyPanelWidthPerStar": 51.0
+  "difficultyPanelWidthPerStar": 51.0,
+  "themeBackgroundFadeDuration": 0.6
 }

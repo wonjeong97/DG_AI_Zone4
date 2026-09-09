@@ -1378,10 +1378,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   startButton: {fileID: 1640765042}
-  sceneFadeDuration: 0.5
   qrCanvasGroup: {fileID: 1226213117}
-  qrFadeDuration: 1.2
-  qrBlinkMinAlpha: 0.3
 --- !u!4 &2136993115
 Transform:
   m_ObjectHideFlags: 0

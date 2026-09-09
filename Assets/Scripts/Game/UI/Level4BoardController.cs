@@ -107,7 +107,8 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 레벨 4에서 게임 패널이 활성 상태일 때 스페이스바 입력을 감지해 이동 시뮬레이션을 (재)시작함.
-        /// '코딩완료' 버튼은 바로 결과 씬으로 넘어가므로, 개발/플레이 중 경로를 눈으로 확인하기 위한 디버그 트리거임.
+        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거이며, '코딩완료' 버튼도 결과 씬으로
+        /// 넘어가기 전에 동일한 시뮬레이션(PlaySimulationAsync)을 재생함(IngredientSelectionController에서 호출).
         /// </summary>
         private void Update()
         {
@@ -117,7 +118,7 @@ namespace DGAIZone.Game.UI
 
             if (Keyboard.current.spaceKey.wasPressedThisFrame)
             {
-                RunSimulationAsync().Forget();
+                PlaySimulationAsync().Forget();
             }
         }
 
@@ -245,10 +246,12 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 스페이스바 입력 시 실행되는 이동 시뮬레이션. 이미 진행 중인 시뮬레이션이 있으면 취소하고 로봇을
-        /// 시작 위치(Column=0, Row=RobotRow)/기본 시선(왼쪽)으로 되돌린 뒤 처음부터 다시 재생함(연타에 안전함).
+        /// 이동 시뮬레이션을 재생하고 완료(또는 취소)될 때까지 대기 가능한 UniTask를 반환함. 이미 진행 중인
+        /// 시뮬레이션이 있으면 취소하고 로봇을 시작 위치(Column=0, Row=RobotRow)/기본 시선(왼쪽)으로 되돌린 뒤
+        /// 처음부터 다시 재생함(연타에 안전함). 스페이스바 디버그 트리거와 '코딩완료' 버튼(재생 후 결과 씬 전환,
+        /// IngredientSelectionController) 양쪽에서 공용으로 사용함.
         /// </summary>
-        private async UniTaskVoid RunSimulationAsync()
+        public async UniTask PlaySimulationAsync()
         {
             if (robotIcon == null)
             {

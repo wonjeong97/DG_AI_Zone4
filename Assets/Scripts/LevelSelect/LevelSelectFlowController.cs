@@ -37,6 +37,9 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private GameObject[] difficultyStars;
         [Header("Selected Level Button Move")]
         [SerializeField] private RectTransform selectedLevelButtonParent; // 선택된 버튼이 이동해 들어갈 부모(Background)
+        [Header("Theme Background")]
+        [SerializeField] private Image themeBackgroundImage; // Background/ThemeBackground: 평소엔 투명, 레벨 선택 시 테마 스프라이트로 페이드인됨
+        [SerializeField] private Sprite[] themeBackgroundSprites; // Level1..5 순서. 레벨 1·2는 같은 스프라이트(Background_1)를 지정하면 됨
         [Header("Debug (Editor Testing)")]
         [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
         private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
@@ -46,37 +49,67 @@ namespace DGAIZone.LevelSelect
         private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float difficultyPanelBaseWidth = 239f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float difficultyPanelWidthPerStar = 51f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float themeBackgroundFadeDuration = 0.6f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly Vector2 selectedLevelButtonTargetPosition = new(85f, -181f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly Vector2 selectedLevelButtonTargetSize = new(450f, 229f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
+        private UnlockedLevelStore _unlockedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
         private InactivityTimer _inactivityTimer;
         private bool _isBusy;
+        private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private LevelSelectSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 로거, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
+            _unlockedLevelStore = unlockedLevelStore;
             _logger = logger;
             _inactivityTimer = inactivityTimer;
+        }
+
+        /// <summary>
+        /// debugUnlockedLevelCount가 설정되어 있으면 그 값을 그대로 씀(에디터 테스트 전용, 최우선). 아니면 이번에
+        /// 적용하려는 값(jsonOrFallback: JSON 프리셋 또는 폴백 상수)과 세션 진행도(_unlockedLevelStore) 중 더 큰
+        /// 값을 실제 잠금 해제 수로 확정하고, 진행도가 그보다 낮았다면 갱신함(레벨 완료로 넓어진 잠금이 줄어들지 않도록).
+        /// </summary>
+        private int ResolveUnlockedCount(int jsonOrFallback)
+        {
+            if (debugUnlockedLevelCount > 0) return debugUnlockedLevelCount;
+            if (_unlockedLevelStore == null) return jsonOrFallback;
+
+            if (jsonOrFallback > _unlockedLevelStore.UnlockedLevelCount)
+            {
+                _unlockedLevelStore.UnlockedLevelCount = jsonOrFallback;
+            }
+            return _unlockedLevelStore.UnlockedLevelCount;
         }
 
         /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
         private void Start()
         {
+            // DOTween은 씬에서 처음 쓰이는 트윈이 자기 자신을 초기화하는 비용까지 그 자리에서 치르므로, 2_LevelSelect를
+            // (이전 씬을 거치지 않고) 단독으로 바로 실행해 테스트할 때 레벨 버튼 클릭이 그 세션의 첫 트윈이 되면서
+            // 그 프레임에 히치(순간 멈춤)가 생기고 실제 트윈 이동이 순간이동한 것처럼 보일 수 있어 미리 초기화해둠.
+            DOTween.Init();
+
             ApplyPanelState(levelSelectPanel, true);
             ApplyPanelState(storyPanel, false);
 
             // 선택된 레벨 버튼이 날아와서 표시되므로 스토리 이미지 플레이스홀더는 숨겨둠
             if (storyImage != null) storyImage.gameObject.SetActive(false);
+
+            // 테마 배경은 평소엔 투명 상태로 시작하고, 레벨 버튼 클릭 시에만 해당 스프라이트로 페이드인됨
+            SetImageAlpha(themeBackgroundImage, 0f);
+            WarmUpThemeBackgroundSprites();
 
             // 시작 버튼은 스토리 타이핑이 끝나기 전까지 누를 수 없음
             if (startButton != null)
@@ -106,8 +139,7 @@ namespace DGAIZone.LevelSelect
 
             // 폴백 unlockedLevelCount로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
             // 로드가 끝나면 실제 값으로 다시 적용함 (debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
-            int initialCount = debugUnlockedLevelCount > 0 ? debugUnlockedLevelCount : unlockedLevelCount;
-            ApplyLevelButtonLocks(initialCount);
+            ApplyLevelButtonLocks(ResolveUnlockedCount(unlockedLevelCount));
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
@@ -120,15 +152,14 @@ namespace DGAIZone.LevelSelect
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            int targetCount = debugUnlockedLevelCount > 0
-                ? debugUnlockedLevelCount
-                : (_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount);
-            ApplyLevelButtonLocks(targetCount);
+            ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount));
         }
 
         /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용하고, 난이도 패널(별 개수 및 너비)을 갱신함. </summary>
         public void ApplyLevelButtonLocks(int count)
         {
+            _currentUnlockedCount = count; // OnLevelClicked가 이 값으로 클릭 허용 여부를 판단함(표시 상태와 항상 일치시키기 위함)
+
             if (levelButtons != null)
             {
                 for (int i = 0; i < levelButtons.Length; i++)
@@ -259,7 +290,7 @@ namespace DGAIZone.LevelSelect
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
-            if (index < 0 || index >= (_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount)) return;
+            if (index < 0 || index >= _currentUnlockedCount) return;
 
             if (_selectedLevelStore != null)
             {
@@ -272,11 +303,14 @@ namespace DGAIZone.LevelSelect
 
             if (startButton != null) startButton.interactable = false;
 
+            ApplyThemeBackground(index);
+
             // 선택한 레벨 버튼을 클릭 즉시 두 패널(levelSelectPanel·storyPanel) 바깥의 Background로 완전히 옮김.
             // 두 패널 모두 CanvasGroup으로 페이드되는데, 그 자식으로 두면 페이드 도중 알파 블렌딩 때문에
             // 이미지가 흐릿하게 보여서, 페이드에 영향받지 않는 위치로 미리 빼둔다.
-            // worldPositionStays: false로 옮기므로 이 시점엔 시각적으로 튀지 않고, 목표 위치·크기로의 실제 이동은
-            // storyPanel이 페이드인되는 시점에 맞춰 트윈으로 처리한다.
+            // LevelSelectPanel의 실제 상위 부모(Image_Window3)는 전체화면 스트레치가 아니라 고정 크기/오프셋이 있는
+            // 박스라 Background(전체화면 기준)와 좌표계가 다름. worldPositionStays: true로 옮겨서 화면상 실제 위치를
+            // 그대로 유지한 채(유니티가 새 부모 기준으로 anchoredPosition을 재계산함) 그 위치에서 목표 위치로 트윈함.
             RectTransform selectedButtonRect = null;
             if (levelButtons != null && index < levelButtons.Length && levelButtons[index] != null)
             {
@@ -290,7 +324,7 @@ namespace DGAIZone.LevelSelect
                     _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelButtonParent가 null이라 storyPanel의 부모로 대체함.");
                 }
 
-                selectedButtonRect.SetParent(targetParent, worldPositionStays: false);
+                selectedButtonRect.SetParent(targetParent, worldPositionStays: true);
                 levelButtons[index].interactable = false;
 
                 // 버튼에 달려있던 별(Image_StarN) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
@@ -417,6 +451,63 @@ namespace DGAIZone.LevelSelect
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;
+        }
+
+        /// <summary>
+        /// themeBackgroundSprites를 씬 시작 시 한 번씩 themeBackgroundImage에 대입해 텍스처 업로드/머티리얼 준비 비용을
+        /// 미리 치러둠. 이렇게 하지 않으면 레벨 버튼 클릭 시 처음으로 큰 배경 스프라이트가 대입되면서 그 프레임에
+        /// 히치(순간 멈춤)가 발생하고, 그 사이 실제 시간이 크게 흘러 버튼 이동 트윈이 순간이동한 것처럼 보임
+        /// (SetUpdate(true)라 unscaledDeltaTime을 그대로 따라가므로, 히치 프레임의 큰 델타를 그대로 반영함).
+        /// 알파는 이미 0으로 맞춰둔 상태라 화면에는 아무 변화도 보이지 않음.
+        /// </summary>
+        private void WarmUpThemeBackgroundSprites()
+        {
+            if (themeBackgroundImage == null || themeBackgroundSprites == null) return;
+
+            Sprite originalSprite = themeBackgroundImage.sprite;
+            foreach (Sprite sprite in themeBackgroundSprites)
+            {
+                if (sprite == null) continue;
+                themeBackgroundImage.sprite = sprite;
+                Canvas.ForceUpdateCanvases();
+            }
+            themeBackgroundImage.sprite = originalSprite;
+        }
+
+        /// <summary>
+        /// 선택된 레벨(index)에 맞는 테마 배경 스프라이트로 즉시 교체한 뒤 페이드인함. 다른 연출(패널 전환, 버튼 이동)과
+        /// 동시에 진행되면 되므로 의도적으로 await하지 않음. themeBackgroundSprites[index]가 비어 있으면 건너뜀.
+        /// </summary>
+        private void ApplyThemeBackground(int index)
+        {
+            if (themeBackgroundImage == null) return;
+
+            Sprite sprite = (themeBackgroundSprites != null && index >= 0 && index < themeBackgroundSprites.Length)
+                ? themeBackgroundSprites[index]
+                : null;
+
+            if (sprite == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] themeBackgroundSprites[{index}]가 비어 있어 테마 배경을 바꾸지 못함.");
+                return;
+            }
+
+            themeBackgroundImage.sprite = sprite;
+
+            float duration = _sceneSettings?.themeBackgroundFadeDuration ?? themeBackgroundFadeDuration;
+            _ = themeBackgroundImage.DOFade(1f, duration)
+                .SetEase(Ease.Linear)
+                .SetUpdate(true)
+                .SetLink(themeBackgroundImage.gameObject);
+        }
+
+        /// <summary> Image의 알파값만 설정함(스프라이트/색상은 그대로 유지). </summary>
+        private void SetImageAlpha(Image image, float alpha)
+        {
+            if (image == null) return;
+            Color color = image.color;
+            color.a = alpha;
+            image.color = color;
         }
     }
 }
