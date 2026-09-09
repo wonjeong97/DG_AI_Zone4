@@ -9,7 +9,7 @@
   "readers": [
     {
       "readerId": "Reader_1",
-      "ipAddress": "192.168.1.188",
+      "ipAddress": "192.168.0.188",
       "macAddress": "34-46-63-D4-33-CD"
     }
   ],
