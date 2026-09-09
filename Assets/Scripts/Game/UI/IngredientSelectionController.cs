@@ -100,6 +100,7 @@ namespace DGAIZone.Game.UI
         };
 
         private ISubscriber<RfidTagEvent> _subscriber;
+        private ISubscriber<RfidReaderIdleEvent> _idleSubscriber;
         private SelectedLevelStore _selectedLevelStore;
         private SceneTransitionService _sceneTransition;
         private MissionBoardController _missionBoard;
@@ -117,6 +118,17 @@ namespace DGAIZone.Game.UI
         private RfidStepDefinition[] _stepDefinitions; // "동작" 카드를 찍을 때마다 순서대로 진행되는 재료 목록 (추진체 종류 -> 탑재 종류 -> 연료량)
         private string[] _confirmedMatters;
         private string[] _confirmedIngredients;
+        private string[] _confirmedCategories; // 각 스탭을 확정시킨 카드의 category(동작/제어/논리/함수). 리더기별 스탭 라우팅에서 카드 변경 감지에 사용
+        private string _currentCategory; // 현재 대기 중인(아직 확정 안 된) 태그의 category. Confirm 시 _confirmedCategories에 기록됨
+
+        // 리더기별 스탭 라우팅: readerId("Reader_N")가 N번째 스탭에 고정 배정됨. 설정된 리더기가 1대뿐이면(현재)
+        // 라우팅을 적용하지 않고 기존처럼 아무 리더기의 태그나 현재 스탭에 적용함. 2대 이상부터 활성화됨.
+        private int _readerCount = 1;
+
+        // 이미 확정된 스탭의 카드가 리더기에서 떨어져(RfidReaderIdleEvent) 값이 불확실해진 스탭 인덱스 목록.
+        // 여기 포함된 스탭부터 이후 DesignItem이 흐리게(비활성) 표시됨. 카드가 다시 인식되면 해당 인덱스가 제거됨.
+        private readonly HashSet<int> _idleReaderStepIndices = new HashSet<int>();
+        private const float DesignItemDeactivatedAlpha = 0.35f;
 
         // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)에 쓰이는 역할별 확정 값. 미확정 상태의 기본값은 0.
         private int _confirmedEngineValue = 0;
@@ -151,12 +163,13 @@ namespace DGAIZone.Game.UI
         private bool _level3InstabilityPending; // "또는"이 선택된 상태. 5단계를 전부 완료해야 실제 깜빡임이 시작됨.
 
         /// <summary>
-        /// VContainer 의존성 주입. MessagePipe 구독자, 씬 전환 서비스, 로거를 할당함.
+        /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 로거를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, ILogger<IngredientSelectionController> logger)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, ILogger<IngredientSelectionController> logger)
         {
             _subscriber = subscriber;
+            _idleSubscriber = idleSubscriber;
             _selectedLevelStore = selectedLevelStore;
             _sceneTransition = sceneTransition;
             _missionBoard = missionBoard;
@@ -180,6 +193,11 @@ namespace DGAIZone.Game.UI
             if (_subscriber != null)
             {
                 _subscriber.Subscribe(OnRfidTagReceived).AddTo(ref _disposables);
+            }
+
+            if (_idleSubscriber != null)
+            {
+                _idleSubscriber.Subscribe(OnRfidReaderIdle).AddTo(ref _disposables);
             }
 
             _currentIngredient.Subscribe(UpdateIngredientText).AddTo(ref _disposables);
@@ -213,6 +231,8 @@ namespace DGAIZone.Game.UI
                     _stageReadCounts = settings.stageReadCounts;
                 }
 
+                _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
+
                 int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
                 _selectedLevel = level;
                 _stepDefinitions = settings != null ? settings.GetStepsForLevel(level) : null;
@@ -229,6 +249,8 @@ namespace DGAIZone.Game.UI
 
             _confirmedMatters = new string[_totalSteps];
             _confirmedIngredients = new string[_totalSteps];
+            _confirmedCategories = new string[_totalSteps];
+            _idleReaderStepIndices.Clear();
             ClearDesignItems();
             InitializeStepBalls();
             InitializeLevel3Gauges();
@@ -508,6 +530,36 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            // 리더기별 스탭 라우팅: 설정된 리더기가 2대 이상일 때만 적용함(1대뿐이면 기존처럼 어떤 리더기든 현재 스탭에 적용).
+            // "Reader_N" 형식이 아닌 readerId(디버그 키보드 시뮬레이터의 "Keyboard", 미등록 리더기의 "Unknown_...")는
+            // GetStepIndexForReader가 -1을 반환하므로 라우팅 없이 기존처럼 현재 스탭에 적용됨.
+            if (_readerCount > 1)
+            {
+                int readerStepIndex = GetStepIndexForReader(evt.ReaderId);
+
+                // 카드가 다시 인식됐으므로(어떤 category든) 흐리게 표시돼 있었다면 정상 표시로 되돌림
+                if (readerStepIndex >= 0 && _idleReaderStepIndices.Remove(readerStepIndex))
+                {
+                    UpdateDesignItemGrayState();
+                }
+
+                if (readerStepIndex >= 0 && readerStepIndex < _currentStepIndex)
+                {
+                    // 이미 확정된 스탭을 담당하는 리더기에서 새 카드가 감지됨(사용자가 예전 스탭의 블록을 바꿔치기함).
+                    // 그 스탭부터 되돌린 뒤, 아래 로직에서 이 태그를 그 스탭의 새 입력으로 처리함.
+                    HandleConfirmedStepCardChanged(readerStepIndex, evt.Category);
+                }
+                else if (readerStepIndex > _currentStepIndex)
+                {
+                    // 아직 도달하지 않은(활성화되지 않은) 스탭의 리더기 -> 무시
+                    if (_logger != null)
+                    {
+                        _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {readerStepIndex + 1})은 아직 활성화되지 않아 태그를 무시함(현재 {_currentStepIndex + 1}번째 진행 중).");
+                    }
+                    return;
+                }
+            }
+
             // 모든 단계가 완료되면 더 이상 태그를 받지 않음
             if (_currentStepIndex >= _totalSteps)
             {
@@ -562,11 +614,88 @@ namespace DGAIZone.Game.UI
             if (_codingCategoryIndicator != null) _codingCategoryIndicator.HighlightCategory(evt.Category);
 
             _currentIngredient.Value = ingredientName;
+            _currentCategory = evt.Category;
             // 레벨 4는 같은 동작(예: "위쪽 한칸")이나 "반복하기"를 경로상 여러 번 다시 써야 하므로 중복 제외를 적용하지 않음
             _currentMatters.Value = _selectedLevel == 4 ? matterNames : ExcludeConfirmedMatters(ingredientName, matterNames);
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
+        }
+
+        /// <summary> "Reader_N" 형식의 readerId에서 0-기반 스탭 인덱스(N-1)를 추출함. 형식이 안 맞으면(디버그/미등록 리더기) -1을 반환함. </summary>
+        private static int GetStepIndexForReader(string readerId)
+        {
+            if (string.IsNullOrEmpty(readerId)) return -1;
+
+            int underscoreIndex = readerId.LastIndexOf('_');
+            if (underscoreIndex < 0 || underscoreIndex == readerId.Length - 1) return -1;
+
+            string suffix = readerId.Substring(underscoreIndex + 1);
+            return int.TryParse(suffix, out int readerNumber) ? readerNumber - 1 : -1;
+        }
+
+        /// <summary>
+        /// 이미 확정된 stepIndex번째 스탭을 담당하는 리더기에서 카드가 바뀐 것을 감지했을 때 호출됨.
+        /// 같은 category든 다른 category든 처리는 동일함: stepIndex까지 되돌리고(그 뒤 확정된 값은 전부 무효화),
+        /// 이 메서드를 호출한 OnRfidTagReceived가 이어서 새 태그를 그 스탭의 입력으로 정상 처리하게 함.
+        /// (같은 category: 방향/횟수 등 세부 값만 새로 고르면 되므로 사실상 "그대로 재진행"처럼 느껴짐.
+        ///  다른 category: 그 스탭 이후 확정 값이 전부 취소되므로 더 크게 되돌아가는 셈.)
+        /// </summary>
+        private void HandleConfirmedStepCardChanged(int stepIndex, string newCategory)
+        {
+            string previousCategory = (_confirmedCategories != null && stepIndex < _confirmedCategories.Length) ? _confirmedCategories[stepIndex] : null;
+            bool sameCategory = string.Equals(previousCategory, newCategory, StringComparison.Ordinal);
+
+            if (_logger != null)
+            {
+                _logger.ZLogInformation($"[IngredientSelectionController] 이미 확정된 {stepIndex + 1}번째 단계에서 카드 변경 감지({previousCategory} -> {newCategory}). {(sameCategory ? "같은 카테고리라 그대로 재진행" : "다른 카테고리라 이후 단계 전부 무효화")}함.");
+            }
+
+            RollbackToStep(stepIndex);
+            UpdateCategoryHint();
+        }
+
+        /// <summary>
+        /// 이미 확정된 스탭을 담당하는 리더기에서 카드가 떨어졌을(RfidReaderIdleEvent) 때 호출됨. 그 값이 더 이상
+        /// 확실하지 않다는 걸 시각적으로 알리기 위해, 해당 스탭 이후의 DesignItem을 흐리게(비활성) 표시함.
+        /// 카드가 다시 인식되면(OnRfidTagReceived) 자동으로 정상 표시로 되돌아감. 리더기 1대뿐이면(현재) 그 1대가
+        /// 항상 "지금 진행 중인" 스탭이라 카드를 떼는 것 자체가 일반적인 조작 흐름이므로 이 기능을 적용하지 않음.
+        /// </summary>
+        private void OnRfidReaderIdle(RfidReaderIdleEvent evt)
+        {
+            if (_readerCount <= 1) return;
+            if (_confirmedMatters == null) return;
+
+            int stepIndex = GetStepIndexForReader(evt.ReaderId);
+            if (stepIndex < 0 || stepIndex >= _currentStepIndex) return; // 매핑 안 되거나 아직 확정 안 된 스탭은 무시
+
+            if (_idleReaderStepIndices.Add(stepIndex))
+            {
+                if (_logger != null)
+                {
+                    _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 이후 항목을 비활성 표시로 전환함.");
+                }
+                UpdateDesignItemGrayState();
+            }
+        }
+
+        /// <summary>
+        /// _idleReaderStepIndices 중 가장 이른 인덱스부터 끝까지 DesignItem의 알파를 낮춰 흐리게(비활성) 표시하고,
+        /// 그 앞쪽은 정상 알파로 되돌림. 값 자체는 바꾸지 않고 시각적 표시만 담당함.
+        /// </summary>
+        private void UpdateDesignItemGrayState()
+        {
+            int grayFromIndex = int.MaxValue;
+            foreach (int idx in _idleReaderStepIndices)
+            {
+                if (idx < grayFromIndex) grayFromIndex = idx;
+            }
+
+            for (int i = 0; i < _designItems.Count; i++)
+            {
+                if (_designItems[i] == null) continue;
+                _designItems[i].alpha = (i >= grayFromIndex) ? DesignItemDeactivatedAlpha : 1f;
+            }
         }
 
         /// <summary>
@@ -752,6 +881,10 @@ namespace DGAIZone.Game.UI
             string chosenMatter = matters[_currentMatterIndex.Value];
             _confirmedMatters[_currentStepIndex] = chosenMatter;
             _confirmedIngredients[_currentStepIndex] = ingredient;
+            if (_confirmedCategories != null && _currentStepIndex < _confirmedCategories.Length)
+            {
+                _confirmedCategories[_currentStepIndex] = _currentCategory;
+            }
 
             // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)은 레벨 1 전용 재료 이름을 기준으로 하므로,
             // 다른 레벨의 재료 이름에 대해 매번 "알 수 없는 재료" 경고가 찍히지 않도록 레벨 1에서만 반영함.
@@ -782,12 +915,7 @@ namespace DGAIZone.Game.UI
                 _missionBoard.SetProgress(CalculateTotalThrust());
             }
 
-            // 현재 카드 선택 대기 상태 초기화
-            _currentIngredient.Value = "";
-            _currentMatters.Value = Array.Empty<string>();
-            _currentMatterIndex.Value = 0;
-            UpdateMatterText();
-            UpdateProgressPreview();
+            ClearPendingSelection();
 
             // 다음 단계로 인덱스 증가
             _currentStepIndex++;
@@ -818,44 +946,19 @@ namespace DGAIZone.Game.UI
             if (_currentStepIndex == 0)
             {
                 // 1단계(Reader 1)인 경우 현재 태그된 임시 선택값만 클리어
-                _currentIngredient.Value = "";
-                _currentMatters.Value = Array.Empty<string>();
-                _currentMatterIndex.Value = 0;
-                UpdateMatterText();
-                UpdateProgressPreview();
+                ClearPendingSelection();
                 UpdateCategoryHint();
                 return;
             }
 
-            // 이전 단계로 롤백
-            _currentStepIndex--;
-
-            // 되돌리는 항목의 확정 값을 계산식에서 제외(0으로 리셋)하고, 남은 확정 값들로 진행도(Image_Fill)를 다시 계산함
-            // (추진력 계산식은 레벨 1 전용 재료 이름 기준이라, 다른 레벨은 건너뜀 - "알 수 없는 재료" 경고 방지)
-            if (_selectedLevel == 1) ApplyConfirmedValue(_confirmedIngredients[_currentStepIndex], 0);
-
-            // 레벨 2: 되돌리는 matter에 대응하는 Image_StepN_Ball을 다시 흑백으로 되돌리고 완료 문구를 지움
-            UpdateStepBallDisplay(_currentStepIndex, _confirmedMatters[_currentStepIndex], false);
-
-            // 레벨 3: 되돌리는 단계/값에 적용됐던 게이지/아이콘 효과를 반대로 되돌림
-            RevertLevel3Effects(_currentStepIndex, _confirmedMatters[_currentStepIndex]);
-
-            // 이전 단계의 확정 내역 삭제
-            _confirmedMatters[_currentStepIndex] = null;
-            _confirmedIngredients[_currentStepIndex] = null;
-            RemoveLastDesignItem();
+            RollbackOneStep();
 
             if (_missionBoard != null)
             {
                 _missionBoard.SetProgress(CalculateTotalThrust());
             }
 
-            // 현재 임시 선택 상태 초기화
-            _currentIngredient.Value = "";
-            _currentMatters.Value = Array.Empty<string>();
-            _currentMatterIndex.Value = 0;
-            UpdateMatterText();
-            UpdateProgressPreview();
+            ClearPendingSelection();
 
             // 되돌아간 단계의 카테고리 힌트를 다시 페이드로 안내함
             UpdateCategoryHint();
@@ -864,6 +967,67 @@ namespace DGAIZone.Game.UI
             {
                 _logger.ZLogInformation($"[IngredientSelectionController] {_currentStepIndex + 1}번째 단계로 되돌림 (Reader_{_currentStepIndex + 1} 대기 중)");
             }
+        }
+
+        /// <summary>
+        /// 현재 대기 중인(아직 확정 안 된) 카드 선택 상태를 비움. Confirm/Cancel/리더기 변경 감지 롤백 등
+        /// 단계가 바뀔 때마다 공통으로 호출됨.
+        /// </summary>
+        private void ClearPendingSelection()
+        {
+            _currentIngredient.Value = "";
+            _currentCategory = null;
+            _currentMatters.Value = Array.Empty<string>();
+            _currentMatterIndex.Value = 0;
+            UpdateMatterText();
+            UpdateProgressPreview();
+        }
+
+        /// <summary>
+        /// 확정된 마지막 한 단계(_currentStepIndex - 1)를 되돌림: 계산식/스텝 볼/레벨3 효과를 반대로 되돌리고,
+        /// 확정 배열(matter/ingredient/category)을 비운 뒤 디자인 항목을 제거하고 _currentStepIndex를 하나 감소시킴.
+        /// Cancel 버튼과 리더기 변경 감지(RollbackToStep) 양쪽에서 재사용함. 미션보드 진행도 갱신과
+        /// 대기 선택 상태 클리어는 호출자가 필요한 시점에 별도로 처리함(여러 단계를 한 번에 되돌릴 때 매번 반복하지 않기 위함).
+        /// </summary>
+        private void RollbackOneStep()
+        {
+            _currentStepIndex--;
+
+            // 추진력 계산식은 레벨 1 전용 재료 이름 기준이라, 다른 레벨은 건너뜀("알 수 없는 재료" 경고 방지)
+            if (_selectedLevel == 1) ApplyConfirmedValue(_confirmedIngredients[_currentStepIndex], 0);
+
+            UpdateStepBallDisplay(_currentStepIndex, _confirmedMatters[_currentStepIndex], false);
+            RevertLevel3Effects(_currentStepIndex, _confirmedMatters[_currentStepIndex]);
+
+            _confirmedMatters[_currentStepIndex] = null;
+            _confirmedIngredients[_currentStepIndex] = null;
+            if (_confirmedCategories != null && _currentStepIndex < _confirmedCategories.Length)
+            {
+                _confirmedCategories[_currentStepIndex] = null;
+            }
+
+            _idleReaderStepIndices.Remove(_currentStepIndex); // 해당 스탭의 DesignItem이 곧 제거되므로 흐림 표시 추적 대상에서도 제외
+            RemoveLastDesignItem();
+        }
+
+        /// <summary>
+        /// _currentStepIndex가 targetStepIndex와 같아질 때까지 RollbackOneStep을 반복 호출함(여러 단계를 한 번에 되돌림).
+        /// 리더기별 스탭 라우팅에서 이미 확정된 스탭의 카드가 바뀐 것을 감지했을 때 사용함.
+        /// </summary>
+        private void RollbackToStep(int targetStepIndex)
+        {
+            while (_currentStepIndex > targetStepIndex)
+            {
+                RollbackOneStep();
+            }
+
+            if (_missionBoard != null)
+            {
+                _missionBoard.SetProgress(CalculateTotalThrust());
+            }
+
+            UpdateDesignItemGrayState(); // 남아있는 DesignItem의 흐림 표시 경계를 다시 계산함
+            ClearPendingSelection();
         }
 
         /// <summary>

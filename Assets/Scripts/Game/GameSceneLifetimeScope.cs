@@ -27,6 +27,7 @@ namespace DGAIZone.Game
 
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<RfidTagEvent>(options);
+            builder.RegisterMessageBroker<RfidReaderIdleEvent>(options);
         }
     }
 }
