@@ -98,6 +98,36 @@
           "categories": [ "동작" ]
         }
       ]
+    },
+    {
+      "level": 4,
+      "steps": [
+        {
+          "ingredientName": "이동하기",
+          "matterNames": [ "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" ],
+          "categories": [ "제어", "동작" ]
+        },
+        {
+          "ingredientName": "이동하기",
+          "matterNames": [ "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" ],
+          "categories": [ "제어", "동작" ]
+        },
+        {
+          "ingredientName": "이동하기",
+          "matterNames": [ "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" ],
+          "categories": [ "제어", "동작" ]
+        },
+        {
+          "ingredientName": "이동하기",
+          "matterNames": [ "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" ],
+          "categories": [ "제어", "동작" ]
+        },
+        {
+          "ingredientName": "이동하기",
+          "matterNames": [ "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" ],
+          "categories": [ "동작" ]
+        }
+      ]
     }
   ]
 }
