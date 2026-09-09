@@ -256,7 +256,7 @@ namespace DGAIZone.Game.UI
             InitializeLevel3Gauges();
             UpdateCategoryHint();
 
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_currentStageIndex + 1}번째 스테이지 초기화 완료: 총 {_totalSteps}회 read 필요.");
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
         }
 
         /// <summary>

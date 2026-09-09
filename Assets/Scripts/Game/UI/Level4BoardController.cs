@@ -225,19 +225,20 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// R(행) 오름차순으로 sibling을 재배치해 아래쪽(화면상 가까운) 타일이 항상 앞에 그려지도록 함.
-        /// 로봇은 보드 시작 행(RobotRow)이 아니라 시뮬레이션 중 실시간 위치(_robotCurrentRow)를 기준으로 정렬함.
+        /// 자원 아이콘은 항상 로봇보다 앞에, 함정/기지 아이콘은 항상 로봇보다 뒤에 그려지도록 고정 우선순위로
+        /// sibling을 재배치함. 행(row) 기준으로 정렬하면 로봇이 자원/함정/기지와 같은 행을 지날 때 그리기
+        /// 순서가 뒤집혀(예: 로봇이 함정 셀 위로 지나가면 함정이 로봇을 가림) 요구사항과 어긋나므로 사용하지 않음.
         /// </summary>
         private void ApplyRowBasedDrawOrder()
         {
-            var order = new List<(RectTransform icon, int row)>
+            var order = new List<(RectTransform icon, int priority)>
             {
-                (robotIcon, _robotCurrentRow),
-                (resourceIcon, ResourceRow),
-                (trapIcon, TrapRow),
-                (hqIcon, HqRow),
+                (trapIcon, 0),
+                (hqIcon, 0),
+                (robotIcon, 1),
+                (resourceIcon, 2),
             };
-            order.Sort((a, b) => a.row.CompareTo(b.row));
+            order.Sort((a, b) => a.priority.CompareTo(b.priority));
 
             foreach (var entry in order)
             {

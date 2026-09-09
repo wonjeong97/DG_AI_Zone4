@@ -24,17 +24,34 @@ namespace DGAIZone.App
     /// 자식 스코프의 FindParent()가 이 인스턴스를 먼저 발견해 Container == null인 상태로
     /// 강제 Build()할 수 있다. 그런 경우를 대비해 이 클래스의 Awake()는 이미 빌드되어 있으면
     /// (Container != null) 재빌드를 건너뛴다.
+    /// <br/>
+    /// 0_Title은 아웃트로의 종료하기 버튼이나 비활동 타임아웃으로 반복해서 재로드될 수 있는데(Single 모드),
+    /// 그때마다 씬 파일에 저장된 이 프리팹 인스턴스가 다시 생성되어 기존 DontDestroyOnLoad 인스턴스와
+    /// 중복될 수 있다. 정적 플래그로 최초 1회만 생존시키고, 이후 재로드분은 즉시 비활성화 후 파괴한다
+    /// (그대로 두면 별도 컨테이너를 빌드해 GameManager/ShutdownScheduler 등이 중복되고, 새로 생성된
+    /// 자식들은 아무도 주입해주지 않아 "Dependencies were not injected" 경고가 발생한다).
     /// </para>
     /// </summary>
     [DefaultExecutionOrder(-1000)]
     public class GameLifetimeScope : RootLifetimeScope
     {
+        private static bool created;
+
         /// <summary>
-        /// 씬 전환 후에도 컨테이너가 유지되도록 파괴되지 않게 함. 자식 스코프가 이미 강제로
-        /// Build()해 두었다면(Container != null) 중복 빌드를 건너뜀.
+        /// 0_Title 재로드로 생성된 중복 인스턴스라면 즉시 비활성화 후 파괴해 원본만 유지함.
+        /// 최초 인스턴스라면 씬 전환 후에도 컨테이너가 유지되도록 파괴되지 않게 하고,
+        /// 자식 스코프가 이미 강제로 Build()해 두었다면(Container != null) 재빌드를 건너뜀.
         /// </summary>
         protected override void Awake()
         {
+            if (created)
+            {
+                gameObject.SetActive(false);
+                Destroy(gameObject);
+                return;
+            }
+            created = true;
+
             DontDestroyOnLoad(gameObject);
             if (Container != null) return;
             base.Awake();
