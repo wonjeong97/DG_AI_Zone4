@@ -115,7 +115,7 @@ namespace DGAIZone.Game.Hardware
                 _listener.Start();
                 _serverRunning = true;
 
-                _acceptThread = new Thread(AcceptLoop) { Priority = System.Threading.ThreadPriority.BelowNormal };
+                _acceptThread = new Thread(AcceptLoop) { Priority = System.Threading.ThreadPriority.BelowNormal, IsBackground = true };
                 _acceptThread.Start();
 
                 if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] TCP 서버 시작됨. 포트={port}에서 리더기 접속 대기 중.");
@@ -157,20 +157,33 @@ namespace DGAIZone.Game.Hardware
 
         /// <summary>
         /// 새로 접속한 리더기 클라이언트의 IP를 설정된 리더기 목록과 대조해 readerId를 식별하고, 수신 스레드를 시작함.
-        /// 이미 MaxConcurrentReaders만큼 접속 중이면 새 접속은 거부함.
+        /// 같은 IP의 좀비 세션(리더기가 재부팅되는 등으로 이전 소켓이 아직 정리되지 않은 경우)이 남아있으면
+        /// 그 세션을 먼저 정리하고 새 접속으로 교체함. 그 외에 이미 MaxConcurrentReaders만큼 접속 중이면 거부함.
         /// </summary>
         private void HandleNewClient(TcpClient client)
         {
             string remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+            ReaderSession staleSession = null;
 
             lock (_sessionsLock)
             {
-                if (_sessions.Count >= MaxConcurrentReaders)
+                staleSession = _sessions.Find(s => IsSameRemoteIp(s, remoteIp));
+
+                if (staleSession == null && _sessions.Count >= MaxConcurrentReaders)
                 {
                     if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] 현재 리더기 {MaxConcurrentReaders}대까지만 받도록 제한되어 있어 {remoteIp}의 접속을 거부함(이미 {_sessions.Count}대 연결됨).");
                     try { client.Close(); } catch (Exception) { /* 이미 닫힌 경우 무시 */ }
                     return;
                 }
+
+                if (staleSession != null) _sessions.Remove(staleSession);
+            }
+
+            if (staleSession != null)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {remoteIp}에서 재접속됨. 이전 세션({staleSession.ReaderId})을 정리함.");
+                staleSession.IsRunning = false;
+                try { staleSession.Client.Close(); } catch (Exception) { /* 이미 닫힌 경우 무시 */ }
             }
 
             string readerId = ResolveReaderId(remoteIp);
@@ -184,12 +197,29 @@ namespace DGAIZone.Game.Hardware
                 IsRunning = true
             };
 
-            session.ReadThread = new Thread(() => ReadLoop(session)) { Priority = System.Threading.ThreadPriority.BelowNormal };
+            session.ReadThread = new Thread(() => ReadLoop(session)) { Priority = System.Threading.ThreadPriority.BelowNormal, IsBackground = true };
             session.ReadThread.Start();
 
             lock (_sessionsLock) _sessions.Add(session);
 
             if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {readerId} 리더기가 {remoteIp}에서 접속함.");
+        }
+
+        /// <summary> 세션의 접속 IP가 주어진 IP와 같은지 확인함(재접속 시 좀비 세션 탐지용). 소켓이 이미 닫혀있으면 false. </summary>
+        private static bool IsSameRemoteIp(ReaderSession session, string ip)
+        {
+            try
+            {
+                if (session?.Client?.Client?.RemoteEndPoint is IPEndPoint endPoint)
+                {
+                    return string.Equals(endPoint.Address.ToString(), ip, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch (Exception)
+            {
+                // 소켓이 이미 닫혀 RemoteEndPoint 접근이 실패하는 경우 무시
+            }
+            return false;
         }
 
         /// <summary>
@@ -287,7 +317,7 @@ namespace DGAIZone.Game.Hardware
         /// 백그라운드 스레드에서 실행되는 TCP 폴링 루프. 리더기(KA-LAN-754)는 데이터를 먼저 push하지 않음(실측
         /// 확인됨: 카드만 태그해선 아무 데이터도 안 옴). pollCommandHex 명령을 반복 전송해야 하고, 그 응답으로
         /// 카드 없음=짧은 응답, 카드 있음=UID가 포함된 긴 응답을 주므로 응답 길이로 카드 인식 여부를 판별함.
-        /// 카드가 리더기 위에 계속 올라가 있으면 폴링마다(150ms 간격) 매번 같은 긴 응답이 반복되므로,
+        /// 카드가 리더기 위에 계속 올라가 있으면 폴링마다(pollIntervalMs 간격) 매번 같은 긴 응답이 반복되므로,
         /// 직전에 발행한 값과 같으면 재발행하지 않고(카드를 계속 대고 있는 동안 이벤트가 수십 번 중복되는 것 방지),
         /// 카드가 떨어져 짧은 응답으로 돌아오면 상태를 리셋해 다음 태그 때 다시 발행되도록 함.
         /// </summary>
@@ -298,6 +328,7 @@ namespace DGAIZone.Game.Hardware
             int noCardMaxLength = _settings?.noCardResponseMaxLength ?? 7;
             int pollIntervalMs = _settings?.pollIntervalMs ?? 150;
             byte[] responseBuffer = new byte[256];
+            byte[] drainBuffer = new byte[256];
             int consecutiveTimeouts = 0;
             string lastPublishedDecoded = null;
 
@@ -314,6 +345,13 @@ namespace DGAIZone.Game.Hardware
 
                 while (session.IsRunning && session.Client.Connected)
                 {
+                    // 이전 주기의 응답이 타임아웃 이후 지연 도착해 버퍼에 남아있으면, 이번 주기의 응답으로
+                    // 잘못 읽혀 요청-응답이 한 주기씩 밀리는(desync) 것을 막기 위해 먼저 비움
+                    while (stream.DataAvailable)
+                    {
+                        stream.Read(drainBuffer, 0, drainBuffer.Length);
+                    }
+
                     stream.Write(pollCommand, 0, pollCommand.Length);
                     stream.Flush();
 

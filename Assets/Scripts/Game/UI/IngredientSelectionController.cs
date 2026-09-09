@@ -538,15 +538,31 @@ namespace DGAIZone.Game.UI
                 int readerStepIndex = GetStepIndexForReader(evt.ReaderId);
 
                 // 카드가 다시 인식됐으므로(어떤 category든) 흐리게 표시돼 있었다면 정상 표시로 되돌림
-                if (readerStepIndex >= 0 && _idleReaderStepIndices.Remove(readerStepIndex))
+                bool wasIdle = readerStepIndex >= 0 && _idleReaderStepIndices.Remove(readerStepIndex);
+                if (wasIdle)
                 {
                     UpdateDesignItemGrayState();
                 }
 
                 if (readerStepIndex >= 0 && readerStepIndex < _currentStepIndex)
                 {
-                    // 이미 확정된 스탭을 담당하는 리더기에서 새 카드가 감지됨(사용자가 예전 스탭의 블록을 바꿔치기함).
-                    // 그 스탭부터 되돌린 뒤, 아래 로직에서 이 태그를 그 스탭의 새 입력으로 처리함.
+                    // 카드가 잠깐 떨어졌다가(idle) 같은 category의 카드가 다시 올라온 것뿐이면 확정된 값은
+                    // 그대로 유효하므로 되돌리지 않고 복구만 함(파괴적 롤백 방지).
+                    string previousCategory = (_confirmedCategories != null && readerStepIndex < _confirmedCategories.Length)
+                        ? _confirmedCategories[readerStepIndex] : null;
+
+                    if (wasIdle && string.Equals(previousCategory, evt.Category, StringComparison.Ordinal))
+                    {
+                        if (_logger != null)
+                        {
+                            _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {readerStepIndex + 1})에 동일 카테고리({evt.Category}) 카드가 다시 인식되어 정상 상태로 복구함.");
+                        }
+                        return;
+                    }
+
+                    // 그 외(카드를 떼지 않은 채 다른 카드로 교체했거나, 떨어졌다가 다른 category로 바뀐 경우)는
+                    // 이미 확정된 스탭을 담당하는 리더기에서 변경이 감지된 것이므로, 그 스탭부터 되돌린 뒤
+                    // 아래 로직에서 이 태그를 그 스탭의 새 입력으로 처리함.
                     HandleConfirmedStepCardChanged(readerStepIndex, evt.Category);
                 }
                 else if (readerStepIndex > _currentStepIndex)
