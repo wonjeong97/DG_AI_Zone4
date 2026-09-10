@@ -168,7 +168,9 @@ namespace DGAIZone.LevelSelect
                 }
             }
 
-            ApplyDifficulty(count);
+            // 현재는 난이도(열린 레벨 수)와 무관하게 별 1개로 고정 표시함(기획 요청).
+            // ApplyDifficulty 자체는 나중에 복구될 수 있어 그대로 두고, 호출 인자만 1로 고정함.
+            ApplyDifficulty(1);
         }
 
         /// <summary> 플레이어가 선택 가능한 난이도(열린 레벨 수)에 맞춰 별 표시 개수와 난이도 패널 너비를 동적으로 조정함. </summary>

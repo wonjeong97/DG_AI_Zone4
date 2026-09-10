@@ -66,5 +66,14 @@ namespace DGAIZone.Data
 
         /// <summary> 화면 흔들림이 끝난 뒤 Image_Warning을 페이드아웃하기 전까지 더 붙잡아 보여주는 시간(초). </summary>
         public float warningHoldDuration = 1.0f;
+
+        /// <summary> 레벨 4 로봇이 한 칸 이동하는 데 걸리는 시간(초). Level4BoardController.ExecuteStepAsync가 씀. </summary>
+        public float level4MoveDuration = 0.35f;
+
+        /// <summary> 레벨 4 로봇이 한 칸 이동을 마치고 다음 이동을 시작하기 전까지 셀에 멈춰 있는 시간(초). </summary>
+        public float level4StepPauseDuration = 0.35f;
+
+        /// <summary> 레벨 4 자원 흡수/로봇 소멸(그리드 밖 이탈 포함) 스케일 연출에 걸리는 시간(초). </summary>
+        public float level4CollisionScaleDuration = 0.25f;
     }
 }
