@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -33,14 +34,20 @@ namespace DGAIZone.Game.UI
         private const int Rows = 4;
         private const int Columns = 4;
         private const int MaxCommands = 5; // 플레이어가 입력 가능한 카드 최대 개수. 복잡한 배치를 막기 위한 이동 비용 상한으로 씀.
-        private const float MoveDuration = 0.35f; // 한 칸 이동에 걸리는 시간(초)
-        private const float StepPauseDuration = 0.12f; // 한 칸 이동 완료 후 다음 이동 전 대기 시간(초)
+        private const float DefaultMoveDuration = 0.35f; // 3_Game.json 로드 전까지의 폴백 기본값(한 칸 이동에 걸리는 시간, 초)
+        private const float DefaultStepPauseDuration = 0.35f; // 3_Game.json 로드 전까지의 폴백 기본값(한 칸 이동 완료 후 다음 이동 전 대기 시간, 초)
         private const float DebugMarkerHeight = 28f; // CellMarkers 디버그 라벨(TMP, sizeDelta 80x28, pivot 0.5,0.5)의 높이. 아이콘 정렬 기준점(라벨의 중앙 하단) 계산에 씀.
         private const bool StartFacingLeft = false; // 로봇 기본 이미지는 왼쪽을 보고 있으나, 시작 시에는 오른쪽을 보도록 함
         private const float GridWidth = 742f; // Image_Grid(Grid.png) sizeDelta.x
         private const float GridHeight = 234f; // Image_Grid(Grid.png) sizeDelta.y
-        private const float CollisionScaleDuration = 0.25f; // 자원 흡수/로봇 소멸 스케일 연출 시간(초)
+        private const float DefaultCollisionScaleDuration = 0.25f; // 3_Game.json 로드 전까지의 폴백 기본값(자원 흡수/로봇 소멸 스케일 연출 시간, 초)
         private const float OutOfBoundsPeekFraction = 0.5f; // 그리드 밖으로 나갈 때, 나가려던 방향으로 한 칸의 이 비율만큼만 더 이동하며 사라짐
+
+        // 3_Game.json(GameSceneSettings) 튜닝 값 — 로드 완료 전까지는 null이며 위 Default 상수를 그대로 씀.
+        private GameSceneSettings _sceneSettings;
+        private float MoveDuration => _sceneSettings?.level4MoveDuration ?? DefaultMoveDuration;
+        private float StepPauseDuration => _sceneSettings?.level4StepPauseDuration ?? DefaultStepPauseDuration;
+        private float CollisionScaleDuration => _sceneSettings?.level4CollisionScaleDuration ?? DefaultCollisionScaleDuration;
 
         private const string MoveIngredientName = "이동하기";
         private const string RepeatIngredientName = "반복하기";
@@ -103,6 +110,13 @@ namespace DGAIZone.Game.UI
             if (resourceIcon != null) _resourceBaseScale = resourceIcon.localScale;
 
             RandomizePlacement();
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary> 3_Game.json(GameSceneSettings)을 비동기로 로드함(3_Game 씬 내 다른 컨트롤러와 로드를 공유함). </summary>
+        private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
+        {
+            _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
         /// <summary>
