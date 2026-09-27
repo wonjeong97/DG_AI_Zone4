@@ -2,8 +2,11 @@
 
 DG_AI_Zone4는 DG_AI_Zone1보다 나중에 만들어진 프로젝트라, 연출과 아키텍처 컨벤션을 Zone1에
 맞추는 작업을 진행 중임. 이 문서는 그 과정에서 무엇을 맞췄고, 어떤 차이/버그를 발견해
-Zone4에서 고쳤는지 정리함. **Zone1을 다음에 작업할 때 여기 나온 항목들을 Zone1에도
-동일하게 반영할 것.**
+Zone4에서 고쳤는지 정리함.
+
+**추후 업데이트**: 이 문서에 적힌 TODO 항목(2, 3, 5, 6, 7)은 Zone1 세션에서 모두 확인·반영
+완료함. 5번은 확인해보니 애초에 Zone1에도 이미 있던 구조였고(문서 작성 당시의 착오),
+7번은 이미 구현돼 있던 것을 재확인한 것. 각 섹션에 ✅ 표시로 반영 상태를 남김.
 
 ## 1. 씬 전환 (페이드아웃 → 씬 로드 → 페이드인)
 
@@ -14,7 +17,7 @@ Zone4에서 고쳤는지 정리함. **Zone1을 다음에 작업할 때 여기 �
 가져오도록 통일함(Zone4는 이번 세션에서 Title/Outro까지 포함해 전체 씬이 이 값 하나를
 공유하도록 정리함).
 
-## 2. 패널 전환 (같은 씬 안에서 패널끼리 전환)
+## 2. 패널 전환 (같은 씬 안에서 패널끼리 전환) — ✅ Zone1 반영 완료
 
 **컨벤션: 항상 순차 페이드(먼저 것을 완전히 페이드아웃한 뒤 다음 것을 페이드인)로 통일.
 동시 크로스페이드는 쓰지 않음.**
@@ -22,13 +25,12 @@ Zone4에서 고쳤는지 정리함. **Zone1을 다음에 작업할 때 여기 �
 - Zone4: 모든 패널 전환(Intro→Tutorial, LevelSelect→Story, Game↔Story, Result→Complete)이
   순차 페이드. 이징은 `Ease.Linear` + `SetUpdate(true)`로 씬 전환과 동일하게 맞춤(기존엔
   `Ease.InOutQuad`였고 timeScale 영향을 받았음 — 이번에 수정).
-- Zone1: 대부분 순차 페이드이지만 **`ResultSequence.cs`의 결과 패널→컴플리트 패널 전환
-  한 곳만** `SceneFader.CrossFadeGroupsAsync`로 동시 크로스페이드를 씀. 나머지는 이미
-  순차 페이드(`FadeCanvasGroupAsync`를 두 번 호출).
-- **TODO (Zone1 작업 시)**: `ResultSequence.cs`의 그 한 곳도 순차 페이드로 바꿔서
-  일관성을 맞출 것. `SceneFader.CrossFadeGroupsAsync`는 이후 사용처가 없어지면 제거 검토.
+- Zone1: `ResultSequence.cs`의 결과 패널→컴플리트 패널 전환 한 곳만
+  `SceneFader.CrossFadeGroupsAsync`로 동시 크로스페이드를 썼던 것을, `SetGroupInteractable`
+  + `FadeCanvasGroupAsync` 두 번 호출하는 순차 페이드로 변경함. 나머지는 이미 순차 페이드였음.
+  사용처가 없어진 `SceneFader.CrossFadeGroupsAsync`는 제거함.
 
-## 3. 타이틀 QR 블링크 + 서버 연동 표시
+## 3. 타이틀 QR 블링크 + 서버 연동 표시 — ✅ Zone1 반영 완료
 
 Zone1의 `TitleSceneManager.ApplyQrVisibilityAsync`를 Zone4의 `TitleFlowController`에
 그대로 이식함. `Visitor.json`의 `isServerConnected`에 따라 QR을 표시/숨김하고,
@@ -47,6 +49,9 @@ Zone1의 `TitleSceneManager.ApplyQrVisibilityAsync`를 Zone4의 `TitleFlowContro
    → `Start()`에서 확인 시작 전에 먼저 `SetActive(false)`로 숨겨두고, 확인 결과에 따라
    다시 켜도록 수정.
 
+Zone1의 `TitleSceneManager.ApplyQrVisibilityAsync`에도 동일하게 반영함: 확인 시작 전
+`qrCanvasGroup.gameObject.SetActive(false)` 선처리 + 전체를 `try/catch(OperationCanceledException)`로 감쌈.
+
 ## 4. TMP 폰트 / Addressables 컨벤션
 
 폰트를 `Assets/AddressableAssets/Fonts/`에 두고 Addressables로 등록(`TMPFont` 라벨),
@@ -58,15 +63,15 @@ Zone1의 `TitleSceneManager.ApplyQrVisibilityAsync`를 Zone4의 `TitleFlowContro
 **폰트 에셋 파일을 프로젝트 간에 그대로 복사하면 안 되고**, 원본 ttf에서 각 프로젝트의
 TMP 버전으로 새로 구워야 함.
 
-## 5. 씬 연출값 JSON 외부화 (Zone4 전용, 아직 Zone1엔 없음)
+## 5. 씬 연출값 JSON 외부화 — ✅ 정정: Zone1도 이미 있음
 
-Zone4는 이번 세션에서 페이드 시간·딜레이·조작 감도 등을 `StreamingAssets/Json/`으로
-분리해 재빌드 없이 현장에서 조정 가능하게 함(`CommonSettings` + 씬별 Settings 클래스 +
-`CommonSettingsProvider`/`GameSceneSettingsProvider`로 중복 로드 방지). Zone1은 아직
-값이 코드/인스펙터에 하드코딩되어 있음. 현장 운영 편의성을 위해 Zone1에도 같은 구조를
-적용할지는 별도 논의 필요(이 세션 범위 밖).
+문서 작성 당시엔 "Zone4 전용, 아직 Zone1엔 없음"으로 적었으나, 확인해보니 **Zone1도 이미
+동일한 구조로 되어 있었음**(`00_Common.json` + `0_Title.json`/`2_Story.json`/`3_Game.json`/
+`4_Result.json` 씬별 Settings 클래스 + `JsonLoader`). 중복 로드 방지 방식(Zone4의
+`CommonSettingsProvider`/`GameSceneSettingsProvider` vs Zone1의 씬 매니저별 개별 로드)에는
+차이가 있을 수 있으나, "값을 JSON으로 뺀다"는 컨벤션 자체는 이미 양쪽 다 동일하게 적용돼 있음.
 
-## 6. 아웃트로 화면 종료 및 타임아웃 시 idle 로그 전송 정책 (Zone4 개선, Zone1 반영 필요)
+## 6. 아웃트로 화면 종료 및 타임아웃 시 idle 로그 전송 정책 — ✅ Zone1 반영 완료
 
 전시/체험 공간 특성상 마지막 씬(아웃트로)에 도달한 체험자는 이미 모든 콘텐츠를 정상적으로 끝까지 관람한 상태임. 따라서 타이틀(대기 화면)로 복귀할 때 서버 통계에 정상 완료(`move_idle`)로 집계되어야 함.
 
@@ -82,12 +87,16 @@ Zone4는 이번 세션에서 페이드 시간·딜레이·조작 감도 등을 `
   1. **홈 버튼 클릭 시 `move_idle` 전송**: [`OutroFlowController.cs`](file:///d:/HULIAC/HULIAC_Project/DG_AI_Zone4/Assets/Scripts/Outro/OutroFlowController.cs)에서 `IPublisher<MoveIdleEvent>`를 주입받아, 홈 버튼 클릭 시 `_moveIdlePublisher.Publish(new MoveIdleEvent())`를 호출.
   2. **아웃트로 타임아웃 시 한정으로 `move_idle` 전송**: [`APIManager.cs`](file:///d:/HULIAC/HULIAC_Project/DG_AI_Zone4/Assets/Scripts/Network/APIManager.cs)에서 `ApiManagerBase.OnInactivityTimeout()`을 오버라이드하여, 현재 활성 씬이 `Constants.Scenes.Outro`(`5_Outro`)인 경우 `SendMoveIdleLogAsync()`(`move_idle`)를 전송하고, 그 외 씬은 `base.OnInactivityTimeout()`(`move_idle_timeout`)을 전송하도록 분기.
 
-- **TODO (Zone1 작업 시 반영할 내용)**:
-  1. Zone1의 패키지 매니저에서 `Wonjeong.Template`을 최신 버전(`ba51b0b` 이상)으로 갱신.
-  2. Zone1의 `OutroSceneManager.cs`에 `IPublisher<MoveIdleEvent>`를 주입받아, `OnEndButtonClicked`에서 `_moveIdlePublisher.Publish(new MoveIdleEvent())`를 호출하도록 수정.
-  3. Zone1의 `Assets/Scripts/Network/APIManager.cs`에서 `protected override void OnInactivityTimeout()`을 재정의하여 아웃트로 씬에서 타임아웃 발생 시 `SendMoveIdleLogAsync()`(`move_idle`)가 전송되도록 분기 처리.
+- **Zone1 적용 내용**:
+  1. `Wonjeong.Template` 패키지를 `ba51b0b` 커밋으로 갱신함.
+  2. `OutroSceneManager.cs`에 `IPublisher<MoveIdleEvent>`를 주입받아, `OnEndButtonClicked`에서
+     `_moveIdlePublisher.Publish(new MoveIdleEvent())`를 호출하도록 수정.
+  3. `Assets/Scripts/Network/APIManager.cs`에서 `protected override void OnInactivityTimeout()`을
+     재정의하여, 활성 씬이 아웃트로(`Constants.Scenes.Outro` — Zone1에 없던 상수라 이번에 추가)면
+     `SendMoveIdleLogAsync()`(`move_idle`)를, 그 외 씬은 `base.OnInactivityTimeout()`
+     (`move_idle_timeout`)을 전송하도록 분기.
 
-## 7. 스토리/아웃트로 텍스트 연출 중 InactivityTimer 일시정지 정책
+## 7. 스토리/아웃트로 텍스트 연출 중 InactivityTimer 일시정지 정책 — ✅ Zone1 이미 반영돼 있음
 
 스토리나 아웃트로 안내 텍스트가 순차적으로 올라오는 동안에는 사용자가 콘텐츠를 읽고 있는 중이므로 비활동 타이머가 카운트다운되어서는 안 됨. 연출이 완전히 끝나거나 사용자가 스킵한 시점부터 온전한 비활동 타임아웃 시간이 측정되어야 함.
 
@@ -97,8 +106,9 @@ Zone4는 이번 세션에서 페이드 시간·딜레이·조작 감도 등을 `
   - `IntroFlowController`, `LevelSelectFlowController`, `OutroStoryController`에서 VContainer 주입받은 `_inactivityTimer`를 `AnimateAsync` 호출 시 전달.
   - `OutroLifetimeScope`에 `OutroStoryController` 컴포넌트를 등록하여 DI 주입 보장.
 
-- **TODO (Zone1 작업 시 점검할 내용)**:
-  - Zone1의 `StoryManager.cs` 및 `OutroSceneManager.cs`에서도 `StoryLineAnimator.AnimateAsync` 호출 시 `InactivityTimer` 인스턴스가 누락 없이 주입되어 정상 전달되고 있는지 확인.
+- **확인 결과**: Zone1의 `StoryLineAnimator.cs`에 이미 `inactivityTimer?.Pause()` /
+  `finally { inactivityTimer?.Resume(); }`가 구현돼 있고, `StoryManager.cs`/`OutroSceneManager.cs`
+  모두 `AnimateAsync` 호출 시 주입받은 `InactivityTimer`를 정상적으로 전달하고 있음. 추가 조치 불필요.
 
 
 

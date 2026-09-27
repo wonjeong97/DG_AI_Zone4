@@ -17,5 +17,8 @@
   "warningFadeDuration": 0.25,
   "warningShakeAmount": 15.0,
   "warningShakeCycleDuration": 0.08,
-  "warningHoldDuration": 1.0
+  "warningHoldDuration": 1.0,
+  "level4MoveDuration": 0.35,
+  "level4StepPauseDuration": 0.35,
+  "level4CollisionScaleDuration": 0.25
 }
