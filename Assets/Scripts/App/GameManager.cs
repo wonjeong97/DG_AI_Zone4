@@ -4,8 +4,8 @@ using MessagePipe;
 using Microsoft.Extensions.Logging;
 using UnityEngine.SceneManagement;
 using VContainer;
-using Wonjeong.App;
-using Wonjeong.Core;
+using HuliacDev.App;
+using HuliacDev.Core;
 using ZLogger;
 
 namespace DGAIZone.App
@@ -14,7 +14,7 @@ namespace DGAIZone.App
     /// 게임 전역 매니저. 템플릿 GameManagerBase의 싱글톤/DontDestroyOnLoad, 입력 토글, 설정 비동기 로드를 그대로 사용함.
     /// 일정 시간 입력이 없으면(InactivityTimer가 발행하는 InactivityTimeoutEvent) 타이틀 씬으로 되돌아가도록 연결함.
     /// </summary>
-    public class GameManager : GameManagerBase<GameManager>
+    public class GameManager : GameManagerBase
     {
         private ISubscriber<InactivityTimeoutEvent> _inactivityTimeoutSubscriber;
         private SceneTransitionService _sceneTransition;

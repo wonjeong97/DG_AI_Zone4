@@ -10,8 +10,10 @@ namespace DGAIZone.App
     {
         private static readonly HashSet<ISceneVideoReadiness> _activePanels = new HashSet<ISceneVideoReadiness>();
 
+        /// <summary> 현재 활성화되어 있는 영상 패널 목록. </summary>
         public static IEnumerable<ISceneVideoReadiness> ActivePanels => _activePanels;
 
+        /// <summary> 영상 패널을 씬 전환 대기 대상으로 등록함. </summary>
         public static void Register(ISceneVideoReadiness panel)
         {
             if (panel != null)
@@ -20,6 +22,7 @@ namespace DGAIZone.App
             }
         }
 
+        /// <summary> 영상 패널을 씬 전환 대기 대상에서 제외함. </summary>
         public static void Unregister(ISceneVideoReadiness panel)
         {
             if (panel != null)

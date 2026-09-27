@@ -9,7 +9,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
+using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.Result
@@ -62,7 +62,8 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null임.");
 
             int playedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
-            _unlockedLevelStore?.UnlockThrough(playedLevel);
+            if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockThrough(playedLevel);
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] unlockedLevelStore가 null이라 다음 레벨을 잠금 해제할 수 없음.");
 
             if (playedLevel >= LastLevel) ApplyEndButtonText();
 
@@ -72,11 +73,14 @@ namespace DGAIZone.Result
         /// <summary> completeNextButton의 자식 텍스트를 "종료하기"로 바꿈(마지막 레벨을 완료했을 때만 호출됨). </summary>
         private void ApplyEndButtonText()
         {
-            if (completeNextButton == null) return;
+            if (!completeNextButton)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null이라 버튼 문구를 바꿀 수 없음.");
+                return;
+            }
 
-            TMP_Text label = completeNextButton.GetComponentInChildren<TMP_Text>(true);
-            if (label != null) label.text = EndButtonText;
-            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton에 TMP_Text 자식이 없어 문구를 바꾸지 못함.");
+            if (ChildComponentFinder.TryGetInDirectChildren(completeNextButton.transform, out TMP_Text label)) label.text = EndButtonText;
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton의 직계 자식에 TMP_Text가 없어 문구를 바꾸지 못함.");
         }
 
         /// <summary> 4_Result.json(ResultSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
@@ -136,6 +140,10 @@ namespace DGAIZone.Result
                     await FadeCanvasGroupAsync(completePanel, 0f, 1f, duration, token);
                     ApplyPanelState(completePanel, true);
                 }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[ResultFlowController] completePanel이 null이라 패널 전환 연출을 건너뜀.");
+                }
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
@@ -160,7 +168,11 @@ namespace DGAIZone.Result
         /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. </summary>
         private void ApplyPanelState(CanvasGroup group, bool visible)
         {
-            if (!group) return;
+            if (!group)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
+                return;
+            }
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;

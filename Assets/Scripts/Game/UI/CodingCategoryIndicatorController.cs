@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
@@ -23,10 +24,10 @@ namespace DGAIZone.Game.UI
     /// </summary>
     public class CodingCategoryIndicatorController : MonoBehaviour
     {
-        private const string CategoryAction = "동작";
-        private const string CategoryControl = "제어";
-        private const string CategoryLogic = "논리";
-        private const string CategoryFunc = "함수";
+        private const string CategoryAction = Constants.RfidCategories.Action;
+        private const string CategoryControl = Constants.RfidCategories.Control;
+        private const string CategoryLogic = Constants.RfidCategories.Logic;
+        private const string CategoryFunc = Constants.RfidCategories.Func;
 
         [SerializeField] private Image imageAction;  // Image_Action
         [SerializeField] private Image imageActionOverlay; // Image_Action_GrayscaleOverlay (씬에 미리 배치, 흑백 머티리얼 적용됨)
@@ -78,12 +79,17 @@ namespace DGAIZone.Game.UI
         {
             HighlightCategory(null);
 
-            if (categories == null) return;
+            if (categories == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] 안내할 categories가 null이라 힌트를 표시하지 않음.");
+                return;
+            }
 
             for (int i = 0; i < categories.Length; i++)
             {
                 Image overlay = GetOverlayForCategory(categories[i]);
-                if (overlay != null) StartBreathing(overlay);
+                if (overlay) StartBreathing(overlay);
+                else if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] '{categories[i]}' 카테고리에 대응하는 오버레이가 없어 힌트를 건너뜀.");
             }
         }
 
@@ -123,10 +129,27 @@ namespace DGAIZone.Game.UI
             ApplyState(imageFuncOverlay, string.Equals(category, CategoryFunc, StringComparison.Ordinal));
         }
 
+        private readonly Dictionary<Image, CanvasGroup> _overlayCanvasGroups = new Dictionary<Image, CanvasGroup>();
+
+        /// <summary> overlay 오브젝트의 CanvasGroup을 조회하거나 없으면 추가하여 반환함. </summary>
+        private CanvasGroup GetCanvasGroup(Image overlay)
+        {
+            if (!overlay) return null;
+            if (!_overlayCanvasGroups.TryGetValue(overlay, out CanvasGroup group))
+            {
+                if (!overlay.TryGetComponent(out group))
+                {
+                    group = overlay.gameObject.AddComponent<CanvasGroup>();
+                }
+                _overlayCanvasGroups[overlay] = group;
+            }
+            return group;
+        }
+
         /// <summary> 오버레이 하나의 알파를 강조 여부에 따라 0(원래 색) 또는 1(흑백)로 설정함. </summary>
         private void ApplyState(Image overlay, bool highlighted)
         {
-            if (overlay == null)
+            if (!overlay)
             {
                 if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] overlay image가 null이라 건너뜀.");
                 return;
@@ -138,17 +161,22 @@ namespace DGAIZone.Game.UI
         /// <summary> 오버레이 알파만 1(흑백)로 스냅함. </summary>
         private void ResetAlpha(Image overlay)
         {
-            if (overlay != null) SetAlpha(overlay, 1f);
+            if (overlay) SetAlpha(overlay, 1f);
+            else if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] overlay image가 null이라 흑백 복원을 건너뜀.");
         }
 
         /// <summary>
         /// 오버레이를 즉시 알파 1(흑백)로 스냅한 뒤, idleHintDelay(초)만큼 기다렸다가 0(원래 색)까지 무한 반복(Yoyo)으로
         /// 부드럽게 오가게 함. 대기 중에 StopHint가 호출되면(카드 인식 등) 페이드가 시작되기 전에 트윈째로 취소됨.
+        /// CanvasGroup을 사용해 이미지 버텍스 리빌드 없이 GPU 알파 블렌딩으로 연출함.
         /// </summary>
         private void StartBreathing(Image overlay)
         {
-            SetAlpha(overlay, 1f);
-            Tween tween = overlay.DOFade(0f, _sceneSettings?.hintFadeDuration ?? hintFadeDuration)
+            CanvasGroup group = GetCanvasGroup(overlay);
+            if (!group) return;
+
+            group.alpha = 1f;
+            Tween tween = group.DOFade(0f, _sceneSettings?.hintFadeDuration ?? hintFadeDuration)
                 .SetDelay(_sceneSettings?.idleHintDelay ?? idleHintDelay)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetEase(Ease.InOutSine)
@@ -156,11 +184,11 @@ namespace DGAIZone.Game.UI
             _hintTweens.Add(tween);
         }
 
-        private void SetAlpha(Image image, float alpha)
+        /// <summary> CanvasGroup의 알파값만 설정함(스프라이트/색상은 그대로 유지). </summary>
+        private void SetAlpha(Image overlay, float alpha)
         {
-            Color color = image.color;
-            color.a = alpha;
-            image.color = color;
+            CanvasGroup group = GetCanvasGroup(overlay);
+            if (group) group.alpha = alpha;
         }
 
         /// <summary> 오브젝트 파괴 시 힌트 트윈을 정리함. </summary>

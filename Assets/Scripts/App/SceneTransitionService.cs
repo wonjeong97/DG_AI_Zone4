@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer;
-using Wonjeong.UI;
+using HuliacDev.UI;
 using ZLogger;
 
 namespace DGAIZone.App
@@ -22,6 +22,9 @@ namespace DGAIZone.App
         private readonly FadeManager _fadeManager;
         private readonly ILogger<SceneTransitionService> _logger;
         private bool _isTransitioning;
+
+        /// <summary> 현재 씬 전환 진행 중 여부. </summary>
+        public bool IsTransitioning => _isTransitioning;
 
         /// <summary> VContainer 생성자 주입. 페이드 매니저와 로거를 할당함. </summary>
         [Inject]

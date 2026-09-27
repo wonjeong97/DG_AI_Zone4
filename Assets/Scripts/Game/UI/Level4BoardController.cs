@@ -49,12 +49,12 @@ namespace DGAIZone.Game.UI
         private float StepPauseDuration => _sceneSettings?.level4StepPauseDuration ?? DefaultStepPauseDuration;
         private float CollisionScaleDuration => _sceneSettings?.level4CollisionScaleDuration ?? DefaultCollisionScaleDuration;
 
-        private const string MoveIngredientName = "이동하기";
-        private const string RepeatIngredientName = "반복하기";
-        private const string MoveUp = "위쪽 한칸";
-        private const string MoveDown = "아랫쪽 한칸";
-        private const string MoveRight = "오른쪽 한칸";
-        private const string MoveLeft = "왼쪽 한칸";
+        private const string MoveIngredientName = Constants.Level4Commands.MoveIngredient;
+        private const string RepeatIngredientName = Constants.Level4Commands.RepeatIngredient;
+        private const string MoveUp = Constants.Level4Commands.MoveUp;
+        private const string MoveDown = Constants.Level4Commands.MoveDown;
+        private const string MoveRight = Constants.Level4Commands.MoveRight;
+        private const string MoveLeft = Constants.Level4Commands.MoveLeft;
 
         // Grid.png(742x234) 사다리꼴 그리드의 행 경계 Y좌표 5개(행 4개 = 경계 5개)와,
         // 각 행 경계에서의 열 경계 X좌표 5개(열 4개 = 경계 5개). 이미지 픽셀 분석으로 산출됨.
@@ -73,6 +73,17 @@ namespace DGAIZone.Game.UI
         public int ResourceRow { get; private set; }
         public int TrapRow { get; private set; }
         public int HqRow { get; private set; }
+
+        /// <summary>
+        /// 유닛 테스트용: 결정론적 판정 검증을 위해 아이콘 행 위치를 직접 설정함.
+        /// </summary>
+        internal void SetPlacementForTest(int robotRow, int resourceRow, int trapRow, int hqRow)
+        {
+            RobotRow = robotRow;
+            ResourceRow = resourceRow;
+            TrapRow = trapRow;
+            HqRow = hqRow;
+        }
 
         // 스페이스바 시뮬레이션 중 로봇의 실시간 위치(보드 시작 위치인 RobotRow/Column=0과는 별개로 매 스텝 갱신됨)
         private int _robotCurrentColumn;
@@ -102,12 +113,18 @@ namespace DGAIZone.Game.UI
         {
             if (!IsLevel4()) return;
 
-            if (robotIcon != null)
+            if (robotIcon)
             {
                 _robotBaseScale = robotIcon.localScale;
                 _robotInitialScaleAbsX = Mathf.Abs(robotIcon.localScale.x);
             }
-            if (resourceIcon != null) _resourceBaseScale = resourceIcon.localScale;
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[Level4BoardController] robotIcon이 null이라 로봇 원래 스케일을 기억할 수 없음.");
+            }
+
+            if (resourceIcon) _resourceBaseScale = resourceIcon.localScale;
+            else if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] resourceIcon이 null이라 자원 원래 스케일을 기억할 수 없음.");
 
             RandomizePlacement();
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
@@ -127,7 +144,7 @@ namespace DGAIZone.Game.UI
         private void Update()
         {
             if (!IsLevel4()) return;
-            if (gamePanel != null && !gamePanel.interactable) return;
+            if (gamePanel && !gamePanel.interactable) return;
             if (Keyboard.current == null) return;
 
             if (Keyboard.current.spaceKey.wasPressedThisFrame)
@@ -136,6 +153,7 @@ namespace DGAIZone.Game.UI
             }
         }
 
+        /// <summary> 현재 선택된 레벨이 레벨 4인지. </summary>
         private bool IsLevel4() => _selectedLevelStore != null && _selectedLevelStore.SelectedLevel == 4;
 
         /// <summary>
@@ -146,7 +164,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void RandomizePlacement()
         {
-            var candidates = new List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)>();
+            List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)> candidates = new List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)>();
 
             for (int robotRow = 0; robotRow < Rows; robotRow++)
             {
@@ -169,14 +187,14 @@ namespace DGAIZone.Game.UI
             }
 
             int minCost = int.MaxValue;
-            foreach (var candidate in candidates)
+            foreach ((int robotRow, int resourceRow, int hqRow, int trapRow, int cost) candidate in candidates)
             {
                 if (candidate.cost < minCost) minCost = candidate.cost;
             }
 
             int budget = Mathf.Min(minCost + 1, MaxCommands);
             List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)> pool = candidates.FindAll(c => c.cost <= budget);
-            var chosen = pool[UnityEngine.Random.Range(0, pool.Count)];
+            (int robotRow, int resourceRow, int hqRow, int trapRow, int cost) chosen = pool[UnityEngine.Random.Range(0, pool.Count)];
 
             RobotRow = chosen.robotRow;
             ResourceRow = chosen.resourceRow;
@@ -234,7 +252,12 @@ namespace DGAIZone.Game.UI
         /// <summary> 지정한 열/행 셀에서 아이콘의 바닥이 목표 지점에 닿도록(앵커/피벗 0.5,0.5 기준) 즉시(트윈 없이) 맞춤. </summary>
         private void PlaceAtCellCenter(RectTransform icon, int column, int row)
         {
-            if (icon == null) return;
+            if (!icon)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 배치할 아이콘이 null이라 ({column}, {row}) 셀 배치를 건너뜀.");
+                return;
+            }
+
             icon.anchoredPosition = GetIconAnchoredPositionForCell(icon, column, row);
         }
 
@@ -245,7 +268,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void ApplyRowBasedDrawOrder()
         {
-            var order = new List<(RectTransform icon, int priority)>
+            List<(RectTransform icon, int priority)> order = new List<(RectTransform icon, int priority)>
             {
                 (trapIcon, 0),
                 (hqIcon, 0),
@@ -254,9 +277,10 @@ namespace DGAIZone.Game.UI
             };
             order.Sort((a, b) => a.priority.CompareTo(b.priority));
 
-            foreach (var entry in order)
+            foreach ((RectTransform icon, int priority) entry in order)
             {
-                if (entry.icon != null) entry.icon.SetAsLastSibling();
+                if (entry.icon) entry.icon.SetAsLastSibling();
+                else if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 그리기 순서를 정할 아이콘이 null이라 건너뜀.");
             }
         }
 
@@ -268,7 +292,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         public async UniTask PlaySimulationAsync()
         {
-            if (robotIcon == null)
+            if (!robotIcon)
             {
                 if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] robotIcon이 null이라 이동 시뮬레이션을 시작할 수 없음.");
                 return;
@@ -301,6 +325,15 @@ namespace DGAIZone.Game.UI
             catch (OperationCanceledException)
             {
                 if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 이동 시뮬레이션이 취소됨(재시작 또는 씬 전환).");
+            }
+            finally
+            {
+                // 더 최신 시뮬레이션이 이미 시작되어 필드가 교체됐다면 그 CTS는 건드리지 않음
+                if (_simulationCts == cts)
+                {
+                    _simulationCts.Dispose();
+                    _simulationCts = null;
+                }
             }
         }
 
@@ -372,7 +405,8 @@ namespace DGAIZone.Game.UI
             _resourceCollected = false;
 
             ApplyRobotFacing(); // x/y/z 전체를 _robotBaseScale 기준으로 재설정하므로 이전 소멸 연출(스케일 0)도 함께 복원됨
-            if (resourceIcon != null) resourceIcon.localScale = _resourceBaseScale;
+            if (resourceIcon) resourceIcon.localScale = _resourceBaseScale;
+            else if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] resourceIcon이 null이라 자원 스케일을 복원할 수 없음.");
 
             robotIcon.anchoredPosition = GetIconAnchoredPositionForCell(robotIcon, _robotCurrentColumn, _robotCurrentRow);
             ApplyRowBasedDrawOrder();
@@ -386,11 +420,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private List<Level4MoveStep> BuildMoveSteps(IReadOnlyList<(string ingredient, string matter)> commands = null)
         {
-            var steps = new List<Level4MoveStep>();
+            List<Level4MoveStep> steps = new List<Level4MoveStep>();
 
             if (commands == null)
             {
-                if (_ingredientSelection == null)
+                if (!_ingredientSelection)
                 {
                     if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] ingredientSelection이 null이라 확정된 명령을 읽을 수 없음.");
                     return steps;
@@ -454,7 +488,7 @@ namespace DGAIZone.Game.UI
         {
             if (!string.IsNullOrEmpty(matter))
             {
-                var match = System.Text.RegularExpressions.Regex.Match(matter, @"\d+");
+                System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(matter, @"\d+");
                 if (match.Success && int.TryParse(match.Value, out int count)) return count;
             }
             return 1;
@@ -478,8 +512,8 @@ namespace DGAIZone.Game.UI
         /// 목표 열/행이 그리드 범위(0~3)를 벗어나면 성공/실패 판정 전에 즉시 실패 처리하고 로봇 소멸 연출을 재생함
         /// (더 이상 clamp하지 않음). 범위 안이면 DOTween으로 부드럽게 이동하고, 이동 완료 시 z-order를 갱신하고,
         /// 도착한 셀이 자원/함정/기지 셀이면 해당 연출을 재생함(HandleCellArrivalAsync). 마지막으로 다음 스텝 전 짧게 대기함.
+        /// 반환값: 그리드 밖으로 나갔거나 함정/기지 셀에 도착해 로봇이 사라져서 남은 스텝을 더 진행하면 안 되면 true.
         /// </summary>
-        /// <returns> 그리드 밖으로 나갔거나 함정/기지 셀에 도착해 로봇이 사라져서 남은 스텝을 더 진행하면 안 되면 true. </returns>
         private async UniTask<bool> ExecuteStepAsync(Level4MoveStep step, CancellationToken token)
         {
             if (step.DeltaColumn > 0) SetFacing(faceLeft: false);
@@ -519,8 +553,8 @@ namespace DGAIZone.Game.UI
         /// 로봇이 방금 도착한 셀(_robotCurrentColumn/_robotCurrentRow)이 자원/함정/기지 셀과 겹치는지 검사하고
         /// 해당 연출을 재생함. 자원 셀이면 자원 아이콘이 로봇에 빨려들어가듯 스케일 1->0(한 시뮬레이션당 한 번만).
         /// 함정 또는 기지 셀이면 로봇 아이콘 스케일이 1->0으로 사라짐.
+        /// 반환값: 함정 또는 기지 셀에 도착해 로봇이 사라졌으면 true(더 이상 이동하면 안 됨).
         /// </summary>
-        /// <returns> 함정 또는 기지 셀에 도착해 로봇이 사라졌으면 true(더 이상 이동하면 안 됨). </returns>
         private async UniTask<bool> HandleCellArrivalAsync(CancellationToken token)
         {
             if (!_resourceCollected && IsResourceCell(_robotCurrentColumn, _robotCurrentRow))
@@ -565,7 +599,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private UniTask AnimateScaleToZeroAsync(RectTransform target, CancellationToken token)
         {
-            if (target == null) return UniTask.CompletedTask;
+            if (!target)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 스케일 연출 대상이 null이라 건너뜀.");
+                return UniTask.CompletedTask;
+            }
 
             return target.DOScale(Vector3.zero, CollisionScaleDuration).SetEase(Ease.InBack)
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
@@ -577,7 +615,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private UniTask PlayOutOfBoundsExitAsync(int targetColumn, int targetRow, CancellationToken token)
         {
-            if (robotIcon == null) return UniTask.CompletedTask;
+            if (!robotIcon)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] robotIcon이 null이라 그리드 이탈 연출을 건너뜀.");
+                return UniTask.CompletedTask;
+            }
 
             Vector2 peekPosition = GetOutOfBoundsPeekPosition(robotIcon, targetColumn, targetRow);
 
@@ -627,7 +669,11 @@ namespace DGAIZone.Game.UI
         /// y/z는 _robotBaseScale을 그대로 사용하므로, 소멸 연출(스케일 0)로 줄어든 상태를 이 호출로 완전히 복원할 수 있음. </summary>
         private void ApplyRobotFacing()
         {
-            if (robotIcon == null) return;
+            if (!robotIcon)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] robotIcon이 null이라 시선 방향을 적용할 수 없음.");
+                return;
+            }
 
             float signedX = _facingLeft ? _robotInitialScaleAbsX : -_robotInitialScaleAbsX;
             robotIcon.localScale = new Vector3(signedX, _robotBaseScale.y, _robotBaseScale.z);
@@ -646,6 +692,7 @@ namespace DGAIZone.Game.UI
             public readonly int DeltaColumn;
             public readonly int DeltaRow;
 
+            /// <summary> 열/행 변화량으로 이동 스텝을 초기화함. </summary>
             public Level4MoveStep(int deltaColumn, int deltaRow)
             {
                 DeltaColumn = deltaColumn;

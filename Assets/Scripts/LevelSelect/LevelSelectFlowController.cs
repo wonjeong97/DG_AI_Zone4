@@ -7,12 +7,14 @@ using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using TMPro;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Core;
-using Wonjeong.Utils;
+using VContainer.Unity;
+using HuliacDev.Core;
+using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.LevelSelect
@@ -53,11 +55,15 @@ namespace DGAIZone.LevelSelect
         private readonly Vector2 selectedLevelButtonTargetPosition = new(85f, -181f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly Vector2 selectedLevelButtonTargetSize = new(450f, 229f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
+        private static readonly ProfilerMarker WarmUpThemeBackgroundMarker = new ProfilerMarker("LevelSelectFlowController.WarmUpThemeBackgroundSprites");
+
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
         private UnlockedLevelStore _unlockedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
         private InactivityTimer _inactivityTimer;
+        private IObjectResolver _resolver;
+        private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
 
@@ -65,13 +71,14 @@ namespace DGAIZone.LevelSelect
         private LevelSelectSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 별 생성용 리졸버, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, IObjectResolver resolver, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
             _unlockedLevelStore = unlockedLevelStore;
+            _resolver = resolver;
             _logger = logger;
             _inactivityTimer = inactivityTimer;
         }
@@ -84,7 +91,11 @@ namespace DGAIZone.LevelSelect
         private int ResolveUnlockedCount(int jsonOrFallback)
         {
             if (debugUnlockedLevelCount > 0) return debugUnlockedLevelCount;
-            if (_unlockedLevelStore == null) return jsonOrFallback;
+            if (_unlockedLevelStore == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] unlockedLevelStore가 null이라 세션 진행도 없이 JSON/폴백 값({jsonOrFallback})을 그대로 사용함.");
+                return jsonOrFallback;
+            }
 
             if (jsonOrFallback > _unlockedLevelStore.UnlockedLevelCount)
             {
@@ -105,17 +116,25 @@ namespace DGAIZone.LevelSelect
             ApplyPanelState(storyPanel, false);
 
             // 선택된 레벨 버튼이 날아와서 표시되므로 스토리 이미지 플레이스홀더는 숨겨둠
-            if (storyImage != null) storyImage.gameObject.SetActive(false);
+            if (storyImage) storyImage.gameObject.SetActive(false);
+            else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] storyImage가 null이라 스토리 이미지 플레이스홀더를 숨길 수 없음.");
 
             // 테마 배경은 평소엔 투명 상태로 시작하고, 레벨 버튼 클릭 시에만 해당 스프라이트로 페이드인됨
-            SetImageAlpha(themeBackgroundImage, 0f);
-            WarmUpThemeBackgroundSprites();
+            EnsureThemeBackgroundCanvasGroup();
+            using (WarmUpThemeBackgroundMarker.Auto())
+            {
+                WarmUpThemeBackgroundSprites();
+            }
 
             // 시작 버튼은 스토리 타이핑이 끝나기 전까지 누를 수 없음
-            if (startButton != null)
+            if (startButton)
             {
                 startButton.interactable = false;
                 startButton.onClick.AddListener(OnStartClicked);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] startButton이 null이라 게임 시작 버튼을 연결할 수 없음.");
             }
 
             if (levelButtons == null)
@@ -127,7 +146,7 @@ namespace DGAIZone.LevelSelect
             for (int i = 0; i < levelButtons.Length; i++)
             {
                 Button button = levelButtons[i];
-                if (button == null)
+                if (!button)
                 {
                     if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}]가 null임.");
                     continue;
@@ -164,7 +183,8 @@ namespace DGAIZone.LevelSelect
             {
                 for (int i = 0; i < levelButtons.Length; i++)
                 {
-                    if (levelButtons[i] != null) ApplyLockState(levelButtons[i], i < count);
+                    if (levelButtons[i]) ApplyLockState(levelButtons[i], i < count);
+                    else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}]가 null이라 잠금 상태를 적용할 수 없음.");
                 }
             }
 
@@ -176,13 +196,17 @@ namespace DGAIZone.LevelSelect
         /// <summary> 플레이어가 선택 가능한 난이도(열린 레벨 수)에 맞춰 별 표시 개수와 난이도 패널 너비를 동적으로 조정함. </summary>
         public void ApplyDifficulty(int count)
         {
-            if (difficultyPanel == null && (difficultyStars == null || difficultyStars.Length == 0)) return;
+            if (!difficultyPanel && (difficultyStars == null || difficultyStars.Length == 0))
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] difficultyPanel과 difficultyStars가 모두 비어 있어 난이도 표시를 건너뜀.");
+                return;
+            }
 
             count = Mathf.Clamp(count, 1, 5);
 
             EnsureAndSetDifficultyStars(count);
 
-            if (difficultyPanel != null)
+            if (difficultyPanel)
             {
                 float baseWidth = _sceneSettings?.difficultyPanelBaseWidth ?? difficultyPanelBaseWidth;
                 float widthPerStar = _sceneSettings?.difficultyPanelWidthPerStar ?? difficultyPanelWidthPerStar;
@@ -190,6 +214,10 @@ namespace DGAIZone.LevelSelect
 
                 difficultyPanel.sizeDelta = new Vector2(targetWidth, difficultyPanel.sizeDelta.y);
                 LayoutRebuilder.ForceRebuildLayoutImmediate(difficultyPanel);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] difficultyPanel이 null이라 난이도 패널 너비를 조정할 수 없음.");
             }
         }
 
@@ -200,18 +228,22 @@ namespace DGAIZone.LevelSelect
             {
                 for (int i = 0; i < difficultyStars.Length; i++)
                 {
-                    if (difficultyStars[i] != null)
+                    if (difficultyStars[i])
                     {
                         difficultyStars[i].SetActive(i < count);
                     }
+                    else if (_logger != null)
+                    {
+                        _logger.ZLogWarning($"[LevelSelectFlowController] difficultyStars[{i}]가 null이라 표시 상태를 바꿀 수 없음.");
+                    }
                 }
 
-                if (difficultyStars.Length < count && difficultyStars[0] != null && difficultyPanel != null)
+                if (difficultyStars.Length < count && difficultyStars[0] && difficultyPanel && _resolver != null)
                 {
                     List<GameObject> list = new List<GameObject>(difficultyStars);
                     while (list.Count < count)
                     {
-                        GameObject newStar = Instantiate(difficultyStars[0], difficultyPanel);
+                        GameObject newStar = _resolver.Instantiate(difficultyStars[0], difficultyPanel);
                         newStar.name = $"Image_Star{list.Count + 1}";
                         newStar.SetActive(true);
                         list.Add(newStar);
@@ -221,35 +253,18 @@ namespace DGAIZone.LevelSelect
                 return;
             }
 
-            if (difficultyPanel != null)
-            {
-                List<GameObject> foundStars = new List<GameObject>();
-                for (int i = 0; i < difficultyPanel.childCount; i++)
-                {
-                    Transform child = difficultyPanel.GetChild(i);
-                    if (child.name.StartsWith("Image_Star", StringComparison.OrdinalIgnoreCase))
-                    {
-                        foundStars.Add(child.gameObject);
-                    }
-                }
-
-                if (foundStars.Count > 0)
-                {
-                    difficultyStars = foundStars.ToArray();
-                    EnsureAndSetDifficultyStars(count);
-                }
-            }
+            if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] difficultyStars가 비어 있어 난이도 별을 표시할 수 없음.");
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
         private void OnDestroy()
         {
-            if (startButton != null) startButton.onClick.RemoveListener(OnStartClicked);
+            if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
 
             if (levelButtons == null) return;
             for (int i = 0; i < levelButtons.Length; i++)
             {
-                if (levelButtons[i] != null) levelButtons[i].onClick.RemoveAllListeners();
+                if (levelButtons[i]) levelButtons[i].onClick.RemoveAllListeners();
             }
         }
 
@@ -274,9 +289,13 @@ namespace DGAIZone.LevelSelect
             button.interactable = unlocked;
 
             Image image = button.image;
-            if (image != null)
+            if (image)
             {
                 image.material = unlocked ? null : lockedMaterial;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] {button.name}의 image가 null이라 잠금 머티리얼을 적용할 수 없음.");
             }
 
             // 비활성 버튼이 반투명해지지 않도록 disabled 틴트를 불투명 흰색으로 두어 흑백 머티리얼이 그대로 보이게 함.
@@ -303,7 +322,7 @@ namespace DGAIZone.LevelSelect
                 _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelStore가 null이라 선택한 레벨을 기록할 수 없음.");
             }
 
-            if (startButton != null) startButton.interactable = false;
+            if (startButton) startButton.interactable = false;
 
             ApplyThemeBackground(index);
 
@@ -314,14 +333,14 @@ namespace DGAIZone.LevelSelect
             // 박스라 Background(전체화면 기준)와 좌표계가 다름. worldPositionStays: true로 옮겨서 화면상 실제 위치를
             // 그대로 유지한 채(유니티가 새 부모 기준으로 anchoredPosition을 재계산함) 그 위치에서 목표 위치로 트윈함.
             RectTransform selectedButtonRect = null;
-            if (levelButtons != null && index < levelButtons.Length && levelButtons[index] != null)
+            if (levelButtons != null && index < levelButtons.Length && levelButtons[index])
             {
                 selectedButtonRect = (RectTransform)levelButtons[index].transform;
 
                 // selectedLevelButtonParent가 인스펙터에 할당되지 않았으면 씬 루트(부모 없음)로 빠져 캔버스 밖으로
                 // 이탈할 수 있으므로, storyPanel의 부모를 폴백으로 사용함.
-                Transform targetParent = selectedLevelButtonParent != null ? (Transform)selectedLevelButtonParent : storyPanel.transform.parent;
-                if (selectedLevelButtonParent == null && _logger != null)
+                Transform targetParent = selectedLevelButtonParent ? (Transform)selectedLevelButtonParent : storyPanel.transform.parent;
+                if (!selectedLevelButtonParent && _logger != null)
                 {
                     _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelButtonParent가 null이라 storyPanel의 부모로 대체함.");
                 }
@@ -335,23 +354,27 @@ namespace DGAIZone.LevelSelect
                     child.gameObject.SetActive(false);
                 }
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{index}]가 null이라 선택한 레벨 버튼 이동 연출을 건너뜀.");
+            }
 
             TMP_Text storyText = null;
             if (storyLevels != null)
             {
                 for (int i = 0; i < storyLevels.Length; i++)
                 {
-                    if (storyLevels[i] != null) storyLevels[i].SetActive(i == index);
+                    if (storyLevels[i]) storyLevels[i].SetActive(i == index);
+                    else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] storyLevels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
                 }
 
-                if (index < storyLevels.Length && storyLevels[index] != null)
+                if (index < storyLevels.Length && storyLevels[index])
                 {
-                    storyText = storyLevels[index].GetComponentInChildren<TMP_Text>(true);
-                    if (storyText != null)
+                    if (ChildComponentFinder.TryGetInDirectChildren(storyLevels[index].transform, out storyText))
                     {
                         // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 3_Game(스토리 다시보기)과 같은 에셋을 참조하므로
                         // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
-                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index] != null)
+                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                         {
                             storyText.text = levelDataList[index].storyText;
                         }
@@ -363,6 +386,10 @@ namespace DGAIZone.LevelSelect
                         // 페이드인 도중 전체 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠
                         storyText.ForceMeshUpdate();
                         storyText.maxVisibleCharacters = 0;
+                    }
+                    else if (_logger != null)
+                    {
+                        _logger.ZLogWarning($"[LevelSelectFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 표시할 수 없음.");
                     }
                 }
             }
@@ -389,7 +416,7 @@ namespace DGAIZone.LevelSelect
                     // storyPanel이 페이드인되는 동안 선택된 레벨 버튼도 함께 목표 위치·크기로 튀어 들어오도록(OutBack) 이동.
                     // 목표 위치·크기, 이동 시간·반동 크기는 2_LevelSelect.json(selectedLevelButtonTargetPosition/TargetSize/
                     // MoveDuration/MoveOvershoot)으로 재빌드 없이 조정 가능. 페이드와 동시에 진행되어야 하므로 의도적으로 await하지 않는다.
-                    if (selectedButtonRect != null)
+                    if (selectedButtonRect)
                     {
                         Vector2 targetPos = _sceneSettings?.selectedLevelButtonTargetPosition ?? selectedLevelButtonTargetPosition;
                         Vector2 targetSize = _sceneSettings?.selectedLevelButtonTargetSize ?? selectedLevelButtonTargetSize;
@@ -410,6 +437,10 @@ namespace DGAIZone.LevelSelect
                     await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
                 }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[LevelSelectFlowController] storyPanel이 null이라 패널 전환 연출을 건너뜀.");
+                }
 
                 await StoryLineAnimator.AnimateAsync(storyText,
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
@@ -417,7 +448,7 @@ namespace DGAIZone.LevelSelect
                     _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
                     IsSkipRequested, token, _inactivityTimer);
 
-                if (startButton != null) startButton.interactable = true;
+                if (startButton) startButton.interactable = true;
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
@@ -449,7 +480,11 @@ namespace DGAIZone.LevelSelect
         /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. </summary>
         private void ApplyPanelState(CanvasGroup group, bool visible)
         {
-            if (!group) return;
+            if (!group)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
+                return;
+            }
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;
@@ -464,12 +499,20 @@ namespace DGAIZone.LevelSelect
         /// </summary>
         private void WarmUpThemeBackgroundSprites()
         {
-            if (themeBackgroundImage == null || themeBackgroundSprites == null) return;
+            if (!themeBackgroundImage || themeBackgroundSprites == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] themeBackgroundImage 또는 themeBackgroundSprites가 비어 있어 배경 워밍업을 건너뜀.");
+                return;
+            }
 
             Sprite originalSprite = themeBackgroundImage.sprite;
             foreach (Sprite sprite in themeBackgroundSprites)
             {
-                if (sprite == null) continue;
+                if (!sprite)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] themeBackgroundSprites에 비어 있는 항목이 있어 워밍업에서 제외함.");
+                    continue;
+                }
                 themeBackgroundImage.sprite = sprite;
                 Canvas.ForceUpdateCanvases();
             }
@@ -482,13 +525,17 @@ namespace DGAIZone.LevelSelect
         /// </summary>
         private void ApplyThemeBackground(int index)
         {
-            if (themeBackgroundImage == null) return;
+            if (!themeBackgroundImage)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] themeBackgroundImage가 null이라 테마 배경을 바꿀 수 없음.");
+                return;
+            }
 
             Sprite sprite = (themeBackgroundSprites != null && index >= 0 && index < themeBackgroundSprites.Length)
                 ? themeBackgroundSprites[index]
                 : null;
 
-            if (sprite == null)
+            if (!sprite)
             {
                 if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] themeBackgroundSprites[{index}]가 비어 있어 테마 배경을 바꾸지 못함.");
                 return;
@@ -496,20 +543,27 @@ namespace DGAIZone.LevelSelect
 
             themeBackgroundImage.sprite = sprite;
 
-            float duration = _sceneSettings?.themeBackgroundFadeDuration ?? themeBackgroundFadeDuration;
-            _ = themeBackgroundImage.DOFade(1f, duration)
-                .SetEase(Ease.Linear)
-                .SetUpdate(true)
-                .SetLink(themeBackgroundImage.gameObject);
+            EnsureThemeBackgroundCanvasGroup();
+            if (_themeBackgroundCanvasGroup)
+            {
+                _themeBackgroundCanvasGroup.alpha = 0f;
+                float duration = _sceneSettings?.themeBackgroundFadeDuration ?? themeBackgroundFadeDuration;
+                _ = _themeBackgroundCanvasGroup.DOFade(1f, duration)
+                    .SetEase(Ease.Linear)
+                    .SetUpdate(true)
+                    .SetLink(_themeBackgroundCanvasGroup.gameObject);
+            }
         }
 
-        /// <summary> Image의 알파값만 설정함(스프라이트/색상은 그대로 유지). </summary>
-        private void SetImageAlpha(Image image, float alpha)
+        /// <summary> themeBackgroundImage에 CanvasGroup이 없으면 추가하고 초기화함. </summary>
+        private void EnsureThemeBackgroundCanvasGroup()
         {
-            if (image == null) return;
-            Color color = image.color;
-            color.a = alpha;
-            image.color = color;
+            if (!themeBackgroundImage) return;
+            if (!_themeBackgroundCanvasGroup && !themeBackgroundImage.TryGetComponent(out _themeBackgroundCanvasGroup))
+            {
+                _themeBackgroundCanvasGroup = themeBackgroundImage.gameObject.AddComponent<CanvasGroup>();
+                _themeBackgroundCanvasGroup.alpha = 0f;
+            }
         }
     }
 }

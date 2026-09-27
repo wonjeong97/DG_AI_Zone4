@@ -1,3 +1,4 @@
+using DGAIZone.App;
 using DGAIZone.Game.Events;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
@@ -16,10 +17,10 @@ namespace DGAIZone.Game.Hardware
     {
         [SerializeField] private string simulatedReaderId = "Keyboard";
 
-        private const string CategoryAction = "동작";
-        private const string CategoryControl = "제어";
-        private const string CategoryLogic = "논리";
-        private const string CategoryFunc = "함수";
+        private const string CategoryAction = Constants.RfidCategories.Action;
+        private const string CategoryControl = Constants.RfidCategories.Control;
+        private const string CategoryLogic = Constants.RfidCategories.Logic;
+        private const string CategoryFunc = Constants.RfidCategories.Func;
 
         // 인덱스 = 눌러야 하는 숫자키 순서(1번키부터). Key.Digit1 + i 로 계산됨.
         private static readonly string[] KeyCategories = { CategoryAction, CategoryControl, CategoryLogic, CategoryFunc };
@@ -54,7 +55,11 @@ namespace DGAIZone.Game.Hardware
         /// <summary> 주어진 category를 실제 리더기와 동일한 형태의 RfidTagEvent로 발행함. </summary>
         private void PublishCategory(string category)
         {
-            if (_publisher == null) return;
+            if (_publisher == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[KeyboardRfidSimulator] publisher가 null이라 카드 시뮬레이션을 발행할 수 없음.");
+                return;
+            }
 
             _publisher.Publish(new RfidTagEvent(simulatedReaderId, category));
             if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] 카드 시뮬레이션됨: category={category}");

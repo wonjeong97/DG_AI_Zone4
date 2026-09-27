@@ -1,0 +1,49 @@
+using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using DGAIZone.Data;
+using DGAIZone.Game.Data;
+using DGAIZone.Game.Events;
+using HuliacDev.Core;
+
+namespace DGAIZone.Game.UI.States
+{
+    /// <summary>
+    /// IngredientSelectionController의 레벨별(1~4) 동작 및 판정 상태를 추상화하는 인터페이스.
+    /// </summary>
+    public interface IIngredientSelectionLevelState : IState<IngredientSelectionController>
+    {
+        /// <summary> 수신된 RFID 태그 카테고리가 해당 레벨 규칙에 맞는지 검증. </summary>
+        bool ValidateTagCategory(IngredientSelectionController controller, RfidTagEvent evt);
+
+        /// <summary> 해당 단계에서 리더기가 안내할 허용 카테고리 목록을 반환. </summary>
+        string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step);
+
+        /// <summary> 스캔된 카드 정보로부터 실제 사용할 재료명과 물질 목록을 해석. </summary>
+        (string ingredientName, string[] matterNames) ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category);
+
+        /// <summary> 물질 선택 목록 중 이미 확정된 값을 제외할지 여부를 결정하여 반환. </summary>
+        string[] FilterMatters(IngredientSelectionController controller, string ingredientName, string[] matterNames);
+
+        /// <summary> 단계 확정 시 레벨별 효과 및 값을 적용. </summary>
+        void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredient, string chosenMatter);
+
+        /// <summary> 단계 취소(되돌리기) 시 적용되었던 레벨별 효과를 원복. </summary>
+        void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredient, string matter);
+
+        /// <summary> 확정된 디자인 항목의 텍스트 표기 형식을 결정. </summary>
+        string FormatDesignItemText(IngredientSelectionController controller, string ingredient, string matter);
+
+        /// <summary> 코딩완료 버튼의 활성화 가능 여부를 반환. </summary>
+        bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps);
+
+        /// <summary> 미션 성공/실패 여부를 판정. </summary>
+        bool EvaluateMission(IngredientSelectionController controller);
+
+        /// <summary> 임시 선택값을 반영한 추진력 미리보기 계산(레벨 1 전용). </summary>
+        int CalculatePreviewThrust(IngredientSelectionController controller);
+
+        /// <summary> 코딩 완료 후 결과 씬 전환 전 실행할 레벨별 추가 비동기 연출. </summary>
+        UniTask PlayCompletionSimulationAsync(IngredientSelectionController controller, CancellationToken token);
+    }
+}

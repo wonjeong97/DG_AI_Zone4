@@ -18,11 +18,12 @@ namespace DGAIZone.Intro
         /// </summary>
         protected override LifetimeScope FindParent() => GameLifetimeScope.ResolveAndEnsureBuilt();
 
-        /// <summary> 인트로 흐름 컨트롤러와 로봇 영상 패널을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 인트로 흐름 컨트롤러, 로봇 영상 패널, 튜토리얼 슬라이더를 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<IntroFlowController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
+            builder.RegisterComponentInHierarchy<TutorialImageSlider>();
         }
     }
 }

@@ -8,6 +8,7 @@ namespace DGAIZone.Game.Events
     {
         public readonly string ReaderId;
 
+        /// <summary> 카드가 떨어진 리더기 ID로 이벤트를 초기화함. </summary>
         public RfidReaderIdleEvent(string readerId)
         {
             ReaderId = readerId;
