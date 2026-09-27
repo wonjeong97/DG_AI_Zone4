@@ -8,7 +8,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using VContainer;
-using Wonjeong.Core;
+using HuliacDev.Core;
+using Microsoft.Extensions.Logging;
+using ZLogger;
 
 namespace DGAIZone.Outro
 {
@@ -25,6 +27,7 @@ namespace DGAIZone.Outro
         private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함(인트로와 동일한 규칙)
 
         private InactivityTimer _inactivityTimer;
+        private ILogger<OutroStoryController> _logger;
         private VisitorInfoProvider _visitorInfoProvider;
         private bool _isAnimating;
         private bool _skipRequested;
@@ -32,21 +35,27 @@ namespace DGAIZone.Outro
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 Constants.StoryLine 폴백 값을 그대로 사용함
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 비활동 타이머를 주입받아 연출 중 일시정지 및 연출 완료 후 재개하고, 체험자 이름 제공자를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 비활동 타이머를 주입받아 연출 중 일시정지 및 연출 완료 후 재개하고, 체험자 이름 제공자와 로거를 할당함. </summary>
         [Inject]
-        public void Construct(VisitorInfoProvider visitorInfoProvider, InactivityTimer inactivityTimer = null)
+        public void Construct(VisitorInfoProvider visitorInfoProvider, ILogger<OutroStoryController> logger, InactivityTimer inactivityTimer = null)
         {
             _visitorInfoProvider = visitorInfoProvider;
+            _logger = logger;
             _inactivityTimer = inactivityTimer;
         }
 
         /// <summary> 스토리 텍스트를 한 줄씩 올라오는 연출로 표시함. </summary>
         private void Start()
         {
-            if (storyText == null) return;
+            if (!storyText)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[OutroStoryController] storyText가 null이라 스토리 연출을 진행할 수 없음.");
+                return;
+            }
 
             // 연출이 끝나기 전까지 "처음으로" 버튼을 숨김
-            if (homeButton != null) homeButton.SetActive(false);
+            if (homeButton) homeButton.SetActive(false);
+            else if (_logger != null) _logger.ZLogWarning($"[OutroStoryController] homeButton이 null이라 연출 후 처음으로 버튼을 표시할 수 없음.");
 
             // 페이드인 도중 전체 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠(AnimateAsync가 다시 전체 노출로 되돌린 뒤 진행함)
             storyText.ForceMeshUpdate();
@@ -87,13 +96,17 @@ namespace DGAIZone.Outro
         /// <summary> 텍스트가 완전히 노출된 시점 처리. "처음으로" 버튼을 활성화함. </summary>
         private void OnFullyShown()
         {
-            if (homeButton != null) homeButton.SetActive(true);
+            if (homeButton) homeButton.SetActive(true);
         }
 
         /// <summary> Visitor.json(또는 추후 서버/QR)에서 체험자 이름을 가져와 storyText의 자리표시자를 교체함(인트로와 동일한 규칙). </summary>
         private async UniTask ApplyVisitorNameAsync(CancellationToken token)
         {
-            if (storyText == null || _visitorInfoProvider == null) return;
+            if (!storyText || _visitorInfoProvider == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[OutroStoryController] storyText 또는 visitorInfoProvider가 null이라 체험자 이름을 적용할 수 없음.");
+                return;
+            }
 
             string visitorName = await _visitorInfoProvider.GetNameAsync(token);
 

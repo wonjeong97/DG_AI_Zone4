@@ -1,0 +1,31 @@
+{
+    "name": "DGAIZone",
+    "rootNamespace": "DGAIZone",
+    "references": [
+        "HuliacDev.Template",
+        "VContainer",
+        "UniTask",
+        "UniTask.DOTween",
+        "UniTask.Addressables",
+        "MessagePipe",
+        "MessagePipe.VContainer",
+        "R3.Unity",
+        "ZLogger.Unity",
+        "ZString",
+        "DOTween.Modules",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

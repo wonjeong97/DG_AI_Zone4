@@ -18,17 +18,21 @@ namespace DGAIZone.App
 
         private TMP_Text _text;
 
+        /// <summary> 활성화될 때 현재 텍스트 기준으로 그라데이션을 한 번 계산해 적용함. </summary>
         private void OnEnable()
         {
-            _text = GetComponent<TMP_Text>();
             Apply();
         }
 
         /// <summary> 현재 텍스트의 가로 범위를 기준으로 leftColor -> rightColor 정점 그라데이션을 다시 계산해 적용함. </summary>
         public void Apply()
         {
-            if (_text == null) _text = GetComponent<TMP_Text>();
-            if (_text == null) return;
+            if (!_text && !TryGetComponent(out _text))
+            {
+                // DI 등록 대상이 아닌 표시 전용 컴포넌트라 로거를 받을 수 없어 Debug로 대체 출력함
+                Debug.LogWarning($"[TextHorizontalGradient] {name}에 TMP_Text가 없어 그라데이션을 적용할 수 없음.");
+                return;
+            }
 
             _text.ForceMeshUpdate();
             TMP_TextInfo textInfo = _text.textInfo;

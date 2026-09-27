@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
+using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.Title
@@ -56,14 +56,17 @@ namespace DGAIZone.Title
         /// </summary>
         private void Start()
         {
-            _unlockedLevelStore?.Reset();
+            if (_unlockedLevelStore != null) _unlockedLevelStore.Reset();
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] unlockedLevelStore가 null이라 레벨 진행도를 초기화할 수 없음.");
             if (_selectedLevelStore != null) _selectedLevelStore.SelectedLevel = 1;
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] selectedLevelStore가 null이라 선택 레벨을 초기화할 수 없음.");
 
             if (startButton) startButton.onClick.AddListener(OnStartClicked);
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] startButton이 null임.");
 
             // 서버 연동 여부 확인이 끝나기 전까지 QR이 잠깐 노출됐다 꺼지는 플리커를 방지하기 위해 먼저 숨겨둠
             if (qrCanvasGroup) qrCanvasGroup.gameObject.SetActive(false);
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] qrCanvasGroup이 null이라 QR 안내를 표시하지 않음.");
 
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             ApplyQrVisibilityAsync(token).Forget();
@@ -76,7 +79,12 @@ namespace DGAIZone.Title
         /// </summary>
         private async UniTaskVoid ApplyQrVisibilityAsync(CancellationToken token)
         {
-            if (!qrCanvasGroup || _visitorInfoProvider == null) return;
+            if (!qrCanvasGroup) return; // Start에서 이미 경고함
+            if (_visitorInfoProvider == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 서버 연동 여부를 확인할 수 없음.");
+                return;
+            }
 
             try
             {

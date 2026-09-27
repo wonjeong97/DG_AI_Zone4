@@ -103,6 +103,7 @@ namespace DGAIZone.Game.UI
                 ApplyGoalDisplay();
             }
 
+            EnsureSubCanvases();
             EnsurePreviewCanvasGroup();
             ResetProgress();
             ResetPreview();
@@ -118,9 +119,10 @@ namespace DGAIZone.Game.UI
             _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
+        /// <summary> 레벨 1 미션 텍스트(무작위 목적지와 동작 블록 안내)를 적용함. </summary>
         private void ApplyMissionText()
         {
-            if (missionText == null)
+            if (!missionText)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
                 return;
@@ -135,7 +137,7 @@ namespace DGAIZone.Game.UI
         /// <summary> 레벨 2 전용 고정 미션 텍스트(목적지/목표 개념 없이 5개 동작 블록을 순서대로 코딩하라는 안내)를 적용함. </summary>
         private void ApplyLevel2MissionText()
         {
-            if (missionText == null)
+            if (!missionText)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
                 return;
@@ -159,7 +161,7 @@ namespace DGAIZone.Game.UI
                 _logger.ZLogInformation($"[MissionBoardController] 레벨 3 미션 설정됨: 전기량 상한={MaxElectricity}, 산소량 하한={MinOxygen}");
             }
 
-            if (missionText == null)
+            if (!missionText)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
                 return;
@@ -173,7 +175,7 @@ namespace DGAIZone.Game.UI
         /// <summary> 레벨 4 전용 고정 미션 텍스트(자원 수집 후 기지로 복귀, 함정 회피)를 적용함. </summary>
         private void ApplyLevel4MissionText()
         {
-            if (missionText == null)
+            if (!missionText)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
                 return;
@@ -188,7 +190,7 @@ namespace DGAIZone.Game.UI
         /// <summary> 목적지에 맞는 행성 이름 텍스트를 적용하고, 이미지는 Addressables에서 비동기로 불러와 Image_Goal에 적용함. </summary>
         private void ApplyGoalDisplay()
         {
-            if (goalImage == null || goalPlanetNameText == null)
+            if (!goalImage || !goalPlanetNameText)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] goalImage 또는 goalPlanetNameText가 null이라 목표 표시를 적용할 수 없음.");
                 return;
@@ -207,7 +209,7 @@ namespace DGAIZone.Game.UI
                 _goalSpriteHandle = Addressables.LoadAssetAsync<Sprite>(key);
                 Sprite sprite = await _goalSpriteHandle.Task.AsUniTask().AttachExternalCancellation(token);
 
-                if (_goalSpriteHandle.Status == AsyncOperationStatus.Succeeded && sprite != null)
+                if (_goalSpriteHandle.Status == AsyncOperationStatus.Succeeded && sprite)
                 {
                     goalImage.sprite = sprite;
                     goalImage.SetNativeSize();
@@ -223,11 +225,11 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 설정하기 확정 시 호출됨. 미리보기(Image_Fill_Preview)를 fillAmount 변경 없이 알파 페이드아웃으로 먼저 자연스럽게 없앤 뒤,
         /// 실제 Image_Fill 값을 최종 적용하는 시퀀스(ApplyProgressAsync)를 시작함.
+        /// totalThrust: 엔진 출력량 x 연료량 - 탑재 중량으로 계산된 확정 추진력 합계.
         /// </summary>
-        /// <param name="totalThrust">엔진 출력량 x 연료량 - 탑재 중량으로 계산된 확정 추진력 합계.</param>
         public void SetProgress(int totalThrust)
         {
-            if (progressFillImage == null)
+            if (!progressFillImage)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] progressFillImage가 null이라 진행도를 설정할 수 없음.");
                 return;
@@ -266,12 +268,12 @@ namespace DGAIZone.Game.UI
                 EnsurePreviewCanvasGroup();
                 _previewFillTween?.Kill(); // 미리보기 fillAmount가 페이드 중 함께 바뀌어 줄어들며 사라지지 않도록 정지
 
-                UniTask fadeTask = _previewCanvasGroup != null
-                    ? _previewCanvasGroup.DOFade(0f, _sceneSettings?.previewApplyFadeDuration ?? previewApplyFadeDuration).ToUniTask(cancellationToken: token)
+                UniTask fadeTask = _previewCanvasGroup
+                    ? _previewCanvasGroup.DOFade(0f, _sceneSettings?.previewApplyFadeDuration ?? previewApplyFadeDuration).ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token)
                     : UniTask.CompletedTask;
 
                 Tween fillTween = AnimateFillAmount(target);
-                UniTask fillTask = fillTween.ToUniTask(cancellationToken: token);
+                UniTask fillTask = fillTween.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
 
                 if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 미리보기 페이드아웃과 게이지 상승을 동시에 시작함, 목표값={target:F2}.");
                 await UniTask.WhenAll(fadeTask, fillTask);
@@ -282,12 +284,17 @@ namespace DGAIZone.Game.UI
                 // previewFillImage.fillAmount는 즉시 직접 대입함: _previewFillAmount.Value가 이미 target과 같으면
                 // (연속 조절 중 트윈이 중간에 Kill되어 시각값이 target에 못 미친 경우 등) ReactiveProperty가 값 변경 없음으로
                 // 판단해 구독 콜백이 실행되지 않을 수 있어 트윈에만 의존하면 그림자가 어긋날 수 있음.
-                if (previewFillImage != null)
+                if (previewFillImage)
                 {
                     previewFillImage.fillAmount = target;
                     previewFillImage.gameObject.SetActive(false);
                 }
-                if (_previewCanvasGroup != null) _previewCanvasGroup.alpha = 1f;
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[MissionBoardController] previewFillImage가 null이라 미리보기를 비활성화할 수 없음.");
+                }
+
+                if (_previewCanvasGroup) _previewCanvasGroup.alpha = 1f;
                 _previewFillAmount.Value = target;
 
                 if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 미리보기 비활성화, 적용된 fillAmount={target:F2}와 동기화 유지함.");
@@ -299,14 +306,19 @@ namespace DGAIZone.Game.UI
             finally
             {
                 // 더 최신 요청이 이미 시작된 경우(=_progressApplyCts가 교체됨) 그 요청의 진행 상태를 덮어쓰지 않음
-                if (_progressApplyCts == cts) _isApplyingProgress = false;
+                if (_progressApplyCts == cts)
+                {
+                    _isApplyingProgress = false;
+                    _progressApplyCts.Dispose();
+                    _progressApplyCts = null;
+                }
             }
         }
 
         /// <summary> Image_Fill을 시작 상태(0)로 되돌림. </summary>
         public void ResetProgress()
         {
-            if (progressFillImage == null)
+            if (!progressFillImage)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] progressFillImage가 null이라 진행도를 초기화할 수 없음.");
                 return;
@@ -318,11 +330,11 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 설정하기 확정 전, 사용자가 엔진 출력량/연료량/탑재 중량 중 하나를 조절하는 동안 Image_Fill_Preview의 fillAmount를 갱신함.
         /// _previewFillAmount(ReactiveProperty)를 통해 AnimatePreviewFillAmount 구독자에게 전파되어 DOTween으로 반영됨.
+        /// totalThrust: 확정된 값 + 현재 조절 중인 임시 값을 결합해 계산한 추진력.
         /// </summary>
-        /// <param name="totalThrust">확정된 값 + 현재 조절 중인 임시 값을 결합해 계산한 추진력.</param>
         public void UpdatePreview(int totalThrust)
         {
-            if (previewFillImage == null)
+            if (!previewFillImage)
             {
                 if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] previewFillImage가 null이라 미리보기를 갱신할 수 없음.");
                 return;
@@ -349,7 +361,11 @@ namespace DGAIZone.Game.UI
             if (_isApplyingProgress) return;
 
             StopFuelPreviewBlink();
-            if (previewFillImage == null) return;
+            if (!previewFillImage)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] previewFillImage가 null이라 미리보기를 초기화할 수 없음.");
+                return;
+            }
             _previewFillAmount.Value = 0f;
         }
 
@@ -357,31 +373,66 @@ namespace DGAIZone.Game.UI
         private Tween AnimateFillAmount(float targetFillAmount)
         {
             _fillTween?.Kill();
-            _fillTween = progressFillImage.DOFillAmount(targetFillAmount, _sceneSettings?.fillTweenDuration ?? fillTweenDuration).SetEase(Ease.OutQuad);
+            _fillTween = progressFillImage.DOFillAmount(targetFillAmount, _sceneSettings?.fillTweenDuration ?? fillTweenDuration).SetEase(Ease.OutQuad)
+                .SetLink(progressFillImage.gameObject);
             return _fillTween;
         }
 
         /// <summary> _previewFillAmount 변경 구독 콜백. Image_Fill_Preview의 fillAmount를 트윈으로 부드럽게 변경함. </summary>
         private void AnimatePreviewFillAmount(float targetFillAmount)
         {
+            if (!previewFillImage)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] previewFillImage가 null이라 미리보기 게이지를 갱신할 수 없음.");
+                return;
+            }
+
             _previewFillTween?.Kill();
-            _previewFillTween = previewFillImage.DOFillAmount(targetFillAmount, _sceneSettings?.fillTweenDuration ?? fillTweenDuration).SetEase(Ease.OutQuad);
+            _previewFillTween = previewFillImage.DOFillAmount(targetFillAmount, _sceneSettings?.fillTweenDuration ?? fillTweenDuration).SetEase(Ease.OutQuad)
+                .SetLink(previewFillImage.gameObject);
+        }
+
+        /// <summary> 게이지 fillAmount 트윈 시 메인 UI 캔버스의 리빌드를 방지하도록 서브 캔버스를 보장함. </summary>
+        private void EnsureSubCanvases()
+        {
+            EnsureSubCanvas(progressFillImage);
+            EnsureSubCanvas(previewFillImage);
+        }
+
+        private static void EnsureSubCanvas(Component target)
+        {
+            if (!target) return;
+            if (!target.TryGetComponent<Canvas>(out _))
+            {
+                target.gameObject.AddComponent<Canvas>();
+            }
         }
 
         /// <summary> Image_Fill_Preview에 CanvasGroup이 없으면 추가해 확보함. 페이드가 이 CanvasGroup에만 적용되어 다른 UI(텍스트/게이지)에 영향을 주지 않음. </summary>
         private void EnsurePreviewCanvasGroup()
         {
-            if (previewFillImage == null || _previewCanvasGroup != null) return;
+            if (_previewCanvasGroup) return;
+            if (!previewFillImage)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] previewFillImage가 null이라 미리보기 CanvasGroup을 확보할 수 없음.");
+                return;
+            }
 
-            _previewCanvasGroup = previewFillImage.GetComponent<CanvasGroup>();
-            if (_previewCanvasGroup == null) _previewCanvasGroup = previewFillImage.gameObject.AddComponent<CanvasGroup>();
+            if (!previewFillImage.TryGetComponent(out _previewCanvasGroup))
+            {
+                _previewCanvasGroup = previewFillImage.gameObject.AddComponent<CanvasGroup>();
+            }
         }
 
         /// <summary> 연료량 조절 인터랙션 시작 시 Image_Fill_Preview를 부드럽게 반복 페이드(깜빡임)함. 이미 재생 중이면 무시함. </summary>
         private void StartFuelPreviewBlink()
         {
             EnsurePreviewCanvasGroup();
-            if (_previewCanvasGroup == null) return;
+            if (!_previewCanvasGroup)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] 미리보기 CanvasGroup이 없어 깜빡임을 시작할 수 없음.");
+                return;
+            }
             if (_blinkTween != null && _blinkTween.IsActive()) return;
 
             _previewCanvasGroup.alpha = 1f;
@@ -399,7 +450,7 @@ namespace DGAIZone.Game.UI
 
             _blinkTween.Kill();
             _blinkTween = null;
-            if (_previewCanvasGroup != null) _previewCanvasGroup.alpha = 1f;
+            if (_previewCanvasGroup) _previewCanvasGroup.alpha = 1f;
 
             if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 연료 미리보기 깜빡임 중지됨.");
         }

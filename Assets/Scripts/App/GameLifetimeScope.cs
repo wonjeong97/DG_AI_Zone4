@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using TMPro;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using VContainer;
 using VContainer.Unity;
-using Wonjeong.App;
+using HuliacDev.App;
 
 namespace DGAIZone.App
 {
@@ -40,17 +41,39 @@ namespace DGAIZone.App
         /// <summary> 씬 재로드로 중복 생성된 인스턴스가 아닌, 최초로 살아남은 진짜 영속 인스턴스. </summary>
         public static GameLifetimeScope Instance { get; private set; }
 
+        private static readonly ProfilerMarker RegisterTmpFontsMarker = new ProfilerMarker("GameLifetimeScope.RegisterTmpFonts");
+
         /// <summary>
-        /// 각 씬 LifetimeScope의 FindParent()가 공용으로 호출함. Instance가 아직 비어 있으면(자신의 Awake보다
-        /// 먼저 호출된 0_Title 최초 콜드 스타트 상황) 씬에서 직접 찾아 Instance로 확정한 뒤, 아직 빌드되지 않았다면
-        /// (Container == null) 그 자리에서 Build()해 부모로 쓸 수 있게 함. Instance는 항상 원본만 가리키므로
-        /// (씬 재로드로 생긴 중복은 Awake에서 즉시 비활성화·파괴되어 절대 Instance가 되지 않음) 이 메서드가 중복
-        /// 인스턴스를 잘못 확정하거나 이중으로 Build()할 위험이 없다.
+        /// VContainerSettings에 등록된 RootLifetimeScope 프리팹을 통해 실행 시 자동으로 스폰된 인스턴스를 반환함.
+        /// 만약 스탠드얼론 빌드 초기화 타이밍 등으로 아직 스폰되지 않았다면 씬 탐색 및 VContainerSettings를 통한
+        /// 폴백 생성을 수행하고 컨테이너가 빌드되지 않은 경우 Build()를 보장함.
         /// </summary>
         public static GameLifetimeScope ResolveAndEnsureBuilt()
         {
-            if (Instance == null) Instance = Find<GameLifetimeScope>() as GameLifetimeScope;
-            if (Instance != null && Instance.Container == null) Instance.Build();
+            if (!Instance) Instance = Find<GameLifetimeScope>() as GameLifetimeScope;
+            if (!Instance)
+            {
+                VContainerSettings settings = VContainerSettings.Instance;
+#if UNITY_EDITOR
+                if (!settings)
+                {
+                    settings = UnityEditor.AssetDatabase.LoadAssetAtPath<VContainerSettings>("Assets/Settings/VContainerSettings.asset");
+                }
+#endif
+                if (settings && settings.RootLifetimeScope)
+                {
+                    if (Application.isPlaying)
+                    {
+                        LifetimeScope root = settings.GetOrCreateRootLifetimeScopeInstance();
+                        Instance = root as GameLifetimeScope;
+                    }
+                    else
+                    {
+                        Instance = Instantiate(settings.RootLifetimeScope) as GameLifetimeScope;
+                    }
+                }
+            }
+            if (Instance && Instance.Container == null) Instance.Build();
             return Instance;
         }
 
@@ -62,7 +85,7 @@ namespace DGAIZone.App
         /// </summary>
         protected override void Awake()
         {
-            if (Instance != null && Instance != this)
+            if (Instance && Instance != this)
             {
                 gameObject.SetActive(false);
                 Destroy(gameObject);
@@ -70,7 +93,7 @@ namespace DGAIZone.App
             }
             Instance = this;
 
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying) DontDestroyOnLoad(gameObject);
             if (Container != null) return;
             base.Awake();
         }
@@ -88,7 +111,10 @@ namespace DGAIZone.App
             builder.Register<UnlockedLevelStore>(Lifetime.Singleton);
             builder.Register<VisitorInfoProvider>(Lifetime.Singleton);
 
-            RegisterTmpFonts();
+            using (RegisterTmpFontsMarker.Auto())
+            {
+                RegisterTmpFonts();
+            }
         }
 
         /// <summary>
@@ -112,7 +138,8 @@ namespace DGAIZone.App
             }
             catch (Exception ex)
             {
-                // 폰트 등록 실패는 치명적이지 않다 — 태그가 해석되지 않을 뿐이므로 부팅은 계속 진행
+                // 폰트 등록 실패는 치명적이지 않다 — 태그가 해석되지 않을 뿐이므로 부팅은 계속 진행.
+                // 컨테이너 구성 도중이라 로거를 아직 주입받을 수 없어 Debug로 대체 출력함
                 Debug.LogWarning($"[GameLifetimeScope] TMP 폰트 등록 실패: {ex.Message}");
             }
         }

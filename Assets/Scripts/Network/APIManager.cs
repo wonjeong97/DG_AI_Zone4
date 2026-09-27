@@ -2,7 +2,7 @@ using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using Microsoft.Extensions.Logging;
 using UnityEngine.SceneManagement;
-using Wonjeong.Network;
+using HuliacDev.Network;
 using ZLogger;
 
 namespace Network
@@ -15,7 +15,7 @@ namespace Network
     public class APIManager : ApiManagerBase
     {
         /// <summary>
-        /// 비활동 타임아웃 발생 시 씬별 분기 처리 (Wonjeong.Template ApiManagerBase.OnInactivityTimeout 오버라이드).
+        /// 비활동 타임아웃 발생 시 씬별 분기 처리 (HuliacDev.Template ApiManagerBase.OnInactivityTimeout 오버라이드).
         /// 마지막 씬(5_Outro)은 체험 완료 후 자리를 뜬 정상 이탈이므로 move_idle,
         /// 그 외 씬은 체험 중도 이탈이므로 기본 동작(move_idle_timeout)을 전송함.
         /// </summary>

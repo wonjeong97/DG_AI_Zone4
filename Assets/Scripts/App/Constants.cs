@@ -22,6 +22,12 @@ namespace DGAIZone.App
         {
             public const string RfidMappings = "RfidMappings.json";
             public const string Visitor = "Visitor.json";
+
+            /// <summary> 인트로/레벨 선택/게임/아웃트로에서 반복 재생하는 로봇 영상 파일명(Videos 폴더 안). </summary>
+            public const string RobotVideo = "robot_0811.webm";
+
+            /// <summary> 결과 영상 파일명 앞자리("{접두어}-{레벨}-{Success|Fail}.mp4"). </summary>
+            public const string ResultVideoPrefix = "4";
         }
 
         /// <summary> 리소스 경로 및 Addressables 주소/라벨 상수. </summary>
@@ -29,6 +35,9 @@ namespace DGAIZone.App
         {
             /// <summary> 씬별 연출 타이밍 JSON이 모여 있는 StreamingAssets 하위 폴더. </summary>
             public const string SceneSettingsFolder = "Json";
+
+            /// <summary> 영상 파일이 모여 있는 StreamingAssets 하위 폴더. </summary>
+            public const string VideosFolder = "Videos";
 
             /// <summary> 특정 씬이 아닌 공통 연출 타이밍(씬 전환 페이드 등)을 담는 JSON 파일명. </summary>
             public const string CommonSettingsFileName = "00_Common";
@@ -39,6 +48,26 @@ namespace DGAIZone.App
             /// TMP의 &lt;font="..."&gt; 태그가 해석되도록 함.
             /// </summary>
             public const string TmpFontLabel = "TMPFont";
+        }
+
+        /// <summary> RFID 카드 분류(RfidMappings.json의 category 값과 일치해야 함). </summary>
+        public static class RfidCategories
+        {
+            public const string Action = "동작";
+            public const string Control = "제어";
+            public const string Logic = "논리";
+            public const string Func = "함수";
+        }
+
+        /// <summary> 레벨 4 명령(재료/물질) 식별자. IngredientSelectionController가 확정하고 Level4BoardController가 해석함. </summary>
+        public static class Level4Commands
+        {
+            public const string MoveIngredient = "이동하기";
+            public const string RepeatIngredient = "반복하기";
+            public const string MoveUp = "위쪽 한칸";
+            public const string MoveDown = "아랫쪽 한칸";
+            public const string MoveRight = "오른쪽 한칸";
+            public const string MoveLeft = "왼쪽 한칸";
         }
 
         /// <summary>
@@ -69,12 +98,14 @@ namespace DGAIZone.App
                 /// <summary> 미션 보드 안내 문구용 표기(예: "화성 (거리 10)"). </summary>
                 public readonly string Destination;
 
-                /// <summary> 목표 거리. 추진력이 이 값에 도달/초과하면 Image_Fill이 100%(1.0)가 되고 미션이 성공함. </summary>
-                public readonly int TargetDistance;
-
                 /// <summary> Addressables에서 목적지 이미지를 불러올 때 쓰는 주소(PlanetName과 공백 등 표기가 다를 수 있음). </summary>
                 public readonly string SpriteKey;
 
+                // 참조(8B) 필드를 앞에 모으고 int(4B)를 마지막에 둬 필드 사이 패딩을 없앰(14번 규칙)
+                /// <summary> 목표 거리. 추진력이 이 값에 도달/초과하면 Image_Fill이 100%(1.0)가 되고 미션이 성공함. </summary>
+                public readonly int TargetDistance;
+
+                /// <summary> 행성 이름, 목표 거리, 이미지 주소로 목적지 정의를 만들고 안내 문구용 표기를 조합함. </summary>
                 public Definition(string planetName, int targetDistance, string spriteKey)
                 {
                     PlanetName = planetName;

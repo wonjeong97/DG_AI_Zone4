@@ -2,9 +2,10 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using TMPro;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Wonjeong.Core;
+using HuliacDev.Core;
 
 namespace DGAIZone.App
 {
@@ -14,6 +15,8 @@ namespace DGAIZone.App
     /// </summary>
     public static class StoryLineAnimator
     {
+        private static readonly ProfilerMarker ApplyLineMarker = new ProfilerMarker("StoryLineAnimator.ApplyLineVertices");
+
         /// <summary>
         /// 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함 (연출 스킵용 기본 판정).
         /// </summary>
@@ -32,19 +35,25 @@ namespace DGAIZone.App
         public static async UniTask AnimateAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset,
             Func<bool> skipRequested, CancellationToken token, InactivityTimer inactivityTimer = null)
         {
-            if (text == null) return;
+            if (!text)
+            {
+                // 정적 유틸이라 로거를 주입받을 수 없어 Debug로 대체 출력함
+                Debug.LogWarning("[StoryLineAnimator] text가 null이라 스토리 연출을 건너뜀.");
+                return;
+            }
 
-            inactivityTimer?.Pause();
+            if (inactivityTimer) inactivityTimer.Pause();
             try
             {
                 await AnimateLinesAsync(text, lineMoveDuration, lineInterval, lineYOffset, skipRequested, token);
             }
             finally
             {
-                inactivityTimer?.Resume();
+                if (inactivityTimer) inactivityTimer.Resume();
             }
         }
 
+        /// <summary> 줄 단위 정점 캐싱 후 한 줄씩 Y 오프셋과 알파를 보간해 올리는 연출 핵심 로직. </summary>
         private static async UniTask AnimateLinesAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset, Func<bool> skipRequested, CancellationToken token)
         {
             // 호출부에서 미리 숨겨 둔 경우(maxVisibleCharacters=0)를 대비해 전체 노출로 되돌린 뒤 메쉬를 갱신함
@@ -104,8 +113,11 @@ namespace DGAIZone.App
                     float yOffset = Mathf.Lerp(-lineYOffset, 0f, easeT);
                     byte alpha = (byte)Mathf.Lerp(0, 255, easeT);
 
-                    ApplyLineVertices(textInfo, lineInfo, cachedVertices, cachedColors, yOffset, alpha);
-                    text.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
+                    using (ApplyLineMarker.Auto())
+                    {
+                        ApplyLineVertices(textInfo, lineInfo, cachedVertices, cachedColors, yOffset, alpha);
+                        text.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
+                    }
 
                     elapsed += Time.deltaTime;
                     await UniTask.Yield(PlayerLoopTiming.Update, token);
@@ -122,7 +134,7 @@ namespace DGAIZone.App
             }
 
             // 완료 또는 스킵 시 전체를 자연 상태(전체 표시/불투명)로 확정함
-            if (text != null)
+            if (text)
             {
                 text.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
                 text.ForceMeshUpdate();

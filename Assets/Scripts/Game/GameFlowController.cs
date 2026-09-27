@@ -98,7 +98,7 @@ namespace DGAIZone.Game
         private void Update()
         {
             if (_isBusy) return;
-            if (storyPanel == null || !storyPanel.interactable) return;
+            if (!storyPanel || !storyPanel.interactable) return;
 
             if (IsPointerPressed())
             {
@@ -124,17 +124,17 @@ namespace DGAIZone.Game
             {
                 for (int i = 0; i < storyLevels.Length; i++)
                 {
-                    if (storyLevels[i] != null) storyLevels[i].SetActive(i == index);
+                    if (storyLevels[i]) storyLevels[i].SetActive(i == index);
+                    else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyLevels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
                 }
 
                 // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
                 // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
-                if (index >= 0 && index < storyLevels.Length && storyLevels[index] != null)
+                if (index >= 0 && index < storyLevels.Length && storyLevels[index])
                 {
-                    TMP_Text storyText = storyLevels[index].GetComponentInChildren<TMP_Text>(true);
-                    if (storyText != null)
+                    if (ChildComponentFinder.TryGetInDirectChildren(storyLevels[index].transform, out TMP_Text storyText))
                     {
-                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index] != null)
+                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                         {
                             storyText.text = levelDataList[index].storyText;
                         }
@@ -142,6 +142,10 @@ namespace DGAIZone.Game
                         {
                             _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
                         }
+                    }
+                    else if (_logger != null)
+                    {
+                        _logger.ZLogWarning($"[GameFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 바꿀 수 없음.");
                     }
                 }
             }
@@ -154,14 +158,18 @@ namespace DGAIZone.Game
         /// </summary>
         private void ApplyThemeBackground()
         {
-            if (themeBackgroundImage == null) return;
+            if (!themeBackgroundImage)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] themeBackgroundImage가 null이라 테마 배경을 바꿀 수 없음.");
+                return;
+            }
 
             int index = _selectedLevel - 1;
             Sprite sprite = (themeBackgroundSprites != null && index >= 0 && index < themeBackgroundSprites.Length)
                 ? themeBackgroundSprites[index]
                 : null;
 
-            if (sprite == null)
+            if (!sprite)
             {
                 if (_logger != null) _logger.ZLogWarning($"[GameFlowController] themeBackgroundSprites[{index}]가 비어 있어 테마 배경을 바꾸지 못함.");
                 return;
@@ -178,14 +186,19 @@ namespace DGAIZone.Game
             int index = _selectedLevel - 1;
             for (int i = 0; i < situationPanels.Length; i++)
             {
-                if (situationPanels[i] != null) situationPanels[i].SetActive(i == index);
+                if (situationPanels[i]) situationPanels[i].SetActive(i == index);
+                else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] situationPanels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
             }
         }
 
         /// <summary> Addressables에서 활성화된 레벨의 스토리 이미지를 비동기로 불러와 적용함. </summary>
         private async UniTaskVoid LoadStoryImageAsync()
         {
-            if (storyImage == null) return;
+            if (!storyImage)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyImage가 null이라 스토리 이미지를 불러오지 않음.");
+                return;
+            }
 
             string key = $"Level{_selectedLevel}";
             CancellationToken token = this.GetCancellationTokenOnDestroy();
@@ -194,7 +207,7 @@ namespace DGAIZone.Game
                 _storyImageHandle = Addressables.LoadAssetAsync<Sprite>(key);
                 Sprite sprite = await _storyImageHandle.Task.AsUniTask().AttachExternalCancellation(token);
 
-                if (_storyImageHandle.Status == AsyncOperationStatus.Succeeded && sprite != null)
+                if (_storyImageHandle.Status == AsyncOperationStatus.Succeeded && sprite)
                 {
                     storyImage.sprite = sprite;
                 }
@@ -226,11 +239,19 @@ namespace DGAIZone.Game
                     await FadeCanvasGroupAsync(storyPanel, 1f, 0f, duration, token);
                     ApplyPanelState(storyPanel, false);
                 }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[GameFlowController] storyPanel이 null이라 패널 전환 연출을 건너뜀.");
+                }
 
                 if (gamePanel)
                 {
                     await FadeCanvasGroupAsync(gamePanel, 0f, 1f, duration, token);
                     ApplyPanelState(gamePanel, true);
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[GameFlowController] gamePanel이 null이라 패널 전환 연출을 건너뜀.");
                 }
             }
             catch (OperationCanceledException) { }
@@ -257,11 +278,19 @@ namespace DGAIZone.Game
                     await FadeCanvasGroupAsync(gamePanel, 1f, 0f, duration, token);
                     ApplyPanelState(gamePanel, false);
                 }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[GameFlowController] gamePanel이 null이라 패널 전환 연출을 건너뜀.");
+                }
 
                 if (storyPanel)
                 {
                     await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[GameFlowController] storyPanel이 null이라 패널 전환 연출을 건너뜀.");
                 }
             }
             catch (OperationCanceledException) { }
@@ -287,7 +316,11 @@ namespace DGAIZone.Game
         /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. 활성 상태는 유지하고 알파로만 제어함. </summary>
         private void ApplyPanelState(CanvasGroup group, bool visible)
         {
-            if (!group) return;
+            if (!group)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
+                return;
+            }
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;

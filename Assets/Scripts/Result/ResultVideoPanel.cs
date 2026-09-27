@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using Microsoft.Extensions.Logging;
@@ -19,8 +20,6 @@ namespace DGAIZone.Result
     {
         [SerializeField] private VideoPlayer videoPlayer;
         [SerializeField] private ResultFlowController flowController;
-        [SerializeField] private string videoFolderName = "Videos";
-        [SerializeField] private string videoFileNamePrefix = "4"; // 파일명 앞자리("4-{레벨}-Success.mp4"의 "4")
 
         private const int MinLevel = 1;
         private const int MaxLevel = 4; // 실제로 레벨별 영상이 존재하는 최대 레벨(4-1~4-4). 레벨이 늘어나면 영상 추가와 함께 이 값도 올려야 함.
@@ -45,11 +44,13 @@ namespace DGAIZone.Result
             PlayResultVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
+        /// <summary> 활성화 시 씬 전환 대기 대상으로 레지스트리에 등록함. </summary>
         private void OnEnable()
         {
             VideoReadinessRegistry.Register(this);
         }
 
+        /// <summary> 비활성화 시 씬 전환 대기 대상에서 제외함. </summary>
         private void OnDisable()
         {
             VideoReadinessRegistry.Unregister(this);
@@ -66,8 +67,9 @@ namespace DGAIZone.Result
         {
             try
             {
-                if (videoPlayer == null)
+                if (!videoPlayer)
                 {
+                    if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] videoPlayer가 null이라 결과 영상을 재생할 수 없음.");
                     _readySignal.TrySetResult();
                     return;
                 }
@@ -81,9 +83,9 @@ namespace DGAIZone.Result
                     _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{MaxLevel})를 벗어나 {clampedLevel}로 대체함.");
                 }
 
-                string fileName = $"{videoFileNamePrefix}-{clampedLevel}-{(success ? "Success" : "Fail")}.mp4";
+                string fileName = ZString.Concat(Constants.Files.ResultVideoPrefix, "-", clampedLevel, "-", success ? "Success" : "Fail", ".mp4");
                 if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 레벨={clampedLevel}, 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
-                string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, fileName);
+                string path = System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, fileName);
 
                 videoPlayer.source = VideoSource.Url;
                 videoPlayer.url = path;
@@ -101,7 +103,7 @@ namespace DGAIZone.Result
                 await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
                 await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
 
-                if (flowController != null)
+                if (flowController)
                 {
                     flowController.ShowCompletePanel();
                 }

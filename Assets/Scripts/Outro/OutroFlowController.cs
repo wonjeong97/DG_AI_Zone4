@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.App;
+using HuliacDev.App;
 using ZLogger;
 
 namespace DGAIZone.Outro
@@ -73,7 +73,8 @@ namespace DGAIZone.Outro
             }
 
             _isBusy = true;
-            _moveIdlePublisher?.Publish(new MoveIdleEvent());
+            if (_moveIdlePublisher != null) _moveIdlePublisher.Publish(new MoveIdleEvent());
+            else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] moveIdlePublisher가 null이라 idle 전환 이벤트를 발행하지 않음.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
     }

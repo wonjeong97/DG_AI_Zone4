@@ -13,9 +13,13 @@ using Microsoft.Extensions.Logging;
 using R3;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Utils;
+using VContainer.Unity;
+using HuliacDev.Core;
+using HuliacDev.Utils;
+using DGAIZone.Game.UI.States;
 using ZLogger;
 
 namespace DGAIZone.Game.UI
@@ -63,6 +67,9 @@ namespace DGAIZone.Game.UI
         [Header("Warning")]
         [SerializeField] private CanvasGroup warningPanel; // Image_Warning: 레벨/스텝에 맞지 않는 카드 인식 시 표시
 
+        [Header("Level 4 Board")]
+        [SerializeField] private Level4BoardController level4Board; // Panel_Level4. Level4BoardController가 이 클래스를 주입받는 순환 의존이라 VContainer 대신 인스펙터로 연결함
+
         // 3_Game.json / 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float numberFontSize = 45f; // Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
         private readonly float rightArrowStepFadeDuration = 0.15f;
@@ -83,21 +90,42 @@ namespace DGAIZone.Game.UI
         private const string EngineIngredientName = "추진체 종류";
         private const string PayloadIngredientName = "탑재 종류";
 
-        // 레벨 4: 스캔된 카드의 category(동작/제어)에 따라 같은 단계라도 재료/물질이 달라짐(JSON의 단계별 고정값이 아님).
-        private const string Level4MoveIngredientName = "이동하기";
-        private static readonly string[] Level4MoveMatters = { "위쪽 한칸", "아랫쪽 한칸", "오른쪽 한칸", "왼쪽 한칸" };
-        private const string Level4RepeatIngredientName = "반복하기";
-        private static readonly string[] Level4RepeatMatters = { "1회", "2회", "3회" };
+        private StateMachine<IngredientSelectionController> _stateMachine;
+        private IngredientLevel1State _level1State;
+        private IngredientLevel2State _level2State;
+        private IngredientLevel3State _level3State;
+        private IngredientLevel4State _level4State;
 
-        // 레벨 2 발사 코딩 순서 단계 볼(Image_StepN_Ball)의 완료 표시. 인덱스가 stepBallImages 순서와 매칭됨.
-        private static readonly string[] Level2StepBallMatters =
-        {
-            "점화하기", "상승하기", "1차 로켓 분리하기", "2차 로켓 분리하기", "우주정거장 궤도 진입하기"
-        };
-        private static readonly string[] Level2StepBallTexts =
-        {
-            "점화 시퀀스\n완료", "상승 시퀀스\n준비 완료", "1차 로켓\n준비 완료", "2차 로켓\n준비 완료", "진입 궤도\n계산 완료"
-        };
+        /// <summary> 현재 활성화된 레벨 상태 객체. </summary>
+        public IIngredientSelectionLevelState CurrentLevelState => _stateMachine?.CurrentState as IIngredientSelectionLevelState;
+
+        internal Image[] StepBallImages => stepBallImages;
+        internal Material StepBallGrayscaleMaterial => stepBallGrayscaleMaterial;
+        internal Image Level2FillImage => level2FillImage;
+        internal float Level2FillTweenDuration => _sceneSettings?.level2FillTweenDuration ?? level2FillTweenDuration;
+        internal float Level2FillOvershoot => _sceneSettings?.level2FillOvershoot ?? level2FillOvershoot;
+
+        internal Image Level3OxygenGauge => level3OxygenGauge;
+        internal Image Level3ElectricGauge => level3ElectricGauge;
+        internal Image Level3OxygenIcon => level3OxygenIcon;
+        internal Image Level3ElectricIcon => level3ElectricIcon;
+        internal CanvasGroup Level3OxygenIconCanvasGroup => _level3OxygenIconCanvasGroup;
+        internal CanvasGroup Level3ElectricIconCanvasGroup => _level3ElectricIconCanvasGroup;
+        internal float Level3GaugeTweenDuration => _sceneSettings?.level3GaugeTweenDuration ?? level3GaugeTweenDuration;
+        internal float Level3IconBlinkMinAlpha => _sceneSettings?.level3IconBlinkMinAlpha ?? level3IconBlinkMinAlpha;
+        internal float Level3IconBlinkDuration => _sceneSettings?.level3IconBlinkDuration ?? level3IconBlinkDuration;
+
+        internal Level4BoardController Level4Board => level4Board;
+        internal MissionBoardController MissionBoard => _missionBoard;
+        internal int DesignItemsCount => _designItems.Count;
+        internal ILogger<IngredientSelectionController> Logger => _logger;
+        internal string[] ConfirmedMatters => _confirmedMatters;
+        internal string[] ConfirmedIngredients => _confirmedIngredients;
+        internal int CurrentStepIndex => _currentStepIndex;
+        internal int TotalSteps => _totalSteps;
+        internal int ConfirmedEngineValue => _confirmedEngineValue;
+        internal int ConfirmedFuelValue => _confirmedFuelValue;
+        internal int ConfirmedPayloadValue => _confirmedPayloadValue;
 
         private ISubscriber<RfidTagEvent> _subscriber;
         private ISubscriber<RfidReaderIdleEvent> _idleSubscriber;
@@ -106,7 +134,7 @@ namespace DGAIZone.Game.UI
         private MissionBoardController _missionBoard;
         private CodingCategoryIndicatorController _codingCategoryIndicator;
         private GameResultStore _resultStore;
-        private Level4BoardController _level4Board; // Level4BoardController가 이 클래스를 참조하는 순환 의존이라 VContainer로 주입하지 않고 필요할 때 FindObjectOfType으로 찾음
+        private IObjectResolver _resolver;
         private ILogger<IngredientSelectionController> _logger;
         private bool _isBusy;
 
@@ -145,28 +173,83 @@ namespace DGAIZone.Game.UI
 
         private R3.DisposableBag _disposables = new R3.DisposableBag();
         private Sequence _rightArrowSequence;
-        private Tween _level2FillTween;
         private Sequence _warningSequence;
         private CancellationTokenSource _warningCts;
+        private CanvasGroup[] _rightArrowCanvasGroups;
+        private CanvasGroup _level3OxygenIconCanvasGroup;
+        private CanvasGroup _level3ElectricIconCanvasGroup;
 
         // 3_Game.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private GameSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        // 레벨 3 게이지(전기/산소) 상태. fillAmount는 애니메이션 도중일 수 있어 목표값을 별도로 추적함.
-        private float _level3OxygenFill;
-        private float _level3ElectricFill;
-        private Tween _level3OxygenGaugeTween;
-        private Tween _level3ElectricGaugeTween;
-        private Tween _level3OxygenIconBlinkTween;
-        private Tween _level3ElectricIconBlinkTween;
-        private bool _level3InstabilityPending; // "또는"이 선택된 상태. 5단계를 전부 완료해야 실제 깜빡임이 시작됨.
+        /// <summary>
+        /// 상태 머신과 레벨별 상태 인스턴스를 사전 생성하고(Zero-GC), 서브 캔버스 및 캔버스 그룹을 초기화함.
+        /// </summary>
+        private void Awake()
+        {
+            _level1State = new IngredientLevel1State();
+            _level2State = new IngredientLevel2State();
+            _level3State = new IngredientLevel3State();
+            _level4State = new IngredientLevel4State();
+            _stateMachine = new StateMachine<IngredientSelectionController>(this);
+
+            InitSubCanvases();
+            InitCanvasGroups();
+        }
+
+        /// <summary> fillAmount가 트윈될 때 메인 UI 캔버스의 리빌드를 차단하도록 서브 캔버스를 보장함. </summary>
+        private void InitSubCanvases()
+        {
+            EnsureSubCanvas(level2FillImage);
+            EnsureSubCanvas(level3OxygenGauge);
+            EnsureSubCanvas(level3ElectricGauge);
+        }
+
+        private static void EnsureSubCanvas(Component target)
+        {
+            if (!target) return;
+            if (!target.TryGetComponent<Canvas>(out _))
+            {
+                target.gameObject.AddComponent<Canvas>();
+            }
+        }
+
+        /// <summary> 이미지 알파 페이드/깜빡임 시 정점 리빌드 없이 GPU 블렌딩을 사용하도록 CanvasGroup을 구성함. </summary>
+        private void InitCanvasGroups()
+        {
+            if (rightArrowImages != null && rightArrowImages.Length > 0)
+            {
+                _rightArrowCanvasGroups = new CanvasGroup[rightArrowImages.Length];
+                for (int i = 0; i < rightArrowImages.Length; i++)
+                {
+                    if (rightArrowImages[i])
+                    {
+                        if (!rightArrowImages[i].TryGetComponent(out _rightArrowCanvasGroups[i]))
+                        {
+                            _rightArrowCanvasGroups[i] = rightArrowImages[i].gameObject.AddComponent<CanvasGroup>();
+                        }
+                        _rightArrowCanvasGroups[i].alpha = 0f;
+                    }
+                }
+            }
+
+            if (level3OxygenIcon && !level3OxygenIcon.TryGetComponent(out _level3OxygenIconCanvasGroup))
+            {
+                _level3OxygenIconCanvasGroup = level3OxygenIcon.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            if (level3ElectricIcon && !level3ElectricIcon.TryGetComponent(out _level3ElectricIconCanvasGroup))
+            {
+                _level3ElectricIconCanvasGroup = level3ElectricIcon.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
 
         /// <summary>
-        /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 로거를 할당함.
+        /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 디자인 항목 생성용 리졸버, 로거를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, ILogger<IngredientSelectionController> logger)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, IObjectResolver resolver, ILogger<IngredientSelectionController> logger)
         {
             _subscriber = subscriber;
             _idleSubscriber = idleSubscriber;
@@ -175,6 +258,7 @@ namespace DGAIZone.Game.UI
             _missionBoard = missionBoard;
             _codingCategoryIndicator = codingCategoryIndicator;
             _resultStore = resultStore;
+            _resolver = resolver;
             _logger = logger;
         }
 
@@ -183,21 +267,29 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void Start()
         {
-            if (buttonLeft != null) buttonLeft.onClick.AddListener(OnLeftButtonClicked);
-            if (buttonRight != null) buttonRight.onClick.AddListener(OnRightButtonClicked);
-            if (buttonConfirm != null) buttonConfirm.onClick.AddListener(OnConfirmButtonClicked);
-            if (buttonCancel != null) buttonCancel.onClick.AddListener(OnCancelButtonClicked);
-            if (buttonCodingComplete != null) buttonCodingComplete.onClick.AddListener(OnCodingCompleteClicked);
-            if (buttonSkip != null) buttonSkip.onClick.AddListener(OnSkipButtonClicked);
+            AddButtonListener(buttonLeft, OnLeftButtonClicked, nameof(buttonLeft));
+            AddButtonListener(buttonRight, OnRightButtonClicked, nameof(buttonRight));
+            AddButtonListener(buttonConfirm, OnConfirmButtonClicked, nameof(buttonConfirm));
+            AddButtonListener(buttonCancel, OnCancelButtonClicked, nameof(buttonCancel));
+            AddButtonListener(buttonCodingComplete, OnCodingCompleteClicked, nameof(buttonCodingComplete));
+            AddButtonListener(buttonSkip, OnSkipButtonClicked, nameof(buttonSkip));
 
             if (_subscriber != null)
             {
                 _subscriber.Subscribe(OnRfidTagReceived).AddTo(ref _disposables);
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] RfidTagEvent 구독자가 null이라 카드 인식을 받을 수 없음.");
+            }
 
             if (_idleSubscriber != null)
             {
                 _idleSubscriber.Subscribe(OnRfidReaderIdle).AddTo(ref _disposables);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] RfidReaderIdleEvent 구독자가 null이라 카드 떨어짐을 감지할 수 없음.");
             }
 
             _currentIngredient.Subscribe(UpdateIngredientText).AddTo(ref _disposables);
@@ -209,6 +301,19 @@ namespace DGAIZone.Game.UI
 
             // 비동기로 설정을 로드하여 워크플로우 단계를 설정함
             InitializeWorkflowAsync().Forget();
+        }
+
+        /// <summary> 버튼에 클릭 리스너를 연결하고, 버튼이 연결되지 않았으면 경고를 남김. </summary>
+        private void AddButtonListener(Button button, UnityAction onClick, string fieldName)
+        {
+            if (button)
+            {
+                button.onClick.AddListener(onClick);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] {fieldName}이 null이라 클릭 이벤트를 연결할 수 없음.");
+            }
         }
 
         /// <summary>
@@ -225,7 +330,7 @@ namespace DGAIZone.Game.UI
 
             try
             {
-                var settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
+                RfidSettings settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
                 if (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0)
                 {
                     _stageReadCounts = settings.stageReadCounts;
@@ -235,6 +340,15 @@ namespace DGAIZone.Game.UI
 
                 int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
                 _selectedLevel = level;
+                IIngredientSelectionLevelState targetState = level switch
+                {
+                    1 => _level1State,
+                    2 => _level2State,
+                    3 => _level3State,
+                    4 => _level4State,
+                    _ => _level1State
+                };
+                _stateMachine.ChangeState(targetState);
                 _stepDefinitions = settings != null ? settings.GetStepsForLevel(level) : null;
 
                 _currentStageIndex = Mathf.Clamp(_currentStageIndex, 0, _stageReadCounts.Length - 1);
@@ -253,7 +367,6 @@ namespace DGAIZone.Game.UI
             _idleReaderStepIndices.Clear();
             ClearDesignItems();
             InitializeStepBalls();
-            InitializeLevel3Gauges();
             UpdateCategoryHint();
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
@@ -266,12 +379,18 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateCategoryHint()
         {
-            if (_codingCategoryIndicator == null) return;
+            if (!_codingCategoryIndicator)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] codingCategoryIndicator가 null이라 카테고리 힌트를 갱신할 수 없음.");
+                return;
+            }
 
             if (_stepDefinitions != null && _currentStepIndex < _totalSteps && _currentStepIndex < _stepDefinitions.Length && _stepDefinitions[_currentStepIndex] != null)
             {
-                string[] categories = _stepDefinitions[_currentStepIndex].categories;
-                if (_selectedLevel == 4 && IsRepeatFollowUpRequired()) categories = new[] { "동작" };
+                RfidStepDefinition step = _stepDefinitions[_currentStepIndex];
+                string[] categories = CurrentLevelState != null
+                    ? CurrentLevelState.GetAllowedCategories(this, step)
+                    : step.categories;
 
                 _codingCategoryIndicator.ShowNextHint(categories);
             }
@@ -288,228 +407,35 @@ namespace DGAIZone.Game.UI
         {
             if (stepBallImages == null) return;
 
-            foreach (Image ballImage in stepBallImages)
+            for (int i = 0; i < stepBallImages.Length; i++)
             {
-                if (ballImage == null) continue;
+                Image ballImage = stepBallImages[i];
+                if (!ballImage)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] stepBallImages[{i}]가 null이라 초기화를 건너뜀.");
+                    continue;
+                }
 
                 ballImage.material = stepBallGrayscaleMaterial;
 
-                TMP_Text ballText = ballImage.GetComponentInChildren<TMP_Text>(true);
-                if (ballText != null) ballText.text = "";
+                if (ChildComponentFinder.TryGetInDirectChildren(ballImage.transform, out TMP_Text ballText))
+                {
+                    ballText.text = "";
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] {ballImage.name}의 직계 자식에 TMP_Text가 없어 완료 문구를 비울 수 없음.");
+                }
             }
 
-            // 진행바도 시작 상태(0%)로 즉시 스냅함(연출 없이)
-            _level2FillTween?.Kill();
-            if (level2FillImage != null) level2FillImage.fillAmount = 0f;
-        }
-
-        /// <summary>
-        /// 레벨 2 진행바(Image_Fill)를 확정된 DesignedItem 개수에 맞춰 갱신함. 0~1개=0%, 2개=25%, 3개=50%, 4개=75%, 5개=100%.
-        /// Ease.OutBack으로 살짝 튕기는 "쥬시한" 느낌을 주되, 기본 오버슈트보다 작은 level2FillOvershoot 값을 써서 과하게 튀어나가지 않도록 함.
-        /// </summary>
-        private void UpdateLevel2FillAmount()
-        {
-            if (_selectedLevel != 2 || level2FillImage == null) return;
-
-            float target = Mathf.Clamp01((_designItems.Count - 1) / 4f);
-
-            _level2FillTween?.Kill();
-            _level2FillTween = level2FillImage.DOFillAmount(target, _sceneSettings?.level2FillTweenDuration ?? level2FillTweenDuration)
-                .SetEase(Ease.OutBack, _sceneSettings?.level2FillOvershoot ?? level2FillOvershoot);
-        }
-
-        /// <summary>
-        /// 레벨 2에서 확정/취소된 단계(stepIndex, 몇 번째로 확정했는지)에 해당하는 Image_StepN_Ball의 색상과 완료 텍스트를 갱신함.
-        /// 볼 번호는 어떤 matter를 골랐는지가 아니라 확정 순서(stepIndex)로 정해지고, 표시 문구만 matter 값에 따라 달라짐.
-        /// 예: 두 번째로 확정한 값이 "1차 로켓 분리하기"이면 Step2_Ball에 "1차 로켓 준비 완료"가 표시됨.
-        /// completed가 true면 원래 색으로 돌아오며 완료 문구를 표시하고, false면 다시 흑백으로 되돌리고 텍스트를 비움.
-        /// </summary>
-        private void UpdateStepBallDisplay(int stepIndex, string matter, bool completed)
-        {
-            if (_selectedLevel != 2 || stepBallImages == null) return;
-            if (stepIndex < 0 || stepIndex >= stepBallImages.Length) return;
-
-            Image ballImage = stepBallImages[stepIndex];
-            if (ballImage == null) return;
-
-            ballImage.material = completed ? null : stepBallGrayscaleMaterial;
-
-            TMP_Text ballText = ballImage.GetComponentInChildren<TMP_Text>(true);
-            if (ballText == null) return;
-
-            if (!completed)
+            if (level2FillImage)
             {
-                ballText.text = "";
-                return;
+                level2FillImage.fillAmount = 0f;
             }
-
-            int textIndex = Array.IndexOf(Level2StepBallMatters, matter);
-            ballText.text = (textIndex >= 0 && textIndex < Level2StepBallTexts.Length) ? Level2StepBallTexts[textIndex] : "";
-        }
-
-        /// <summary> 레벨 3의 산소/전기 게이지와 아이콘 알파를 0%로, 깜빡임을 정지 상태로 되돌림. </summary>
-        private void InitializeLevel3Gauges()
-        {
-            _level3OxygenFill = 0f;
-            _level3ElectricFill = 0f;
-            _level3InstabilityPending = false;
-
-            _level3OxygenGaugeTween?.Kill();
-            _level3ElectricGaugeTween?.Kill();
-            if (level3OxygenGauge != null) level3OxygenGauge.fillAmount = 0f;
-            if (level3ElectricGauge != null) level3ElectricGauge.fillAmount = 0f;
-
-            // 게이지가 이미 0으로 세팅된 상태이므로, 게이지 값을 그대로 따라가는 아이콘 알파도 0이 됨
-            StopLevel3IconInstability();
-        }
-
-        /// <summary>
-        /// 레벨 3에서 확정된 단계(stepIndex, 0부터)와 값(matter)에 따라 게이지/아이콘 연출을 갱신함.
-        /// 전기량 조건(0)·전기량 조작(1)이 정답이면 산소 게이지가, 산소량 조건(3)·산소량 조작(4)이 정답이면 전기 게이지가
-        /// 각각 50%씩 채워짐(엇갈려 연결된 생명유지장치라는 설정). 논리 연결어(2)에서 "또는"을 고르면 불안정 상태가 예약되고,
-        /// 실제 깜빡임은 5단계를 전부 완료한 시점에 OnConfirmButtonClicked에서 시작됨.
-        /// </summary>
-        private void UpdateLevel3Effects(int stepIndex, string matter)
-        {
-            if (_selectedLevel != 3) return;
-
-            switch (stepIndex)
+            else if (_logger != null)
             {
-                case 0:
-                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MaxElectricity} 이상", StringComparison.Ordinal))
-                    {
-                        AddOxygenGaugeFill(0.5f);
-                    }
-                    break;
-                case 1:
-                    if (string.Equals(matter, "낮추기", StringComparison.Ordinal)) AddOxygenGaugeFill(0.5f);
-                    break;
-                case 2:
-                    _level3InstabilityPending = string.Equals(matter, "또는", StringComparison.Ordinal);
-                    break;
-                case 3:
-                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MinOxygen} 이하", StringComparison.Ordinal))
-                    {
-                        AddElectricGaugeFill(0.5f);
-                    }
-                    break;
-                case 4:
-                    if (string.Equals(matter, "올리기", StringComparison.Ordinal)) AddElectricGaugeFill(0.5f);
-                    break;
+                _logger.ZLogWarning($"[IngredientSelectionController] level2FillImage가 null이라 진행바를 초기화할 수 없음.");
             }
-        }
-
-        /// <summary> 취소(되돌리기) 시 UpdateLevel3Effects로 적용됐던 효과를 반대로 되돌림. </summary>
-        private void RevertLevel3Effects(int stepIndex, string matter)
-        {
-            if (_selectedLevel != 3) return;
-
-            // 어떤 단계를 되돌리든 "5단계 완료" 상태가 깨지므로, 예약/진행 중이던 깜빡임은 항상 멈춤
-            StopLevel3IconInstability();
-
-            switch (stepIndex)
-            {
-                case 0:
-                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MaxElectricity} 이상", StringComparison.Ordinal))
-                    {
-                        AddOxygenGaugeFill(-0.5f);
-                    }
-                    break;
-                case 1:
-                    if (string.Equals(matter, "낮추기", StringComparison.Ordinal)) AddOxygenGaugeFill(-0.5f);
-                    break;
-                case 2:
-                    _level3InstabilityPending = false;
-                    break;
-                case 3:
-                    if (_missionBoard != null && string.Equals(matter, $"{_missionBoard.MinOxygen} 이하", StringComparison.Ordinal))
-                    {
-                        AddElectricGaugeFill(-0.5f);
-                    }
-                    break;
-                case 4:
-                    if (string.Equals(matter, "올리기", StringComparison.Ordinal)) AddElectricGaugeFill(-0.5f);
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// 산소 게이지의 목표 fillAmount를 amount만큼(0~1로 clamp) 조절하고 부드럽게 애니메이션함.
-        /// Image_Icon의 알파도 게이지 진행률(0~1)을 그대로 따라가도록 매 프레임 동기화함.
-        /// </summary>
-        private void AddOxygenGaugeFill(float amount)
-        {
-            if (level3OxygenGauge == null) return;
-
-            _level3OxygenFill = Mathf.Clamp01(_level3OxygenFill + amount);
-            _level3OxygenGaugeTween?.Kill();
-            _level3OxygenGaugeTween = level3OxygenGauge.DOFillAmount(_level3OxygenFill, _sceneSettings?.level3GaugeTweenDuration ?? level3GaugeTweenDuration)
-                .SetEase(Ease.OutQuad)
-                .OnUpdate(() => SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount))
-                .SetLink(level3OxygenGauge.gameObject);
-        }
-
-        /// <summary>
-        /// 전기 게이지의 목표 fillAmount를 amount만큼(0~1로 clamp) 조절하고 부드럽게 애니메이션함.
-        /// Image_Icon의 알파도 게이지 진행률(0~1)을 그대로 따라가도록 매 프레임 동기화함.
-        /// </summary>
-        private void AddElectricGaugeFill(float amount)
-        {
-            if (level3ElectricGauge == null) return;
-
-            _level3ElectricFill = Mathf.Clamp01(_level3ElectricFill + amount);
-            _level3ElectricGaugeTween?.Kill();
-            _level3ElectricGaugeTween = level3ElectricGauge.DOFillAmount(_level3ElectricFill, _sceneSettings?.level3GaugeTweenDuration ?? level3GaugeTweenDuration)
-                .SetEase(Ease.OutQuad)
-                .OnUpdate(() => SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount))
-                .SetLink(level3ElectricGauge.gameObject);
-        }
-
-        /// <summary>
-        /// 5단계를 전부 완료했고 "또는"이 선택되어 있었을 때만 호출됨. 산소/전기 두 Image_Icon을
-        /// 서로 다른 주기로 어긋나게 깜빡여 불안정한 느낌을 줌.
-        /// </summary>
-        private void StartLevel3IconInstability()
-        {
-            float blinkDuration = _sceneSettings?.level3IconBlinkDuration ?? level3IconBlinkDuration;
-            StartIconBlink(level3OxygenIcon, ref _level3OxygenIconBlinkTween, blinkDuration);
-            StartIconBlink(level3ElectricIcon, ref _level3ElectricIconBlinkTween, blinkDuration * 1.4f);
-        }
-
-        /// <summary> 아이콘 하나를 알파 1~level3IconBlinkMinAlpha 사이로 무한 반복(Yoyo) 깜빡이게 함. </summary>
-        private void StartIconBlink(Image icon, ref Tween tween, float duration)
-        {
-            if (icon == null) return;
-
-            tween?.Kill();
-            SetImageAlpha(icon, 1f);
-            tween = icon.DOFade(_sceneSettings?.level3IconBlinkMinAlpha ?? level3IconBlinkMinAlpha, duration)
-                .SetLoops(-1, LoopType.Yoyo)
-                .SetEase(Ease.InOutSine)
-                .SetLink(icon.gameObject);
-        }
-
-        /// <summary>
-        /// 두 아이콘의 깜빡임을 멈추고, 알파를 각 게이지의 현재 fillAmount에 맞춰 되돌림(1이 아니라 진행률만큼).
-        /// </summary>
-        private void StopLevel3IconInstability()
-        {
-            _level3OxygenIconBlinkTween?.Kill();
-            _level3OxygenIconBlinkTween = null;
-            _level3ElectricIconBlinkTween?.Kill();
-            _level3ElectricIconBlinkTween = null;
-
-            if (level3OxygenGauge != null) SetImageAlpha(level3OxygenIcon, level3OxygenGauge.fillAmount);
-            if (level3ElectricGauge != null) SetImageAlpha(level3ElectricIcon, level3ElectricGauge.fillAmount);
-        }
-
-        private void SetImageAlpha(Image image, float alpha)
-        {
-            if (image == null) return;
-
-            Color color = image.color;
-            color.a = alpha;
-            image.color = color;
         }
 
         /// <summary>
@@ -521,7 +447,7 @@ namespace DGAIZone.Game.UI
         private void OnRfidTagReceived(RfidTagEvent evt)
         {
             // 게임 패널이 활성 상태가 아니면(스토리 화면 등) RFID 입력을 무시함
-            if (gamePanel == null || !gamePanel.interactable)
+            if (!gamePanel || !gamePanel.interactable)
             {
                 if (_logger != null)
                 {
@@ -607,19 +533,14 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            // 레벨 4: "반복하기"(제어)는 반드시 "이동하기"(동작)와 세트로 이어져야 하므로, 바로 이전 단계가
-            // "반복하기"였다면 이번 단계는 "동작" 카드만 허용함(제어 카드는 이 규칙 위반으로 거부됨).
-            if (_selectedLevel == 4 && IsRepeatFollowUpRequired() && !string.Equals(evt.Category, "동작", StringComparison.Ordinal))
+            if (CurrentLevelState != null && !CurrentLevelState.ValidateTagCategory(this, evt))
             {
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[IngredientSelectionController] 이전 단계가 '반복하기'라 {_currentStepIndex + 1}번째 단계는 '동작' 카드만 허용되는데 '{evt.Category}' 카드가 인식되어 {evt.ReaderId} 태그를 무시함.");
-                }
-                ShowInvalidCategoryWarningAsync().Forget();
                 return;
             }
 
-            (string ingredientName, string[] matterNames) = ResolveStepCard(step, evt.Category);
+            (string ingredientName, string[] matterNames) = CurrentLevelState != null
+                ? CurrentLevelState.ResolveStepCard(this, step, evt.Category)
+                : (step.ingredientName, step.matterNames);
 
             if (_logger != null)
             {
@@ -627,12 +548,14 @@ namespace DGAIZone.Game.UI
             }
 
             // 현재 단계에 허용된 카드로 확인된 경우에만 CodingCategories 강조를 갱신함(허용되지 않으면 흑백 상태가 그대로 유지됨)
-            if (_codingCategoryIndicator != null) _codingCategoryIndicator.HighlightCategory(evt.Category);
+            if (_codingCategoryIndicator) _codingCategoryIndicator.HighlightCategory(evt.Category);
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] codingCategoryIndicator가 null이라 카테고리 강조를 갱신할 수 없음.");
 
             _currentIngredient.Value = ingredientName;
             _currentCategory = evt.Category;
-            // 레벨 4는 같은 동작(예: "위쪽 한칸")이나 "반복하기"를 경로상 여러 번 다시 써야 하므로 중복 제외를 적용하지 않음
-            _currentMatters.Value = _selectedLevel == 4 ? matterNames : ExcludeConfirmedMatters(ingredientName, matterNames);
+            _currentMatters.Value = CurrentLevelState != null
+                ? CurrentLevelState.FilterMatters(this, ingredientName, matterNames)
+                : ExcludeConfirmedMatters(ingredientName, matterNames);
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
@@ -709,31 +632,16 @@ namespace DGAIZone.Game.UI
 
             for (int i = 0; i < _designItems.Count; i++)
             {
-                if (_designItems[i] == null) continue;
+                if (!_designItems[i]) continue;
                 _designItems[i].alpha = (i >= grayFromIndex) ? DesignItemDeactivatedAlpha : 1f;
             }
         }
 
-        /// <summary>
-        /// 현재 단계에서 실제로 사용할 재료 이름/물질 목록을 결정함. 레벨 4는 카드의 category(동작/제어)에 따라
-        /// 같은 단계라도 다른 값을 써야 하므로(동작="이동하기"+방향 4종, 제어="반복하기"+횟수 3종) JSON의 단계별 고정값 대신
-        /// 스캔된 category로 분기함. 다른 레벨은 JSON에 정의된 단계별 고정값을 그대로 사용함.
-        /// </summary>
-        private (string ingredientName, string[] matterNames) ResolveStepCard(RfidStepDefinition step, string category)
-        {
-            if (_selectedLevel != 4) return (step.ingredientName, step.matterNames);
-
-            bool isAction = string.Equals(category, "동작", StringComparison.Ordinal);
-            return isAction
-                ? (Level4MoveIngredientName, Level4MoveMatters)
-                : (Level4RepeatIngredientName, Level4RepeatMatters);
-        }
-
         /// <summary> 레벨 4 전용: 바로 이전 단계에서 확정한 재료가 "반복하기"(제어, 횟수 카드)였다면, 이번 단계는 반드시 "이동하기"(동작)여야 함. </summary>
-        private bool IsRepeatFollowUpRequired()
+        internal bool IsRepeatFollowUpRequired()
         {
             if (_currentStepIndex <= 0 || _confirmedIngredients == null || _currentStepIndex - 1 >= _confirmedIngredients.Length) return false;
-            return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Level4RepeatIngredientName, StringComparison.Ordinal);
+            return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Constants.Level4Commands.RepeatIngredient, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -743,7 +651,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         public IReadOnlyList<(string ingredient, string matter)> GetConfirmedCommands()
         {
-            var commands = new List<(string ingredient, string matter)>();
+            List<(string ingredient, string matter)> commands = new List<(string ingredient, string matter)>();
             if (_confirmedIngredients == null || _confirmedMatters == null) return commands;
 
             for (int i = 0; i < _currentStepIndex && i < _confirmedIngredients.Length; i++)
@@ -769,7 +677,7 @@ namespace DGAIZone.Game.UI
         /// <summary> Image_Warning의 알파를 0으로 스냅해 시작 시 숨겨진 상태로 만듦. </summary>
         private void InitializeWarningPanel()
         {
-            if (warningPanel == null)
+            if (!warningPanel)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] warningPanel이 null이라 경고 표시가 비활성화됨.");
                 return;
@@ -785,22 +693,27 @@ namespace DGAIZone.Game.UI
         /// 좌우로 3회 흔든 뒤, warningHoldDuration(초)만큼 더 붙잡아 보여주고 나서 Image_Warning을 페이드아웃해 숨김.
         /// 연달아 잘못된 카드가 인식되면 진행 중이던 연출을 정지하고 처음부터 다시 시작함.
         /// </summary>
-        private async UniTaskVoid ShowInvalidCategoryWarningAsync()
+        internal async UniTaskVoid ShowInvalidCategoryWarningAsync()
         {
-            if (warningPanel == null) return;
+            if (!warningPanel)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] warningPanel이 null이라 잘못된 카드 경고를 표시할 수 없음.");
+                return;
+            }
 
             // 이전 호출의 UniTask.Delay 등 진행 중이던 비동기 흐름을 확실히 취소함(_warningSequence.Kill()만으로는
             // DOTween 트윈만 멈출 뿐, 이전 호출이 대기 중인 await까지 중단시키진 못해 레이스 컨디션이 발생할 수 있음).
             _warningCts?.Cancel();
             _warningCts?.Dispose();
-            _warningCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
-            CancellationToken token = _warningCts.Token;
+            CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+            _warningCts = cts;
+            CancellationToken token = cts.Token;
             float fadeDuration = _sceneSettings?.warningFadeDuration ?? warningFadeDuration;
 
             try
             {
                 _warningSequence?.Kill();
-                if (gamePanel != null) ((RectTransform)gamePanel.transform).anchoredPosition = Vector2.zero;
+                if (gamePanel) ((RectTransform)gamePanel.transform).anchoredPosition = Vector2.zero;
 
                 warningPanel.interactable = false;
                 warningPanel.blocksRaycasts = false;
@@ -816,12 +729,25 @@ namespace DGAIZone.Game.UI
                     .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
             }
             catch (OperationCanceledException) { }
+            finally
+            {
+                // 더 최신 경고 연출이 이미 시작되어 필드가 교체됐다면 그 CTS는 건드리지 않음
+                if (_warningCts == cts)
+                {
+                    _warningCts.Dispose();
+                    _warningCts = null;
+                }
+            }
         }
 
         /// <summary> GamePanel의 RectTransform을 좌우로 3회(왕복) 흔들고 원위치로 되돌림. </summary>
         private UniTask ShakeGamePanelAsync(CancellationToken token)
         {
-            if (gamePanel == null) return UniTask.CompletedTask;
+            if (!gamePanel)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] gamePanel이 null이라 흔들기 연출을 건너뜀.");
+                return UniTask.CompletedTask;
+            }
 
             RectTransform target = (RectTransform)gamePanel.transform;
             Vector2 originalPos = target.anchoredPosition;
@@ -846,12 +772,12 @@ namespace DGAIZone.Game.UI
         /// 확정된 값은 다시 고를 수 없도록 목록에서 제외함. ingredientName까지 함께 비교하므로, 서로 다른 ingredient가
         /// 우연히 같은 값 텍스트를 공유해도(예: 레벨 3의 전기량/산소량이 둘 다 "올리기"/"낮추기") 서로 간섭하지 않음.
         /// </summary>
-        private string[] ExcludeConfirmedMatters(string ingredientName, string[] matterNames)
+        internal string[] ExcludeConfirmedMatters(string ingredientName, string[] matterNames)
         {
             if (matterNames == null || matterNames.Length == 0) return Array.Empty<string>();
             if (_confirmedMatters == null || _confirmedIngredients == null) return matterNames;
 
-            var available = new List<string>(matterNames.Length);
+            List<string> available = new List<string>(matterNames.Length);
             foreach (string matter in matterNames)
             {
                 bool alreadyConfirmed = false;
@@ -876,11 +802,15 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnConfirmButtonClicked()
         {
-            if (_confirmedMatters == null) return;
+            if (_confirmedMatters == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 워크플로우 초기화가 끝나지 않아 설정하기를 처리할 수 없음.");
+                return;
+            }
 
             // ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 있으므로, "스캔된 것이 없음"은
             // ingredient가 아니라 matters 목록의 존재 여부로 판단함.
-            var matters = _currentMatters.Value;
+            string[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정할 RFID 태그가 스캔되어 있지 않음.");
@@ -902,15 +832,7 @@ namespace DGAIZone.Game.UI
                 _confirmedCategories[_currentStepIndex] = _currentCategory;
             }
 
-            // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)은 레벨 1 전용 재료 이름을 기준으로 하므로,
-            // 다른 레벨의 재료 이름에 대해 매번 "알 수 없는 재료" 경고가 찍히지 않도록 레벨 1에서만 반영함.
-            int value = 0;
-            if (_selectedLevel == 1)
-            {
-                value = ParseIngredientValue(ingredient, chosenMatter);
-                ApplyConfirmedValue(ingredient, value);
-            }
-
+            int value = (_selectedLevel == 1) ? ParseIngredientValue(ingredient, chosenMatter) : 0;
             if (_logger != null)
             {
                 _logger.ZLogInformation($"[IngredientSelectionController] {_currentStepIndex + 1}번째 단계 확정: {ingredient} -> {chosenMatter} (값={value})");
@@ -919,17 +841,11 @@ namespace DGAIZone.Game.UI
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
             AddDesignItem(ingredient, chosenMatter);
 
-            // 레벨 2: 확정된 matter에 대응하는 Image_StepN_Ball을 원래 색으로 되돌리고 완료 문구를 표시함
-            UpdateStepBallDisplay(_currentStepIndex, chosenMatter, true);
-
-            // 레벨 3: 확정된 단계/값에 따라 산소/전기 게이지와 아이콘 깜빡임을 갱신함
-            UpdateLevel3Effects(_currentStepIndex, chosenMatter);
+            // 레벨별 상태 객체에 확정 처리 위임 (스텝 볼, 게이지, 불안정 깜빡임, 추진력 등)
+            CurrentLevelState?.OnStepConfirmed(this, _currentStepIndex, ingredient, chosenMatter);
 
             // 확정된 엔진 출력량/연료량/탑재 중량을 계산식에 반영해 진행도(Image_Fill)를 갱신함
-            if (_missionBoard != null)
-            {
-                _missionBoard.SetProgress(CalculateTotalThrust());
-            }
+            ApplyProgressToMissionBoard();
 
             ClearPendingSelection();
 
@@ -940,15 +856,9 @@ namespace DGAIZone.Game.UI
             // (동작 확정으로 켜졌던 CodingCategories 강조도 여기서 함께 흑백으로 정리됨)
             UpdateCategoryHint();
 
-            if (_currentStepIndex >= _totalSteps)
+            if (_currentStepIndex >= _totalSteps && _logger != null)
             {
-                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 총 {_totalSteps}단계 모두 완료됨!");
-
-                // 레벨 3: "또는"이 선택된 채로 5단계를 전부 완료한 시점에 비로소 불안정 깜빡임을 시작함
-                if (_selectedLevel == 3 && _level3InstabilityPending)
-                {
-                    StartLevel3IconInstability();
-                }
+                _logger.ZLogInformation($"[IngredientSelectionController] 총 {_totalSteps}단계 모두 완료됨!");
             }
         }
 
@@ -957,7 +867,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnCancelButtonClicked()
         {
-            if (_confirmedMatters == null) return;
+            if (_confirmedMatters == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 워크플로우 초기화가 끝나지 않아 취소하기를 처리할 수 없음.");
+                return;
+            }
 
             if (_currentStepIndex == 0)
             {
@@ -969,10 +883,7 @@ namespace DGAIZone.Game.UI
 
             RollbackOneStep();
 
-            if (_missionBoard != null)
-            {
-                _missionBoard.SetProgress(CalculateTotalThrust());
-            }
+            ApplyProgressToMissionBoard();
 
             ClearPendingSelection();
 
@@ -1009,11 +920,7 @@ namespace DGAIZone.Game.UI
         {
             _currentStepIndex--;
 
-            // 추진력 계산식은 레벨 1 전용 재료 이름 기준이라, 다른 레벨은 건너뜀("알 수 없는 재료" 경고 방지)
-            if (_selectedLevel == 1) ApplyConfirmedValue(_confirmedIngredients[_currentStepIndex], 0);
-
-            UpdateStepBallDisplay(_currentStepIndex, _confirmedMatters[_currentStepIndex], false);
-            RevertLevel3Effects(_currentStepIndex, _confirmedMatters[_currentStepIndex]);
+            CurrentLevelState?.OnStepRolledBack(this, _currentStepIndex, _confirmedIngredients[_currentStepIndex], _confirmedMatters[_currentStepIndex]);
 
             _confirmedMatters[_currentStepIndex] = null;
             _confirmedIngredients[_currentStepIndex] = null;
@@ -1037,10 +944,7 @@ namespace DGAIZone.Game.UI
                 RollbackOneStep();
             }
 
-            if (_missionBoard != null)
-            {
-                _missionBoard.SetProgress(CalculateTotalThrust());
-            }
+            ApplyProgressToMissionBoard();
 
             UpdateDesignItemGrayState(); // 남아있는 DesignItem의 흐림 표시 경계를 다시 계산함
             ClearPendingSelection();
@@ -1053,16 +957,25 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void AddDesignItem(string ingredient, string matter)
         {
-            if (designContent == null || designItemPrefab == null) return;
+            if (!designContent || !designItemPrefab)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designContent 또는 designItemPrefab이 null이라 확정 항목을 추가할 수 없음.");
+                return;
+            }
 
-            TextMeshProUGUI text = Instantiate(designItemPrefab, designContent);
-            text.text = _selectedLevel == 2 || string.IsNullOrEmpty(ingredient)
-                ? $" · [<color=yellow>{ApplyNumberSizeTag(matter)}</color>]"
+            if (_resolver == null)
+            {
+                if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] IObjectResolver가 주입되지 않아 확정 항목을 생성할 수 없음.");
+                return;
+            }
+
+            TextMeshProUGUI text = _resolver.Instantiate(designItemPrefab, designContent);
+            text.text = CurrentLevelState != null
+                ? CurrentLevelState.FormatDesignItemText(this, ingredient, matter)
                 : $" · {ingredient} [<color=yellow>{ApplyNumberSizeTag(matter)}</color>]";
 
             _designItems.Add(text);
             UpdateCodingCompleteButton();
-            UpdateLevel2FillAmount();
         }
 
         /// <summary>
@@ -1073,11 +986,10 @@ namespace DGAIZone.Game.UI
             if (_designItems.Count == 0) return;
 
             int lastIndex = _designItems.Count - 1;
-            var last = _designItems[lastIndex];
+            TMP_Text last = _designItems[lastIndex];
             _designItems.RemoveAt(lastIndex);
-            if (last != null) Destroy(last.gameObject);
+            if (last) Destroy(last.gameObject);
             UpdateCodingCompleteButton();
-            UpdateLevel2FillAmount();
         }
 
         /// <summary>
@@ -1087,23 +999,24 @@ namespace DGAIZone.Game.UI
         {
             for (int i = 0; i < _designItems.Count; i++)
             {
-                if (_designItems[i] != null) Destroy(_designItems[i].gameObject);
+                if (_designItems[i]) Destroy(_designItems[i].gameObject);
             }
             _designItems.Clear();
             UpdateCodingCompleteButton();
         }
 
         /// <summary>
-        /// 디자인 컨테이너에 확정 항목이 필요한 만큼(_totalSteps) 채워졌을 때만 코딩완료 버튼을 활성화함.
-        /// 레벨 4는 5단계를 다 채우지 않아도 되므로(경로가 짧아도 됨) 최소 1개만 확정되면 활성화함.
+        /// 디자인 컨테이너에 확정 항목이 필요한 만큼 채워졌을 때만 코딩완료 버튼을 활성화함.
         /// </summary>
         private void UpdateCodingCompleteButton()
         {
-            if (buttonCodingComplete == null) return;
+            if (!buttonCodingComplete)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] buttonCodingComplete가 null이라 코딩완료 버튼 상태를 갱신할 수 없음.");
+                return;
+            }
 
-            buttonCodingComplete.interactable = _selectedLevel == 4
-                ? _designItems.Count > 0
-                : _designItems.Count >= _totalSteps;
+            buttonCodingComplete.interactable = CurrentLevelState?.IsCodingCompleteInteractable(this, _designItems.Count, _totalSteps) ?? false;
         }
 
         /// <summary>
@@ -1124,39 +1037,29 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 미션을 판정해 결과를 기록한 뒤 결과 씬으로 전환함. 레벨 4는 결과 씬으로 넘어가기 전에 디자인 창에
-        /// 입력된 명령을 전부 로봇 이동 시뮬레이션으로 재생하고(스페이스바 디버그 트리거와 동일한 연출),
-        /// 1초 대기한 뒤 전환함(플레이어가 결과를 확인할 시간을 줌). 이 재생 구간은 몇 초 이상 걸릴 수 있어,
-        /// 그동안 취소/확인 버튼이나 RFID 태그로 상태가 어긋나지 않도록 gamePanel을 즉시 비활성화함
-        /// (OnRfidTagReceived/OnRfidReaderIdle은 gamePanel.interactable을 이미 가드로 쓰고,
-        /// blocksRaycasts=false로 버튼 클릭도 함께 막힘). 씬을 곧 떠나므로 별도 복구는 하지 않음.
+        /// 미션을 판정해 결과를 기록한 뒤 결과 씬으로 전환함. 레벨별 추가 시뮬레이션(레벨 4)이 있으면 재생 후 전환함.
         /// </summary>
         private async UniTaskVoid CompleteCodingAsync()
         {
-            if (gamePanel != null)
+            if (gamePanel)
             {
                 gamePanel.interactable = false;
                 gamePanel.blocksRaycasts = false;
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] gamePanel이 null이라 시뮬레이션 중 입력을 막을 수 없음.");
+            }
 
             bool success = EvaluateMission();
             if (_resultStore != null) _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 미션 결과를 기록할 수 없음.");
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}.");
 
-            if (_selectedLevel == 4)
+            if (CurrentLevelState != null)
             {
-                if (_level4Board == null) _level4Board = FindObjectOfType<Level4BoardController>();
-
-                if (_level4Board != null)
-                {
-                    await _level4Board.PlaySimulationAsync();
-                    await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: this.GetCancellationTokenOnDestroy());
-                }
-                else if (_logger != null)
-                {
-                    _logger.ZLogWarning($"[IngredientSelectionController] level4Board를 찾을 수 없어 이동 시뮬레이션 없이 바로 결과 씬으로 전환함.");
-                }
+                await CurrentLevelState.PlayCompletionSimulationAsync(this, this.GetCancellationTokenOnDestroy());
             }
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {Constants.Scenes.Result} 씬으로 이동.");
@@ -1177,6 +1080,7 @@ namespace DGAIZone.Game.UI
             }
 
             if (_resultStore != null) _resultStore.Result = MissionResult.Fail;
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 스킵 결과를 기록할 수 없음.");
 
             _isBusy = true;
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
@@ -1184,133 +1088,66 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 엔진 출력량 x 연료량 - 탑재 중량 계산 결과가 이번 목적지의 조건 범위를 만족하는지 판정함.
-        /// 모든 단계가 확정되지 않았거나 미션보드가 없으면 실패로 처리함.
+        /// 현재 레벨 상태 객체에 미션 판정을 위임함.
         /// </summary>
         private bool EvaluateMission()
         {
-            if (_missionBoard == null)
+            if (!_missionBoard)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 없어 미션을 판정할 수 없음. 실패로 처리함.");
                 return false;
             }
 
-            // 레벨 4는 5단계를 다 채우지 않아도 되므로 최소 1개만 확정되면 판정을 진행함
-            int requiredCount = _selectedLevel == 4 ? 1 : _totalSteps;
+            int requiredCount = (_selectedLevel == 4) ? 1 : _totalSteps;
             if (_designItems.Count < requiredCount)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정된 단계가 부족함 ({_designItems.Count}/{requiredCount}). 실패로 처리함.");
                 return false;
             }
 
-            if (_selectedLevel == 2) return EvaluateLevel2Mission();
-            if (_selectedLevel == 3) return EvaluateLevel3Mission();
-            if (_selectedLevel == 4) return EvaluateLevel4Mission();
-
-            int totalThrust = CalculateTotalThrust();
-            bool valid = _missionBoard.IsThrustValid(totalThrust);
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={_confirmedEngineValue} x 연료={_confirmedFuelValue} - 탑재={_confirmedPayloadValue}) vs 목적지 '{_missionBoard.Destination}' -> {(valid ? "성공" : "실패")}");
-            }
-            return valid;
+            return CurrentLevelState?.EvaluateMission(this) ?? false;
         }
 
-        /// <summary>
-        /// 레벨 2 전용 판정: 확정된 5단계의 값이 순서대로 정확히 "점화하기 -> 상승하기 -> 1차 로켓 분리하기 ->
-        /// 2차 로켓 분리하기 -> 우주정거장 궤도 진입하기"(Level2StepBallMatters)와 일치해야만 성공으로 처리함.
-        /// 순서가 하나라도 어긋나면 실패.
-        /// </summary>
-        private bool EvaluateLevel2Mission()
+        /// <summary> 확정된 추진력을 미션보드 진행도(Image_Fill)에 반영함. </summary>
+        private void ApplyProgressToMissionBoard()
         {
-            if (_confirmedMatters == null || _confirmedMatters.Length < Level2StepBallMatters.Length)
+            if (_missionBoard)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 2 확정 단계 수가 부족함. 실패로 처리함.");
-                return false;
+                _missionBoard.SetProgress(CalculateTotalThrust());
             }
-
-            for (int i = 0; i < Level2StepBallMatters.Length; i++)
+            else if (_logger != null)
             {
-                if (!string.Equals(_confirmedMatters[i], Level2StepBallMatters[i], StringComparison.Ordinal))
-                {
-                    if (_logger != null)
-                    {
-                        _logger.ZLogInformation($"[IngredientSelectionController] 레벨 2 판정: {i + 1}번째 단계가 '{Level2StepBallMatters[i]}'가 아니라 '{_confirmedMatters[i]}'라 순서가 어긋남. 실패로 처리함.");
-                    }
-                    return false;
-                }
+                _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 null이라 진행도를 갱신할 수 없음.");
             }
-
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 레벨 2 판정: 발사 코딩 순서가 정확히 일치함. 성공으로 처리함.");
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// 레벨 3 전용 판정: 산소/전기 게이지(CircleGage)가 둘 다 100%(1.0)까지 채워지고, 3번째 단계(논리 연결어)에서
-        /// "또는"을 선택해 시스템이 불안정(_level3InstabilityPending)해지지 않았어야 성공.
-        /// 각 게이지는 관련된 두 단계(전기량 조건/조작, 산소량 조건/조작)에 모두 정답을 골라야 0.5씩 채워져 1.0이 됨
-        /// (UpdateLevel3Effects). fillAmount는 트윈으로 서서히 올라가므로, 트윈 완료 여부와 무관하게 확정된
-        /// 목표값인 _level3OxygenFill/_level3ElectricFill을 기준으로 판정함.
-        /// </summary>
-        private bool EvaluateLevel3Mission()
-        {
-            bool oxygenFull = _level3OxygenFill >= 1f;
-            bool electricFull = _level3ElectricFill >= 1f;
-            bool stable = !_level3InstabilityPending;
-            bool success = oxygenFull && electricFull && stable;
-
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 레벨 3 판정: 산소 게이지={_level3OxygenFill:F2}, 전기 게이지={_level3ElectricFill:F2}, 시스템 안정={stable} -> {(success ? "성공" : "실패")}");
-            }
-
-            return success;
-        }
-
-        /// <summary>
-        /// 레벨 4 전용 판정: 확정된 "반복하기/이동하기" 명령을 직접 Level4BoardController.EvaluateOutcome(commands)에
-        /// 인자로 넘겨 연출 없이 즉시 재계산함(자원을 먼저 수집한 뒤 기지에 도착해야 성공, 그 외는 전부 실패).
-        /// Level4BoardController도 이 클래스를 참조해서 VContainer로 주입받으면 순환 의존이 되므로,
-        /// 보드 인스턴스 자체는 필요할 때(코딩완료 클릭 시, 자주 호출되지 않음) FindObjectOfType으로 찾아 캐시하되,
-        /// 판정에 쓰는 명령 목록은 GetConfirmedCommands()로 직접 전달해 EvaluateOutcome이 이 클래스에 되묻지 않게 함.
-        /// </summary>
-        private bool EvaluateLevel4Mission()
-        {
-            if (_level4Board == null) _level4Board = FindObjectOfType<Level4BoardController>();
-            if (_level4Board == null)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] level4Board를 찾을 수 없어 레벨 4 미션을 판정할 수 없음. 실패로 처리함.");
-                return false;
-            }
-
-            return _level4Board.EvaluateOutcome(GetConfirmedCommands());
         }
 
         /// <summary>
         /// 확정된 엔진 출력량 x 연료량 - 탑재 중량으로 총 추진력을 계산함.
         /// </summary>
-        private int CalculateTotalThrust() => CalculateThrust(_confirmedEngineValue, _confirmedFuelValue, _confirmedPayloadValue);
+        internal int CalculateTotalThrust() => CalculateThrust(_confirmedEngineValue, _confirmedFuelValue, _confirmedPayloadValue);
 
         /// <summary> 엔진 출력량 x 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
         private int CalculateThrust(int engine, int fuel, int payload) => engine * fuel - payload;
 
         /// <summary>
-        /// 확정된 역할(엔진/연료/탑재)별 값에, 현재 조절 중인 임시 선택값을 해당 역할에 대입해 미리보기용 추진력을 계산함.
-        /// 조절 중인 항목이 없으면 확정된 값만으로 계산함.
+        /// 확정된 역할(엔진/연료/탑재)별 값에, 현재 조절 중인 임시 선택값을 대입해 미리보기용 추진력을 계산함.
         /// </summary>
         private int CalculatePreviewThrust()
+        {
+            return CurrentLevelState?.CalculatePreviewThrust(this) ?? 0;
+        }
+
+        /// <summary>
+        /// 레벨 1 전용: 임시 선택값을 반영한 미리보기 추진력을 계산함.
+        /// </summary>
+        internal int CalculateLevel1PreviewThrust()
         {
             int engine = _confirmedEngineValue;
             int fuel = _confirmedFuelValue;
             int payload = _confirmedPayloadValue;
 
-            // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)은 레벨 1 전용 재료 이름을 기준으로 하므로,
-            // 다른 레벨의 재료 이름("이동하기", "발사 코딩 순서" 등)에 대해 매번 파싱 경고가 찍히지 않도록 레벨 1에서만 계산함.
             string ingredient = _currentIngredient.Value;
-            if (_selectedLevel == 1 && !string.IsNullOrEmpty(ingredient))
+            if (!string.IsNullOrEmpty(ingredient))
             {
                 int tempValue = ParseIngredientValue(ingredient, CurrentSelectedMatter());
                 if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) engine = tempValue;
@@ -1322,9 +1159,9 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary> 현재 좌우 버튼으로 선택 중인 물질 문자열을 반환함. 선택된 것이 없으면 null. </summary>
-        private string CurrentSelectedMatter()
+        internal string CurrentSelectedMatter()
         {
-            var matters = _currentMatters.Value;
+            string[] matters = _currentMatters.Value;
             int idx = _currentMatterIndex.Value;
             return (matters != null && idx >= 0 && idx < matters.Length) ? matters[idx] : null;
         }
@@ -1332,7 +1169,7 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 확정된 값을 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌리는 데도 사용됨.
         /// </summary>
-        private void ApplyConfirmedValue(string ingredient, int value)
+        internal void ApplyConfirmedValue(string ingredient, int value)
         {
             if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) _confirmedEngineValue = value;
             else if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal)) _confirmedFuelValue = value;
@@ -1347,7 +1184,7 @@ namespace DGAIZone.Game.UI
         /// 실제 공식(엔진 출력량 x 연료량 - 탑재 중량)은 연산자 자체가 방향을 담당하므로 크기(절댓값)만 사용함.
         /// 실패 시 0.
         /// </summary>
-        private int ParseIngredientValue(string ingredientName, string matterValue)
+        internal int ParseIngredientValue(string ingredientName, string matterValue)
         {
             if (string.IsNullOrEmpty(matterValue)) return 0;
 
@@ -1358,7 +1195,7 @@ namespace DGAIZone.Game.UI
                 return 0;
             }
 
-            var match = System.Text.RegularExpressions.Regex.Match(matterValue, @"\(([+-]?\d+)\)");
+            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(matterValue, @"\(([+-]?\d+)\)");
             if (match.Success && int.TryParse(match.Groups[1].Value, out int parsed)) return Math.Abs(parsed);
 
             if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] '{ingredientName}' 재료의 '{matterValue}' 값에서 숫자를 파싱할 수 없음. 0으로 처리함.");
@@ -1370,7 +1207,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnLeftButtonClicked()
         {
-            var matters = _currentMatters.Value;
+            string[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0) return;
 
             int len = matters.Length;
@@ -1382,7 +1219,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnRightButtonClicked()
         {
-            var matters = _currentMatters.Value;
+            string[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0) return;
 
             int len = matters.Length;
@@ -1394,9 +1231,13 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateIngredientText(string ingredientName)
         {
-            if (textIngredient != null)
+            if (textIngredient)
             {
                 textIngredient.text = ingredientName;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] textIngredient가 null이라 재료 이름을 표시할 수 없음.");
             }
 
             UpdateRightArrowAnimation();
@@ -1407,9 +1248,13 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateMatterText()
         {
-            if (textMatter == null) return;
+            if (!textMatter)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] textMatter가 null이라 물질 값을 표시할 수 없음.");
+                return;
+            }
 
-            var matters = _currentMatters.Value;
+            string[] matters = _currentMatters.Value;
             int idx = _currentMatterIndex.Value;
 
             if (matters != null && idx >= 0 && idx < matters.Length)
@@ -1431,7 +1276,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateProgressPreview()
         {
-            if (_missionBoard == null) return;
+            if (!_missionBoard)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 null이라 미리보기 게이지를 갱신할 수 없음.");
+                return;
+            }
 
             // ingredientName이 빈 문자열인 단계도 있으므로, "조절 중인 재료 없음"은 ingredient가 아니라
             // matters 목록의 존재 여부로 판단함.
@@ -1452,7 +1301,7 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 값이 숫자로만 구성되어 있으면 <size> 리치 텍스트 태그로 감싸 강조 크기를 적용하고, 아니면 원본 값을 그대로 반환함.
         /// </summary>
-        private string ApplyNumberSizeTag(string value)
+        internal string ApplyNumberSizeTag(string value)
         {
             if (string.IsNullOrEmpty(value))
             {
@@ -1470,10 +1319,14 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateRightArrowAnimation()
         {
-            if (rightArrowImages == null || rightArrowImages.Length == 0) return;
+            if (rightArrowImages == null || rightArrowImages.Length == 0)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] rightArrowImages가 비어 있어 화살표 안내 연출을 건너뜀.");
+                return;
+            }
 
-            bool hasValue = (textMatter != null && !string.IsNullOrEmpty(textMatter.text))
-                          || (textIngredient != null && !string.IsNullOrEmpty(textIngredient.text));
+            bool hasValue = (textMatter && !string.IsNullOrEmpty(textMatter.text))
+                          || (textIngredient && !string.IsNullOrEmpty(textIngredient.text));
 
             if (hasValue) StartRightArrowLoop();
             else ResetRightArrow();
@@ -1492,22 +1345,34 @@ namespace DGAIZone.Game.UI
             float fadeOutDuration = _sceneSettings?.rightArrowFadeOutDuration ?? rightArrowFadeOutDuration;
             float holdDuration = _sceneSettings?.rightArrowHoldDuration ?? rightArrowHoldDuration;
 
-            for (int i = 0; i < rightArrowImages.Length; i++) SetImageAlpha(rightArrowImages[i], 0f);
+            if (_rightArrowCanvasGroups == null || _rightArrowCanvasGroups.Length == 0) InitCanvasGroups();
+            if (_rightArrowCanvasGroups == null || _rightArrowCanvasGroups.Length == 0) return;
+
+            for (int i = 0; i < _rightArrowCanvasGroups.Length; i++)
+            {
+                if (_rightArrowCanvasGroups[i]) _rightArrowCanvasGroups[i].alpha = 0f;
+            }
 
             _rightArrowSequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject);
-            for (int i = 0; i < rightArrowImages.Length; i++)
+            for (int i = 0; i < _rightArrowCanvasGroups.Length; i++)
             {
-                _rightArrowSequence.Append(rightArrowImages[i].DOFade(1f, stepDuration));
+                if (_rightArrowCanvasGroups[i])
+                {
+                    _rightArrowSequence.Append(_rightArrowCanvasGroups[i].DOFade(1f, stepDuration));
+                }
             }
 
             _rightArrowSequence.AppendInterval(holdDuration);
 
-            if (rightArrowImages.Length > 0)
+            if (_rightArrowCanvasGroups.Length > 0 && _rightArrowCanvasGroups[0])
             {
-                _rightArrowSequence.Append(rightArrowImages[0].DOFade(0f, fadeOutDuration));
-                for (int i = 1; i < rightArrowImages.Length; i++)
+                _rightArrowSequence.Append(_rightArrowCanvasGroups[0].DOFade(0f, fadeOutDuration));
+                for (int i = 1; i < _rightArrowCanvasGroups.Length; i++)
                 {
-                    _rightArrowSequence.Join(rightArrowImages[i].DOFade(0f, fadeOutDuration));
+                    if (_rightArrowCanvasGroups[i])
+                    {
+                        _rightArrowSequence.Join(_rightArrowCanvasGroups[i].DOFade(0f, fadeOutDuration));
+                    }
                 }
             }
 
@@ -1524,8 +1389,11 @@ namespace DGAIZone.Game.UI
             _rightArrowSequence?.Kill();
             _rightArrowSequence = null;
 
-            if (rightArrowImages == null) return;
-            for (int i = 0; i < rightArrowImages.Length; i++) SetImageAlpha(rightArrowImages[i], 0f);
+            if (_rightArrowCanvasGroups == null) return;
+            for (int i = 0; i < _rightArrowCanvasGroups.Length; i++)
+            {
+                if (_rightArrowCanvasGroups[i]) _rightArrowCanvasGroups[i].alpha = 0f;
+            }
         }
 
         /// <summary>
@@ -1533,14 +1401,15 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnDestroy()
         {
-            if (buttonLeft != null) buttonLeft.onClick.RemoveListener(OnLeftButtonClicked);
-            if (buttonRight != null) buttonRight.onClick.RemoveListener(OnRightButtonClicked);
-            if (buttonConfirm != null) buttonConfirm.onClick.RemoveListener(OnConfirmButtonClicked);
-            if (buttonCancel != null) buttonCancel.onClick.RemoveListener(OnCancelButtonClicked);
-            if (buttonCodingComplete != null) buttonCodingComplete.onClick.RemoveListener(OnCodingCompleteClicked);
-            if (buttonSkip != null) buttonSkip.onClick.RemoveListener(OnSkipButtonClicked);
+            if (buttonLeft) buttonLeft.onClick.RemoveListener(OnLeftButtonClicked);
+            if (buttonRight) buttonRight.onClick.RemoveListener(OnRightButtonClicked);
+            if (buttonConfirm) buttonConfirm.onClick.RemoveListener(OnConfirmButtonClicked);
+            if (buttonCancel) buttonCancel.onClick.RemoveListener(OnCancelButtonClicked);
+            if (buttonCodingComplete) buttonCodingComplete.onClick.RemoveListener(OnCodingCompleteClicked);
+            if (buttonSkip) buttonSkip.onClick.RemoveListener(OnSkipButtonClicked);
 
             _disposables.Dispose();
+            _stateMachine?.Dispose();
             _currentIngredient?.Dispose();
             _currentMatters?.Dispose();
             _currentMatterIndex?.Dispose();
@@ -1549,11 +1418,6 @@ namespace DGAIZone.Game.UI
             _warningSequence?.Kill();
             _warningCts?.Cancel();
             _warningCts?.Dispose();
-            _level2FillTween?.Kill();
-            _level3OxygenGaugeTween?.Kill();
-            _level3ElectricGaugeTween?.Kill();
-            _level3OxygenIconBlinkTween?.Kill();
-            _level3ElectricIconBlinkTween?.Kill();
         }
     }
 }

@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.EventSystems;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
+using VContainer;
+using ZLogger;
 
 namespace DGAIZone.Intro
 {
@@ -26,15 +30,28 @@ namespace DGAIZone.Intro
         private readonly Dictionary<int, AsyncOperationHandle<Sprite>> _spriteHandles = new();
 
         private Image _image;
+        private ILogger<TutorialImageSlider> _logger;
         private RectTransform _rectTransform;
         private int _currentIndex;
 
+        /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
+        [Inject]
+        public void Construct(ILogger<TutorialImageSlider> logger)
+        {
+            _logger = logger;
+        }
+
+        /// <summary> 표시 대상 Image와 클릭 좌표 계산용 RectTransform을 캐싱함. </summary>
         private void Awake()
         {
-            _image = GetComponent<Image>();
+            if (!TryGetComponent(out _image))
+            {
+                Debug.LogError("[TutorialImageSlider] Image 컴포넌트가 없어 튜토리얼 이미지를 표시할 수 없음.");
+            }
             _rectTransform = (RectTransform)transform;
         }
 
+        /// <summary> 첫 페이지를 불러와 표시함. </summary>
         private void Start()
         {
             _currentIndex = 0;
@@ -63,12 +80,14 @@ namespace DGAIZone.Intro
             else ShowPrevious();
         }
 
+        /// <summary> 다음 페이지로 순환 이동함. </summary>
         private void ShowNext()
         {
             _currentIndex = (_currentIndex + 1) % TotalPages;
             ShowPageAsync().Forget();
         }
 
+        /// <summary> 이전 페이지로 순환 이동함. </summary>
         private void ShowPrevious()
         {
             _currentIndex = (_currentIndex - 1 + TotalPages) % TotalPages;
@@ -79,20 +98,24 @@ namespace DGAIZone.Intro
         private async UniTaskVoid ShowPageAsync()
         {
             int page = _currentIndex + 1;
-            if (pageText) pageText.text = $"튜토리얼 ({page}/{TotalPages})";
+            if (pageText) pageText.text = ZString.Format("튜토리얼 ({0}/{1})", page, TotalPages);
+            else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] pageText가 null이라 페이지 번호를 표시할 수 없음.");
 
             try
             {
                 if (!_spriteHandles.TryGetValue(page, out AsyncOperationHandle<Sprite> handle))
                 {
-                    handle = Addressables.LoadAssetAsync<Sprite>($"{AddressPrefix}{page}");
+                    handle = Addressables.LoadAssetAsync<Sprite>(ZString.Concat(AddressPrefix, page));
                     _spriteHandles[page] = handle;
                 }
 
                 Sprite sprite = await handle.Task.AsUniTask().AttachExternalCancellation(this.GetCancellationTokenOnDestroy());
 
                 // 로딩 중 다른 페이지로 이동했다면(연속 클릭) 결과가 최신 페이지를 덮어쓰지 않도록 방지
-                if (_currentIndex + 1 == page && handle.Status == AsyncOperationStatus.Succeeded) _image.sprite = sprite;
+                if (_currentIndex + 1 != page) return;
+
+                if (handle.Status == AsyncOperationStatus.Succeeded && _image) _image.sprite = sprite;
+                else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] 튜토리얼 이미지 '{AddressPrefix}{page}'를 표시할 수 없음(로드 상태={handle.Status}).");
             }
             catch (OperationCanceledException) { }
         }

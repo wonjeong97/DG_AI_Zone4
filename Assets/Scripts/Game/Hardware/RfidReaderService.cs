@@ -14,9 +14,10 @@ using DGAIZone.Game.Events;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using R3;
+using Unity.Profiling;
 using UnityEngine;
 using VContainer;
-using Wonjeong.Utils;
+using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.Game.Hardware
@@ -190,7 +191,7 @@ namespace DGAIZone.Game.Hardware
 
             client.NoDelay = true;
 
-            var session = new ReaderSession
+            ReaderSession session = new ReaderSession
             {
                 ReaderId = readerId,
                 Client = client,
@@ -284,13 +285,15 @@ namespace DGAIZone.Game.Hardware
                 int result = SendARP(destIp, 0, macBytes, ref macLen);
                 if (result != 0 || macLen == 0) return null;
 
-                var sb = new StringBuilder();
-                for (int i = 0; i < macLen; i++)
+                using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
                 {
-                    if (i > 0) sb.Append('-');
-                    sb.Append(macBytes[i].ToString("X2"));
+                    for (int i = 0; i < macLen; i++)
+                    {
+                        if (i > 0) sb.Append('-');
+                        sb.Append(macBytes[i], "X2");
+                    }
+                    return sb.ToString();
                 }
-                return sb.ToString();
             }
             catch (Exception)
             {
@@ -307,6 +310,8 @@ namespace DGAIZone.Game.Hardware
 
         /// <summary> 폴링 응답 프레임의 종결 바이트(실측: 0x0D, CR). </summary>
         private const byte FrameTerminatorByte = 0x0D;
+
+        private static readonly ProfilerMarker DispatchTagMarker = new ProfilerMarker("RfidReaderService.DispatchTag");
 
         /// <summary> 폴링 응답이 연속으로 이만큼 타임아웃되면 연결 상태 확인 경고를 한 번 남김(매 폴링마다 로그를 남기면 스팸이 되므로). </summary>
         private const int TimeoutWarnThreshold = 20;
@@ -543,9 +548,18 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 메인 스레드로 전달된 수신 데이터를 분석하여 매핑 정보를 찾고 이벤트를 발행함.
+        /// 메인 스레드로 전달된 수신 데이터를 프로파일러 마커 구간 안에서 디스패치함.
         /// </summary>
         private void OnNetworkDataReceived((string readerId, string rawData) data)
+        {
+            using (DispatchTagMarker.Auto())
+            {
+                DispatchTag(data);
+            }
+        }
+
+        /// <summary> 수신 uid를 매핑 목록에서 찾아 category를 RfidTagEvent로 발행함. </summary>
+        private void DispatchTag((string readerId, string rawData) data)
         {
             if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {data.readerId}에서 받은 원시 태그: {data.rawData}");
 
@@ -556,7 +570,7 @@ namespace DGAIZone.Game.Hardware
             }
 
             RfidMappingItem matchedItem = null;
-            foreach (var item in _mappings)
+            foreach (RfidMappingItem item in _mappings)
             {
                 if (item != null && string.Equals(item.uid, data.rawData, StringComparison.OrdinalIgnoreCase))
                 {
@@ -576,12 +590,17 @@ namespace DGAIZone.Game.Hardware
                 _publisher.Publish(new RfidTagEvent(data.readerId, matchedItem.category));
                 if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] RfidTagEvent 발행됨: {data.readerId} -> category={matchedItem.category}");
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[RfidReaderService] publisher가 null이라 RfidTagEvent를 발행할 수 없음.");
+            }
         }
 
+        /// <summary> 아스키 태그 문자열에서 영문자/숫자만 남기고 나머지 문자를 제거함. </summary>
         private static string CleanRawData(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
-            using (var sb = ZString.CreateStringBuilder())
+            using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
             {
                 foreach (char c in input)
                 {
@@ -610,7 +629,7 @@ namespace DGAIZone.Game.Hardware
             List<ReaderSession> sessionsSnapshot;
             lock (_sessionsLock) sessionsSnapshot = new List<ReaderSession>(_sessions);
 
-            foreach (var session in sessionsSnapshot)
+            foreach (ReaderSession session in sessionsSnapshot)
             {
                 if (session == null) continue;
                 session.IsRunning = false;

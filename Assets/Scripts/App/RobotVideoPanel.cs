@@ -19,8 +19,6 @@ namespace DGAIZone.App
         [SerializeField] private VideoPlayer videoPlayer;
         [SerializeField] private RawImage rawImage;
         [SerializeField] private RenderTexture targetTexture;
-        [SerializeField] private string videoFolderName = "Videos";
-        [SerializeField] private string videoFileName = "robot_0811.webm";
 
         private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
         private ILogger<RobotVideoPanel> _logger;
@@ -38,11 +36,13 @@ namespace DGAIZone.App
             PlayVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
+        /// <summary> 활성화 시 씬 전환 대기 대상으로 레지스트리에 등록함. </summary>
         private void OnEnable()
         {
             VideoReadinessRegistry.Register(this);
         }
 
+        /// <summary> 비활성화 시 씬 전환 대기 대상에서 제외함. </summary>
         private void OnDisable()
         {
             VideoReadinessRegistry.Unregister(this);
@@ -62,24 +62,29 @@ namespace DGAIZone.App
         {
             try
             {
-                if (videoPlayer == null)
+                if (!videoPlayer)
                 {
                     if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] videoPlayer가 null이라 로봇 영상을 재생할 수 없음.");
                     _readySignal.TrySetResult();
                     return;
                 }
 
-                if (rawImage != null) rawImage.enabled = false;
+                if (rawImage) rawImage.enabled = false;
+                else if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] rawImage가 null이라 영상 준비 중 숨김 처리를 할 수 없음.");
 
-                if (targetTexture != null)
+                if (targetTexture)
                 {
                     RenderTexture previousActive = RenderTexture.active;
                     RenderTexture.active = targetTexture;
                     GL.Clear(true, true, Color.black);
                     RenderTexture.active = previousActive;
                 }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[RobotVideoPanel] targetTexture가 null이라 이전 프레임 잔상을 지울 수 없음.");
+                }
 
-                string path = System.IO.Path.Combine(Application.streamingAssetsPath, videoFolderName, videoFileName);
+                string path = System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, Constants.Files.RobotVideo);
 
                 videoPlayer.source = VideoSource.Url;
                 videoPlayer.url = path;
@@ -91,7 +96,8 @@ namespace DGAIZone.App
 
                 await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
 
-                if (rawImage != null) rawImage.enabled = true;
+                if (rawImage) rawImage.enabled = true;
+                else if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] rawImage가 null이라 로봇 영상을 표시할 수 없음.");
                 _readySignal.TrySetResult();
             }
             catch (OperationCanceledException)

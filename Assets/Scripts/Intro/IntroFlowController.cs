@@ -11,8 +11,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
-using Wonjeong.Core;
-using Wonjeong.Utils;
+using HuliacDev.Core;
+using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.Intro
@@ -38,6 +38,8 @@ namespace DGAIZone.Intro
         private ILogger<IntroFlowController> _logger;
         private InactivityTimer _inactivityTimer;
         private bool _isBusy;
+        /// <summary> 씬 전환 중 중복 입력 방지 플래그. </summary>
+        public bool IsBusy => _isBusy;
         private bool _isIntroActive;
         private bool _isTextAnimating;
         private bool _skipStoryRequested;
@@ -60,10 +62,14 @@ namespace DGAIZone.Intro
         /// <summary> 초기 패널 상태를 설정하고 스토리 연출 및 버튼 이벤트를 시작함. </summary>
         private void Start()
         {
-            if (storyText != null)
+            if (storyText)
             {
                 _originalStoryColor = storyText.color;
                 SetStoryTextAlpha(0f);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IntroFlowController] storyText가 null이라 스토리 연출을 진행할 수 없음.");
             }
 
             ApplyPanelState(introPanel, true);
@@ -112,7 +118,11 @@ namespace DGAIZone.Intro
         /// <summary> Visitor.json(또는 추후 서버/QR)에서 체험자 이름을 가져와 storyText의 자리표시자를 교체함. </summary>
         private async UniTask ApplyVisitorNameAsync(CancellationToken token)
         {
-            if (storyText == null || _visitorInfoProvider == null) return;
+            if (!storyText || _visitorInfoProvider == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] storyText 또는 visitorInfoProvider가 null이라 체험자 이름을 적용할 수 없음.");
+                return;
+            }
 
             string visitorName = await _visitorInfoProvider.GetNameAsync(token);
 
@@ -156,7 +166,7 @@ namespace DGAIZone.Intro
         }
 
         /// <summary> "이해했어요" 버튼 클릭 시 화면 페이드와 함께 레벨 선택 씬으로 전환함. </summary>
-        private void OnUnderstandClicked()
+        internal void OnUnderstandClicked()
         {
             if (_isBusy) return;
 
@@ -184,11 +194,19 @@ namespace DGAIZone.Intro
                     await FadeCanvasGroupAsync(introPanel, 1f, 0f, duration, token);
                     ApplyPanelState(introPanel, false);
                 }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IntroFlowController] introPanel이 null이라 패널 전환 연출을 건너뜀.");
+                }
 
                 if (tutorialPanel)
                 {
                     await FadeCanvasGroupAsync(tutorialPanel, 0f, 1f, duration, token);
                     ApplyPanelVisibility(tutorialPanel, true);
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IntroFlowController] tutorialPanel이 null이라 패널 전환 연출을 건너뜀.");
                 }
             }
             catch (OperationCanceledException) { }
@@ -198,7 +216,12 @@ namespace DGAIZone.Intro
         /// <summary> TMP_Text의 기본 color 알파 및 정점 알파를 동시에 0으로 지정하여 완전히 숨김. </summary>
         private void SetStoryTextAlpha(float alpha)
         {
-            if (storyText == null) return;
+            if (!storyText)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] storyText가 null이라 알파를 설정할 수 없음.");
+                return;
+            }
+
             Color c = _originalStoryColor != default ? _originalStoryColor : storyText.color;
             storyText.color = new Color(c.r, c.g, c.b, alpha);
             storyText.ForceMeshUpdate();
@@ -222,7 +245,11 @@ namespace DGAIZone.Intro
         /// <summary> 텍스트 한 줄씩 올라오는 연출을 시작함. </summary>
         private void StartTextAnimation(CancellationToken token)
         {
-            if (storyText == null) return;
+            if (!storyText)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] storyText가 null이라 스토리 연출을 시작할 수 없음.");
+                return;
+            }
 
             _skipStoryRequested = false;
             AnimateStoryAsync(token).Forget();
@@ -263,7 +290,11 @@ namespace DGAIZone.Intro
         /// <summary> 패널의 표시 여부에 따라 알파, 상호작용, 활성 상태를 설정함. </summary>
         private void ApplyPanelState(CanvasGroup group, bool visible)
         {
-            if (!group) return;
+            if (!group)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
+                return;
+            }
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;
@@ -276,7 +307,11 @@ namespace DGAIZone.Intro
         /// </summary>
         private void ApplyPanelVisibility(CanvasGroup group, bool visible)
         {
-            if (!group) return;
+            if (!group)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
+                return;
+            }
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;

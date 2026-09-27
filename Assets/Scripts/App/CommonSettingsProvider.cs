@@ -1,7 +1,8 @@
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using DGAIZone.Data;
-using Wonjeong.Utils;
+using HuliacDev.Utils;
 
 namespace DGAIZone.App
 {
@@ -11,50 +12,33 @@ namespace DGAIZone.App
     /// </summary>
     public static class CommonSettingsProvider
     {
-        // 값만 캐싱하고, 로드 완료 여부는 폴링(UniTask.WaitUntil)으로 기다림 — UniTask.Preserve()는 로드가 끝나기 전에
-        // 2개 이상의 호출자가 동시에(같은 프레임에) await를 걸면 내부적으로 "Already continuation registered" 예외를
-        // 던지는 문제가 있어(3_Game처럼 여러 컴포넌트가 동시에 GetAsync를 호출하는 씬에서 실제로 발생함) 쓰지 않음.
-        private static CommonSettings _cached;
-        private static bool _isLoaded;
-        private static bool _isLoadStarted;
+        // 공유 소스로 UniTask 대신 Task를 캐싱함 — UniTask는 awaiter를 한 번만 등록할 수 있어, 로드가 끝나기 전에
+        // 여러 컴포넌트가 같은 프레임에 동시에 await하면 "Already continuation registered" 예외가 남.
+        // Task는 다중 awaiter를 기본 지원하므로 씬 전환 직후 여러 컨트롤러가 동시에 불러도 안전함.
+        private static Task<CommonSettings> _loadTask;
 
         /// <summary>
-        /// 00_Common.json을 로드하여 반환함. 이미 로드를 시작했다면(완료 여부 무관) 그 결과를 그대로 공유함.
-        /// 여러 호출자가 동시에 불러도 안전함(로드 자체는 한 번만 실행됨). 이미 로드가 끝난 뒤의 호출은
-        /// WaitUntil 폴링 없이 캐시된 값을 즉시 반환함.
+        /// 00_Common.json을 로드하여 반환함. 최초 호출 시에만 실제 로드가 시작되고, 이후 호출은 완료 여부와 무관하게 같은 로드 결과를 공유함.
+        /// cancellationToken은 호출자의 대기만 취소하며 공유 로드 자체는 취소하지 않음.
         /// </summary>
-        public static async UniTask<CommonSettings> GetAsync(CancellationToken cancellationToken = default)
+        public static UniTask<CommonSettings> GetAsync(CancellationToken cancellationToken = default)
         {
-            if (_isLoaded) return _cached;
-
-            if (!_isLoadStarted)
-            {
-                _isLoadStarted = true;
-                LoadAndCacheAsync().Forget();
-            }
-
-            await UniTask.WaitUntil(() => _isLoaded, cancellationToken: cancellationToken);
-            return _cached;
+            _loadTask ??= LoadAsync().AsTask();
+            return _loadTask.AsUniTask().AttachExternalCancellation(cancellationToken);
         }
 
-        private static async UniTaskVoid LoadAndCacheAsync()
+        /// <summary> 00_Common.json을 실제로 한 번 로드함. 예외가 새어 나와도 폴백 기본값으로 완료해 대기 중인 호출자가 무한 대기하지 않게 함. </summary>
+        private static async UniTask<CommonSettings> LoadAsync()
         {
             try
             {
-                _cached = await JsonLoader.LoadAsync<CommonSettings>(
-                    $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.ResourcePaths.CommonSettingsFileName}");
+                return await JsonLoader.LoadAsync<CommonSettings>($"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.ResourcePaths.CommonSettingsFileName}");
             }
             catch (System.Exception e)
             {
-                // JsonLoader.LoadAsync는 내부적으로 예외를 잡아 기본값을 반환하므로 정상적으로는 여기 도달하지 않지만,
-                // 혹시라도 예외가 새어 나오면 _isLoaded가 영영 true가 되지 않아 GetAsync 호출자 전원이 무한 대기하게
-                // 되므로, 폴백 기본값으로라도 로드를 완료 처리함.
+                // 정적 유틸이라 로거를 주입받을 수 없어 Debug로 대체 출력함
                 UnityEngine.Debug.LogError($"[CommonSettingsProvider] 00_Common.json 로드 실패, 기본값으로 대체함: {e.Message}");
-                _cached = new CommonSettings();
-            }
-            finally
-            {
-                _isLoaded = true;
+                return new CommonSettings();
             }
         }
     }
