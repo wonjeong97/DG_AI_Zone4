@@ -1,3 +1,6 @@
 {
-  "panelFadeDuration": 0.4
+  "panelFadeDuration": 0.4,
+  "aiCodingHoldDuration": 3.0,
+  "aiCodingDotIntervalMs": 400,
+  "aiDesignHoldDuration": 4.0
 }

@@ -14,7 +14,7 @@ namespace DGAIZone.Result
     /// <summary>
     /// 결과 씬 진입 시 선택된 레벨과 게임 결과(성공/실패)에 맞는 영상을 재생함. 파일명은
     /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4").
-    /// 반복 재생은 하지 않으며, 재생이 끝나면 컴플리트 패널로 전환함.
+    /// 반복 재생은 하지 않으며, 재생이 끝나면 AI 연출(ResultFlowController.PlayAiSequence)로 넘어감.
     /// </summary>
     public class ResultVideoPanel : MonoBehaviour, ISceneVideoReadiness
     {
@@ -28,6 +28,17 @@ namespace DGAIZone.Result
         private GameResultStore _resultStore;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<ResultVideoPanel> _logger;
+
+        /// <summary> 레벨을 영상이 존재하는 범위(MinLevel~MaxLevel)로 맞춤. </summary>
+        internal static int ClampLevel(int level) => Mathf.Clamp(level, MinLevel, MaxLevel);
+
+        /// <summary> "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. level은 ClampLevel을 거친 값이어야 함. </summary>
+        internal static string GetVideoFileName(int level, bool success) =>
+            ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-", success ? "Success" : "Fail", ".mp4");
+
+        /// <summary> StreamingAssets/Videos 아래 영상 파일의 전체 경로. </summary>
+        internal static string GetVideoPath(string fileName) =>
+            System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, fileName);
 
         /// <summary> VContainer 의존성 주입. 게임 결과 저장소, 선택된 레벨 저장소, 로거를 할당함. </summary>
         [Inject]
@@ -62,7 +73,7 @@ namespace DGAIZone.Result
             return _readySignal.Task.AttachExternalCancellation(token);
         }
 
-        /// <summary> 게임 결과에 맞는 영상을 준비 후 재생하고, 끝나면 컴플리트 패널을 표시함. </summary>
+        /// <summary> 게임 결과에 맞는 영상을 준비 후 재생하고, 끝나면 AI 연출로 넘어감(마지막 프레임은 화면에 남음). </summary>
         private async UniTaskVoid PlayResultVideoAsync(CancellationToken token)
         {
             try
@@ -77,15 +88,15 @@ namespace DGAIZone.Result
                 bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
 
                 int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : MinLevel;
-                int clampedLevel = Mathf.Clamp(level, MinLevel, MaxLevel);
+                int clampedLevel = ClampLevel(level);
                 if (clampedLevel != level && _logger != null)
                 {
                     _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{MaxLevel})를 벗어나 {clampedLevel}로 대체함.");
                 }
 
-                string fileName = ZString.Concat(Constants.Files.ResultVideoPrefix, "-", clampedLevel, "-", success ? "Success" : "Fail", ".mp4");
+                string fileName = GetVideoFileName(clampedLevel, success);
                 if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 레벨={clampedLevel}, 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
-                string path = System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, fileName);
+                string path = GetVideoPath(fileName);
 
                 videoPlayer.source = VideoSource.Url;
                 videoPlayer.url = path;
@@ -105,11 +116,11 @@ namespace DGAIZone.Result
 
                 if (flowController)
                 {
-                    flowController.ShowCompletePanel();
+                    flowController.PlayAiSequence();
                 }
                 else if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[ResultVideoPanel] flowController가 null이라 CompletePanel이 페이드인되지 않음.");
+                    _logger.ZLogWarning($"[ResultVideoPanel] flowController가 null이라 AI 연출과 CompletePanel이 나오지 않음.");
                 }
             }
             catch (OperationCanceledException)

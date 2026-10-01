@@ -67,6 +67,9 @@ namespace DGAIZone.Game.UI
             new Level4MoveStep(-1, 0)
         };
 
+        // MoveDirections와 같은 순서의 이동 방향 id. 정답 경로(FindShortestSolution)를 블록으로 돌려줄 때 씀
+        private static readonly string[] MoveDirectionIds = { MoveUp, MoveDown, MoveRight, MoveLeft };
+
         // Grid.png(742x234) 사다리꼴 그리드의 행 경계 Y좌표 5개(행 4개 = 경계 5개)와,
         // 각 행 경계에서의 열 경계 X좌표 5개(열 4개 = 경계 5개). 이미지 픽셀 분석으로 산출됨.
         private static readonly double[] RowBoundaryY = { 46, 91, 135, 179, 224 };
@@ -237,23 +240,59 @@ namespace DGAIZone.Game.UI
         /// </summary>
         internal static bool CanClearWithin(Level4Layout layout, int maxCards, int repeatCount)
         {
-            return CanClearFrom(layout, 0, layout.RobotRow, false, maxCards, repeatCount);
+            return CanClearFrom(layout, 0, layout.RobotRow, false, maxCards, repeatCount, null);
         }
 
-        /// <summary> 현재 칸에서 이동하기 한 장 또는 반복하기+이동하기 두 장을 방향마다 놓아 보며, 남은 카드로 성공할 수 있는지 재귀로 찾음. </summary>
-        private static bool CanClearFrom(Level4Layout layout, int column, int row, bool collected, int cardsLeft, int repeatCount)
+        /// <summary>
+        /// 이 배치를 가장 적은 카드로 푸는 경로를 찾음(카드 1장부터 maxCards장까지 늘려 가며 CanClearWithin과 같은 규칙으로 탐색).
+        /// 반환하는 구간 하나는 (이동 칸 수, 이동 방향 id)이며, 칸 수가 1이면 이동하기 한 장, 그보다 크면 '반복하기(칸 수) + 이동하기' 두 장임.
+        /// maxCards장 안에 풀 수 없으면 null.
+        /// </summary>
+        internal static List<(int moves, string directionId)> FindShortestSolution(Level4Layout layout, int maxCards, int repeatCount)
         {
-            foreach (Level4MoveStep direction in MoveDirections)
+            List<(int moves, string directionId)> path = new List<(int moves, string directionId)>();
+            for (int cards = 1; cards <= maxCards; cards++)
             {
-                if (cardsLeft >= 1 && TryRun(layout, column, row, collected, direction, 1, cardsLeft - 1, repeatCount)) return true;
-                if (repeatCount > 1 && cardsLeft >= 2 && TryRun(layout, column, row, collected, direction, repeatCount, cardsLeft - 2, repeatCount)) return true;
+                path.Clear();
+                if (CanClearFrom(layout, 0, layout.RobotRow, false, cards, repeatCount, path)) return path;
+            }
+
+            return null;
+        }
+
+        /// <summary> 이번 판 배치를 가장 적은 카드(최대 MaxCommands장, 반복 RequiredRepeatCount회)로 푸는 경로. 풀 수 없으면 null. </summary>
+        internal List<(int moves, string directionId)> FindSolution()
+        {
+            return FindShortestSolution(new Level4Layout(RobotRow, ResourceRow, TrapRow, HqRow), MaxCommands, RequiredRepeatCount);
+        }
+
+        /// <summary>
+        /// 현재 칸에서 이동하기 한 장 또는 반복하기+이동하기 두 장을 방향마다 놓아 보며, 남은 카드로 성공할 수 있는지 재귀로 찾음.
+        /// path가 있으면 성공한 경로의 구간(이동 칸 수, 방향 id)을 순서대로 남김.
+        /// </summary>
+        private static bool CanClearFrom(Level4Layout layout, int column, int row, bool collected, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
+        {
+            for (int d = 0; d < MoveDirections.Length; d++)
+            {
+                if (cardsLeft >= 1 && TryRun(layout, column, row, collected, d, 1, cardsLeft - 1, repeatCount, path)) return true;
+                if (repeatCount > 1 && cardsLeft >= 2 && TryRun(layout, column, row, collected, d, repeatCount, cardsLeft - 2, repeatCount, path)) return true;
             }
 
             return false;
         }
 
+        /// <summary> 구간 하나(directionIndex 방향으로 moves칸)를 경로에 넣고 놓아 보며, 실패하면 경로에서 다시 뺌. </summary>
+        private static bool TryRun(Level4Layout layout, int column, int row, bool collected, int directionIndex, int moves, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
+        {
+            path?.Add((moves, MoveDirectionIds[directionIndex]));
+            if (RunSucceeds(layout, column, row, collected, MoveDirections[directionIndex], moves, cardsLeft, repeatCount, path)) return true;
+
+            path?.RemoveAt(path.Count - 1);
+            return false;
+        }
+
         /// <summary> direction으로 moves칸 가 봄. 기지에 닿으면 자원을 먼저 모았는지가 곧 결과이고, 그리드 밖·함정이면 실패, 그 외에는 남은 카드로 이어서 찾음. </summary>
-        private static bool TryRun(Level4Layout layout, int column, int row, bool collected, Level4MoveStep direction, int moves, int cardsLeft, int repeatCount)
+        private static bool RunSucceeds(Level4Layout layout, int column, int row, bool collected, Level4MoveStep direction, int moves, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
         {
             for (int i = 0; i < moves; i++)
             {
@@ -266,7 +305,7 @@ namespace DGAIZone.Game.UI
                 if (column == 3 && row == layout.HqRow) return collected;
             }
 
-            return cardsLeft > 0 && CanClearFrom(layout, column, row, collected, cardsLeft, repeatCount);
+            return cardsLeft > 0 && CanClearFrom(layout, column, row, collected, cardsLeft, repeatCount, path);
         }
 
         /// <summary>

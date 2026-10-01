@@ -14,7 +14,8 @@ using ZLogger;
 namespace DGAIZone.Result
 {
     /// <summary>
-    /// 결과 씬의 화면 흐름 제어. 결과 영상 재생이 끝나면(ResultVideoPanel) 컴플리트 패널로 페이드인함.
+    /// 결과 씬의 화면 흐름 제어. 플레이어 결과 영상 재생이 끝나면(ResultVideoPanel) 화면 중앙에 'AI가 코딩중입니다...'를 띄웠다가 지우고,
+    /// 우측 상단 AI 패널(ResultAiPanel)에서 정답 설계창과 성공 영상을 보여 준 뒤 컴플리트 패널로 페이드인함.
     /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 완료!" 또는 "미션 실패!"로 표시함.
     /// 컴플리트 패널의 "다음 미션" 버튼은 방금 플레이한 레벨이 마지막 레벨이 아니면 2_LevelSelect로(다음 레벨을
     /// 고를 수 있도록), 마지막 레벨(LastLevel)이면 5_Outro로 전환하며 버튼 문구도 "종료하기"로 바뀜.
@@ -24,13 +25,22 @@ namespace DGAIZone.Result
         [SerializeField] private CanvasGroup completePanel;
         [SerializeField] private Button completeNextButton;
         [SerializeField] private TMP_Text missionResultText; // Text_MissionComplete: 미션 결과에 따라 문구를 바꿈
+        [SerializeField] private CanvasGroup aiCodingPanel; // 화면 중앙 'AI가 코딩중입니다...' 띠
+        [SerializeField] private TMP_Text aiCodingText;
+        [SerializeField] private ResultAiPanel aiPanel; // 우측 상단 AI 패널(정답 설계창 -> 성공 영상)
         private readonly float panelFadeDuration = 0.4f; // 4_Result.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
+        private readonly float aiCodingHoldDuration = 3f; // 4_Result.json 로드 전까지의 폴백 기본값
+        private readonly int aiCodingDotIntervalMs = 400; // 4_Result.json 로드 전까지의 폴백 기본값
+        private readonly float aiDesignHoldDuration = 4f; // 4_Result.json 로드 전까지의 폴백 기본값
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private const int LastLevel = 4; // 이 레벨을 완료하면 다음 미션(LevelSelect) 대신 Outro로 감. 레벨이 늘어나면 이 값만 올리면 됨.
         private const string EndButtonText = "종료하기";
         private const string MissionSuccessText = "미션 완료!";
         private const string MissionFailText = "미션 실패!";
+        private const string AiCodingText = "AI가 코딩중입니다";
+        private const string AiCodingDots = "..."; // 점 슬롯 3개 — AiCodingDotCycle과 맞춰야 함
+        private const int AiCodingDotCycle = 4; // 점 0~3개 반복
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
@@ -55,13 +65,14 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// 초기 패널 상태(컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 방금 플레이한 레벨(SelectedLevelStore)을
+        /// 초기 패널 상태(AI 코딩 안내·컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 방금 플레이한 레벨(SelectedLevelStore)을
         /// 완료한 것으로 간주해 다음 레벨까지 잠금 해제하고(성공/실패 무관, 체험 자체를 진행도로 인정),
         /// 패널 제목을 미션 결과에 맞추고, 마지막 레벨이면 버튼 문구를 "종료하기"로 바꾼 뒤 연출 타이밍을 비동기로 불러옴.
         /// </summary>
         private void Start()
         {
             PanelFader.ApplyState(completePanel, false, _logger);
+            PanelFader.ApplyState(aiCodingPanel, false, _logger);
             ApplyMissionResultText();
 
             if (completeNextButton) completeNextButton.onClick.AddListener(OnCompleteNextClicked);
@@ -126,11 +137,11 @@ namespace DGAIZone.Result
             if (completeNextButton) completeNextButton.onClick.RemoveListener(OnCompleteNextClicked);
         }
 
-        /// <summary> 외부 트리거(결과 영상 재생 종료, ResultVideoPanel)에서 컴플리트 패널로 전환함. </summary>
-        public void ShowCompletePanel()
+        /// <summary> 외부 트리거(플레이어 결과 영상 재생 종료, ResultVideoPanel)에서 AI 연출을 재생한 뒤 컴플리트 패널로 전환함. </summary>
+        public void PlayAiSequence()
         {
             if (_isBusy) return;
-            SwitchToCompleteAsync().Forget();
+            PlayAiSequenceAsync().Forget();
         }
 
         /// <summary>
@@ -154,14 +165,19 @@ namespace DGAIZone.Result
             _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
         }
 
-        /// <summary> 컴플리트 패널을 페이드인함. </summary>
-        private async UniTaskVoid SwitchToCompleteAsync()
+        /// <summary> 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널 페이드인 순으로 진행함. </summary>
+        private async UniTaskVoid PlayAiSequenceAsync()
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             float duration = _sceneSettings?.panelFadeDuration ?? panelFadeDuration;
             try
             {
+                await PlayAiCodingAsync(duration, token);
+
+                if (aiPanel) await aiPanel.PlayAsync(duration, _sceneSettings?.aiDesignHoldDuration ?? aiDesignHoldDuration, token);
+                else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] aiPanel이 null이라 AI 패널 연출을 건너뜀.");
+
                 if (completePanel)
                 {
                     await PanelFader.FadeAsync(completePanel, 0f, 1f, duration, _logger, token);
@@ -174,6 +190,55 @@ namespace DGAIZone.Result
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
+        }
+
+        /// <summary> 화면 중앙 'AI가 코딩중입니다...' 띠를 페이드인 -> aiCodingHoldDuration초 유지(점 0~3개 반복) -> 페이드아웃함. </summary>
+        private async UniTask PlayAiCodingAsync(float fadeDuration, CancellationToken token)
+        {
+            if (!aiCodingPanel)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] aiCodingPanel이 null이라 AI 코딩 안내를 건너뜀.");
+                return;
+            }
+
+            using CancellationTokenSource dotCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            AnimateAiCodingDotsAsync(dotCts.Token).Forget();
+
+            await PanelFader.FadeAsync(aiCodingPanel, 0f, 1f, fadeDuration, _logger, token);
+            await UniTask.Delay(TimeSpan.FromSeconds(_sceneSettings?.aiCodingHoldDuration ?? aiCodingHoldDuration), cancellationToken: token);
+            await PanelFader.FadeAsync(aiCodingPanel, 1f, 0f, fadeDuration, _logger, token);
+            PanelFader.ApplyState(aiCodingPanel, false, _logger);
+
+            dotCts.Cancel();
+        }
+
+        /// <summary>
+        /// 'AI가 코딩중입니다' 뒤 점 개수를 0 -> 3으로 반복함(취소될 때까지). 문자열은 점 3개를 포함한 채로 두고
+        /// 보이는 글자 수만 바꿔 문구가 좌우로 흔들리지 않게 함(Zone1 결과 씬과 같은 방식).
+        /// </summary>
+        private async UniTaskVoid AnimateAiCodingDotsAsync(CancellationToken token)
+        {
+            if (!aiCodingText)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] aiCodingText가 null이라 점 애니메이션을 건너뜀.");
+                return;
+            }
+
+            aiCodingText.text = AiCodingText + AiCodingDots;
+            aiCodingText.ForceMeshUpdate();
+            int baseLength = Mathf.Max(0, aiCodingText.textInfo.characterCount - AiCodingDots.Length);
+
+            int dotCount = 0;
+            try
+            {
+                while (true)
+                {
+                    aiCodingText.maxVisibleCharacters = baseLength + dotCount;
+                    dotCount = (dotCount + 1) % AiCodingDotCycle;
+                    await UniTask.Delay(_sceneSettings?.aiCodingDotIntervalMs ?? aiCodingDotIntervalMs, cancellationToken: token);
+                }
+            }
+            catch (OperationCanceledException) { }
         }
     }
 }

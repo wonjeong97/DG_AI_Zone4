@@ -116,6 +116,8 @@ namespace DGAIZone.Game.UI
         internal ILogger<IngredientSelectionController> Logger => _logger;
         internal RfidMatter[] ConfirmedMatters => _confirmedMatters;
         internal string[] ConfirmedIngredients => _confirmedIngredients;
+        internal RfidLevelMapping LevelMapping => _levelMapping;
+        internal RfidStepDefinition[] StepDefinitions => _stepDefinitions;
         internal int CurrentStepIndex => _currentStepIndex;
         internal int TotalSteps => _totalSteps;
         internal int ConfirmedEngineValue => _confirmedEngineValue;
@@ -1123,6 +1125,7 @@ namespace DGAIZone.Game.UI
             bool success = EvaluateMission();
             if (_resultStore != null) _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 미션 결과를 기록할 수 없음.");
+            StoreSolutionDesign();
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}.");
 
@@ -1150,10 +1153,42 @@ namespace DGAIZone.Game.UI
 
             if (_resultStore != null) _resultStore.Result = MissionResult.Fail;
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 스킵 결과를 기록할 수 없음.");
+            StoreSolutionDesign();
 
             _isBusy = true;
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+        }
+
+        /// <summary>
+        /// 이번 판 문제의 정답 블록(레벨 상태의 BuildSolution)을 설계창과 같은 형식의 문구로 만들어 결과 저장소에 기록함.
+        /// 결과 씬의 AI 설계창이 이 문구를 그대로 보여줌. 정답을 만들지 못하면 빈 목록이 기록됨.
+        /// </summary>
+        internal void StoreSolutionDesign()
+        {
+            if (_resultStore == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 정답 설계를 기록할 수 없음.");
+                return;
+            }
+
+            IIngredientSelectionLevelState state = CurrentLevelState;
+            if (state == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 정답 설계를 만들 수 없음. 빈 설계를 기록함.");
+                _resultStore.SolutionDesignItems = Array.Empty<string>();
+                return;
+            }
+
+            List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = state.BuildSolution(this);
+            string[] items = new string[solution.Count];
+            for (int i = 0; i < solution.Count; i++)
+            {
+                items[i] = state.FormatDesignItemText(this, solution[i].ingredient.ingredientName, solution[i].matter.label);
+            }
+
+            _resultStore.SolutionDesignItems = items;
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 정답 설계 {items.Length}줄을 기록함.");
         }
 
         /// <summary>
@@ -1196,7 +1231,7 @@ namespace DGAIZone.Game.UI
         internal int CalculateTotalThrust() => CalculateThrust(_confirmedEngineValue, _confirmedFuelValue, _confirmedPayloadValue);
 
         /// <summary> 엔진 출력량 + 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
-        private int CalculateThrust(int engine, int fuel, int payload) => engine + fuel - payload;
+        internal static int CalculateThrust(int engine, int fuel, int payload) => engine + fuel - payload;
 
         /// <summary>
         /// 확정된 역할(엔진/연료/탑재)별 값에, 현재 조절 중인 임시 선택값을 대입해 미리보기용 추진력을 계산함.

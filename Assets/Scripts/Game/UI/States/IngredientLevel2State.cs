@@ -151,6 +151,36 @@ namespace DGAIZone.Game.UI.States
             return true;
         }
 
+        /// <summary> 단계 순서대로 올바른 발사 시퀀스(Level2LaunchSequence)의 블록을 반환함. </summary>
+        public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)
+        {
+            List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = new List<(RfidStepDefinition ingredient, RfidMatter matter)>();
+            RfidStepDefinition[] steps = controller.StepDefinitions;
+            RfidLevelMapping mapping = controller.LevelMapping;
+            if (steps == null || mapping == null || steps.Length < Level2LaunchSequence.Length)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 2 단계 정의가 없거나 발사 순서({Level2LaunchSequence.Length}단계)보다 짧아 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            for (int i = 0; i < Level2LaunchSequence.Length; i++)
+            {
+                RfidStepDefinition step = steps[i];
+                RfidMatter[] matters = step != null ? mapping.FindMatters(step.matterSetId) : null;
+                RfidMatter matter = matters != null ? Array.Find(matters, m => m.id == Level2LaunchSequence[i]) : null;
+                if (matter == null)
+                {
+                    if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 2 {i + 1}번째 단계 블록 목록에 '{Level2LaunchSequence[i]}'가 없어 정답 설계를 만들 수 없음.");
+                    solution.Clear();
+                    return solution;
+                }
+
+                solution.Add((step, matter));
+            }
+
+            return solution;
+        }
+
         /// <summary> 레벨 2는 추진력 계산식을 사용하지 않음. </summary>
         public int CalculatePreviewThrust(IngredientSelectionController controller)
         {
