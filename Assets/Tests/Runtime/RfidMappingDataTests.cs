@@ -298,6 +298,20 @@ namespace DGAIZone.Tests
         }
 
         [Test]
+        public void 검증기는_레벨4_단계가_제어나_동작_카드를_받지_않으면_찾아낸다()
+        {
+            RfidLevelMapping level4 = GetMapping(4);
+            level4.steps[1].categories = new[] { Constants.RfidCategories.Action };
+            level4.steps[2].categories = new[] { Constants.RfidCategories.Control };
+
+            List<string> errors = RfidMappingValidator.Validate(_settings);
+
+            AssertHasError(errors, "레벨 4 2번째 단계", $"'{Constants.RfidCategories.Control}' 카드");
+            AssertHasError(errors, "레벨 4 3번째 단계", $"'{Constants.RfidCategories.Action}' 카드");
+            Assert.IsFalse(errors.Any(e => e.Contains("레벨 4 5번째 단계")), "마지막 단계는 동작만 받아도 오류가 아니어야 함");
+        }
+
+        [Test]
         public void 검증기는_도달할_수_없는_목적지와_맞지_않는_기준값_범위를_찾아낸다()
         {
             LevelData level1Data = ScriptableObject.CreateInstance<LevelData>();

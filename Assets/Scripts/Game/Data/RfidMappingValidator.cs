@@ -142,7 +142,8 @@ namespace DGAIZone.Game.Data
 
         /// <summary>
         /// 레벨 4: 동작 카드로 고르는 이동하기, 제어 카드로 고르는 반복하기 재료가 있고, 이동 방향은 아는 id, 반복 횟수는 1 이상이어야 함.
-        /// 보드 배치 규칙에 맞게 단계 수는 카드 수(Constants.Level4Board.MaxCards)와 같고, 반복 횟수 블록에 RequiredRepeatCount가 있어야 함.
+        /// 보드 배치 규칙에 맞게 단계 수는 카드 수(Constants.Level4Board.MaxCards)와 같고, 반복 횟수 블록에 RequiredRepeatCount가 있어야 하며,
+        /// 모든 단계가 동작 카드를, 마지막을 뺀 모든 단계가 제어 카드를 받아야 함.
         /// </summary>
         private static void ValidateLevel4(RfidLevelMapping mapping, List<string> errors)
         {
@@ -176,6 +177,24 @@ namespace DGAIZone.Game.Data
             if (repeats != null && !Array.Exists(repeats, m => m != null && m.value == requiredRepeat))
             {
                 errors.Add($"레벨 4 반복하기 블록에 {requiredRepeat}회(value {requiredRepeat})가 없어 보드를 풀 수 없음(배치가 {requiredRepeat}회 반복을 전제로 함).");
+            }
+
+            // 배치 검사는 모든 단계에 이동하기를, 마지막을 뺀 모든 단계에 반복하기를 놓을 수 있다고 보므로 단계별 허용 카드도 그에 맞아야 함
+            for (int i = 0; i < mapping.steps.Length; i++)
+            {
+                string[] categories = mapping.steps[i]?.categories;
+                if (categories == null) continue; // ValidateLevelBasics가 이미 오류로 남김
+
+                if (Array.IndexOf(categories, Constants.RfidCategories.Action) < 0)
+                {
+                    errors.Add($"레벨 4 {i + 1}번째 단계가 '{Constants.RfidCategories.Action}' 카드를 받지 않아 이동하기를 놓을 수 없음.");
+                }
+
+                bool isLastStep = i == mapping.steps.Length - 1;
+                if (!isLastStep && Array.IndexOf(categories, Constants.RfidCategories.Control) < 0)
+                {
+                    errors.Add($"레벨 4 {i + 1}번째 단계가 '{Constants.RfidCategories.Control}' 카드를 받지 않아 반복하기를 놓을 수 없는 배치가 생김(마지막 단계를 뺀 모든 단계에 반복하기를 놓을 수 있어야 함).");
+                }
             }
         }
 
