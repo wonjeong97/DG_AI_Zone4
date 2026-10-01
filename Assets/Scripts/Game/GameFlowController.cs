@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
@@ -81,8 +80,8 @@ namespace DGAIZone.Game
         /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리/상황 패널을 설정한 뒤 버튼 이벤트를 연결하고 00_Common.json을 비동기로 불러옴. </summary>
         private void Start()
         {
-            ApplyPanelState(gamePanel, true);
-            ApplyPanelState(storyPanel, false);
+            PanelFader.ApplyState(gamePanel, true, _logger);
+            PanelFader.ApplyState(storyPanel, false, _logger);
 
             _selectedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
 
@@ -265,8 +264,8 @@ namespace DGAIZone.Game
             {
                 if (storyPanel)
                 {
-                    await FadeCanvasGroupAsync(storyPanel, 1f, 0f, duration, token);
-                    ApplyPanelState(storyPanel, false);
+                    await PanelFader.FadeAsync(storyPanel, 1f, 0f, duration, _logger, token);
+                    PanelFader.ApplyState(storyPanel, false, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -275,8 +274,8 @@ namespace DGAIZone.Game
 
                 if (gamePanel)
                 {
-                    await FadeCanvasGroupAsync(gamePanel, 0f, 1f, duration, token);
-                    ApplyPanelState(gamePanel, true);
+                    await PanelFader.FadeAsync(gamePanel, 0f, 1f, duration, _logger, token);
+                    PanelFader.ApplyState(gamePanel, true, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -304,8 +303,8 @@ namespace DGAIZone.Game
             {
                 if (gamePanel)
                 {
-                    await FadeCanvasGroupAsync(gamePanel, 1f, 0f, duration, token);
-                    ApplyPanelState(gamePanel, false);
+                    await PanelFader.FadeAsync(gamePanel, 1f, 0f, duration, _logger, token);
+                    PanelFader.ApplyState(gamePanel, false, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -315,8 +314,8 @@ namespace DGAIZone.Game
                 if (storyPanel)
                 {
                     ApplyStoryText();
-                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
-                    ApplyPanelState(storyPanel, true);
+                    await PanelFader.FadeAsync(storyPanel, 0f, 1f, duration, _logger, token);
+                    PanelFader.ApplyState(storyPanel, true, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -325,47 +324,6 @@ namespace DGAIZone.Game
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
-        }
-
-        /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>
-        private async UniTask FadeCanvasGroupAsync(CanvasGroup group, float startAlpha, float endAlpha, float duration, CancellationToken token)
-        {
-            if (!group) return;
-            if (duration <= 0f) duration = 0.4f;
-
-            SetPanelCanvasEnabled(group, true); // 숨김 상태에서 꺼 둔 패널 캔버스를 페이드 동안 다시 켬
-            group.alpha = startAlpha;
-            group.interactable = false;
-            group.blocksRaycasts = false;
-
-            await group.DOFade(endAlpha, duration)
-                .SetEase(Ease.Linear)
-                .SetUpdate(true) // Zone1과 동일하게 Time.timeScale과 무관하게 동작하도록 함
-                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
-        }
-
-        /// <summary>
-        /// 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. 게임오브젝트 활성 상태는 유지하되(스크립트는 계속 동작함),
-        /// 숨긴 패널은 중첩 Canvas를 꺼 배치·렌더링 대상에서 뺌.
-        /// </summary>
-        private void ApplyPanelState(CanvasGroup group, bool visible)
-        {
-            if (!group)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
-                return;
-            }
-            group.alpha = visible ? 1f : 0f;
-            group.interactable = visible;
-            group.blocksRaycasts = visible;
-            SetPanelCanvasEnabled(group, visible);
-        }
-
-        /// <summary> 패널에 붙은 중첩 Canvas를 켜거나 끔. Canvas가 없으면 숨겨도 계속 배치되므로 경고를 남김. </summary>
-        private void SetPanelCanvasEnabled(CanvasGroup group, bool enabled)
-        {
-            if (group.TryGetComponent(out Canvas canvas)) canvas.enabled = enabled;
-            else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] {group.name}에 Canvas가 없어 숨김 상태에서도 배치 대상에 남음.");
         }
     }
 }

@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
@@ -56,7 +55,7 @@ namespace DGAIZone.Result
         /// </summary>
         private void Start()
         {
-            ApplyPanelState(completePanel, false);
+            PanelFader.ApplyState(completePanel, false, _logger);
 
             if (completeNextButton) completeNextButton.onClick.AddListener(OnCompleteNextClicked);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null임.");
@@ -137,8 +136,8 @@ namespace DGAIZone.Result
             {
                 if (completePanel)
                 {
-                    await FadeCanvasGroupAsync(completePanel, 0f, 1f, duration, token);
-                    ApplyPanelState(completePanel, true);
+                    await PanelFader.FadeAsync(completePanel, 0f, 1f, duration, _logger, token);
+                    PanelFader.ApplyState(completePanel, true, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -147,47 +146,6 @@ namespace DGAIZone.Result
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
-        }
-
-        /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>
-        private async UniTask FadeCanvasGroupAsync(CanvasGroup group, float startAlpha, float endAlpha, float duration, CancellationToken token)
-        {
-            if (!group) return;
-            if (duration <= 0f) duration = 0.4f;
-
-            SetPanelCanvasEnabled(group, true); // 숨김 상태에서 꺼 둔 패널 캔버스를 페이드 동안 다시 켬
-            group.alpha = startAlpha;
-            group.interactable = false;
-            group.blocksRaycasts = false;
-
-            await group.DOFade(endAlpha, duration)
-                .SetEase(Ease.Linear)
-                .SetUpdate(true) // Zone1과 동일하게 Time.timeScale과 무관하게 동작하도록 함
-                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
-        }
-
-        /// <summary>
-        /// 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. 게임오브젝트 활성 상태는 유지하되(스크립트는 계속 동작함),
-        /// 숨긴 패널은 중첩 Canvas를 꺼 배치·렌더링 대상에서 뺌.
-        /// </summary>
-        private void ApplyPanelState(CanvasGroup group, bool visible)
-        {
-            if (!group)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
-                return;
-            }
-            group.alpha = visible ? 1f : 0f;
-            group.interactable = visible;
-            group.blocksRaycasts = visible;
-            SetPanelCanvasEnabled(group, visible);
-        }
-
-        /// <summary> 패널에 붙은 중첩 Canvas를 켜거나 끔. Canvas가 없으면 숨겨도 계속 배치되므로 경고를 남김. </summary>
-        private void SetPanelCanvasEnabled(CanvasGroup group, bool enabled)
-        {
-            if (group.TryGetComponent(out Canvas canvas)) canvas.enabled = enabled;
-            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] {group.name}에 Canvas가 없어 숨김 상태에서도 배치 대상에 남음.");
         }
     }
 }
