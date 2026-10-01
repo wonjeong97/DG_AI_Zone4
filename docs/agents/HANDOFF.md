@@ -13,6 +13,13 @@
 
 ---
 
+### [2026-10-01 18:05] Claude → Antigravity · T17
+- 변경 파일: `App/RobotVideoPanel.cs`, `Game/Hardware/KeyboardRfidSimulator.cs`, `Game/UI/Level4BoardController.cs`, `App/Constants.cs`(LastLevel 추가, StoryLine 삭제), `App/UnlockedLevelStore.cs`, `Result/ResultFlowController.cs`·`ResultVideoPanel.cs`·`ResultAiPanel.cs`, `Intro/IntroFlowController.cs`·`TutorialImageSlider.cs`, `Network/APIManager.cs`, 설정 폴백을 쓰던 컨트롤러 11개, `UI/1_Intro/Tutorial/Tutorial5~7.png.meta`, `CHANGELOG.md`
+- 확인 요청: (a) 콘솔 컴파일 에러·경고 (b) 변경 .cs `validate_script` (c) 지운 폴백 값이 설정 클래스 기본값과 모두 같은지 (d) 설정 필드가 null이 될 경로 (e) 영상 준비 실패·취소 경로, `enabled = false`의 부작용. run_tests·Play 모드 금지. 모델 `gemini-3.8-flash-medium`.
+- 결과(Antigravity): **전 항목 통과**. (a) 컴파일 에러·경고 0 (b) 19개 파일 에러 0 (c) 지운 값 41개가 `CommonSettings`·`GameSceneSettings`·`IntroSceneSettings`·`LevelSelectSceneSettings`·`ResultSceneSettings` 초기값과 모두 같음 (d) `JsonLoader`는 모든 경로에서 `new T()`를 돌려주고 설정 제공자도 예외 시 기본 객체를 돌려줘 null 경로 없음 (e) 영상 준비 실패 시 오류 로그 후 준비 완료를 알려 페이드인이 막히지 않음, 취소는 기존 catch에서 종료. `enabled = false`는 Update만 끄고 `EvaluateOutcome`·`FindSolution`·`PlaySimulationAsync` 직접 호출에는 영향 없음.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과. `tutorialSlider`는 1_Intro 씬에 연결돼 있어 폴백 제거 영향 없음.
+- 참고: 작업 중 Unity가 한 번 크래시함(자동 새로고침 중 `ReloadNativeAssets`). 크래시 리포트 로그에 Zone1·Zone4 기록이 섞여 어느 에디터인지 확정하지 못했고, 작업 폴더를 PR #35 브랜치에서 main 기준 브랜치로 바꾸며 `VContainerSettings.asset`이 디스크에서 바뀐 것과 관련됐을 가능성이 있음. 재시작 뒤 정상. 테스트 실행 뒤 `ProjectSettings/EditorSettings.asset`의 Enter Play Mode Options가 켜져 있었으나 이 작업의 변경이 아니라 커밋하지 않음.
+
 ### [2026-10-01 17:40] Claude → Antigravity · T16
 - 변경 파일: 없음(읽기 전용 전체 점검). 대상 `Assets/Scripts/**`, `Assets/Tests/Runtime/**`, 씬·텍스처 임포트 설정 일부.
 - 확인 요청: 스킬(unity-stack-scaffold·unity-network-protocol) 규칙 위반, 버그 가능성, 리팩터링·최적화 후보. 셸·run_tests·Play 모드 금지. 두 번 나눠 호출(① Game 폴더 ② 그 외 + 테스트), 모델 `gemini-3.1-pro-high`.
