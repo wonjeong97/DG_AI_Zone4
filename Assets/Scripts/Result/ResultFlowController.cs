@@ -29,11 +29,6 @@ namespace DGAIZone.Result
         [SerializeField] private CanvasGroup aiCodingPanel; // 화면 중앙 'AI가 코딩중입니다...' 띠
         [SerializeField] private TMP_Text aiCodingText;
         [SerializeField] private ResultAiPanel aiPanel; // 우측 상단 AI 패널(정답 설계창 -> 성공 영상)
-        private readonly float panelFadeDuration = 0.4f; // 4_Result.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float aiCodingHoldDuration = 3f; // 4_Result.json 로드 전까지의 폴백 기본값
-        private readonly int aiCodingDotIntervalMs = 400; // 4_Result.json 로드 전까지의 폴백 기본값
-        private readonly float aiDesignHoldDuration = 4f; // 4_Result.json 로드 전까지의 폴백 기본값
-        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private const string EndButtonText = "종료하기";
         private const string MissionSuccessText = "미션 완료!";
@@ -51,9 +46,9 @@ namespace DGAIZone.Result
         private bool _isBusy;
         private bool _isTimerPaused; // 이 씬이 비활동 타이머를 멈춰 둔 상태인지(재개를 한 번만 하기 위함)
 
-        // 4_Result.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private ResultSceneSettings _sceneSettings;
-        private CommonSettings _commonSettings;
+        // 4_Result.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private ResultSceneSettings _sceneSettings = new ResultSceneSettings();
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
@@ -190,7 +185,7 @@ namespace DGAIZone.Result
             string nextScene = playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
         /// <summary> 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널 페이드인 순으로 진행함. </summary>
@@ -198,12 +193,12 @@ namespace DGAIZone.Result
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
-            float duration = _sceneSettings?.panelFadeDuration ?? panelFadeDuration;
+            float duration = _sceneSettings.panelFadeDuration;
             try
             {
                 await PlayAiCodingAsync(duration, token);
 
-                if (aiPanel) await aiPanel.PlayAsync(duration, _sceneSettings?.aiDesignHoldDuration ?? aiDesignHoldDuration, token);
+                if (aiPanel) await aiPanel.PlayAsync(duration, _sceneSettings.aiDesignHoldDuration, token);
                 else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] aiPanel이 null이라 AI 패널 연출을 건너뜀.");
 
                 if (completePanel)
@@ -237,7 +232,7 @@ namespace DGAIZone.Result
             AnimateAiCodingDotsAsync(dotCts.Token).Forget();
 
             await PanelFader.FadeAsync(aiCodingPanel, 0f, 1f, fadeDuration, _logger, token);
-            await UniTask.Delay(TimeSpan.FromSeconds(_sceneSettings?.aiCodingHoldDuration ?? aiCodingHoldDuration), cancellationToken: token);
+            await UniTask.Delay(TimeSpan.FromSeconds(_sceneSettings.aiCodingHoldDuration), cancellationToken: token);
             await PanelFader.FadeAsync(aiCodingPanel, 1f, 0f, fadeDuration, _logger, token);
             PanelFader.ApplyState(aiCodingPanel, false, _logger);
 
@@ -267,7 +262,7 @@ namespace DGAIZone.Result
                 {
                     aiCodingText.maxVisibleCharacters = baseLength + dotCount;
                     dotCount = (dotCount + 1) % AiCodingDotCycle;
-                    await UniTask.Delay(_sceneSettings?.aiCodingDotIntervalMs ?? aiCodingDotIntervalMs, cancellationToken: token);
+                    await UniTask.Delay(_sceneSettings.aiCodingDotIntervalMs, cancellationToken: token);
                 }
             }
             catch (OperationCanceledException) { }

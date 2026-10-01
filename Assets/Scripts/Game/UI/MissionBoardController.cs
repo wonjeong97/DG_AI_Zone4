@@ -29,12 +29,6 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Image progressFillImage; // Image_Fill
         [SerializeField] private Image previewFillImage; // Image_Fill_Preview
 
-        // 3_Game.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float fillTweenDuration = 0.5f;
-        private readonly float previewBlinkFadeDuration = 0.8f;
-        private readonly float previewBlinkMinAlpha = 0.5f;
-        private readonly float previewApplyFadeDuration = 0.3f;
-
         private SelectedLevelStore _selectedLevelStore;
         private GameFlowController _gameFlow; // 레벨 데이터(LevelData) 출처. 스토리 다시보기와 같은 배열을 씀
         private ILogger<MissionBoardController> _logger;
@@ -47,8 +41,8 @@ namespace DGAIZone.Game.UI
         private static MissionDestination CreateFallbackDestination() => new MissionDestination { planetName = "외계 행성", targetDistance = 20, spriteKey = "ExoPlanet" };
         private static readonly Vector2Int FallbackLevel3Range = new Vector2Int(3, 5);
 
-        // 3_Game.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private GameSceneSettings _sceneSettings;
+        // 3_Game.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private GameSceneSettings _sceneSettings = new GameSceneSettings();
         private AsyncOperationHandle<Sprite> _goalSpriteHandle;
         private Tween _fillTween;
         private Tween _previewFillTween;
@@ -441,7 +435,7 @@ namespace DGAIZone.Game.UI
                 _previewFillTween?.Kill(); // 미리보기 fillAmount가 페이드 중 함께 바뀌어 줄어들며 사라지지 않도록 정지
 
                 UniTask fadeTask = _previewCanvasGroup
-                    ? _previewCanvasGroup.DOFade(0f, _sceneSettings?.previewApplyFadeDuration ?? previewApplyFadeDuration).ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token)
+                    ? _previewCanvasGroup.DOFade(0f, _sceneSettings.previewApplyFadeDuration).ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token)
                     : UniTask.CompletedTask;
 
                 Tween fillTween = AnimateFillAmount(target);
@@ -545,7 +539,7 @@ namespace DGAIZone.Game.UI
         private Tween AnimateFillAmount(float targetFillAmount)
         {
             _fillTween?.Kill();
-            _fillTween = progressFillImage.DOFillAmount(targetFillAmount, _sceneSettings?.fillTweenDuration ?? fillTweenDuration).SetEase(Ease.OutQuad)
+            _fillTween = progressFillImage.DOFillAmount(targetFillAmount, _sceneSettings.fillTweenDuration).SetEase(Ease.OutQuad)
                 .SetLink(progressFillImage.gameObject);
             return _fillTween;
         }
@@ -560,7 +554,7 @@ namespace DGAIZone.Game.UI
             }
 
             _previewFillTween?.Kill();
-            _previewFillTween = previewFillImage.DOFillAmount(targetFillAmount, _sceneSettings?.fillTweenDuration ?? fillTweenDuration).SetEase(Ease.OutQuad)
+            _previewFillTween = previewFillImage.DOFillAmount(targetFillAmount, _sceneSettings.fillTweenDuration).SetEase(Ease.OutQuad)
                 .SetLink(previewFillImage.gameObject);
         }
 
@@ -608,7 +602,7 @@ namespace DGAIZone.Game.UI
             if (_blinkTween != null && _blinkTween.IsActive()) return;
 
             _previewCanvasGroup.alpha = 1f;
-            _blinkTween = _previewCanvasGroup.DOFade(_sceneSettings?.previewBlinkMinAlpha ?? previewBlinkMinAlpha, _sceneSettings?.previewBlinkFadeDuration ?? previewBlinkFadeDuration)
+            _blinkTween = _previewCanvasGroup.DOFade(_sceneSettings.previewBlinkMinAlpha, _sceneSettings.previewBlinkFadeDuration)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetLink(gameObject);
 

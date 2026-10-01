@@ -70,22 +70,6 @@ namespace DGAIZone.Game.UI
         [Header("Level 4 Board")]
         [SerializeField] private Level4BoardController level4Board; // Panel_Level4. Level4BoardController가 이 클래스를 주입받는 순환 의존이라 VContainer 대신 인스펙터로 연결함
 
-        // 3_Game.json / 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float numberFontSize = 45f; // Text_Matter/DesignItem 값이 숫자일 때 강조용 폰트 크기
-        private readonly float rightArrowStepFadeDuration = 0.15f;
-        private readonly float rightArrowFadeOutDuration = 0.3f;
-        private readonly float rightArrowHoldDuration = 0.5f;
-        private readonly float level2FillTweenDuration = 0.45f;
-        private readonly float level2FillOvershoot = 1.2f; // Ease.OutBack 오버슈트 크기. 기본(1.70158)보다 작게 둬 과하게 튀지 않도록 함
-        private readonly float level3GaugeTweenDuration = 0.4f;
-        private readonly float level3IconBlinkMinAlpha = 0.25f; // "또는" 선택 시 불안정하게 깜빡이는 최소 알파
-        private readonly float level3IconBlinkDuration = 0.12f; // 깜빡임 한쪽 방향 소요 시간(짧을수록 더 불안정해 보임)
-        private readonly float sceneFadeDuration = 0.5f;
-        private readonly float warningFadeDuration = 0.25f;
-        private readonly float warningShakeAmount = 15f;
-        private readonly float warningShakeCycleDuration = 0.08f;
-        private readonly float warningHoldDuration = 1.0f;
-
         private StateMachine<IngredientSelectionController> _stateMachine;
         private IngredientLevel1State _level1State;
         private IngredientLevel2State _level2State;
@@ -98,8 +82,8 @@ namespace DGAIZone.Game.UI
         internal Image[] StepBallImages => stepBallImages;
         internal Material StepBallGrayscaleMaterial => stepBallGrayscaleMaterial;
         internal Image Level2FillImage => level2FillImage;
-        internal float Level2FillTweenDuration => _sceneSettings?.level2FillTweenDuration ?? level2FillTweenDuration;
-        internal float Level2FillOvershoot => _sceneSettings?.level2FillOvershoot ?? level2FillOvershoot;
+        internal float Level2FillTweenDuration => _sceneSettings.level2FillTweenDuration;
+        internal float Level2FillOvershoot => _sceneSettings.level2FillOvershoot;
 
         internal Image Level3OxygenGauge => level3OxygenGauge;
         internal Image Level3ElectricGauge => level3ElectricGauge;
@@ -107,9 +91,9 @@ namespace DGAIZone.Game.UI
         internal Image Level3ElectricIcon => level3ElectricIcon;
         internal CanvasGroup Level3OxygenIconCanvasGroup => _level3OxygenIconCanvasGroup;
         internal CanvasGroup Level3ElectricIconCanvasGroup => _level3ElectricIconCanvasGroup;
-        internal float Level3GaugeTweenDuration => _sceneSettings?.level3GaugeTweenDuration ?? level3GaugeTweenDuration;
-        internal float Level3IconBlinkMinAlpha => _sceneSettings?.level3IconBlinkMinAlpha ?? level3IconBlinkMinAlpha;
-        internal float Level3IconBlinkDuration => _sceneSettings?.level3IconBlinkDuration ?? level3IconBlinkDuration;
+        internal float Level3GaugeTweenDuration => _sceneSettings.level3GaugeTweenDuration;
+        internal float Level3IconBlinkMinAlpha => _sceneSettings.level3IconBlinkMinAlpha;
+        internal float Level3IconBlinkDuration => _sceneSettings.level3IconBlinkDuration;
 
         internal Level4BoardController Level4Board => level4Board;
         internal MissionBoardController MissionBoard => _missionBoard;
@@ -179,9 +163,9 @@ namespace DGAIZone.Game.UI
         private CanvasGroup _level3OxygenIconCanvasGroup;
         private CanvasGroup _level3ElectricIconCanvasGroup;
 
-        // 3_Game.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private GameSceneSettings _sceneSettings;
-        private CommonSettings _commonSettings;
+        // 3_Game.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private GameSceneSettings _sceneSettings = new GameSceneSettings();
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary>
         /// 상태 머신과 레벨별 상태 인스턴스를 사전 생성하고(Zero-GC), 서브 캔버스 및 캔버스 그룹을 초기화함.
@@ -778,7 +762,7 @@ namespace DGAIZone.Game.UI
             CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
             _warningCts = cts;
             CancellationToken token = cts.Token;
-            float fadeDuration = _sceneSettings?.warningFadeDuration ?? warningFadeDuration;
+            float fadeDuration = _sceneSettings.warningFadeDuration;
 
             try
             {
@@ -792,7 +776,7 @@ namespace DGAIZone.Game.UI
 
                 await ShakeGamePanelAsync(token);
 
-                float holdDuration = _sceneSettings?.warningHoldDuration ?? warningHoldDuration;
+                float holdDuration = _sceneSettings.warningHoldDuration;
                 await UniTask.Delay(TimeSpan.FromSeconds(holdDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
 
                 await warningPanel.DOFade(0f, fadeDuration).SetUpdate(true)
@@ -821,8 +805,8 @@ namespace DGAIZone.Game.UI
 
             RectTransform target = (RectTransform)gamePanel.transform;
             Vector2 originalPos = target.anchoredPosition;
-            float amount = _sceneSettings?.warningShakeAmount ?? warningShakeAmount;
-            float cycleDuration = _sceneSettings?.warningShakeCycleDuration ?? warningShakeCycleDuration;
+            float amount = _sceneSettings.warningShakeAmount;
+            float cycleDuration = _sceneSettings.warningShakeCycleDuration;
             float half = cycleDuration / 2f;
 
             _warningSequence?.Kill();
@@ -1135,7 +1119,7 @@ namespace DGAIZone.Game.UI
             }
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {Constants.Scenes.Result} 씬으로 이동.");
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
         /// <summary>
@@ -1157,7 +1141,7 @@ namespace DGAIZone.Game.UI
 
             _isBusy = true;
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
         /// <summary>
@@ -1390,7 +1374,7 @@ namespace DGAIZone.Game.UI
             }
 
             bool isNumber = float.TryParse(value, out _);
-            return isNumber ? $"<size={_sceneSettings?.numberFontSize ?? numberFontSize}>{value}</size>" : value;
+            return isNumber ? $"<size={_sceneSettings.numberFontSize}>{value}</size>" : value;
         }
 
         /// <summary>
@@ -1421,9 +1405,9 @@ namespace DGAIZone.Game.UI
         {
             if (_rightArrowSequence != null && _rightArrowSequence.IsActive()) return;
 
-            float stepDuration = _sceneSettings?.rightArrowStepFadeDuration ?? rightArrowStepFadeDuration;
-            float fadeOutDuration = _sceneSettings?.rightArrowFadeOutDuration ?? rightArrowFadeOutDuration;
-            float holdDuration = _sceneSettings?.rightArrowHoldDuration ?? rightArrowHoldDuration;
+            float stepDuration = _sceneSettings.rightArrowStepFadeDuration;
+            float fadeOutDuration = _sceneSettings.rightArrowFadeOutDuration;
+            float holdDuration = _sceneSettings.rightArrowHoldDuration;
 
             if (_rightArrowCanvasGroups == null || _rightArrowCanvasGroups.Length == 0) InitCanvasGroups();
             if (_rightArrowCanvasGroups == null || _rightArrowCanvasGroups.Length == 0) return;

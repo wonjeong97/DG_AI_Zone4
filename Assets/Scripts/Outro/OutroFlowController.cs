@@ -19,17 +19,15 @@ namespace DGAIZone.Outro
     {
         [SerializeField] private Button homeButton;
 
-        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-
         private SceneTransitionService _sceneTransition;
         private ILogger<OutroFlowController> _logger;
         private IPublisher<MoveIdleEvent> _moveIdlePublisher;
         private bool _isBusy;
 
-        // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함.
+        // 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀.
         // 씬 전환 페이드 시간은 다른 씬들과 마찬가지로 00_Common.json의 sceneTransitionFadeDuration을 공유해서 쓰며,
         // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
-        private CommonSettings _commonSettings;
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 로거, idle 전환 이벤트 퍼블리셔를 할당함. </summary>
         [Inject]
@@ -75,7 +73,7 @@ namespace DGAIZone.Outro
             _isBusy = true;
             if (_moveIdlePublisher != null) _moveIdlePublisher.Publish(new MoveIdleEvent());
             else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] moveIdlePublisher가 null이라 idle 전환 이벤트를 발행하지 않음.");
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
     }
 }

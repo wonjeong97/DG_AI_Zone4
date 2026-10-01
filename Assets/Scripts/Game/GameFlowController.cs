@@ -28,8 +28,6 @@ namespace DGAIZone.Game
         [SerializeField] private Image themeBackgroundImage; // Background: 씬 진입 시 선택된 레벨의 테마 스프라이트로 즉시 교체됨
         [SerializeField] private Sprite[] themeBackgroundSprites; // Level1..5 순서. 레벨 1·2는 같은 스프라이트(Background_1)를 지정하면 됨
 
-        private readonly float panelFadeDuration = 0.4f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-
         [Header("Story Level")]
         [SerializeField] private Image storyImage;          // Image_Story
         [SerializeField] private GameObject[] storyLevels;  // Story_Level1..5 순서
@@ -52,8 +50,8 @@ namespace DGAIZone.Game
         private string _visitorName = Constants.DefaultVisitorName;
         private string _sceneStoryTemplate; // levelDataList가 비었을 때 쓰는 씬 스토리 텍스트 원본({name} 치환 전)
 
-        // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private CommonSettings _commonSettings;
+        // 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary>
         /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. debugStartLevel이 설정되어 있으면(1~5)
@@ -259,7 +257,7 @@ namespace DGAIZone.Game
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
-            float duration = _commonSettings?.panelFadeDuration ?? panelFadeDuration;
+            float duration = _commonSettings.panelFadeDuration;
             try
             {
                 if (storyPanel)
@@ -298,7 +296,7 @@ namespace DGAIZone.Game
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
-            float duration = _commonSettings?.panelFadeDuration ?? panelFadeDuration;
+            float duration = _commonSettings.panelFadeDuration;
             try
             {
                 if (gamePanel)
