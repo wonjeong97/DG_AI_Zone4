@@ -59,7 +59,6 @@ namespace DGAIZone.LevelSelect
         private InactivityTimer _inactivityTimer;
         private IObjectResolver _resolver;
         private VisitorInfoProvider _visitorInfoProvider;
-        private string _visitorName = "체험자";
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
@@ -167,17 +166,14 @@ namespace DGAIZone.LevelSelect
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings), 체험자 이름을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함. </summary>
+        /// <summary> 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함. </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.LevelSelect}";
             UniTask<LevelSelectSceneSettings> settingsTask = JsonLoader.LoadAsync<LevelSelectSceneSettings>(path, token);
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
-            UniTask<string> visitorTask = _visitorInfoProvider != null
-                ? _visitorInfoProvider.GetNameAsync(token)
-                : UniTask.FromResult("체험자");
 
-            (_sceneSettings, _commonSettings, _visitorName) = await UniTask.WhenAll(settingsTask, commonTask, visitorTask);
+            (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
             ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount));
         }
@@ -310,6 +306,7 @@ namespace DGAIZone.LevelSelect
             }
 
             TMP_Text storyText = null;
+            string storyTemplate = null;
             if (storyLevels != null)
             {
                 for (int i = 0; i < storyLevels.Length; i++)
@@ -324,19 +321,18 @@ namespace DGAIZone.LevelSelect
                     {
                         // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 3_Game(스토리 다시보기)과 같은 에셋을 참조하므로
                         // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
-                        // 스토리 텍스트 안의 {name} 자리표시자를 실제 체험자 이름으로 교체함.
+                        // {name}은 Visitor.json 로드 전에 레벨을 눌러도 이름이 반영되도록, SwitchToStoryAsync가 이름 로드를 기다린 뒤 이 원본으로 치환함.
                         if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                         {
-                            storyText.text = FormatStoryText(levelDataList[index].storyText);
+                            storyTemplate = levelDataList[index].storyText;
                         }
                         else
                         {
-                            if (storyText) storyText.text = FormatStoryText(storyText.text);
+                            storyTemplate = storyText.text;
                             if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
                         }
 
-                        // 페이드인 도중 전체 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠
-                        storyText.ForceMeshUpdate();
+                        // 페이드인 도중 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠
                         storyText.maxVisibleCharacters = 0;
                     }
                     else if (_logger != null)
@@ -346,11 +342,14 @@ namespace DGAIZone.LevelSelect
                 }
             }
 
-            SwitchToStoryAsync(storyText, selectedButtonRect).Forget();
+            SwitchToStoryAsync(storyText, storyTemplate, selectedButtonRect).Forget();
         }
 
-        /// <summary> 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 선택된 버튼을 목표 위치로 이동시키며, 스토리 텍스트 연출이 끝나면 시작 버튼을 활성화함. </summary>
-        private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText, RectTransform selectedButtonRect)
+        /// <summary>
+        /// 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인하고, 선택된 버튼을 목표 위치로 이동시키며, 체험자 이름 로드를 기다려
+        /// storyTemplate의 {name}을 치환한 스토리 텍스트 연출이 끝나면 시작 버튼을 활성화함.
+        /// </summary>
+        private async UniTaskVoid SwitchToStoryAsync(TMP_Text storyText, string storyTemplate, RectTransform selectedButtonRect)
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
@@ -394,13 +393,10 @@ namespace DGAIZone.LevelSelect
                     _logger.ZLogWarning($"[LevelSelectFlowController] storyPanel이 null이라 패널 전환 연출을 건너뜀.");
                 }
 
-                if (storyText && storyText.text.Contains(Constants.VisitorPlaceholder))
+                if (storyText)
                 {
-                    if (_visitorInfoProvider != null && _visitorName == "체험자")
-                    {
-                        _visitorName = await _visitorInfoProvider.GetNameAsync(token);
-                    }
-                    storyText.text = FormatStoryText(storyText.text);
+                    string visitorName = await GetVisitorNameAsync(token);
+                    storyText.text = PlaceholderFormatter.ReplaceVisitorName(storyTemplate, visitorName);
                     storyText.ForceMeshUpdate();
                 }
 
@@ -416,12 +412,13 @@ namespace DGAIZone.LevelSelect
             finally { _isBusy = false; }
         }
 
-        /// <summary> 스토리 텍스트의 {name} 자리표시자를 실제 체험자 이름으로 교체함. </summary>
-        private string FormatStoryText(string rawText)
+        /// <summary> 체험자 이름을 불러옴(Visitor.json은 한 번만 로드되어 공유되므로 이미 로드됐으면 바로 끝남). 제공자가 없으면 기본 이름을 씀. </summary>
+        private UniTask<string> GetVisitorNameAsync(CancellationToken token)
         {
-            if (string.IsNullOrEmpty(rawText)) return string.Empty;
-            string visitorName = !string.IsNullOrEmpty(_visitorName) ? _visitorName : "체험자";
-            return rawText.Contains(Constants.VisitorPlaceholder) ? rawText.Replace(Constants.VisitorPlaceholder, visitorName) : rawText;
+            if (_visitorInfoProvider != null) return _visitorInfoProvider.GetNameAsync(token);
+
+            if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] visitorInfoProvider가 null이라 스토리 텍스트에 기본 이름 '{Constants.DefaultVisitorName}'을 사용함.");
+            return UniTask.FromResult(Constants.DefaultVisitorName);
         }
 
         /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함(연출 스킵용). </summary>

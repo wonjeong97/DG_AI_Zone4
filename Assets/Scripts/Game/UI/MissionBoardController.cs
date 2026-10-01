@@ -28,10 +28,6 @@ namespace DGAIZone.Game.UI
         [SerializeField] private TMP_Text goalPlanetNameText;
         [SerializeField] private Image progressFillImage; // Image_Fill
         [SerializeField] private Image previewFillImage; // Image_Fill_Preview
-        [SerializeField] private LevelData[] levelDataList; // Level1..5 순서의 LevelData 에셋
-
-        /// <summary> Level1..5 순서의 레벨 데이터 에셋 목록. </summary>
-        public LevelData[] LevelDataList => levelDataList;
 
         // 3_Game.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float fillTweenDuration = 0.5f;
@@ -40,9 +36,10 @@ namespace DGAIZone.Game.UI
         private readonly float previewApplyFadeDuration = 0.3f;
 
         private SelectedLevelStore _selectedLevelStore;
+        private GameFlowController _gameFlow; // 레벨 데이터(LevelData) 출처. 스토리 다시보기와 같은 배열을 씀
         private ILogger<MissionBoardController> _logger;
         private VisitorInfoProvider _visitorInfoProvider;
-        private string _visitorName = "체험자";
+        private string _visitorName = Constants.DefaultVisitorName;
         private MissionDestination _current = CreateFallbackDestination();
 
         // Level1/Level3 LevelData에 값이 없을 때만 오류 로그와 함께 쓰는 폴백.
@@ -76,14 +73,16 @@ namespace DGAIZone.Game.UI
         /// <summary> 레벨 3: 산소량이 이 값보다 낮으면 안 됨(Level3 LevelData의 minOxygenRange에서 무작위로 정해짐). </summary>
         public int MinOxygen { get; private set; }
 
-        /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소, 레벨 데이터를 가진 게임 흐름 컨트롤러, 로거, 체험자 정보 제공자를 할당함. </summary>
         [Inject]
         public void Construct(
             SelectedLevelStore selectedLevelStore,
+            GameFlowController gameFlow,
             ILogger<MissionBoardController> logger,
             VisitorInfoProvider visitorInfoProvider = null)
         {
             _selectedLevelStore = selectedLevelStore;
+            _gameFlow = gameFlow;
             _logger = logger;
             _visitorInfoProvider = visitorInfoProvider;
         }
@@ -94,13 +93,9 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void Start()
         {
-            if (levelDataList == null || levelDataList.Length == 0)
+            if (!_gameFlow && _logger != null)
             {
-                GameFlowController gameFlow = UnityEngine.Object.FindObjectOfType<GameFlowController>();
-                if (gameFlow != null && gameFlow.LevelDataList != null)
-                {
-                    levelDataList = gameFlow.LevelDataList;
-                }
+                _logger.ZLogError($"[MissionBoardController] GameFlowController가 주입되지 않아 레벨 데이터(LevelData)를 읽을 수 없음. 기본 미션 문구를 사용함.");
             }
 
             int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
@@ -152,29 +147,39 @@ namespace DGAIZone.Game.UI
             LoadVisitorNameAsync(destroyToken).Forget();
         }
 
-        /// <summary> 체험자 이름을 비동기로 불러와 {name} 플레이스홀더가 포함된 미션 텍스트에 반영함. </summary>
+        /// <summary>
+        /// 체험자 이름을 비동기로 불러와 미션 텍스트에 반영함. Start에서 기본 이름으로 이미 치환해 화면 문구에는 {name}이 남아 있지 않으므로,
+        /// 원본 템플릿(LevelData의 missionText)에 {name}이 있으면 템플릿으로 다시 포맷함.
+        /// </summary>
         private async UniTaskVoid LoadVisitorNameAsync(CancellationToken token)
         {
-            if (_visitorInfoProvider == null) return;
+            if (_visitorInfoProvider == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] visitorInfoProvider가 null이라 미션 텍스트의 체험자 이름을 기본 이름 '{Constants.DefaultVisitorName}'으로 둠.");
+                return;
+            }
+
             try
             {
                 _visitorName = await _visitorInfoProvider.GetNameAsync(token);
-                if (missionText && missionText.text.Contains(Constants.VisitorPlaceholder))
-                {
-                    int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
-                    string raw = GetRawMissionTextFromData(level);
-                    if (!string.IsNullOrEmpty(raw))
-                    {
-                        missionText.text = FormatMissionText(raw);
-                    }
-                }
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+            string raw = GetRawMissionTextFromData(level);
+            if (missionText && !string.IsNullOrEmpty(raw) && raw.Contains(Constants.VisitorPlaceholder))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
         }
 
-        /// <summary> 해당 레벨(1부터)의 LevelData 에셋을 반환함. 없으면 null. </summary>
-        private LevelData GetLevelData(int level)
+        /// <summary> 해당 레벨(1부터)의 LevelData 에셋을 GameFlowController의 레벨 데이터 배열에서 찾아 반환함. 없으면 null. </summary>
+        internal LevelData GetLevelData(int level)
         {
+            LevelData[] levelDataList = _gameFlow ? _gameFlow.LevelDataList : null;
             int index = level - 1;
             return (levelDataList != null && index >= 0 && index < levelDataList.Length && levelDataList[index]) ? levelDataList[index] : null;
         }
@@ -186,56 +191,18 @@ namespace DGAIZone.Game.UI
             return data ? data.missionText : null;
         }
 
-        /// <summary> 미션 텍스트 내 플레이스홀더({planet}, {distance}, {이에요}, {maxElectricity}, {minOxygen}, {name})를 실제 값으로 치환함. </summary>
+        /// <summary>
+        /// 미션 텍스트 내 플레이스홀더({planet}, 숫자 {distance}/{maxElectricity}/{minOxygen}과 그 조사 {distance|이에요} 등, {name})를 실제 값으로 치환함.
+        /// </summary>
         private string FormatMissionText(string rawText)
         {
             if (string.IsNullOrEmpty(rawText)) return string.Empty;
 
-            string formatted = rawText;
-
-            if (formatted.Contains(Constants.MissionPlaceholders.Planet))
-            {
-                formatted = formatted.Replace(Constants.MissionPlaceholders.Planet, _current.planetName);
-            }
-
-            if (formatted.Contains(Constants.MissionPlaceholders.Distance))
-            {
-                formatted = formatted.Replace(Constants.MissionPlaceholders.Distance, _current.targetDistance.ToString());
-            }
-
-            if (formatted.Contains(Constants.MissionPlaceholders.DistanceCopula))
-            {
-                formatted = formatted.Replace(Constants.MissionPlaceholders.DistanceCopula, GetCopula(_current.targetDistance));
-            }
-
-            if (formatted.Contains(Constants.MissionPlaceholders.MaxElectricity))
-            {
-                formatted = formatted.Replace(Constants.MissionPlaceholders.MaxElectricity, MaxElectricity.ToString());
-            }
-
-            if (formatted.Contains(Constants.MissionPlaceholders.MinOxygen))
-            {
-                formatted = formatted.Replace(Constants.MissionPlaceholders.MinOxygen, MinOxygen.ToString());
-            }
-
-            if (formatted.Contains(Constants.VisitorPlaceholder))
-            {
-                string visitorName = !string.IsNullOrEmpty(_visitorName) ? _visitorName : "체험자";
-                formatted = formatted.Replace(Constants.VisitorPlaceholder, visitorName);
-            }
-
-            return formatted;
-        }
-
-        /// <summary>
-        /// 숫자를 한국어로 읽었을 때 받침이 있으면 "이에요", 없으면 "예요"를 반환함(예: 10이에요, 20이에요, 5예요).
-        /// 끝자리가 0이면 십·백·천·만·억으로 끝나 모두 받침이 있고, 1(일)·3(삼)·6(육)·7(칠)·8(팔)도 받침이 있음.
-        /// </summary>
-        private static string GetCopula(int number)
-        {
-            int lastDigit = Math.Abs(number % 10);
-            bool hasFinalConsonant = lastDigit == 0 || lastDigit == 1 || lastDigit == 3 || lastDigit == 6 || lastDigit == 7 || lastDigit == 8;
-            return hasFinalConsonant ? "이에요" : "예요";
+            string formatted = rawText.Replace(Constants.MissionPlaceholders.Planet, _current.planetName);
+            formatted = PlaceholderFormatter.ReplaceNumber(formatted, Constants.MissionPlaceholders.Distance, _current.targetDistance);
+            formatted = PlaceholderFormatter.ReplaceNumber(formatted, Constants.MissionPlaceholders.MaxElectricity, MaxElectricity);
+            formatted = PlaceholderFormatter.ReplaceNumber(formatted, Constants.MissionPlaceholders.MinOxygen, MinOxygen);
+            return PlaceholderFormatter.ReplaceVisitorName(formatted, _visitorName);
         }
 
         /// <summary> 3_Game.json(GameSceneSettings)을 GameSceneSettingsProvider를 통해 비동기로 불러옴(씬 내 다른 컨트롤러와 로드를 공유함). </summary>
@@ -261,7 +228,7 @@ namespace DGAIZone.Game.UI
             else
             {
                 missionText.text =
-                    $"<color=yellow>[{_current.planetName}]</color>까지 거리는 <color=yellow>[{_current.targetDistance}]</color>{GetCopula(_current.targetDistance)}.\n" +
+                    $"<color=yellow>[{_current.planetName}]</color>까지 거리는 <color=yellow>[{_current.targetDistance}]</color>{PlaceholderFormatter.GetCopula(_current.targetDistance)}.\n" +
                     $"로켓을 날리는 추진체, 탑재할 장비, 연료량을 골라\n" +
                     $"<color=yellow>[동작]</color> 블록으로 로켓의 힘을 <color=yellow>[{_current.targetDistance}]</color>에 맞춰 보세요.";
             }
@@ -369,6 +336,10 @@ namespace DGAIZone.Game.UI
             if (!string.IsNullOrEmpty(raw))
             {
                 missionText.text = FormatMissionText(raw);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[MissionBoardController] Level5 LevelData에 미션 문구(missionText)가 없어 씬에 입력된 문구를 그대로 둠.");
             }
         }
 

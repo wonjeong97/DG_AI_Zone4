@@ -27,15 +27,20 @@ namespace DGAIZone.App
         /// <summary> 스토리 텍스트 등에 들어가는 체험자 이름 플레이스홀더. </summary>
         public const string VisitorPlaceholder = "{name}";
 
+        /// <summary> 체험자 이름을 알 수 없을 때(Visitor.json 로드 전·실패, 서버 미연동) {name} 대신 쓰는 기본 이름. </summary>
+        public const string DefaultVisitorName = "체험자";
+
         /// <summary> 미션 텍스트 내 동적 치환용 플레이스홀더. </summary>
         public static class MissionPlaceholders
         {
             public const string Planet = "{planet}";
             public const string Distance = "{distance}";
-            // {distance} 값을 읽었을 때 받침 유무에 따라 "이에요"(10이에요) 또는 "예요"(5예요)로 치환됨
-            public const string DistanceCopula = "{이에요}";
             public const string MaxElectricity = "{maxElectricity}";
             public const string MinOxygen = "{minOxygen}";
+
+            // 숫자 자리표시자 이름 뒤에 붙이는 조사 접미사. {distance|이에요}, {maxElectricity|이에요}처럼 쓰면 그 숫자를 읽었을 때
+            // 받침 유무에 따라 "이에요"(10이에요) 또는 "예요"(5예요)로 치환됨
+            public const string CopulaSuffix = "|이에요";
         }
 
         /// <summary> StreamingAssets 파일 이름. </summary>

@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
@@ -134,13 +133,7 @@ namespace DGAIZone.Intro
             }
 
             string visitorName = await _visitorInfoProvider.GetNameAsync(token);
-
-            using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
-            {
-                sb.Append(storyText.text);
-                sb.Replace(Constants.VisitorPlaceholder, visitorName);
-                storyText.text = sb.ToString();
-            }
+            storyText.text = PlaceholderFormatter.ReplaceVisitorName(storyText.text, visitorName);
         }
 
         /// <summary> 인트로 패널 활성화 상태에서 연출 중 터치 시 스킵, 연출 종료 또는 스킵 후 터치 시 튜토리얼 패널로 크로스페이드. </summary>

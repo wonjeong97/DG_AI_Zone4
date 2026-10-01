@@ -20,7 +20,7 @@ MonoBehaviour:
     \uD0D1\uC7AC\uD560 \uC7A5\uBE44\r\n\u2022 \uB85C\uCF13\uC5D0 \uB123\uC744 \uC5F0\uB8CC\uB7C9\n</color>\r\n<color=blue>[\uB3D9\uC791]</color>
     \uBE14\uB85D\uC744 \uC774\uC6A9\uD574 \uB098\uB9CC\uC758 \uB85C\uCF13\uC744 \uB9CC\uB4E4\uC5B4
     \uBCFC\uAE4C\uC694?"
-  missionText: "<color=yellow>[{planet}]</color>\uAE4C\uC9C0 \uAC70\uB9AC\uB294 <color=yellow>[{distance}]</color>{\uC774\uC5D0\uC694}.\n\uB85C\uCF13\uC744
+  missionText: "<color=yellow>[{planet}]</color>\uAE4C\uC9C0 \uAC70\uB9AC\uB294 <color=yellow>[{distance}]</color>{distance|\uC774\uC5D0\uC694}.\n\uB85C\uCF13\uC744
     \uB0A0\uB9AC\uB294 \uCD94\uC9C4\uCCB4, \uD0D1\uC7AC\uD560 \uC7A5\uBE44, \uC5F0\uB8CC\uB7C9\uC744
     \uACE8\uB77C\n<color=blue>[\uB3D9\uC791]</color> \uBE14\uB85D\uC73C\uB85C \uB85C\uCF13\uC758
     \uD798\uC744 <color=yellow>[{distance}]</color>\uC5D0 \uB9DE\uCDB0 \uBCF4\uC138\uC694."

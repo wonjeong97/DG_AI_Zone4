@@ -50,7 +50,8 @@ namespace DGAIZone.Game
         private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
         private VisitorInfoProvider _visitorInfoProvider;
-        private string _visitorName = "체험자";
+        private string _visitorName = Constants.DefaultVisitorName;
+        private string _sceneStoryTemplate; // levelDataList가 비었을 때 쓰는 씬 스토리 텍스트 원본({name} 치환 전)
 
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private CommonSettings _commonSettings;
@@ -99,9 +100,13 @@ namespace DGAIZone.Game
         private async UniTaskVoid LoadCommonSettingsAsync(CancellationToken token)
         {
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+            if (_visitorInfoProvider == null && _logger != null)
+            {
+                _logger.ZLogWarning($"[GameFlowController] visitorInfoProvider가 null이라 스토리 텍스트에 기본 이름 '{Constants.DefaultVisitorName}'을 사용함.");
+            }
             UniTask<string> visitorTask = _visitorInfoProvider != null
                 ? _visitorInfoProvider.GetNameAsync(token)
-                : UniTask.FromResult("체험자");
+                : UniTask.FromResult(Constants.DefaultVisitorName);
 
             (_commonSettings, _visitorName) = await UniTask.WhenAll(commonTask, visitorTask);
 
@@ -159,11 +164,13 @@ namespace DGAIZone.Game
             {
                 if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                 {
-                    storyText.text = FormatStoryText(levelDataList[index].storyText);
+                    storyText.text = PlaceholderFormatter.ReplaceVisitorName(levelDataList[index].storyText, _visitorName);
                 }
                 else
                 {
-                    if (storyText) storyText.text = FormatStoryText(storyText.text);
+                    // 씬 텍스트를 제자리에서 치환하면 {name}이 사라져 이름이 늦게 로드됐을 때 다시 반영할 수 없으므로, 처음 읽은 원본을 템플릿으로 보관함
+                    _sceneStoryTemplate ??= storyText.text;
+                    storyText.text = PlaceholderFormatter.ReplaceVisitorName(_sceneStoryTemplate, _visitorName);
                     if (_logger != null) _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
                 }
             }
@@ -171,14 +178,6 @@ namespace DGAIZone.Game
             {
                 _logger.ZLogWarning($"[GameFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 바꿀 수 없음.");
             }
-        }
-
-        /// <summary> 스토리 텍스트의 {name} 자리표시자를 실제 체험자 이름으로 교체함. </summary>
-        private string FormatStoryText(string rawText)
-        {
-            if (string.IsNullOrEmpty(rawText)) return string.Empty;
-            string visitorName = !string.IsNullOrEmpty(_visitorName) ? _visitorName : "체험자";
-            return rawText.Contains(Constants.VisitorPlaceholder) ? rawText.Replace(Constants.VisitorPlaceholder, visitorName) : rawText;
         }
 
         /// <summary>

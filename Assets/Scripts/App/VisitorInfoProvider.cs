@@ -17,8 +17,6 @@ namespace DGAIZone.App
     /// </summary>
     public class VisitorInfoProvider : IDisposable
     {
-        private const string DefaultName = "체험자";
-
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private readonly object _lock = new object();
         private readonly ILogger<VisitorInfoProvider> _logger;
@@ -36,8 +34,8 @@ namespace DGAIZone.App
 
         /// <summary>
         /// 체험자 이름을 비동기로 반환함. 최초 호출 시에만 실제 로드가 발생하고 이후 호출은 같은 결과를 공유함.
-        /// isServerConnected가 false면 defaultUserName(없으면 DefaultName)을 반환하고,
-        /// true면 서버 조회가 아직 구현되지 않아 경고 로그를 남기고 DefaultName을 반환함(TODO).
+        /// isServerConnected가 false면 defaultUserName(없으면 Constants.DefaultVisitorName)을 반환하고,
+        /// true면 서버 조회가 아직 구현되지 않아 경고 로그를 남기고 Constants.DefaultVisitorName을 반환함(TODO).
         /// </summary>
         public async UniTask<string> GetNameAsync(CancellationToken cancellationToken = default)
         {
@@ -47,10 +45,10 @@ namespace DGAIZone.App
             {
                 // TODO: 서버 연동(QR 스캔)으로 체험자 이름을 조회하도록 구현. 서버가 준비되기 전까지는 기본 이름으로 대체함.
                 if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] isServerConnected가 true이지만 서버 연동이 아직 구현되지 않아 기본 이름으로 대체함.");
-                return DefaultName;
+                return Constants.DefaultVisitorName;
             }
 
-            return (data != null && !string.IsNullOrEmpty(data.defaultUserName)) ? data.defaultUserName : DefaultName;
+            return (data != null && !string.IsNullOrEmpty(data.defaultUserName)) ? data.defaultUserName : Constants.DefaultVisitorName;
         }
 
         /// <summary>
