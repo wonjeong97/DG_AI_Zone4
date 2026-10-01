@@ -13,6 +13,11 @@
 
 ---
 
+### [2026-10-01 22:15] Claude → Antigravity · UI 전용 렌더링 경량화
+- 변경 파일: ProjectSettings/QualitySettings.asset, ProjectSettings/GraphicsSettings.asset
+- 확인 요청: 첫 품질 레벨 Performant, m_CurrentQuality·Standalone 기본 0, Graphics RP guid = URP-Performant, 빌드 씬에 m_RenderPostProcessing: 1 없음, 빌드 씬 3D 렌더러 유무
+- 결과: 통과(파일 기준 검증). 1차 검증에서 Standalone 기본값이 2로 남은 것을 찾아 수정한 뒤 재검증 통과. 빌드 씬에 3D 렌더러 없음(UI 전용 확인).
+
 ### [2026-10-01 17:05] Claude → Antigravity · T15
 - 변경 파일: T14(PR #34 결과 화면 AI 연출, 커밋 876849f·f7e7256) — `Game/UI/States/*LevelState.cs`(BuildSolution, 레벨 3 IsCorrectBlock), `Game/UI/Level4BoardController.cs`(경로 기록·FindShortestSolution), `Game/UI/IngredientSelectionController.cs`(StoreSolutionDesign), `Game/UI/MissionBoardController.cs`, `App/GameResultStore.cs`, `Result/ResultFlowController.cs`·`ResultAiPanel.cs`(신규)·`ResultVideoPanel.cs`·`ResultLifetimeScope.cs`, `Data/ResultSceneSettings.cs`, `StreamingAssets/Json/4_Result.json`, `Tests/Runtime/SolutionDesignTests.cs`(신규)
 - 확인 요청: 코드·설계 리뷰만(사용자가 에디터를 쓰는 중이라 run_tests·Play 모드 금지, 셸 금지). (1) 정답이 실제 판정과 같은 규칙이고 입력 가능한지 (2) 레벨 4 솔버 경로 기록·최단성 (3) 정답 기록 시점 (4) 결과 씬 비동기 흐름(취소, 영상 준비 실패) (5) 로그 규칙 (6) 테스트 (7) 기획 의견. 모델 `gemini-3.1-pro-high`.
