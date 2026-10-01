@@ -22,30 +22,25 @@
   "levelMappings": [
     {
       "level": 1,
-      "steps": [
+      "matterSets": [
         {
-          "ingredientId": "Engine",
-          "ingredientName": "추진체 종류",
+          "id": "Engine",
           "matters": [
             { "id": "SolidRocket", "label": "고체 로켓 (+7)", "value": 7 },
             { "id": "LiquidRocket", "label": "액체 로켓 (+10)", "value": 10 },
             { "id": "NuclearEngine", "label": "핵 추진 엔진 (+12)", "value": 12 }
-          ],
-          "categories": [ "동작" ]
+          ]
         },
         {
-          "ingredientId": "Payload",
-          "ingredientName": "탑재 종류",
+          "id": "Payload",
           "matters": [
             { "id": "Satellite", "label": "인공위성 (-3)", "value": 3 },
             { "id": "Rover", "label": "탐사 로봇 (-2)", "value": 2 },
             { "id": "SpaceShuttle", "label": "우주왕복선 (-5)", "value": 5 }
-          ],
-          "categories": [ "동작" ]
+          ]
         },
         {
-          "ingredientId": "Fuel",
-          "ingredientName": "연료량",
+          "id": "Fuel",
           "matters": [
             { "id": "Fuel1", "label": "1", "value": 1 },
             { "id": "Fuel2", "label": "2", "value": 2 },
@@ -57,130 +52,100 @@
             { "id": "Fuel8", "label": "8", "value": 8 },
             { "id": "Fuel9", "label": "9", "value": 9 },
             { "id": "Fuel10", "label": "10", "value": 10 }
-          ],
-          "categories": [ "동작" ]
+          ]
         }
+      ],
+      "steps": [
+        { "ingredientId": "Engine", "ingredientName": "추진체 종류", "matterSetId": "Engine", "categories": [ "동작" ] },
+        { "ingredientId": "Payload", "ingredientName": "탑재 종류", "matterSetId": "Payload", "categories": [ "동작" ] },
+        { "ingredientId": "Fuel", "ingredientName": "연료량", "matterSetId": "Fuel", "categories": [ "동작" ] }
       ]
     },
     {
       "level": 2,
-      "steps": [
+      "matterSets": [
         {
-          "ingredientId": "LaunchSequence",
-          "ingredientName": "발사 코딩 순서",
+          "id": "LaunchSequence",
           "matters": [
             { "id": "Ignite", "label": "엔진 점화하기" },
             { "id": "Ascend", "label": "로켓 상승하기" },
             { "id": "SeparateStage1", "label": "1단 로켓 분리하기" },
             { "id": "SeparateStage2", "label": "2단 로켓 분리하기" },
             { "id": "EnterOrbit", "label": "우주정거장 궤도에 들어가기" }
-          ],
-          "categories": [ "동작" ]
-        },
-        {
-          "ingredientId": "LaunchSequence",
-          "ingredientName": "발사 코딩 순서",
-          "matters": [
-            { "id": "Ignite", "label": "엔진 점화하기" },
-            { "id": "Ascend", "label": "로켓 상승하기" },
-            { "id": "SeparateStage1", "label": "1단 로켓 분리하기" },
-            { "id": "SeparateStage2", "label": "2단 로켓 분리하기" },
-            { "id": "EnterOrbit", "label": "우주정거장 궤도에 들어가기" }
-          ],
-          "categories": [ "동작" ]
-        },
-        {
-          "ingredientId": "LaunchSequence",
-          "ingredientName": "발사 코딩 순서",
-          "matters": [
-            { "id": "Ignite", "label": "엔진 점화하기" },
-            { "id": "Ascend", "label": "로켓 상승하기" },
-            { "id": "SeparateStage1", "label": "1단 로켓 분리하기" },
-            { "id": "SeparateStage2", "label": "2단 로켓 분리하기" },
-            { "id": "EnterOrbit", "label": "우주정거장 궤도에 들어가기" }
-          ],
-          "categories": [ "동작" ]
-        },
-        {
-          "ingredientId": "LaunchSequence",
-          "ingredientName": "발사 코딩 순서",
-          "matters": [
-            { "id": "Ignite", "label": "엔진 점화하기" },
-            { "id": "Ascend", "label": "로켓 상승하기" },
-            { "id": "SeparateStage1", "label": "1단 로켓 분리하기" },
-            { "id": "SeparateStage2", "label": "2단 로켓 분리하기" },
-            { "id": "EnterOrbit", "label": "우주정거장 궤도에 들어가기" }
-          ],
-          "categories": [ "동작" ]
-        },
-        {
-          "ingredientId": "LaunchSequence",
-          "ingredientName": "발사 코딩 순서",
-          "matters": [
-            { "id": "Ignite", "label": "엔진 점화하기" },
-            { "id": "Ascend", "label": "로켓 상승하기" },
-            { "id": "SeparateStage1", "label": "1단 로켓 분리하기" },
-            { "id": "SeparateStage2", "label": "2단 로켓 분리하기" },
-            { "id": "EnterOrbit", "label": "우주정거장 궤도에 들어가기" }
-          ],
-          "categories": [ "동작" ]
+          ]
         }
+      ],
+      "steps": [
+        { "ingredientId": "LaunchSequence", "ingredientName": "발사 코딩 순서", "matterSetId": "LaunchSequence", "categories": [ "동작" ] },
+        { "ingredientId": "LaunchSequence", "ingredientName": "발사 코딩 순서", "matterSetId": "LaunchSequence", "categories": [ "동작" ] },
+        { "ingredientId": "LaunchSequence", "ingredientName": "발사 코딩 순서", "matterSetId": "LaunchSequence", "categories": [ "동작" ] },
+        { "ingredientId": "LaunchSequence", "ingredientName": "발사 코딩 순서", "matterSetId": "LaunchSequence", "categories": [ "동작" ] },
+        { "ingredientId": "LaunchSequence", "ingredientName": "발사 코딩 순서", "matterSetId": "LaunchSequence", "categories": [ "동작" ] }
       ]
     },
     {
       "level": 3,
-      "steps": [
+      "matterSets": [
         {
-          "ingredientId": "ElectricityCondition",
-          "ingredientName": "만약 전기량이",
+          "id": "ElectricityCondition",
           "matters": [
             { "id": "Over3", "label": "3 넘으면", "value": 3 },
             { "id": "Over4", "label": "4 넘으면", "value": 4 },
             { "id": "Over5", "label": "5 넘으면", "value": 5 }
-          ],
-          "categories": [ "제어" ]
+          ]
         },
         {
-          "ingredientId": "Electricity",
-          "ingredientName": "전기량",
-          "matters": [
-            { "id": "Raise", "label": "올리기" },
-            { "id": "Lower", "label": "낮추기" }
-          ],
-          "categories": [ "동작" ]
-        },
-        {
-          "ingredientId": "Logic",
-          "ingredientName": "",
-          "matters": [
-            { "id": "And", "label": "그리고" },
-            { "id": "Or", "label": "또는" }
-          ],
-          "categories": [ "논리" ]
-        },
-        {
-          "ingredientId": "OxygenCondition",
-          "ingredientName": "만약 산소량이",
+          "id": "OxygenCondition",
           "matters": [
             { "id": "Under3", "label": "3 낮으면", "value": 3 },
             { "id": "Under4", "label": "4 낮으면", "value": 4 },
             { "id": "Under5", "label": "5 낮으면", "value": 5 }
-          ],
-          "categories": [ "제어" ]
+          ]
         },
         {
-          "ingredientId": "Oxygen",
-          "ingredientName": "산소량",
+          "id": "RaiseLower",
           "matters": [
             { "id": "Raise", "label": "올리기" },
             { "id": "Lower", "label": "낮추기" }
-          ],
-          "categories": [ "동작" ]
+          ]
+        },
+        {
+          "id": "Logic",
+          "matters": [
+            { "id": "And", "label": "그리고" },
+            { "id": "Or", "label": "또는" }
+          ]
         }
+      ],
+      "steps": [
+        { "ingredientId": "ElectricityCondition", "ingredientName": "만약 전기량이", "matterSetId": "ElectricityCondition", "categories": [ "제어" ] },
+        { "ingredientId": "Electricity", "ingredientName": "전기량", "matterSetId": "RaiseLower", "categories": [ "동작" ] },
+        { "ingredientId": "Logic", "ingredientName": "", "matterSetId": "Logic", "categories": [ "논리" ] },
+        { "ingredientId": "OxygenCondition", "ingredientName": "만약 산소량이", "matterSetId": "OxygenCondition", "categories": [ "제어" ] },
+        { "ingredientId": "Oxygen", "ingredientName": "산소량", "matterSetId": "RaiseLower", "categories": [ "동작" ] }
       ]
     },
     {
       "level": 4,
+      "matterSets": [
+        {
+          "id": "Move",
+          "matters": [
+            { "id": "MoveUp", "label": "위쪽 한 칸" },
+            { "id": "MoveDown", "label": "아래쪽 한 칸" },
+            { "id": "MoveRight", "label": "오른쪽 한 칸" },
+            { "id": "MoveLeft", "label": "왼쪽 한 칸" }
+          ]
+        },
+        {
+          "id": "Repeat",
+          "matters": [
+            { "id": "Repeat1", "label": "1회", "value": 1 },
+            { "id": "Repeat2", "label": "2회", "value": 2 },
+            { "id": "Repeat3", "label": "3회", "value": 3 }
+          ]
+        }
+      ],
       "steps": [
         { "categories": [ "제어", "동작" ] },
         { "categories": [ "제어", "동작" ] },
@@ -189,27 +154,8 @@
         { "categories": [ "동작" ] }
       ],
       "categoryIngredients": [
-        {
-          "ingredientId": "Move",
-          "ingredientName": "이동하기",
-          "matters": [
-            { "id": "MoveUp", "label": "위쪽 한 칸" },
-            { "id": "MoveDown", "label": "아래쪽 한 칸" },
-            { "id": "MoveRight", "label": "오른쪽 한 칸" },
-            { "id": "MoveLeft", "label": "왼쪽 한 칸" }
-          ],
-          "categories": [ "동작" ]
-        },
-        {
-          "ingredientId": "Repeat",
-          "ingredientName": "반복하기",
-          "matters": [
-            { "id": "Repeat1", "label": "1회", "value": 1 },
-            { "id": "Repeat2", "label": "2회", "value": 2 },
-            { "id": "Repeat3", "label": "3회", "value": 3 }
-          ],
-          "categories": [ "제어" ]
-        }
+        { "ingredientId": "Move", "ingredientName": "이동하기", "matterSetId": "Move", "categories": [ "동작" ] },
+        { "ingredientId": "Repeat", "ingredientName": "반복하기", "matterSetId": "Repeat", "categories": [ "제어" ] }
       ]
     }
   ]

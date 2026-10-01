@@ -25,7 +25,19 @@ namespace DGAIZone.Game.Data
     }
 
     /// <summary>
-    /// 워크플로우 진행 순서상 한 단계에 해당하는 재료/물질 목록 직렬화 클래스.
+    /// 레벨 안에서 단계(또는 카드 분류별 재료)가 좌우 버튼으로 고르는 블록 목록 하나. 같은 목록을 여러 단계가 쓰면
+    /// (레벨 2 발사 순서 5단계, 레벨 3 올리기/낮추기 2단계) 한 번만 정의하고 단계마다 matterSetId로 참조함.
+    /// JsonUtility가 Dictionary를 지원하지 않아 배열 + id로 둠.
+    /// </summary>
+    [Serializable]
+    public class RfidMatterSet
+    {
+        public string id; // 단계의 matterSetId가 참조하는 식별자(같은 레벨 안에서만 유일하면 됨)
+        public RfidMatter[] matters;
+    }
+
+    /// <summary>
+    /// 워크플로우 진행 순서상 한 단계에 해당하는 재료 정의 직렬화 클래스. 고를 블록 목록은 같은 레벨의 matterSets에서 matterSetId로 찾음.
     /// RFID 카드는 category만 알려주므로, 실제 재료 순서(추진체 종류 -> 탑재 종류 -> 연료량)는
     /// 카드와 무관하게 이 목록의 순서로 진행됨.
     /// </summary>
@@ -34,7 +46,7 @@ namespace DGAIZone.Game.Data
     {
         public string ingredientId;   // 코드가 재료 역할을 구분하는 고정 식별자(Constants.RfidIds)
         public string ingredientName; // 화면에 보이는 재료 이름
-        public RfidMatter[] matters;
+        public string matterSetId;    // 좌우 버튼으로 고를 블록 목록(같은 레벨 matterSets의 id)
         public string[] categories; // 이 단계를 진행시킬 수 있는 카드 분류 목록(동작/제어/논리/함수). 여럿이면 그중 아무 카드나 인식됨.
     }
 
@@ -52,18 +64,32 @@ namespace DGAIZone.Game.Data
     }
 
     /// <summary>
-    /// 레벨 하나에 대한 재료 진행 순서(steps) 직렬화 클래스. 물리 카드(uid/category)는 모든 레벨에서 공용이므로
-    /// 여기서는 레벨마다 달라지는 진행 순서만 다룸.
+    /// 레벨 하나에 대한 블록 목록(matterSets)과 재료 진행 순서(steps) 직렬화 클래스. 물리 카드(uid/category)는 모든 레벨에서 공용이므로
+    /// 여기서는 레벨마다 달라지는 블록과 진행 순서만 다룸.
     /// </summary>
     [Serializable]
     public class RfidLevelMapping
     {
         public int level;
+        public RfidMatterSet[] matterSets; // 이 레벨의 블록 목록. 단계와 분류별 재료가 matterSetId로 참조함
         public RfidStepDefinition[] steps;
 
         // 단계가 아니라 찍은 카드 분류로 재료가 정해지는 레벨(레벨 4: 동작=이동하기, 제어=반복하기)의 분류별 재료 정의.
         // 각 항목의 categories에 그 재료를 고르는 카드 분류를 적음. 이 경우 steps에는 단계별 허용 categories만 적으면 됨.
         public RfidStepDefinition[] categoryIngredients;
+
+        /// <summary> matterSetId에 해당하는 블록 목록을 찾아 반환함. 없으면 null. </summary>
+        public RfidMatter[] FindMatters(string matterSetId)
+        {
+            if (matterSets == null || string.IsNullOrEmpty(matterSetId)) return null;
+
+            foreach (RfidMatterSet set in matterSets)
+            {
+                if (set != null && string.Equals(set.id, matterSetId, StringComparison.Ordinal)) return set.matters;
+            }
+
+            return null;
+        }
     }
 
     /// <summary>
@@ -92,13 +118,8 @@ namespace DGAIZone.Game.Data
         public RfidMappingItem[] mappings; // 모든 레벨에서 공용으로 재사용되는 물리 카드 목록 (uid -> category)
         public RfidLevelMapping[] levelMappings;
 
-        /// <summary> 지정한 레벨에 해당하는 재료 진행 순서 목록을 찾아 반환함. 없으면 null. </summary>
-        public RfidStepDefinition[] GetStepsForLevel(int level) => FindLevelMapping(level)?.steps;
-
-        /// <summary> 지정한 레벨의 카드 분류별 재료 정의(레벨 4)를 찾아 반환함. 없으면 null. </summary>
-        public RfidStepDefinition[] GetCategoryIngredientsForLevel(int level) => FindLevelMapping(level)?.categoryIngredients;
-
-        private RfidLevelMapping FindLevelMapping(int level)
+        /// <summary> 지정한 레벨의 블록 목록·재료 진행 순서 정의를 찾아 반환함. 없으면 null. </summary>
+        public RfidLevelMapping FindLevelMapping(int level)
         {
             if (levelMappings == null) return null;
 

@@ -109,9 +109,18 @@ namespace DGAIZone.App
                 public const string EnterOrbit = "EnterOrbit";
             }
 
-            /// <summary> 레벨 3 동작·논리 블록. 조건 블록(만약 전기량이/산소량이)은 id 대신 value를 기준값과 비교함. </summary>
+            /// <summary>
+            /// 레벨 3 재료(단계)와 동작·논리 블록. 게이지 효과는 단계 순서가 아니라 재료 id로 정해지며,
+            /// 조건 블록(만약 전기량이/산소량이)은 블록 id 대신 value를 기준값과 비교함.
+            /// </summary>
             public static class Level3
             {
+                public const string ElectricityCondition = "ElectricityCondition";
+                public const string Electricity = "Electricity";
+                public const string Logic = "Logic";
+                public const string OxygenCondition = "OxygenCondition";
+                public const string Oxygen = "Oxygen";
+
                 public const string Raise = "Raise";
                 public const string Lower = "Lower";
                 public const string Or = "Or";

@@ -138,6 +138,7 @@ namespace DGAIZone.Game.UI
         private int _totalSteps = 3;        // 현재 스테이지에서 찍어야 하는 총 read 횟수
         private int _currentStageIndex = 0; // 현재 스테이지 (0부터 시작)
         private int[] _stageReadCounts = { 3 }; // 스테이지별 read 횟수 (JSON stageReadCounts, steps 미설정 시 폴백)
+        private RfidLevelMapping _levelMapping; // 현재 레벨의 블록 목록(matterSets)·단계 정의. 단계가 고를 블록은 matterSetId로 여기서 찾음
         private RfidStepDefinition[] _stepDefinitions; // "동작" 카드를 찍을 때마다 순서대로 진행되는 재료 목록 (추진체 종류 -> 탑재 종류 -> 연료량)
         private RfidStepDefinition[] _categoryIngredients; // 카드 분류로 재료가 정해지는 레벨(레벨 4)의 분류별 재료 정의
         private RfidMatter[] _confirmedMatters;
@@ -346,13 +347,21 @@ namespace DGAIZone.Game.UI
                     _ => _level1State
                 };
                 _stateMachine.ChangeState(targetState);
-                _stepDefinitions = settings != null ? settings.GetStepsForLevel(level) : null;
-                _categoryIngredients = settings != null ? settings.GetCategoryIngredientsForLevel(level) : null;
+                ValidateMappings(settings);
+
+                _levelMapping = settings != null ? settings.FindLevelMapping(level) : null;
+                _stepDefinitions = _levelMapping?.steps;
+                _categoryIngredients = _levelMapping?.categoryIngredients;
 
                 _currentStageIndex = Mathf.Clamp(_currentStageIndex, 0, _stageReadCounts.Length - 1);
                 _totalSteps = (_stepDefinitions != null && _stepDefinitions.Length > 0)
                     ? _stepDefinitions.Length
                     : _stageReadCounts[_currentStageIndex];
+
+                if ((_stepDefinitions == null || _stepDefinitions.Length == 0) && _logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 stageReadCounts의 {_totalSteps}회로 진행함.");
+                }
             }
             catch (Exception e)
             {
@@ -368,6 +377,34 @@ namespace DGAIZone.Game.UI
             UpdateCategoryHint();
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
+        }
+
+        /// <summary>
+        /// RfidMappings.json의 레벨 1~4 블록 정의를 검사해 문제마다 오류 로그를 남김. 블록 목록이 비었거나 값이 빠지면 게임 중에는
+        /// 선택지가 비거나 미션을 깰 수 없을 뿐 다른 오류가 나지 않으므로, 로드 직후 원인을 바로 알 수 있게 함.
+        /// 레벨 1 목적지 거리와 레벨 3 기준값 범위(LevelData)도 블록으로 만들 수 있는지 함께 검사함.
+        /// </summary>
+        private void ValidateMappings(RfidSettings settings)
+        {
+            if (_logger == null) return; // 오류를 남길 곳이 없으면 검사할 의미가 없음
+
+            LevelData level1Data = null;
+            LevelData level3Data = null;
+            if (_missionBoard)
+            {
+                level1Data = _missionBoard.GetLevelData(1);
+                level3Data = _missionBoard.GetLevelData(3);
+            }
+            else
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 null이라 레벨 1 목적지 거리·레벨 3 기준값 범위 검사를 건너뜀.");
+            }
+
+            List<string> errors = RfidMappingValidator.Validate(settings, level1Data, level3Data);
+            foreach (string error in errors)
+            {
+                _logger.ZLogError($"[IngredientSelectionController] RfidMappings.json 검증 실패: {error}");
+            }
         }
 
         /// <summary>
@@ -549,6 +586,16 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            RfidMatter[] matters = _levelMapping?.FindMatters(ingredient.matterSetId);
+            if (matters == null || matters.Length == 0)
+            {
+                if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] {ingredient.ingredientName}({ingredient.ingredientId})의 블록 목록 '{ingredient.matterSetId}'가 RfidMappings.json에 없거나 비어 있어 {evt.ReaderId} 태그를 무시함.");
+                }
+                return;
+            }
+
             if (_logger != null)
             {
                 _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {ingredient.ingredientName}({ingredient.ingredientId})");
@@ -562,8 +609,8 @@ namespace DGAIZone.Game.UI
             _currentIngredientId = ingredient.ingredientId;
             _currentCategory = evt.Category;
             _currentMatters.Value = CurrentLevelState != null
-                ? CurrentLevelState.FilterMatters(this, ingredient.ingredientId, ingredient.matters)
-                : ExcludeConfirmedMatters(ingredient.ingredientId, ingredient.matters);
+                ? CurrentLevelState.FilterMatters(this, ingredient.ingredientId, matters)
+                : ExcludeConfirmedMatters(ingredient.ingredientId, matters);
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
