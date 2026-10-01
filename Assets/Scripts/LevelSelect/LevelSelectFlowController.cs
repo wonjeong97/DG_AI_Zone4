@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -12,7 +11,6 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
-using VContainer.Unity;
 using HuliacDev.Core;
 using HuliacDev.Utils;
 using ZLogger;
@@ -57,7 +55,6 @@ namespace DGAIZone.LevelSelect
         private UnlockedLevelStore _unlockedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
         private InactivityTimer _inactivityTimer;
-        private IObjectResolver _resolver;
         private VisitorInfoProvider _visitorInfoProvider;
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
@@ -67,13 +64,12 @@ namespace DGAIZone.LevelSelect
         private LevelSelectSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 리졸버, 로거, 체험자 정보 제공자, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머를 할당함. </summary>
         [Inject]
         public void Construct(
             SceneTransitionService sceneTransition,
             SelectedLevelStore selectedLevelStore,
             UnlockedLevelStore unlockedLevelStore,
-            IObjectResolver resolver,
             ILogger<LevelSelectFlowController> logger,
             VisitorInfoProvider visitorInfoProvider = null,
             InactivityTimer inactivityTimer = null)
@@ -81,7 +77,6 @@ namespace DGAIZone.LevelSelect
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
             _unlockedLevelStore = unlockedLevelStore;
-            _resolver = resolver;
             _logger = logger;
             _visitorInfoProvider = visitorInfoProvider;
             _inactivityTimer = inactivityTimer;
@@ -178,7 +173,7 @@ namespace DGAIZone.LevelSelect
             ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount));
         }
 
-        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용하고, 난이도 패널(별 개수 및 너비)을 갱신함. </summary>
+        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
         public void ApplyLevelButtonLocks(int count)
         {
             _currentUnlockedCount = count; // OnLevelClicked가 이 값으로 클릭 허용 여부를 판단함(표시 상태와 항상 일치시키기 위함)
@@ -191,15 +186,6 @@ namespace DGAIZone.LevelSelect
                     else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}]가 null이라 잠금 상태를 적용할 수 없음.");
                 }
             }
-        }
-
-        /// <summary>
-        /// (더 이상 사용되지 않음) 기존에는 난이도에 맞춰 별 표시 개수를 동적으로 조정했으나,
-        /// 난이도 표시 이미지가 고정형으로 변경되어 별도 처리를 수행하지 않음.
-        /// </summary>
-        [Obsolete("난이도 표시 이미지가 고정형으로 변경되어 더 이상 별 개수를 동적으로 제어하지 않습니다.")]
-        public void ApplyDifficulty(int count)
-        {
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>

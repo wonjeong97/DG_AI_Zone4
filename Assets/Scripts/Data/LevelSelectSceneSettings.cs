@@ -27,12 +27,6 @@ namespace DGAIZone.Data
         /// <summary> 선택된 레벨 버튼이 이동하며 커지는 목표 크기(sizeDelta). </summary>
         public Vector2 selectedLevelButtonTargetSize = new(450f, 229f);
 
-        /// <summary> 난이도 패널(Image_Difficulty) 기본 너비(별 1개 기준). </summary>
-        public float difficultyPanelBaseWidth = 239f;
-
-        /// <summary> 난이도 별 1개 추가 시 난이도 패널에 더해질 추가 너비(px). </summary>
-        public float difficultyPanelWidthPerStar = 51f;
-
         /// <summary> 레벨 버튼 클릭 시 ThemeBackground(선택한 레벨의 테마 배경 스프라이트)가 페이드인되는 시간(초). </summary>
         public float themeBackgroundFadeDuration = 0.6f;
     }
