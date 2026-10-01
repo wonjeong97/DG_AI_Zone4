@@ -10,6 +10,7 @@
 
 ## 완료
 
+- [x] 프로젝트 설정 정리: Player Settings Version을 수정일 26.10.1로 — 담당: Claude / 검증: Antigravity (2026-10-01)
 - [x] UI 전용 프로젝트 렌더링 경량화: Quality 기본을 Performant로, Graphics 기본 RP를 URP-Performant로, 빌드 씬 카메라 후처리 끔 — 담당: Claude / 검증: Antigravity (2026-10-01)
 - [x] T14(PR #34) 교차 리뷰: Claude 자체 리뷰 + Antigravity 코드·설계 리뷰 — 결과 연출 중 비활동 타이머 정지, 영상 준비 실패 시 무한 대기 방지 반영(HANDOFF.md 참고) — 담당: Claude, Antigravity (2026-10-01)
 - [x] 결과 화면 AI 연출: 결과 영상 후 "AI가 코딩중입니다..." → 우측 상단 AI 패널(이번 판 정답 설계창 → 성공 영상) → 컴플리트 패널 — 담당: Claude (2026-10-01)

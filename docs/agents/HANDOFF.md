@@ -13,6 +13,11 @@
 
 ---
 
+### [2026-10-01 23:00] Claude → Antigravity · 프로젝트 설정 정리
+- 변경 파일: ProjectSettings/ProjectSettings.asset
+- 확인 요청: bundleVersion 이 26.10.1 인지, m_EnterPlayModeOptionsEnabled 가 0 인지
+- 결과: 통과(파일 기준 검증).
+
 ### [2026-10-01 22:15] Claude → Antigravity · UI 전용 렌더링 경량화
 - 변경 파일: ProjectSettings/QualitySettings.asset, ProjectSettings/GraphicsSettings.asset
 - 확인 요청: 첫 품질 레벨 Performant, m_CurrentQuality·Standalone 기본 0, Graphics RP guid = URP-Performant, 빌드 씬에 m_RenderPostProcessing: 1 없음, 빌드 씬 3D 렌더러 유무
