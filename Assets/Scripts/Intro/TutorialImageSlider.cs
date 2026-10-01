@@ -52,7 +52,8 @@ namespace DGAIZone.Intro
         {
             if (!TryGetComponent(out _image))
             {
-                Debug.LogError("[TutorialImageSlider] Image 컴포넌트가 없어 튜토리얼 이미지를 표시할 수 없음.");
+                if (_logger != null) _logger.ZLogError($"[TutorialImageSlider] Image 컴포넌트가 없어 튜토리얼 이미지를 표시할 수 없음.");
+                else Debug.LogError("[TutorialImageSlider] Image 컴포넌트가 없어 튜토리얼 이미지를 표시할 수 없음.");
             }
             _rectTransform = (RectTransform)transform;
         }

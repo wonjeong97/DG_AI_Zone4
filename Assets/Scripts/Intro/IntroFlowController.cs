@@ -77,11 +77,6 @@ namespace DGAIZone.Intro
             ApplyPanelVisibility(tutorialPanel, false);
             _isIntroActive = true;
 
-            if (!tutorialSlider && tutorialPanel)
-            {
-                tutorialSlider = tutorialPanel.GetComponentInChildren<TutorialImageSlider>(true);
-            }
-
             if (tutorialSlider)
             {
                 tutorialSlider.OnTutorialCompleted += OnTutorialCompleted;

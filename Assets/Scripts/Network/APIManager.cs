@@ -26,7 +26,7 @@ namespace Network
             {
                 if (Logger != null)
                 {
-                    Logger.ZLogInformation($"[APIManager] Inactivity timeout in {Constants.Scenes.Outro}. Sending move_idle instead of move_idle_timeout.");
+                    Logger.ZLogInformation($"[APIManager] {Constants.Scenes.Outro}에서 비활동 타임아웃이 발생해 move_idle_timeout 대신 move_idle을 전송함.");
                 }
 
                 SendMoveIdleLogAsync().Forget();
