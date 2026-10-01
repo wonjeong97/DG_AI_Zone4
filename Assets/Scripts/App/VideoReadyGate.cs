@@ -28,7 +28,8 @@ namespace DGAIZone.App
             videoPlayer.errorReceived += onError;
 
             using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
-            timeoutCts.CancelAfterSlim(TimeSpan.FromSeconds(timeoutSeconds));
+            // 타이머 등록을 CTS보다 먼저 해제해야(using은 선언 역순으로 해제됨), 일찍 끝난 뒤 타이머가 해제된 CTS를 Cancel하지 않음
+            using IDisposable timeoutTimer = timeoutCts.CancelAfterSlim(TimeSpan.FromSeconds(timeoutSeconds));
             try
             {
                 videoPlayer.Prepare();
