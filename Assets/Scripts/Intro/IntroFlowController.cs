@@ -31,8 +31,6 @@ namespace DGAIZone.Intro
         private readonly float crossFadeDuration = 0.4f; // 1_Intro.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
-        private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함
-
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
         private ILogger<IntroFlowController> _logger;
@@ -140,7 +138,7 @@ namespace DGAIZone.Intro
             using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
             {
                 sb.Append(storyText.text);
-                sb.Replace(VisitorPlaceholder, visitorName);
+                sb.Replace(Constants.VisitorPlaceholder, visitorName);
                 storyText.text = sb.ToString();
             }
         }

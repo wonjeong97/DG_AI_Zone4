@@ -24,8 +24,6 @@ namespace DGAIZone.Outro
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private GameObject homeButton; // 연출이 끝나면 활성화할 "처음으로" 버튼
 
-        private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함(인트로와 동일한 규칙)
-
         private InactivityTimer _inactivityTimer;
         private ILogger<OutroStoryController> _logger;
         private VisitorInfoProvider _visitorInfoProvider;
@@ -113,7 +111,7 @@ namespace DGAIZone.Outro
             using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
             {
                 sb.Append(storyText.text);
-                sb.Replace(VisitorPlaceholder, visitorName);
+                sb.Replace(Constants.VisitorPlaceholder, visitorName);
                 storyText.text = sb.ToString();
             }
         }
