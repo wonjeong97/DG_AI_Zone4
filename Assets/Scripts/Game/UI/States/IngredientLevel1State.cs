@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
@@ -89,6 +90,62 @@ namespace DGAIZone.Game.UI.States
                 controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={controller.ConfirmedEngineValue} + 연료={controller.ConfirmedFuelValue} - 탑재={controller.ConfirmedPayloadValue}) vs 목적지 '{controller.MissionBoard?.Destination}' -> {(valid ? "성공" : "실패")}");
             }
             return valid;
+        }
+
+        /// <summary>
+        /// 추진력(엔진 출력량 + 연료량 - 탑재 중량)이 이번 목적지의 목표 거리와 정확히 같아지는 엔진·탑재·연료 조합을 찾아 단계 순서대로 반환함.
+        /// 조합이 여럿이면 매번 그중 하나를 무작위로 골라, 같은 목적지라도 다양한 정답을 보여 줌.
+        /// </summary>
+        public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)
+        {
+            List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = new List<(RfidStepDefinition ingredient, RfidMatter matter)>();
+            RfidStepDefinition[] steps = controller.StepDefinitions;
+            RfidLevelMapping mapping = controller.LevelMapping;
+            if (!controller.MissionBoard || steps == null || mapping == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 미션 보드나 레벨 1 단계 정의가 없어 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            RfidStepDefinition engineStep = Array.Find(steps, s => s != null && s.ingredientId == Constants.RfidIds.Level1.Engine);
+            RfidStepDefinition payloadStep = Array.Find(steps, s => s != null && s.ingredientId == Constants.RfidIds.Level1.Payload);
+            RfidStepDefinition fuelStep = Array.Find(steps, s => s != null && s.ingredientId == Constants.RfidIds.Level1.Fuel);
+            RfidMatter[] engines = engineStep != null ? mapping.FindMatters(engineStep.matterSetId) : null;
+            RfidMatter[] payloads = payloadStep != null ? mapping.FindMatters(payloadStep.matterSetId) : null;
+            RfidMatter[] fuels = fuelStep != null ? mapping.FindMatters(fuelStep.matterSetId) : null;
+            if (engines == null || payloads == null || fuels == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 1 엔진·탑재·연료 블록 목록 중 빠진 것이 있어 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            int target = controller.MissionBoard.TargetDistance;
+            List<(RfidMatter engine, RfidMatter payload, RfidMatter fuel)> candidates = new List<(RfidMatter engine, RfidMatter payload, RfidMatter fuel)>();
+            foreach (RfidMatter engine in engines)
+            {
+                foreach (RfidMatter payload in payloads)
+                {
+                    foreach (RfidMatter fuel in fuels)
+                    {
+                        if (IngredientSelectionController.CalculateThrust(engine.value, fuel.value, payload.value) == target) candidates.Add((engine, payload, fuel));
+                    }
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 목표 거리 {target}을(를) 만드는 레벨 1 블록 조합이 없어 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            (RfidMatter engine, RfidMatter payload, RfidMatter fuel) chosen = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+            foreach (RfidStepDefinition step in steps)
+            {
+                if (step == engineStep) solution.Add((step, chosen.engine));
+                else if (step == payloadStep) solution.Add((step, chosen.payload));
+                else if (step == fuelStep) solution.Add((step, chosen.fuel));
+            }
+            return solution;
         }
 
         /// <summary> 임시 선택값을 포함한 추진력을 계산함. </summary>

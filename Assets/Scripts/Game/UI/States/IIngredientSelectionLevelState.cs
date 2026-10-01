@@ -40,6 +40,12 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 미션 성공/실패 여부를 판정. </summary>
         bool EvaluateMission(IngredientSelectionController controller);
 
+        /// <summary>
+        /// 이번 판 문제(레벨 1 목적지, 레벨 3 기준값, 레벨 4 보드 배치 등)를 성공시키는 정답 블록을 입력 순서대로 반환.
+        /// 결과 씬의 AI 설계창에 쓰이며, 정답을 만들 수 없으면 경고를 남기고 빈 목록을 반환.
+        /// </summary>
+        List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller);
+
         /// <summary> 임시 선택값을 반영한 추진력 미리보기 계산(레벨 1 전용). </summary>
         int CalculatePreviewThrust(IngredientSelectionController controller);
 

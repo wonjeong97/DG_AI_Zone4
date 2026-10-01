@@ -13,6 +13,23 @@
 
 ---
 
+### [2026-10-01 17:05] Claude → Antigravity · T15
+- 변경 파일: T14(PR #34 결과 화면 AI 연출, 커밋 876849f·f7e7256) — `Game/UI/States/*LevelState.cs`(BuildSolution, 레벨 3 IsCorrectBlock), `Game/UI/Level4BoardController.cs`(경로 기록·FindShortestSolution), `Game/UI/IngredientSelectionController.cs`(StoreSolutionDesign), `Game/UI/MissionBoardController.cs`, `App/GameResultStore.cs`, `Result/ResultFlowController.cs`·`ResultAiPanel.cs`(신규)·`ResultVideoPanel.cs`·`ResultLifetimeScope.cs`, `Data/ResultSceneSettings.cs`, `StreamingAssets/Json/4_Result.json`, `Tests/Runtime/SolutionDesignTests.cs`(신규)
+- 확인 요청: 코드·설계 리뷰만(사용자가 에디터를 쓰는 중이라 run_tests·Play 모드 금지, 셸 금지). (1) 정답이 실제 판정과 같은 규칙이고 입력 가능한지 (2) 레벨 4 솔버 경로 기록·최단성 (3) 정답 기록 시점 (4) 결과 씬 비동기 흐름(취소, 영상 준비 실패) (5) 로그 규칙 (6) 테스트 (7) 기획 의견. 모델 `gemini-3.1-pro-high`.
+- 결과(Antigravity): 1·3·5·6 문제 없음, 2 낮음, 4 높음, 7 의견.
+  - 2(낮음): DFS라 첫 경로가 최단이 아닐 수 있다고 지적 → **오해**. `FindShortestSolution`은 카드 1장부터 늘려 가는 반복 심화 탐색이라 처음 찾은 경로가 최소 카드임. 미반영.
+  - 4(높음): 영상 파일이 없거나 준비에 실패하면 `WaitUntil(isPrepared)`가 끝나지 않음 → 수용.
+  - 7 의견: 레벨 1 정답을 무작위로, 연출 시간 단축(코딩 3초·설계 4초), 설계창 제목 추가 → 제목은 씬에 이미 있음("AI 설계 완료", 씬 YAML을 읽지 않아 놓친 것). 나머지는 기획 판단이라 사용자에게 보고만 함.
+- 결과(Claude 자체 리뷰): Antigravity 4와 같은 문제를 독립적으로 찾고 에디터에서 재현함(없는 파일로 Prepare 시 "WindowsMediaFoundation received empty file" 경고만 남고 `errorReceived` 없이 `isPrepared`가 계속 false). 추가로 Antigravity가 놓친 문제: `Settings.json` `resetTime`이 20초인데 결과 화면의 입력 없는 구간이 약 10초 → 약 32초로 늘어, 비활동 타이머를 켜면 완료 패널 전에 타이틀로 돌아감(높음).
+- 반영(사용자 지시 포함):
+  - 비활동 타이머: 결과 씬 입장부터 미션 결과 문구(컴플리트 패널)가 나올 때까지 `InactivityTimer.Pause()`, 이후·씬 파괴 시 `Resume()`.
+  - 영상 준비: `VideoReadyGate.PrepareAsync`(오류 콜백 + 5초 타임아웃) 추가. 플레이어 결과 영상은 실패하면 바로 AI 연출로, AI 패널 영상은 실패하면 설계창을 둔 채 완료 패널로 넘어감. 두 수정이 함께 있어야 영상 실패 시 타이머가 멈춘 채 화면이 영구히 멈추는 일이 없음.
+  - 컴파일 에러 0건. PlayMode 테스트는 사용자가 에디터를 쓰는 중이라 이번에는 돌리지 않음.
+- 후속(에디터 사용 허락 후):
+  - 사용자 지시로 Antigravity 7번 의견 중 "레벨 1 정답 무작위" 반영 — 정답 조합 전부를 모아 매번 하나를 무작위로 고름(달 2가지, 화성 8가지, 외계 행성 1가지). 테스트는 시드를 고정해 목적지마다 30번 뽑아 모두 성공하는지와 조합이 2가지 이상인 목적지에서 실제로 다른 조합이 나오는지 확인.
+  - Play 모드 확인 중 `PrepareAsync`의 `CancelAfterSlim` 타이머를 해제하지 않아, 준비가 일찍 끝나면 5초 뒤 해제된 CTS를 Cancel해 `ObjectDisposedException`이 나는 것을 발견하고 고침(타이머 등록을 CTS보다 먼저 해제). Play 모드에서는 없는 파일에 `errorReceived`가 바로 와 0.0초에 false 반환함을 확인.
+  - Play 모드로 결과 씬 확인: 설계가 한 줄씩 올라옴, 결과 씬 입장 시 타이머 정지 → 컴플리트 패널이 뜬 직후 재개. PlayMode 56/56 통과.
+
 ### [2026-10-01 16:06] Claude → Antigravity · T12
 - 변경 파일: T11(PR #32 레벨 4 반복 필수화, 커밋 795985a·bc24bbd) — `App/Constants.cs`(Level4Board), `Game/UI/Level4BoardController.cs`(BuildPlacementPool·CanClearWithin·TryRun·Level4Layout), `Game/Data/RfidMappingValidator.cs`(레벨 4 단계 수·반복 3회 검사), `Tests/Runtime/Level4OutcomeEvaluationTests.cs`, `Tests/Runtime/RfidMappingDataTests.cs`
 - 확인 요청: 코드·설계 리뷰만(사용자가 에디터를 쓰는 중이라 run_tests·Play 모드 금지, 셸 금지). (1) 솔버가 `EvaluateOutcome`·`BuildMoveSteps`와 같은 규칙인지 (2) 솔버의 풀이를 실제 게임에서 입력할 수 있는지(5번째 단계는 동작만, 반복하기 다음은 동작만) (3) 풀의 배치를 반복 없이 푸는 우회로 (4) 견고성·비용 (5) 검증기 누락 조건 (6) 테스트의 공허한 단언 여부 (7) 기획·체험 의견. 모델 `gemini-3.1-pro-high`(설계 판단).

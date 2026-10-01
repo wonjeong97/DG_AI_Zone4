@@ -126,6 +126,35 @@ namespace DGAIZone.Game.UI.States
             return success;
         }
 
+        /// <summary> 단계마다 이번 판 기준값에 맞는 정답 블록(IsCorrectBlock)을 골라 단계 순서대로 반환함. </summary>
+        public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)
+        {
+            List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = new List<(RfidStepDefinition ingredient, RfidMatter matter)>();
+            RfidStepDefinition[] steps = controller.StepDefinitions;
+            RfidLevelMapping mapping = controller.LevelMapping;
+            if (steps == null || mapping == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3 단계 정의가 없어 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            foreach (RfidStepDefinition step in steps)
+            {
+                RfidMatter[] matters = step != null ? mapping.FindMatters(step.matterSetId) : null;
+                RfidMatter matter = matters != null ? Array.Find(matters, m => IsCorrectBlock(controller, step.ingredientId, m)) : null;
+                if (matter == null)
+                {
+                    if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3 '{step?.ingredientId}' 단계에 이번 기준값(전기량 상한={controller.MissionBoard?.MaxElectricity}, 산소량 하한={controller.MissionBoard?.MinOxygen})에 맞는 블록이 없어 정답 설계를 만들 수 없음.");
+                    solution.Clear();
+                    return solution;
+                }
+
+                solution.Add((step, matter));
+            }
+
+            return solution;
+        }
+
         /// <summary> 레벨 3은 추진력 계산식을 사용하지 않음. </summary>
         public int CalculatePreviewThrust(IngredientSelectionController controller)
         {
@@ -187,27 +216,46 @@ namespace DGAIZone.Game.UI.States
 
         /// <summary>
         /// 정답 블록이면 재료에 해당하는 게이지를 delta만큼 증감함. 전기량 조건·전기량 동작은 전기 게이지를, 산소량 조건·산소량 동작은 산소 게이지를
-        /// 바꾸며, 조건 블록은 value를 미션 기준값과, 동작 블록은 id(전기량 낮추기/산소량 올리기)를 비교함.
+        /// 바꾸며, 정답 여부는 IsCorrectBlock이 정함.
         /// </summary>
         private void ApplyGaugeEffect(IngredientSelectionController controller, string ingredientId, RfidMatter matter, float delta)
         {
             switch (ingredientId)
             {
                 case Constants.RfidIds.Level3.ElectricityCondition:
-                    if (controller.MissionBoard && matter.value == controller.MissionBoard.MaxElectricity) AddElectricGaugeFill(controller, delta);
-                    break;
                 case Constants.RfidIds.Level3.Electricity:
-                    if (string.Equals(matter.id, Constants.RfidIds.Level3.Lower, StringComparison.Ordinal)) AddElectricGaugeFill(controller, delta);
+                    if (IsCorrectBlock(controller, ingredientId, matter)) AddElectricGaugeFill(controller, delta);
                     break;
                 case Constants.RfidIds.Level3.OxygenCondition:
-                    if (controller.MissionBoard && matter.value == controller.MissionBoard.MinOxygen) AddOxygenGaugeFill(controller, delta);
-                    break;
                 case Constants.RfidIds.Level3.Oxygen:
-                    if (string.Equals(matter.id, Constants.RfidIds.Level3.Raise, StringComparison.Ordinal)) AddOxygenGaugeFill(controller, delta);
+                    if (IsCorrectBlock(controller, ingredientId, matter)) AddOxygenGaugeFill(controller, delta);
                     break;
                 default:
                     if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3에서 알 수 없는 재료 id '{ingredientId}'라 게이지 효과를 적용하지 않음.");
                     break;
+            }
+        }
+
+        /// <summary>
+        /// 이번 판 기준값에서 정답 블록인지 판정함. 조건 블록은 value를 미션 기준값과, 동작 블록은 id(전기량 낮추기/산소량 올리기)를,
+        /// 논리 블록은 '그리고'인지('또는'은 시스템 불안정)를 봄.
+        /// </summary>
+        private static bool IsCorrectBlock(IngredientSelectionController controller, string ingredientId, RfidMatter matter)
+        {
+            switch (ingredientId)
+            {
+                case Constants.RfidIds.Level3.ElectricityCondition:
+                    return controller.MissionBoard && matter.value == controller.MissionBoard.MaxElectricity;
+                case Constants.RfidIds.Level3.Electricity:
+                    return string.Equals(matter.id, Constants.RfidIds.Level3.Lower, StringComparison.Ordinal);
+                case Constants.RfidIds.Level3.OxygenCondition:
+                    return controller.MissionBoard && matter.value == controller.MissionBoard.MinOxygen;
+                case Constants.RfidIds.Level3.Oxygen:
+                    return string.Equals(matter.id, Constants.RfidIds.Level3.Raise, StringComparison.Ordinal);
+                case Constants.RfidIds.Level3.Logic:
+                    return !string.Equals(matter.id, Constants.RfidIds.Level3.Or, StringComparison.Ordinal);
+                default:
+                    return false;
             }
         }
 

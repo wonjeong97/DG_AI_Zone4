@@ -100,6 +100,58 @@ namespace DGAIZone.Game.UI.States
             return controller.Level4Board.EvaluateOutcome(controller.GetConfirmedCommands());
         }
 
+        /// <summary>
+        /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(Level4BoardController.FindSolution)를 블록으로 바꿔 반환함.
+        /// 한 칸 이동은 '이동하기', 여러 칸 이동은 '반복하기(칸 수) + 이동하기'가 됨.
+        /// </summary>
+        public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)
+        {
+            List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = new List<(RfidStepDefinition ingredient, RfidMatter matter)>();
+            if (!controller.Level4Board || controller.LevelMapping == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level4Board나 레벨 4 블록 정의가 없어 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            List<(int moves, string directionId)> path = controller.Level4Board.FindSolution();
+            if (path == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 이번 레벨 4 배치를 카드 {Constants.Level4Board.MaxCards}장 안에 푸는 경로가 없어 정답 설계를 만들 수 없음.");
+                return solution;
+            }
+
+            RfidStepDefinition move = controller.FindCategoryIngredient(Constants.RfidCategories.Action);
+            RfidStepDefinition repeat = controller.FindCategoryIngredient(Constants.RfidCategories.Control);
+            RfidMatter[] moveMatters = move != null ? controller.LevelMapping.FindMatters(move.matterSetId) : null;
+            RfidMatter[] repeatMatters = repeat != null ? controller.LevelMapping.FindMatters(repeat.matterSetId) : null;
+
+            foreach ((int moves, string directionId) in path)
+            {
+                if (moves > 1)
+                {
+                    RfidMatter repeatMatter = repeatMatters != null ? Array.Find(repeatMatters, m => m.value == moves) : null;
+                    if (repeatMatter == null)
+                    {
+                        if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 4 반복하기 블록에 {moves}회가 없어 정답 설계를 만들 수 없음.");
+                        solution.Clear();
+                        return solution;
+                    }
+                    solution.Add((repeat, repeatMatter));
+                }
+
+                RfidMatter moveMatter = moveMatters != null ? Array.Find(moveMatters, m => m.id == directionId) : null;
+                if (moveMatter == null)
+                {
+                    if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 4 이동하기 블록에 '{directionId}'가 없어 정답 설계를 만들 수 없음.");
+                    solution.Clear();
+                    return solution;
+                }
+                solution.Add((move, moveMatter));
+            }
+
+            return solution;
+        }
+
         /// <summary> 레벨 4는 추진력 계산식을 사용하지 않음. </summary>
         public int CalculatePreviewThrust(IngredientSelectionController controller)
         {

@@ -64,8 +64,17 @@ namespace DGAIZone.Game.UI
         /// <summary> 이번 게임의 목적지 표기(로그용, 예: "화성 (거리 10)"). </summary>
         public string Destination => $"{_current.planetName} (거리 {_current.targetDistance})";
 
+        /// <summary> 이번 목적지의 목표 거리(레벨 1). 추진력이 이 값과 정확히 같아야 성공함. </summary>
+        public int TargetDistance => _current.targetDistance;
+
         /// <summary> 계산된 추진력이 이번 목적지의 목표 거리와 정확히 같은지 반환함(모자라도, 넘쳐도 실패). </summary>
         public bool IsThrustValid(int totalThrust) => totalThrust == _current.targetDistance;
+
+        /// <summary> 테스트 전용: 무작위 대신 레벨 1 목표 거리를 직접 정함. </summary>
+        internal void SetTargetDistanceForTest(int targetDistance)
+        {
+            _current = new MissionDestination { planetName = _current.planetName, targetDistance = targetDistance, spriteKey = _current.spriteKey };
+        }
 
         /// <summary> 레벨 3: 전기량이 이 값을 넘으면 안 됨(Level3 LevelData의 maxElectricityRange에서 무작위로 정해짐). </summary>
         public int MaxElectricity { get; private set; }

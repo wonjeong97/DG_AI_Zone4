@@ -14,7 +14,7 @@ namespace DGAIZone.Result
     /// <summary>
     /// 결과 씬 진입 시 선택된 레벨과 게임 결과(성공/실패)에 맞는 영상을 재생함. 파일명은
     /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4").
-    /// 반복 재생은 하지 않으며, 재생이 끝나면 컴플리트 패널로 전환함.
+    /// 반복 재생은 하지 않으며, 재생이 끝나면 AI 연출(ResultFlowController.PlayAiSequence)로 넘어감.
     /// </summary>
     public class ResultVideoPanel : MonoBehaviour, ISceneVideoReadiness
     {
@@ -28,6 +28,17 @@ namespace DGAIZone.Result
         private GameResultStore _resultStore;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<ResultVideoPanel> _logger;
+
+        /// <summary> 레벨을 영상이 존재하는 범위(MinLevel~MaxLevel)로 맞춤. </summary>
+        internal static int ClampLevel(int level) => Mathf.Clamp(level, MinLevel, MaxLevel);
+
+        /// <summary> "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. level은 ClampLevel을 거친 값이어야 함. </summary>
+        internal static string GetVideoFileName(int level, bool success) =>
+            ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-", success ? "Success" : "Fail", ".mp4");
+
+        /// <summary> StreamingAssets/Videos 아래 영상 파일의 전체 경로. </summary>
+        internal static string GetVideoPath(string fileName) =>
+            System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, fileName);
 
         /// <summary> VContainer 의존성 주입. 게임 결과 저장소, 선택된 레벨 저장소, 로거를 할당함. </summary>
         [Inject]
@@ -62,60 +73,75 @@ namespace DGAIZone.Result
             return _readySignal.Task.AttachExternalCancellation(token);
         }
 
-        /// <summary> 게임 결과에 맞는 영상을 준비 후 재생하고, 끝나면 컴플리트 패널을 표시함. </summary>
+        /// <summary>
+        /// 게임 결과에 맞는 영상을 끝까지 재생한 뒤 AI 연출로 넘어감(마지막 프레임은 화면에 남음).
+        /// 영상을 틀 수 없으면(videoPlayer 없음, 파일 없음, 준비 실패) 결과 영상 없이 바로 AI 연출로 넘어가 화면이 멈추지 않게 함.
+        /// </summary>
         private async UniTaskVoid PlayResultVideoAsync(CancellationToken token)
         {
             try
             {
-                if (!videoPlayer)
-                {
-                    if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] videoPlayer가 null이라 결과 영상을 재생할 수 없음.");
-                    _readySignal.TrySetResult();
-                    return;
-                }
-
-                bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
-
-                int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : MinLevel;
-                int clampedLevel = Mathf.Clamp(level, MinLevel, MaxLevel);
-                if (clampedLevel != level && _logger != null)
-                {
-                    _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{MaxLevel})를 벗어나 {clampedLevel}로 대체함.");
-                }
-
-                string fileName = ZString.Concat(Constants.Files.ResultVideoPrefix, "-", clampedLevel, "-", success ? "Success" : "Fail", ".mp4");
-                if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 레벨={clampedLevel}, 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
-                string path = System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, fileName);
-
-                videoPlayer.source = VideoSource.Url;
-                videoPlayer.url = path;
-                videoPlayer.isLooping = false;
-
-                videoPlayer.Prepare();
-                await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
-                videoPlayer.Play();
-
-                await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
-                _readySignal.TrySetResult();
-
-                // loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않는 경우가 있어
-                // isPlaying 상태 전이를 직접 폴링해 재생 종료를 감지함.
-                await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
-                await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
-
-                if (flowController)
-                {
-                    flowController.ShowCompletePanel();
-                }
-                else if (_logger != null)
-                {
-                    _logger.ZLogWarning($"[ResultVideoPanel] flowController가 null이라 CompletePanel이 페이드인되지 않음.");
-                }
+                await PlayVideoToEndAsync(token);
             }
             catch (OperationCanceledException)
             {
-                // 토큰 취소 시 예외 무시
+                return; // 토큰 취소 시 예외 무시
             }
+            finally
+            {
+                _readySignal.TrySetResult(); // 영상을 못 틀었어도 씬 전환 페이드인이 기다리지 않게 함
+            }
+
+            if (flowController)
+            {
+                flowController.PlayAiSequence();
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[ResultVideoPanel] flowController가 null이라 AI 연출과 CompletePanel이 나오지 않음.");
+            }
+        }
+
+        /// <summary> 결과 영상을 준비해 끝까지 재생함. videoPlayer가 없거나 준비에 실패하면 로그를 남기고 바로 반환함. </summary>
+        private async UniTask PlayVideoToEndAsync(CancellationToken token)
+        {
+            if (!videoPlayer)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] videoPlayer가 null이라 결과 영상 없이 AI 연출로 넘어감.");
+                return;
+            }
+
+            bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
+
+            int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : MinLevel;
+            int clampedLevel = ClampLevel(level);
+            if (clampedLevel != level && _logger != null)
+            {
+                _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{MaxLevel})를 벗어나 {clampedLevel}로 대체함.");
+            }
+
+            string fileName = GetVideoFileName(clampedLevel, success);
+            if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 레벨={clampedLevel}, 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
+
+            videoPlayer.source = VideoSource.Url;
+            videoPlayer.url = GetVideoPath(fileName);
+            videoPlayer.isLooping = false;
+
+            if (!await VideoReadyGate.PrepareAsync(videoPlayer, VideoReadyGate.DefaultPrepareTimeoutSeconds, token))
+            {
+                if (_logger != null) _logger.ZLogError($"[ResultVideoPanel] {fileName}을(를) 준비하지 못함(파일 없음·재생 오류·{VideoReadyGate.DefaultPrepareTimeoutSeconds}초 초과). 결과 영상 없이 AI 연출로 넘어감.");
+                return;
+            }
+
+            videoPlayer.Play();
+
+            await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+            _readySignal.TrySetResult();
+
+            // loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않는 경우가 있어
+            // isPlaying 상태 전이를 직접 폴링해 재생 종료를 감지함.
+            await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
+            await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
         }
     }
 }
