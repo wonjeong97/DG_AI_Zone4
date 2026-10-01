@@ -231,6 +231,90 @@ namespace DGAIZone.Tests
             }
         }
 
+        /// <summary> 레벨 3 판정에 쓰는 미션 보드(기준값 고정)를 컨트롤러에 연결함. </summary>
+        private void SetUpLevel3MissionBoard(int maxElectricity, int minOxygen)
+        {
+            MissionBoardController board = _go.AddComponent<MissionBoardController>();
+            board.SetLevel3LimitsForTest(maxElectricity, minOxygen);
+            typeof(IngredientSelectionController).GetField("_missionBoard", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(_controller, board);
+        }
+
+        /// <summary>
+        /// 레벨 3에서 정답 블록을 JSON 단계 순서대로 확정하면, 전기 조건·전기량 낮추기는 전기 게이지를, 산소 조건·산소량 올리기는 산소 게이지를 절반씩 채워야 함.
+        /// </summary>
+        [Test]
+        public void 레벨3_정답을_확정하면_전기와_산소_게이지가_각각_찬다()
+        {
+            IngredientLevel3State l3 = new IngredientLevel3State();
+            SetUpLevel3MissionBoard(maxElectricity: 4, minOxygen: 3);
+
+            l3.OnStepConfirmed(_controller, 0, Constants.RfidIds.Level3.ElectricityCondition, new RfidMatter { id = "Over4", value = 4 });
+            Assert.AreEqual(0.5f, l3.ElectricFill, 0.0001f, "전기 조건이 기준값과 같으면 전기 게이지가 절반 차야 함");
+            Assert.AreEqual(0f, l3.OxygenFill, 0.0001f, "전기 조건은 산소 게이지를 채우면 안 됨");
+
+            l3.OnStepConfirmed(_controller, 1, Constants.RfidIds.Level3.Electricity, new RfidMatter { id = Constants.RfidIds.Level3.Lower });
+            Assert.AreEqual(1f, l3.ElectricFill, 0.0001f, "전기량 낮추기로 전기 게이지가 가득 차야 함");
+
+            l3.OnStepConfirmed(_controller, 2, Constants.RfidIds.Level3.Logic, new RfidMatter { id = "And" });
+            Assert.IsFalse(l3.InstabilityPending, "'그리고'는 불안정 상태가 아니어야 함");
+
+            l3.OnStepConfirmed(_controller, 3, Constants.RfidIds.Level3.OxygenCondition, new RfidMatter { id = "Under3", value = 3 });
+            Assert.AreEqual(0.5f, l3.OxygenFill, 0.0001f, "산소 조건이 기준값과 같으면 산소 게이지가 절반 차야 함");
+
+            l3.OnStepConfirmed(_controller, 4, Constants.RfidIds.Level3.Oxygen, new RfidMatter { id = Constants.RfidIds.Level3.Raise });
+            Assert.AreEqual(1f, l3.OxygenFill, 0.0001f, "산소량 올리기로 산소 게이지가 가득 차야 함");
+            Assert.AreEqual(1f, l3.ElectricFill, 0.0001f, "산소 블록은 전기 게이지를 바꾸면 안 됨");
+            Assert.IsTrue(l3.EvaluateMission(_controller), "두 게이지가 가득 차고 안정적이면 성공해야 함");
+        }
+
+        /// <summary>
+        /// 레벨 3 게이지는 단계 순서(stepIndex)가 아니라 재료 id로 정해져야 함. JSON에서 단계 순서를 바꿔(산소 먼저) 확정해도 맞는 게이지가 차야 함.
+        /// </summary>
+        [Test]
+        public void 레벨3_단계_순서를_바꿔도_재료_id에_맞는_게이지가_찬다()
+        {
+            IngredientLevel3State l3 = new IngredientLevel3State();
+            SetUpLevel3MissionBoard(maxElectricity: 5, minOxygen: 4);
+
+            l3.OnStepConfirmed(_controller, 0, Constants.RfidIds.Level3.Oxygen, new RfidMatter { id = Constants.RfidIds.Level3.Raise });
+            Assert.AreEqual(0.5f, l3.OxygenFill, 0.0001f, "첫 단계라도 산소량 올리기는 산소 게이지를 채워야 함");
+            Assert.AreEqual(0f, l3.ElectricFill, 0.0001f, "산소량 올리기가 전기 게이지를 채우면 안 됨");
+
+            l3.OnStepConfirmed(_controller, 1, Constants.RfidIds.Level3.OxygenCondition, new RfidMatter { id = "Under4", value = 4 });
+            l3.OnStepConfirmed(_controller, 2, Constants.RfidIds.Level3.Logic, new RfidMatter { id = "And" });
+            l3.OnStepConfirmed(_controller, 3, Constants.RfidIds.Level3.Electricity, new RfidMatter { id = Constants.RfidIds.Level3.Lower });
+            l3.OnStepConfirmed(_controller, 4, Constants.RfidIds.Level3.ElectricityCondition, new RfidMatter { id = "Over5", value = 5 });
+
+            Assert.AreEqual(1f, l3.OxygenFill, 0.0001f, "산소 게이지가 가득 차야 함");
+            Assert.AreEqual(1f, l3.ElectricFill, 0.0001f, "전기 게이지가 가득 차야 함");
+            Assert.IsTrue(l3.EvaluateMission(_controller), "순서와 무관하게 정답이면 성공해야 함");
+        }
+
+        /// <summary>
+        /// 레벨 3에서 오답 블록은 게이지를 채우지 않고, '또는'은 불안정 상태를 예약하며, 취소하면 적용됐던 효과가 되돌아가야 함.
+        /// </summary>
+        [Test]
+        public void 레벨3_오답과_또는은_게이지를_채우지_않고_취소하면_되돌아간다()
+        {
+            IngredientLevel3State l3 = new IngredientLevel3State();
+            SetUpLevel3MissionBoard(maxElectricity: 4, minOxygen: 3);
+            RfidMatter correctCondition = new RfidMatter { id = "Over4", value = 4 };
+            RfidMatter or = new RfidMatter { id = Constants.RfidIds.Level3.Or };
+
+            l3.OnStepConfirmed(_controller, 0, Constants.RfidIds.Level3.ElectricityCondition, correctCondition);
+            l3.OnStepConfirmed(_controller, 1, Constants.RfidIds.Level3.Electricity, new RfidMatter { id = Constants.RfidIds.Level3.Raise });
+            Assert.AreEqual(0.5f, l3.ElectricFill, 0.0001f, "전기량 올리기는 오답이라 전기 게이지가 더 차면 안 됨");
+
+            l3.OnStepConfirmed(_controller, 2, Constants.RfidIds.Level3.Logic, or);
+            Assert.IsTrue(l3.InstabilityPending, "'또는'을 고르면 불안정 상태가 예약돼야 함");
+
+            l3.OnStepRolledBack(_controller, 2, Constants.RfidIds.Level3.Logic, or);
+            Assert.IsFalse(l3.InstabilityPending, "'또는'을 취소하면 불안정 상태가 풀려야 함");
+
+            l3.OnStepRolledBack(_controller, 0, Constants.RfidIds.Level3.ElectricityCondition, correctCondition);
+            Assert.AreEqual(0f, l3.ElectricFill, 0.0001f, "전기 조건을 취소하면 채웠던 전기 게이지가 되돌아가야 함");
+        }
+
         /// <summary>
         /// 레벨 1 상태는 모든 단계가 완료되어야 코딩완료가 활성화되고, 텍스트에 재료명이 포함되어야 함.
         /// </summary>

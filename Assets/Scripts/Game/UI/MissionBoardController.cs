@@ -73,6 +73,13 @@ namespace DGAIZone.Game.UI
         /// <summary> 레벨 3: 산소량이 이 값보다 낮으면 안 됨(Level3 LevelData의 minOxygenRange에서 무작위로 정해짐). </summary>
         public int MinOxygen { get; private set; }
 
+        /// <summary> 테스트 전용: 무작위 대신 레벨 3 기준값(전기량 상한, 산소량 하한)을 직접 정함. </summary>
+        internal void SetLevel3LimitsForTest(int maxElectricity, int minOxygen)
+        {
+            MaxElectricity = maxElectricity;
+            MinOxygen = minOxygen;
+        }
+
         /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소, 레벨 데이터를 가진 게임 흐름 컨트롤러, 로거, 체험자 정보 제공자를 할당함. </summary>
         [Inject]
         public void Construct(
