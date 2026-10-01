@@ -57,6 +57,7 @@ namespace DGAIZone.App
         /// <summary>
         /// 스트리밍 에셋의 로봇 영상을 준비, 재생하고, 첫 프레임이 실제로 그려진 뒤에 RawImage를 노출함.
         /// RenderTexture는 씬 간 공유되므로 Prepare 전에 검게 초기화해 이전 프레임 잔상을 막음.
+        /// 영상을 준비하지 못하면(파일 없음·재생 오류·시간 초과) 오류를 남기고 영상 없이 준비 완료로 알림.
         /// </summary>
         private async UniTaskVoid PlayVideoAsync(CancellationToken token)
         {
@@ -90,8 +91,14 @@ namespace DGAIZone.App
                 videoPlayer.url = path;
                 videoPlayer.isLooping = true;
 
-                videoPlayer.Prepare();
-                await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
+                if (!await VideoReadyGate.PrepareAsync(videoPlayer, VideoReadyGate.DefaultPrepareTimeoutSeconds, token))
+                {
+                    // 화면은 영상 없이 두되, 씬 전환 페이드인이 영상 준비 대기 타임아웃까지 기다리지 않게 함
+                    if (_logger != null) _logger.ZLogError($"[RobotVideoPanel] {Constants.Files.RobotVideo}을(를) 준비하지 못함(파일 없음·재생 오류·{VideoReadyGate.DefaultPrepareTimeoutSeconds}초 초과). 로봇 영상 없이 진행함.");
+                    _readySignal.TrySetResult();
+                    return;
+                }
+
                 videoPlayer.Play();
 
                 await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
