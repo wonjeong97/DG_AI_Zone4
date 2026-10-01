@@ -86,7 +86,7 @@ namespace DGAIZone.Game.Data
 
                 if (!reachable.Contains(destination.targetDistance))
                 {
-                    errors.Add($"레벨 1 목적지 '{destination.planetName}'의 거리 {destination.targetDistance}를 엔진 + 연료 - 탑재 블록 조합으로 만들 수 없어 성공할 수 없음.");
+                    errors.Add($"레벨 1 목적지 '{destination.planetName}'(거리 {destination.targetDistance})는 엔진 + 연료 - 탑재 블록 조합으로 만들 수 없어 성공할 수 없음.");
                 }
             }
         }
@@ -285,7 +285,7 @@ namespace DGAIZone.Game.Data
             {
                 if (matter != null && matter.value < minValue)
                 {
-                    errors.Add($"{where} 블록 '{matter.id}'의 value가 {matter.value}라 {minValue} 이상이어야 함({reason}).");
+                    errors.Add($"{where} 블록 '{matter.id}'의 value({matter.value})는 {minValue} 이상이어야 함({reason}).");
                 }
             }
         }
