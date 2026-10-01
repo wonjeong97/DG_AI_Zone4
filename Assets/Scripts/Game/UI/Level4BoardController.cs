@@ -34,7 +34,8 @@ namespace DGAIZone.Game.UI
 
         private const int Rows = 4;
         private const int Columns = 4;
-        private const int MaxCommands = 5; // 플레이어가 입력 가능한 카드 최대 개수. 복잡한 배치를 막기 위한 이동 비용 상한으로 씀.
+        private const int MaxCommands = Constants.Level4Board.MaxCards; // 플레이어가 입력 가능한 카드 최대 개수. 반복하기 없이는 이 장수 안에 못 푸는 배치만 고르는 기준으로 씀.
+        private const int RequiredRepeatCount = Constants.Level4Board.RequiredRepeatCount; // 배치가 전제로 하는 반복하기 횟수
         private const float DefaultMoveDuration = 0.35f; // 3_Game.json 로드 전까지의 폴백 기본값(한 칸 이동에 걸리는 시간, 초)
         private const float DefaultStepPauseDuration = 0.35f; // 3_Game.json 로드 전까지의 폴백 기본값(한 칸 이동 완료 후 다음 이동 전 대기 시간, 초)
         private const float DebugMarkerHeight = 28f; // CellMarkers 디버그 라벨(TMP, sizeDelta 80x28, pivot 0.5,0.5)의 높이. 아이콘 정렬 기준점(라벨의 중앙 하단) 계산에 씀.
@@ -56,6 +57,15 @@ namespace DGAIZone.Game.UI
         private const string MoveDown = Constants.RfidIds.Level4.MoveDown;
         private const string MoveRight = Constants.RfidIds.Level4.MoveRight;
         private const string MoveLeft = Constants.RfidIds.Level4.MoveLeft;
+
+        // 배치 검사(CanClearWithin)에서 놓아 보는 이동 방향(위/아래/오른쪽/왼쪽). ToMoveStep과 같은 변화량을 씀
+        private static readonly Level4MoveStep[] MoveDirections =
+        {
+            new Level4MoveStep(0, -1),
+            new Level4MoveStep(0, 1),
+            new Level4MoveStep(1, 0),
+            new Level4MoveStep(-1, 0)
+        };
 
         // Grid.png(742x234) 사다리꼴 그리드의 행 경계 Y좌표 5개(행 4개 = 경계 5개)와,
         // 각 행 경계에서의 열 경계 X좌표 5개(열 4개 = 경계 5개). 이미지 픽셀 분석으로 산출됨.
@@ -158,49 +168,24 @@ namespace DGAIZone.Game.UI
         private bool IsLevel4() => _selectedLevelStore != null && _selectedLevelStore.SelectedLevel == 4;
 
         /// <summary>
-        /// 열은 로봇=0, 자원=1, 함정=2, 기지=3으로 고정하고 행만 무작위로 뽑되,
-        /// (1) 로봇과 기지가 같은 행이면 일자 경로가 되므로 배제하고,
-        /// (2) 로봇-자원-기지 이동에 필요한 최소 커맨드 수(함정이 자원-기지 직선 경로를 완전히 막으면 우회 +2 포함)가
-        /// MaxCommands를 넘지 않는 조합만 후보로 삼아 그중 하나를 무작위로 고름.
+        /// 열은 로봇=0, 자원=1, 함정=2, 기지=3으로 고정하고 행만 무작위로 뽑되, 반복하기(제어) 블록을 꼭 쓰도록
+        /// 이동하기만으로는 카드 MaxCommands장 안에 풀 수 없고 반복하기를 쓰면 풀리는 배치(BuildPlacementPool) 중 하나를 고름.
         /// </summary>
         private void RandomizePlacement()
         {
-            List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)> candidates = new List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)>();
-
-            for (int robotRow = 0; robotRow < Rows; robotRow++)
+            List<Level4Layout> pool = BuildPlacementPool();
+            if (pool.Count == 0)
             {
-                for (int resourceRow = 0; resourceRow < Rows; resourceRow++)
-                {
-                    for (int hqRow = 0; hqRow < Rows; hqRow++)
-                    {
-                        if (hqRow == robotRow) continue; // 일자 진행 방지
-
-                        for (int trapRow = 0; trapRow < Rows; trapRow++)
-                        {
-                            int pathToResource = 1 + Mathf.Abs(resourceRow - robotRow);
-                            int pathToHq = 2 + Mathf.Abs(hqRow - resourceRow);
-                            bool blockedStraightLine = resourceRow == hqRow && trapRow == resourceRow;
-                            int cost = pathToResource + pathToHq + (blockedStraightLine ? 2 : 0);
-                            candidates.Add((robotRow, resourceRow, hqRow, trapRow, cost));
-                        }
-                    }
-                }
+                if (_logger != null) _logger.ZLogError($"[Level4BoardController] 반복하기를 써야만 풀리는 배치가 없어 보드를 배치할 수 없음(카드 {MaxCommands}장, 반복 {RequiredRepeatCount}회 기준).");
+                return;
             }
 
-            int minCost = int.MaxValue;
-            foreach ((int robotRow, int resourceRow, int hqRow, int trapRow, int cost) candidate in candidates)
-            {
-                if (candidate.cost < minCost) minCost = candidate.cost;
-            }
+            Level4Layout chosen = pool[UnityEngine.Random.Range(0, pool.Count)];
 
-            int budget = Mathf.Min(minCost + 1, MaxCommands);
-            List<(int robotRow, int resourceRow, int hqRow, int trapRow, int cost)> pool = candidates.FindAll(c => c.cost <= budget);
-            (int robotRow, int resourceRow, int hqRow, int trapRow, int cost) chosen = pool[UnityEngine.Random.Range(0, pool.Count)];
-
-            RobotRow = chosen.robotRow;
-            ResourceRow = chosen.resourceRow;
-            HqRow = chosen.hqRow;
-            TrapRow = chosen.trapRow;
+            RobotRow = chosen.RobotRow;
+            ResourceRow = chosen.ResourceRow;
+            HqRow = chosen.HqRow;
+            TrapRow = chosen.TrapRow;
 
             PlaceAtCellCenter(robotIcon, 0, RobotRow);
             PlaceAtCellCenter(resourceIcon, 1, ResourceRow);
@@ -213,6 +198,75 @@ namespace DGAIZone.Game.UI
             ApplyRobotFacing();
 
             ApplyRowBasedDrawOrder();
+        }
+
+        /// <summary>
+        /// 반복하기를 써야만 풀리는 배치 목록을 만듦. 로봇과 기지가 같은 행인 일자 경로는 빼고, 이동하기만으로는 카드 MaxCommands장 안에
+        /// 풀 수 없지만 '반복하기(RequiredRepeatCount회) + 이동하기'를 쓰면 MaxCommands장 안에 풀리는 조합만 남김.
+        /// </summary>
+        internal static List<Level4Layout> BuildPlacementPool()
+        {
+            List<Level4Layout> pool = new List<Level4Layout>();
+
+            for (int robotRow = 0; robotRow < Rows; robotRow++)
+            {
+                for (int resourceRow = 0; resourceRow < Rows; resourceRow++)
+                {
+                    for (int hqRow = 0; hqRow < Rows; hqRow++)
+                    {
+                        if (hqRow == robotRow) continue; // 일자 진행 방지
+
+                        for (int trapRow = 0; trapRow < Rows; trapRow++)
+                        {
+                            Level4Layout layout = new Level4Layout(robotRow, resourceRow, trapRow, hqRow);
+                            if (!CanClearWithin(layout, MaxCommands, 1) && CanClearWithin(layout, MaxCommands, RequiredRepeatCount))
+                            {
+                                pool.Add(layout);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return pool;
+        }
+
+        /// <summary>
+        /// 이 배치를 카드 maxCards장 안에 풀 수 있는지 판정함. EvaluateOutcome과 같은 규칙(그리드 밖·함정은 실패, 자원을 먼저 지나 기지에 도착하면 성공)으로
+        /// 가능한 카드 조합을 모두 따져 봄. repeatCount가 2 이상이면 '반복하기(repeatCount회) + 이동하기' 두 장 묶음도 쓰고, 1이면 이동하기만 씀.
+        /// </summary>
+        internal static bool CanClearWithin(Level4Layout layout, int maxCards, int repeatCount)
+        {
+            return CanClearFrom(layout, 0, layout.RobotRow, false, maxCards, repeatCount);
+        }
+
+        /// <summary> 현재 칸에서 이동하기 한 장 또는 반복하기+이동하기 두 장을 방향마다 놓아 보며, 남은 카드로 성공할 수 있는지 재귀로 찾음. </summary>
+        private static bool CanClearFrom(Level4Layout layout, int column, int row, bool collected, int cardsLeft, int repeatCount)
+        {
+            foreach (Level4MoveStep direction in MoveDirections)
+            {
+                if (cardsLeft >= 1 && TryRun(layout, column, row, collected, direction, 1, cardsLeft - 1, repeatCount)) return true;
+                if (repeatCount > 1 && cardsLeft >= 2 && TryRun(layout, column, row, collected, direction, repeatCount, cardsLeft - 2, repeatCount)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary> direction으로 moves칸 가 봄. 기지에 닿으면 자원을 먼저 모았는지가 곧 결과이고, 그리드 밖·함정이면 실패, 그 외에는 남은 카드로 이어서 찾음. </summary>
+        private static bool TryRun(Level4Layout layout, int column, int row, bool collected, Level4MoveStep direction, int moves, int cardsLeft, int repeatCount)
+        {
+            for (int i = 0; i < moves; i++)
+            {
+                column += direction.DeltaColumn;
+                row += direction.DeltaRow;
+
+                if (IsOutOfBounds(column, row)) return false;
+                if (column == 1 && row == layout.ResourceRow) collected = true;
+                if (column == 2 && row == layout.TrapRow) return false;
+                if (column == 3 && row == layout.HqRow) return collected;
+            }
+
+            return cardsLeft > 0 && CanClearFrom(layout, column, row, collected, cardsLeft, repeatCount);
         }
 
         /// <summary>
@@ -697,6 +751,27 @@ namespace DGAIZone.Game.UI
                 DeltaColumn = deltaColumn;
                 DeltaRow = deltaRow;
             }
+        }
+
+        /// <summary> 로봇·자원·함정·기지의 행 배치 하나(열은 로봇=0, 자원=1, 함정=2, 기지=3으로 고정). </summary>
+        internal readonly struct Level4Layout
+        {
+            public readonly int RobotRow;
+            public readonly int ResourceRow;
+            public readonly int TrapRow;
+            public readonly int HqRow;
+
+            /// <summary> 각 아이콘의 행으로 배치를 초기화함. </summary>
+            public Level4Layout(int robotRow, int resourceRow, int trapRow, int hqRow)
+            {
+                RobotRow = robotRow;
+                ResourceRow = resourceRow;
+                TrapRow = trapRow;
+                HqRow = hqRow;
+            }
+
+            /// <summary> 로그·테스트 메시지용 배치 표기. </summary>
+            public override string ToString() => $"로봇 R{RobotRow}, 자원 R{ResourceRow}, 함정 R{TrapRow}, 기지 R{HqRow}";
         }
     }
 }

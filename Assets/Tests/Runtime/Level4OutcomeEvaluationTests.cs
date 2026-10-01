@@ -154,5 +154,60 @@ namespace DGAIZone.Tests
             bool result = _board.EvaluateOutcome(commands);
             Assert.IsFalse(result, "기지에 미도착했으나 실패로 판정되지 않음");
         }
+
+        private static readonly string[] Directions =
+        {
+            Constants.RfidIds.Level4.MoveUp,
+            Constants.RfidIds.Level4.MoveDown,
+            Constants.RfidIds.Level4.MoveRight,
+            Constants.RfidIds.Level4.MoveLeft
+        };
+
+        /// <summary>
+        /// 보드가 고르는 배치 후보마다 실제 판정(EvaluateOutcome)으로 카드 조합을 모두 따져, 이동하기만으로는 카드 5장 안에 성공할 수 없고
+        /// '반복하기(3회) + 이동하기'를 쓰면 5장 안에 성공할 수 있어야 함(제어 블록을 쓰지 않아도 풀리던 문제의 회귀 방지).
+        /// </summary>
+        [Test]
+        public void 모든_배치는_반복하기_없이는_못_풀고_반복하기로는_풀린다()
+        {
+            List<Level4BoardController.Level4Layout> pool = Level4BoardController.BuildPlacementPool();
+            Assert.IsNotEmpty(pool, "반복하기를 써야만 풀리는 배치가 하나도 없음");
+
+            int maxCards = Constants.Level4Board.MaxCards;
+            foreach (Level4BoardController.Level4Layout layout in pool)
+            {
+                _board.SetPlacementForTest(layout.RobotRow, layout.ResourceRow, layout.TrapRow, layout.HqRow);
+                Assert.IsFalse(CanClear(new List<(string, RfidMatter)>(), maxCards, allowRepeat: false), $"{layout}: 이동하기만으로 {maxCards}장 안에 풀림");
+                Assert.IsTrue(CanClear(new List<(string, RfidMatter)>(), maxCards, allowRepeat: true), $"{layout}: 반복하기를 써도 {maxCards}장 안에 못 풂");
+            }
+        }
+
+        /// <summary> 지금까지의 명령 뒤에 카드를 cardsLeft장까지 더 붙여 보며, 실제 판정(EvaluateOutcome)으로 성공하는 조합이 있는지 찾음. </summary>
+        private bool CanClear(List<(string, RfidMatter)> commands, int cardsLeft, bool allowRepeat)
+        {
+            if (commands.Count > 0 && _board.EvaluateOutcome(commands)) return true;
+
+            foreach (string direction in Directions)
+            {
+                if (cardsLeft >= 1)
+                {
+                    commands.Add(Move(direction));
+                    bool found = CanClear(commands, cardsLeft - 1, allowRepeat);
+                    commands.RemoveAt(commands.Count - 1);
+                    if (found) return true;
+                }
+
+                if (allowRepeat && cardsLeft >= 2)
+                {
+                    commands.Add(Repeat(Constants.Level4Board.RequiredRepeatCount));
+                    commands.Add(Move(direction));
+                    bool found = CanClear(commands, cardsLeft - 2, allowRepeat);
+                    commands.RemoveRange(commands.Count - 2, 2);
+                    if (found) return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

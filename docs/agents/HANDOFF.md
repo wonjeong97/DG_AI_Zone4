@@ -13,7 +13,20 @@
 
 ---
 
-### [2026-10-01 15:33] Claude → Antigravity · T10
+### [2026-10-01 16:06] Claude → Antigravity · T12
+- 변경 파일: T11(PR #32 레벨 4 반복 필수화, 커밋 795985a·bc24bbd) — `App/Constants.cs`(Level4Board), `Game/UI/Level4BoardController.cs`(BuildPlacementPool·CanClearWithin·TryRun·Level4Layout), `Game/Data/RfidMappingValidator.cs`(레벨 4 단계 수·반복 3회 검사), `Tests/Runtime/Level4OutcomeEvaluationTests.cs`, `Tests/Runtime/RfidMappingDataTests.cs`
+- 확인 요청: 코드·설계 리뷰만(사용자가 에디터를 쓰는 중이라 run_tests·Play 모드 금지, 셸 금지). (1) 솔버가 `EvaluateOutcome`·`BuildMoveSteps`와 같은 규칙인지 (2) 솔버의 풀이를 실제 게임에서 입력할 수 있는지(5번째 단계는 동작만, 반복하기 다음은 동작만) (3) 풀의 배치를 반복 없이 푸는 우회로 (4) 견고성·비용 (5) 검증기 누락 조건 (6) 테스트의 공허한 단언 여부 (7) 기획·체험 의견. 모델 `gemini-3.1-pro-high`(설계 판단).
+- 결과(Antigravity): 1·2·3·6 문제 없음, 4 낮음, 5 중간, 7 의견.
+  - 1 규칙 일치: `TryRun`이 그리드 밖·함정 즉시 실패, 반복 도중 칸마다 자원 수집, 기지 도착 시 즉시 결과로 `EvaluateOutcome`과 같음.
+  - 2 입력 가능성: 솔버는 반복하기를 항상 이동하기와 2장 묶음으로 놓아 5번째 칸에 반복하기가 오지 않으므로 실제 입력 가능.
+  - 3 우회로: 이동만으로 5장 안에 풀리는 배치는 풀에서 빠지고, 2장으로 3칸을 가는 것은 반복 3회뿐이라 우회로 없음.
+  - 4 견고성(낮음): 풀이 비면 로그만 남기고 반환함 → 폴백 배치 권장. 탐색 비용은 수 ms.
+  - 5 검증기(중간): 단계별 categories에 '제어'가 있는지 검사하지 않아, JSON에서 제어를 빼면 반복이 필요한 배치를 못 푸는 상태가 됨.
+  - 6 테스트: 실제 `EvaluateOutcome`으로 모든 조합을 따지므로 공허한 단언 없음.
+  - 7 의견: 이동 카드만으로는 항상 실패하므로 관람객 안내(힌트 문구)가 충분한지 기획 확인 필요.
+- 결과(Claude 자체 리뷰): 1·2·3·6에 동의. 같은 5번 누락을 독립적으로 찾음. 추가로 풀 66가지 중 54가지는 반복 3회 1장, 12가지는 반복 3회 2장(카드 5장 모두)이 필요해 난이도가 꽤 오름(독립 구현한 Python 탐색으로 66가지·54/12 교차 확인).
+- 반영: 5번 수용 — 검증기에 "모든 단계가 동작 카드를, 마지막을 뺀 모든 단계가 제어 카드를 받아야 함" 검사와 테스트 추가, PlayMode 49/49 통과. 4번 미반영 — 풀은 상수(4x4, 5장, 반복 3회)로만 정해지고 테스트가 비어 있지 않음(66가지)을 보장하므로 일어날 수 없는 경우의 폴백은 두지 않음(AGENTS.md "No error handling for impossible scenarios"). 7번과 반복 2장 배치 비율은 기획 판단이라 사용자에게 보고만 함.
+
 - 변경 파일: T9(PR #31 리뷰 지적 14건 반영, 커밋 1659467~6b7e1b7)
   - 코드: `App/Constants.cs`, `App/PanelFader.cs`(신규), `App/PlaceholderFormatter.cs`(신규), `App/VisitorInfoProvider.cs`, `Data/LevelSelectSceneSettings.cs`, `Game/Data/RfidMappingData.cs`, `Game/Data/RfidMappingValidator.cs`(신규), `Game/GameFlowController.cs`, `Game/UI/IngredientSelectionController.cs`, `Game/UI/MissionBoardController.cs`, `Game/UI/States/IngredientLevel3State.cs`, `Intro/IntroFlowController.cs`, `Outro/OutroStoryController.cs`, `LevelSelect/LevelSelectFlowController.cs`, `Result/ResultFlowController.cs`
   - 데이터·씬: `StreamingAssets/RfidMappings.json`, `StreamingAssets/Json/2_LevelSelect.json`, `Data/Level1.asset`, `Scenes/3_Game.unity`
