@@ -13,6 +13,18 @@ namespace DGAIZone.Game.Data
     }
 
     /// <summary>
+    /// 좌우 버튼으로 고르는 물질(블록 값) 하나의 직렬화 클래스. 코드는 화면 이름(label)이 아니라 id와 value로 판정하므로,
+    /// label은 자유롭게 바꿔도 되지만 id는 Constants.RfidIds와 맞아야 함.
+    /// </summary>
+    [Serializable]
+    public class RfidMatter
+    {
+        public string id;    // 코드가 판정에 쓰는 고정 식별자
+        public string label; // 화면에 보이는 이름
+        public int value;    // 계산·판정용 수치(레벨 1: 엔진 출력량/탑재 중량/연료량, 레벨 3: 조건 기준값, 레벨 4: 반복 횟수). 쓰지 않으면 0
+    }
+
+    /// <summary>
     /// 워크플로우 진행 순서상 한 단계에 해당하는 재료/물질 목록 직렬화 클래스.
     /// RFID 카드는 category만 알려주므로, 실제 재료 순서(추진체 종류 -> 탑재 종류 -> 연료량)는
     /// 카드와 무관하게 이 목록의 순서로 진행됨.
@@ -20,8 +32,9 @@ namespace DGAIZone.Game.Data
     [Serializable]
     public class RfidStepDefinition
     {
-        public string ingredientName;
-        public string[] matterNames;
+        public string ingredientId;   // 코드가 재료 역할을 구분하는 고정 식별자(Constants.RfidIds)
+        public string ingredientName; // 화면에 보이는 재료 이름
+        public RfidMatter[] matters;
         public string[] categories; // 이 단계를 진행시킬 수 있는 카드 분류 목록(동작/제어/논리/함수). 여럿이면 그중 아무 카드나 인식됨.
     }
 
@@ -47,6 +60,10 @@ namespace DGAIZone.Game.Data
     {
         public int level;
         public RfidStepDefinition[] steps;
+
+        // 단계가 아니라 찍은 카드 분류로 재료가 정해지는 레벨(레벨 4: 동작=이동하기, 제어=반복하기)의 분류별 재료 정의.
+        // 각 항목의 categories에 그 재료를 고르는 카드 분류를 적음. 이 경우 steps에는 단계별 허용 categories만 적으면 됨.
+        public RfidStepDefinition[] categoryIngredients;
     }
 
     /// <summary>
@@ -76,13 +93,18 @@ namespace DGAIZone.Game.Data
         public RfidLevelMapping[] levelMappings;
 
         /// <summary> 지정한 레벨에 해당하는 재료 진행 순서 목록을 찾아 반환함. 없으면 null. </summary>
-        public RfidStepDefinition[] GetStepsForLevel(int level)
+        public RfidStepDefinition[] GetStepsForLevel(int level) => FindLevelMapping(level)?.steps;
+
+        /// <summary> 지정한 레벨의 카드 분류별 재료 정의(레벨 4)를 찾아 반환함. 없으면 null. </summary>
+        public RfidStepDefinition[] GetCategoryIngredientsForLevel(int level) => FindLevelMapping(level)?.categoryIngredients;
+
+        private RfidLevelMapping FindLevelMapping(int level)
         {
             if (levelMappings == null) return null;
 
             foreach (RfidLevelMapping entry in levelMappings)
             {
-                if (entry != null && entry.level == level) return entry.steps;
+                if (entry != null && entry.level == level) return entry;
             }
 
             return null;

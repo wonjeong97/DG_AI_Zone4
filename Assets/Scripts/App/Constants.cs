@@ -30,7 +30,10 @@ namespace DGAIZone.App
         /// <summary> 미션 텍스트 내 동적 치환용 플레이스홀더. </summary>
         public static class MissionPlaceholders
         {
-            public const string Destination = "{destination}";
+            public const string Planet = "{planet}";
+            public const string Distance = "{distance}";
+            // {distance} 값을 읽었을 때 받침 유무에 따라 "이에요"(10이에요) 또는 "예요"(5예요)로 치환됨
+            public const string DistanceCopula = "{이에요}";
             public const string MaxElectricity = "{maxElectricity}";
             public const string MinOxygen = "{minOxygen}";
         }
@@ -77,15 +80,48 @@ namespace DGAIZone.App
             public const string Func = "함수";
         }
 
-        /// <summary> 레벨 4 명령(재료/물질) 식별자. IngredientSelectionController가 확정하고 Level4BoardController가 해석함. </summary>
-        public static class Level4Commands
+        /// <summary>
+        /// RfidMappings.json의 재료(ingredientId)·물질(matters[].id) 식별자. 코드는 화면 이름(label)이 아니라 이 값으로 판정하므로
+        /// JSON의 label은 자유롭게 바꿔도 되지만 id는 여기와 맞아야 함.
+        /// </summary>
+        public static class RfidIds
         {
-            public const string MoveIngredient = "이동하기";
-            public const string RepeatIngredient = "반복하기";
-            public const string MoveUp = "위쪽 한칸";
-            public const string MoveDown = "아랫쪽 한칸";
-            public const string MoveRight = "오른쪽 한칸";
-            public const string MoveLeft = "왼쪽 한칸";
+            /// <summary> 레벨 1 재료. 추진력 = 엔진 출력량 + 연료량 - 탑재 중량에서 각 값의 역할을 구분함. </summary>
+            public static class Level1
+            {
+                public const string Engine = "Engine";
+                public const string Payload = "Payload";
+                public const string Fuel = "Fuel";
+            }
+
+            /// <summary> 레벨 2 발사 코딩 순서. 이 순서대로 확정해야 성공함. </summary>
+            public static class Level2
+            {
+                public const string Ignite = "Ignite";
+                public const string Ascend = "Ascend";
+                public const string SeparateStage1 = "SeparateStage1";
+                public const string SeparateStage2 = "SeparateStage2";
+                public const string EnterOrbit = "EnterOrbit";
+            }
+
+            /// <summary> 레벨 3 동작·논리 블록. 조건 블록(만약 전기량이/산소량이)은 id 대신 value를 기준값과 비교함. </summary>
+            public static class Level3
+            {
+                public const string Raise = "Raise";
+                public const string Lower = "Lower";
+                public const string Or = "Or";
+            }
+
+            /// <summary> 레벨 4 재료(이동하기/반복하기)와 이동 방향. IngredientSelectionController가 확정하고 Level4BoardController가 해석함. </summary>
+            public static class Level4
+            {
+                public const string Move = "Move";
+                public const string Repeat = "Repeat";
+                public const string MoveUp = "MoveUp";
+                public const string MoveDown = "MoveDown";
+                public const string MoveRight = "MoveRight";
+                public const string MoveLeft = "MoveLeft";
+            }
         }
 
         /// <summary>
@@ -102,51 +138,6 @@ namespace DGAIZone.App
 
             /// <summary> 한 줄 올라올 때 시작 Y 오프셋 거리 (픽셀) </summary>
             public const float StoryLineYOffset = 22.0f;
-        }
-
-        /// <summary> 목적지별 미션(추진력 조건) 상수. MissionBoardController가 참조함. </summary>
-        public static class Mission
-        {
-            /// <summary> 목적지 하나에 대한 추진력 조건 정의. </summary>
-            public readonly struct Definition
-            {
-                /// <summary> 화면 표시용 순수 행성 이름(예: "화성"). Text_GoalPlanetName에 그대로 표시됨. </summary>
-                public readonly string PlanetName;
-
-                /// <summary> 미션 보드 안내 문구용 표기(예: "화성 (거리 10)"). </summary>
-                public readonly string Destination;
-
-                /// <summary> Addressables에서 목적지 이미지를 불러올 때 쓰는 주소(PlanetName과 공백 등 표기가 다를 수 있음). </summary>
-                public readonly string SpriteKey;
-
-                // 참조(8B) 필드를 앞에 모으고 int(4B)를 마지막에 둬 필드 사이 패딩을 없앰(14번 규칙)
-                /// <summary> 목표 거리. 추진력이 이 값에 도달/초과하면 Image_Fill이 100%(1.0)가 되고 미션이 성공함. </summary>
-                public readonly int TargetDistance;
-
-                /// <summary> 행성 이름, 목표 거리, 이미지 주소로 목적지 정의를 만들고 안내 문구용 표기를 조합함. </summary>
-                public Definition(string planetName, int targetDistance, string spriteKey)
-                {
-                    PlanetName = planetName;
-                    Destination = $"{planetName} (거리 {targetDistance})";
-                    TargetDistance = targetDistance;
-                    SpriteKey = spriteKey;
-                }
-            }
-
-            /// <summary>
-            /// 목적지별 목표 거리.
-            /// 추진력 = 엔진 출력량(RfidMappings.json "추진체 종류": 고체 로켓 5 / 액체 로켓 7 / 핵 추진 엔진 10)
-            ///        x 연료량("연료량": 0~10)
-            ///        - 탑재 중량("탑재 종류": 인공위성 3 / 탐사 로봇 2 / 우주왕복선 5)
-            /// Image_Fill의 fillAmount는 (추진력 / TargetDistance)를 0~1로 clamp한 값이며(MissionBoardController.CalculateFillAmount),
-            /// 추진력이 TargetDistance 이상이면 미션 성공으로 판정함(MissionBoardController.IsThrustValid).
-            /// </summary>
-            public static readonly Definition[] Definitions =
-            {
-                new Definition("달", 5, "Moon"),
-                new Definition("화성", 10, "Mars"),
-                new Definition("외계 행성", 20, "ExoPlanet"),
-            };
         }
     }
 }

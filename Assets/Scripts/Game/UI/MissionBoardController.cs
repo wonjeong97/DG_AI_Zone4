@@ -17,8 +17,9 @@ using ZLogger;
 namespace DGAIZone.Game.UI
 {
     /// <summary>
-    /// 미션 보드 텍스트를 구성하는 컨트롤러. 씬 시작 시 목적지(달/화성/외계 행성)를 무작위로 정하고,
-    /// 엔진 출력량 x 연료량 - 탑재 중량으로 계산되는 추진력 및 진행도(Image_Fill)를 함께 표시함.
+    /// 미션 보드 텍스트를 구성하는 컨트롤러. 씬 시작 시 Level1 LevelData의 목적지 중 하나를 무작위로 정하고,
+    /// 엔진 출력량 + 연료량 - 탑재 중량으로 계산되는 추진력 및 진행도(Image_Fill)를 함께 표시함.
+    /// 추진력이 목표 거리와 정확히 같아야 성공(IsThrustValid)이며, 진행도는 목표 거리에서 가장 차고 넘치면 다시 줄어듦(CalculateFillAmount).
     /// </summary>
     public class MissionBoardController : MonoBehaviour
     {
@@ -42,7 +43,12 @@ namespace DGAIZone.Game.UI
         private ILogger<MissionBoardController> _logger;
         private VisitorInfoProvider _visitorInfoProvider;
         private string _visitorName = "체험자";
-        private Constants.Mission.Definition _current = Constants.Mission.Definitions[0];
+        private MissionDestination _current = CreateFallbackDestination();
+
+        // Level1/Level3 LevelData에 값이 없을 때만 오류 로그와 함께 쓰는 폴백.
+        // 목적지는 인스턴스마다 새로 만듦: 공유 static 객체를 넣어 두면 에디터 스크립트 리로드 때 _current 복원 값이 그 객체에 덮어써짐
+        private static MissionDestination CreateFallbackDestination() => new MissionDestination { planetName = "외계 행성", targetDistance = 20, spriteKey = "ExoPlanet" };
+        private static readonly Vector2Int FallbackLevel3Range = new Vector2Int(3, 5);
 
         // 3_Game.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private GameSceneSettings _sceneSettings;
@@ -58,16 +64,16 @@ namespace DGAIZone.Game.UI
         private readonly ReactiveProperty<float> _previewFillAmount = new ReactiveProperty<float>(0f);
         private R3.DisposableBag _disposables = new R3.DisposableBag();
 
-        /// <summary> 이번 게임의 목적지 이름. </summary>
-        public string Destination => _current.Destination;
+        /// <summary> 이번 게임의 목적지 표기(로그용, 예: "화성 (거리 10)"). </summary>
+        public string Destination => $"{_current.planetName} (거리 {_current.targetDistance})";
 
-        /// <summary> 계산된 추진력이 이번 목적지의 목표 거리에 도달(이상)했는지 반환함. </summary>
-        public bool IsThrustValid(int totalThrust) => totalThrust >= _current.TargetDistance;
+        /// <summary> 계산된 추진력이 이번 목적지의 목표 거리와 정확히 같은지 반환함(모자라도, 넘쳐도 실패). </summary>
+        public bool IsThrustValid(int totalThrust) => totalThrust == _current.targetDistance;
 
-        /// <summary> 레벨 3: 전기량이 이 값을 넘으면 안 됨(3~5 중 무작위로 정해짐). </summary>
+        /// <summary> 레벨 3: 전기량이 이 값을 넘으면 안 됨(Level3 LevelData의 maxElectricityRange에서 무작위로 정해짐). </summary>
         public int MaxElectricity { get; private set; }
 
-        /// <summary> 레벨 3: 산소량이 이 값보다 낮으면 안 됨(3~5 중 무작위로 정해짐). </summary>
+        /// <summary> 레벨 3: 산소량이 이 값보다 낮으면 안 됨(Level3 LevelData의 minOxygenRange에서 무작위로 정해짐). </summary>
         public int MinOxygen { get; private set; }
 
         /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. </summary>
@@ -117,10 +123,18 @@ namespace DGAIZone.Game.UI
             }
             else
             {
-                Constants.Mission.Definition[] definitions = Constants.Mission.Definitions;
-                _current = definitions[UnityEngine.Random.Range(0, definitions.Length)];
+                LevelData level1 = GetLevelData(1);
+                MissionDestination[] destinations = level1 ? level1.destinations : null;
+                if (destinations != null && destinations.Length > 0)
+                {
+                    _current = destinations[UnityEngine.Random.Range(0, destinations.Length)];
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogError($"[MissionBoardController] Level1 LevelData에 목적지(destinations)가 없어 기본 목적지 '{_current.planetName}'를 사용함.");
+                }
 
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 미션 설정됨: {_current.Destination} (목표거리={_current.TargetDistance})");
+                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 미션 설정됨: {Destination} (목표거리={_current.targetDistance})");
 
                 ApplyMissionText();
                 ApplyGoalDisplay();
@@ -158,27 +172,40 @@ namespace DGAIZone.Game.UI
             catch (OperationCanceledException) { }
         }
 
+        /// <summary> 해당 레벨(1부터)의 LevelData 에셋을 반환함. 없으면 null. </summary>
+        private LevelData GetLevelData(int level)
+        {
+            int index = level - 1;
+            return (levelDataList != null && index >= 0 && index < levelDataList.Length && levelDataList[index]) ? levelDataList[index] : null;
+        }
+
         /// <summary> LevelData 에셋에서 해당 레벨의 미션 텍스트 원본을 가져옴. </summary>
         private string GetRawMissionTextFromData(int level)
         {
-            int index = level - 1;
-            if (levelDataList != null && index >= 0 && index < levelDataList.Length && levelDataList[index])
-            {
-                return levelDataList[index].missionText;
-            }
-            return null;
+            LevelData data = GetLevelData(level);
+            return data ? data.missionText : null;
         }
 
-        /// <summary> 미션 텍스트 내 플레이스홀더({destination}, {maxElectricity}, {minOxygen}, {name})를 실제 값으로 치환함. </summary>
+        /// <summary> 미션 텍스트 내 플레이스홀더({planet}, {distance}, {이에요}, {maxElectricity}, {minOxygen}, {name})를 실제 값으로 치환함. </summary>
         private string FormatMissionText(string rawText)
         {
             if (string.IsNullOrEmpty(rawText)) return string.Empty;
 
             string formatted = rawText;
 
-            if (formatted.Contains(Constants.MissionPlaceholders.Destination))
+            if (formatted.Contains(Constants.MissionPlaceholders.Planet))
             {
-                formatted = formatted.Replace(Constants.MissionPlaceholders.Destination, _current.Destination);
+                formatted = formatted.Replace(Constants.MissionPlaceholders.Planet, _current.planetName);
+            }
+
+            if (formatted.Contains(Constants.MissionPlaceholders.Distance))
+            {
+                formatted = formatted.Replace(Constants.MissionPlaceholders.Distance, _current.targetDistance.ToString());
+            }
+
+            if (formatted.Contains(Constants.MissionPlaceholders.DistanceCopula))
+            {
+                formatted = formatted.Replace(Constants.MissionPlaceholders.DistanceCopula, GetCopula(_current.targetDistance));
             }
 
             if (formatted.Contains(Constants.MissionPlaceholders.MaxElectricity))
@@ -198,6 +225,17 @@ namespace DGAIZone.Game.UI
             }
 
             return formatted;
+        }
+
+        /// <summary>
+        /// 숫자를 한국어로 읽었을 때 받침이 있으면 "이에요", 없으면 "예요"를 반환함(예: 10이에요, 20이에요, 5예요).
+        /// 끝자리가 0이면 십·백·천·만·억으로 끝나 모두 받침이 있고, 1(일)·3(삼)·6(육)·7(칠)·8(팔)도 받침이 있음.
+        /// </summary>
+        private static string GetCopula(int number)
+        {
+            int lastDigit = Math.Abs(number % 10);
+            bool hasFinalConsonant = lastDigit == 0 || lastDigit == 1 || lastDigit == 3 || lastDigit == 6 || lastDigit == 7 || lastDigit == 8;
+            return hasFinalConsonant ? "이에요" : "예요";
         }
 
         /// <summary> 3_Game.json(GameSceneSettings)을 GameSceneSettingsProvider를 통해 비동기로 불러옴(씬 내 다른 컨트롤러와 로드를 공유함). </summary>
@@ -223,9 +261,9 @@ namespace DGAIZone.Game.UI
             else
             {
                 missionText.text =
-                    $"목적지는 <color=yellow>[{_current.Destination}]</color>입니다.\n" +
-                    $"<color=yellow>[동작 블럭]</color>을 사용하여,\n" +
-                    $"추진체와 탑재 종류를 설정해주세요.";
+                    $"<color=yellow>[{_current.planetName}]</color>까지 거리는 <color=yellow>[{_current.targetDistance}]</color>{GetCopula(_current.targetDistance)}.\n" +
+                    $"로켓을 날리는 추진체, 탑재할 장비, 연료량을 골라\n" +
+                    $"<color=yellow>[동작]</color> 블록으로 로켓의 힘을 <color=yellow>[{_current.targetDistance}]</color>에 맞춰 보세요.";
             }
         }
 
@@ -246,19 +284,28 @@ namespace DGAIZone.Game.UI
             else
             {
                 missionText.text =
-                    "설계한 로켓이 우주까지 날아 갈 수 있도록\n" +
-                    "<color=yellow>[동작 블록]</color> 5개를 사용하여 순서대로 코딩해주세요.";
+                    "로켓을 우주로 출발시켜 볼까요?\n" +
+                    "<color=yellow>[동작]</color> 블록 5개를 알맞은 순서로 이어서\n" +
+                    "로켓을 우주로 출발시켜 주세요.";
             }
         }
 
         /// <summary>
-        /// 레벨 3 전용 미션 텍스트를 적용함. 전기량 상한(MaxElectricity)과 산소량 하한(MinOxygen)을 각각 3~5 중 무작위로 정해 안내함.
+        /// 레벨 3 전용 미션 텍스트를 적용함. 전기량 상한(MaxElectricity)과 산소량 하한(MinOxygen)을 Level3 LevelData의 범위에서 각각 무작위로 정해 안내함.
         /// LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함.
         /// </summary>
         private void ApplyLevel3MissionText()
         {
-            MaxElectricity = UnityEngine.Random.Range(3, 6);
-            MinOxygen = UnityEngine.Random.Range(3, 6);
+            LevelData level3 = GetLevelData(3);
+            if (!level3 && _logger != null)
+            {
+                _logger.ZLogError($"[MissionBoardController] Level3 LevelData가 없어 기준값 범위를 기본값 {FallbackLevel3Range.x}~{FallbackLevel3Range.y}로 사용함.");
+            }
+
+            Vector2Int electricityRange = level3 ? level3.maxElectricityRange : FallbackLevel3Range;
+            Vector2Int oxygenRange = level3 ? level3.minOxygenRange : FallbackLevel3Range;
+            MaxElectricity = UnityEngine.Random.Range(electricityRange.x, electricityRange.y + 1);
+            MinOxygen = UnityEngine.Random.Range(oxygenRange.x, oxygenRange.y + 1);
 
             if (_logger != null)
             {
@@ -279,8 +326,10 @@ namespace DGAIZone.Game.UI
             else
             {
                 missionText.text =
-                    $"현재 우주정거장은 전기량이 <color=yellow>[{MaxElectricity}]</color>을 넘으면 안되고,\n" +
-                    $"산소량은 <color=yellow>[{MinOxygen}]</color>보다 낮으면 안돼요!";
+                    $"우주정거장을 안전하게 지키려면 어떻게 해야 할까요?\n" +
+                    $"전기량은 <color=yellow>[{MaxElectricity}]</color>보다 많으면 안 돼요.\n" +
+                    $"<color=yellow>[그리고]</color> 산소량은 <color=yellow>[{MinOxygen}]</color>보다 적으면 안 돼요.\n" +
+                    $"두 가지 조건을 모두 지켜 주세요.";
             }
         }
 
@@ -301,9 +350,9 @@ namespace DGAIZone.Game.UI
             else
             {
                 missionText.text =
-                    "<color=yellow>[동작 및 제어 블록]</color>을 통해 탐사 로봇을 이동하여\n" +
-                    "먼저 자원을 수집하고, 기지에 안전하게 돌아올 수 있게\n" +
-                    "경로를 코딩해 주세요. 함정은 피해야해요!";
+                    "<color=yellow>[동작]</color>과 <color=yellow>[제어]</color> 블록으로 탐사 로봇을 움직여 주세요.\n" +
+                    "먼저 우주 자원을 모으고, 기지로 안전하게 돌아오세요.\n" +
+                    "함정은 꼭 피해야 해요.";
             }
         }
 
@@ -332,8 +381,8 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            goalPlanetNameText.text = _current.PlanetName;
-            LoadGoalSpriteAsync(_current.SpriteKey).Forget();
+            goalPlanetNameText.text = _current.planetName;
+            LoadGoalSpriteAsync(_current.spriteKey).Forget();
         }
 
         /// <summary> Addressables에서 목적지 이미지를 비동기로 불러와 Image_Goal에 적용함. </summary>
@@ -352,7 +401,7 @@ namespace DGAIZone.Game.UI
                 }
                 else if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[MissionBoardController] 목적지 '{_current.Destination}'에 대한 목표 이미지 없음 (Addressables 키 '{key}').");
+                    _logger.ZLogWarning($"[MissionBoardController] 목적지 '{Destination}'에 대한 목표 이미지 없음 (Addressables 키 '{key}').");
                 }
             }
             catch (OperationCanceledException) { }
@@ -361,7 +410,7 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 설정하기 확정 시 호출됨. 미리보기(Image_Fill_Preview)를 fillAmount 변경 없이 알파 페이드아웃으로 먼저 자연스럽게 없앤 뒤,
         /// 실제 Image_Fill 값을 최종 적용하는 시퀀스(ApplyProgressAsync)를 시작함.
-        /// totalThrust: 엔진 출력량 x 연료량 - 탑재 중량으로 계산된 확정 추진력 합계.
+        /// totalThrust: 엔진 출력량 + 연료량 - 탑재 중량으로 계산된 확정 추진력 합계.
         /// </summary>
         public void SetProgress(int totalThrust)
         {
@@ -592,16 +641,19 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 목적지의 목표 거리(TargetDistance) 대비 현재 추진력의 비율로 0~1 fillAmount를 계산함.
-        /// 추진력이 목표 거리 이상이면 1.0(100%), 음수(엔진 출력량 x 연료량이 탑재 중량보다 작은 경우)면 0.0,
-        /// 그 사이는 (추진력 / 목표 거리) 비율로 표시됨.
+        /// 목적지의 목표 거리 대비 현재 추진력으로 0~1 fillAmount를 계산함(확정 게이지와 미리보기 게이지 공용).
+        /// 목표 거리 이하에서는 (추진력 / 목표 거리) 비율로 차오르고, 정확히 같으면 1.0(100%),
+        /// 넘치면 넘친 만큼 같은 비율로 다시 줄어듦(목표 거리의 2배 이상이면 0). 음수(엔진 출력량 + 연료량이 탑재 중량보다 작은 경우)면 0.
         /// </summary>
-        private float CalculateFillAmount(int totalThrust)
+        internal float CalculateFillAmount(int totalThrust)
         {
-            int target = _current.TargetDistance;
+            int target = _current.targetDistance;
             if (target <= 0) return 0f;
 
-            return Mathf.Clamp01((float)totalThrust / target);
+            float ratio = totalThrust <= target
+                ? (float)totalThrust / target
+                : 1f - (float)(totalThrust - target) / target;
+            return Mathf.Clamp01(ratio);
         }
 
         /// <summary> Addressables 핸들을 반환하고 진행 중인 트윈 및 R3 구독을 정리함. </summary>

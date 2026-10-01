@@ -12,10 +12,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4dbb7757c4226604586871442baa7a24, type: 3}
   m_Name: Level1
   m_EditorClassIdentifier: 
-  storyText: "\uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
-    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4.\n\uB85C\uCF13 \uC124\uACC4\uC758
-    \uCEF4\uD4E8\uD130\uC5D0 \uC138 \uAC00\uC9C0\uC758 \uAC12\uC744 <color=#2750FF>[\uB3D9\uC791
-    \uBE14\uB85D]</color>\uC744 \uC0AC\uC6A9\uD558\uC5EC\n\uC801\uC808\uD558\uAC8C
-    \uB123\uC5B4\uC8FC\uC138\uC694.\n<color=yellow>\n \xB7 \uCD94\uC9C4\uCCB4 \uC885\uB958\n
-    \xB7 \uC6B0\uC8FC \uC7A5\uBE44 \uC885\uB958\n \xB7 \uC5F0\uB8CC\uB7C9\n</color>\n\uB85C\uCF13\uC744
-    \uC124\uACC4\uD574\uBCFC\uAE4C\uC694?"
+  storyText: "[{name}]\uB2D8, \uC6B0\uC8FC \uAE30\uC9C0\uC758 \uB85C\uCF13 \uC124\uACC4\uC18C\uC5D0
+    \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD574\uC694.\r\n\uC6B0\uC8FC\uB85C \uCD9C\uBC1C\uD558\uB824\uBA74
+    \uB85C\uCF13\uC5D0 \uD544\uC694\uD55C \uC138 \uAC00\uC9C0 <color=blue>[\uB3D9\uC791]</color>
+    \uBE14\uB85D\uC744 \uACE8\uB77C\uC57C \uD574\uC694.\n<color=yellow>\r\n\u2022
+    \uB85C\uCF13\uC744 \uB0A0\uB9AC\uB294 \uCD94\uC9C4\uCCB4\r\n\u2022 \uB85C\uCF13\uC5D0
+    \uD0D1\uC7AC\uD560 \uC7A5\uBE44\r\n\u2022 \uB85C\uCF13\uC5D0 \uB123\uC744 \uC5F0\uB8CC\uB7C9\n</color>\r\n<color=blue>[\uB3D9\uC791]</color>
+    \uBE14\uB85D\uC744 \uC774\uC6A9\uD574 \uB098\uB9CC\uC758 \uB85C\uCF13\uC744 \uB9CC\uB4E4\uC5B4
+    \uBCFC\uAE4C\uC694?"
+  missionText: "<color=yellow>[{planet}]</color>\uAE4C\uC9C0 \uAC70\uB9AC\uB294 <color=yellow>[{distance}]</color>{\uC774\uC5D0\uC694}.\n\uB85C\uCF13\uC744
+    \uB0A0\uB9AC\uB294 \uCD94\uC9C4\uCCB4, \uD0D1\uC7AC\uD560 \uC7A5\uBE44, \uC5F0\uB8CC\uB7C9\uC744
+    \uACE8\uB77C\n<color=blue>[\uB3D9\uC791]</color> \uBE14\uB85D\uC73C\uB85C \uB85C\uCF13\uC758
+    \uD798\uC744 <color=yellow>[{distance}]</color>\uC5D0 \uB9DE\uCDB0 \uBCF4\uC138\uC694."
+  destinations:
+  - planetName: "\uB2EC"
+    targetDistance: 5
+    spriteKey: Moon
+  - planetName: "\uD654\uC131"
+    targetDistance: 10
+    spriteKey: Mars
+  - planetName: "\uC678\uACC4 \uD589\uC131"
+    targetDistance: 20
+    spriteKey: ExoPlanet
+  maxElectricityRange: {x: 3, y: 5}
+  minOxygenRange: {x: 3, y: 5}

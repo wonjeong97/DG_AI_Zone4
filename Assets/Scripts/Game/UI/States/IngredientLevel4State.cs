@@ -15,18 +15,7 @@ namespace DGAIZone.Game.UI.States
     /// </summary>
     public class IngredientLevel4State : IIngredientSelectionLevelState
     {
-        private const string Level4MoveIngredientName = Constants.Level4Commands.MoveIngredient;
-        private static readonly string[] Level4MoveMatters =
-        {
-            Constants.Level4Commands.MoveUp,
-            Constants.Level4Commands.MoveDown,
-            Constants.Level4Commands.MoveRight,
-            Constants.Level4Commands.MoveLeft
-        };
-
-        private const string Level4RepeatIngredientName = Constants.Level4Commands.RepeatIngredient;
         private static readonly string[] Level4RepeatFollowUpCategories = { Constants.RfidCategories.Action };
-        private static readonly string[] Level4RepeatMatters = { "1회", "2회", "3회" };
 
         /// <summary> 상태 진입 시 초기화. </summary>
         public void Enter(IngredientSelectionController context)
@@ -65,35 +54,32 @@ namespace DGAIZone.Game.UI.States
             return controller.IsRepeatFollowUpRequired() ? Level4RepeatFollowUpCategories : step.categories;
         }
 
-        /// <summary> 스캔된 카드의 카테고리(동작/제어)에 따라 이동하기 또는 반복하기로 카드를 해석함. </summary>
-        public (string ingredientName, string[] matterNames) ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
+        /// <summary> 스캔된 카드의 카테고리(동작/제어)에 맞는 재료(이동하기/반복하기)를 RfidMappings.json의 categoryIngredients에서 찾음. </summary>
+        public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
         {
-            bool isAction = string.Equals(category, Constants.RfidCategories.Action, StringComparison.Ordinal);
-            return isAction
-                ? (Level4MoveIngredientName, Level4MoveMatters)
-                : (Level4RepeatIngredientName, Level4RepeatMatters);
+            return controller.FindCategoryIngredient(category);
         }
 
         /// <summary> 레벨 4는 동일한 동작을 여러 번 사용할 수 있으므로 중복 제외를 적용하지 않음. </summary>
-        public string[] FilterMatters(IngredientSelectionController controller, string ingredientName, string[] matterNames)
+        public RfidMatter[] FilterMatters(IngredientSelectionController controller, string ingredientId, RfidMatter[] matters)
         {
-            return matterNames;
+            return matters;
         }
 
         /// <summary> 단계 확정 시 레벨 4 추가 작업 없음. </summary>
-        public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredient, string chosenMatter)
+        public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter chosenMatter)
         {
         }
 
         /// <summary> 단계 취소 시 레벨 4 추가 작업 없음. </summary>
-        public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredient, string matter)
+        public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter)
         {
         }
 
         /// <summary> "· 재료 [물질]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredient, string matter)
+        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
-            return $" · {ingredient} [<color=yellow>{controller.ApplyNumberSizeTag(matter)}</color>]";
+            return $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
         }
 
         /// <summary> 레벨 4는 5단계를 다 채우지 않아도 되므로 최소 1개만 확정되면 코딩완료 버튼을 활성화함. </summary>

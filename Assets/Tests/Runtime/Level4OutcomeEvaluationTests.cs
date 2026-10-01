@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DGAIZone.App;
+using DGAIZone.Game.Data;
 using DGAIZone.Game.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -27,6 +28,14 @@ namespace DGAIZone.Tests
             if (_go != null) Object.DestroyImmediate(_go);
         }
 
+        /// <summary> 이동하기 명령 하나를 만듦(방향은 물질 id로 판정됨). </summary>
+        private static (string, RfidMatter) Move(string directionId) =>
+            (Constants.RfidIds.Level4.Move, new RfidMatter { id = directionId });
+
+        /// <summary> 반복하기 명령 하나를 만듦(반복 횟수는 물질 value로 판정됨). </summary>
+        private static (string, RfidMatter) Repeat(int count) =>
+            (Constants.RfidIds.Level4.Repeat, new RfidMatter { id = "Repeat" + count, value = count });
+
         /// <summary>
         /// 자원을 먼저 수집한 뒤 기지에 도착하면 성공(true)을 반환해야 함.
         /// </summary>
@@ -36,12 +45,12 @@ namespace DGAIZone.Tests
             // 배치: 로봇(R0, C0), 자원(R0, C1), 함정(R2, C2), 기지(R1, C3)
             _board.SetPlacementForTest(robotRow: 0, resourceRow: 0, trapRow: 2, hqRow: 1);
 
-            List<(string ingredient, string matter)> commands = new List<(string, string)>
+            List<(string, RfidMatter)> commands = new List<(string, RfidMatter)>
             {
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (0,1) 자원 획득
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (0,2)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveDown),  // (1,2)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (1,3) 기지 도착
+                Move(Constants.RfidIds.Level4.MoveRight), // (0,1) 자원 획득
+                Move(Constants.RfidIds.Level4.MoveRight), // (0,2)
+                Move(Constants.RfidIds.Level4.MoveDown),  // (1,2)
+                Move(Constants.RfidIds.Level4.MoveRight), // (1,3) 기지 도착
             };
 
             bool result = _board.EvaluateOutcome(commands);
@@ -57,12 +66,12 @@ namespace DGAIZone.Tests
             // 배치: 로봇(R0, C0), 자원(R0, C1), 함정(R2, C2), 기지(R1, C3)
             _board.SetPlacementForTest(robotRow: 0, resourceRow: 0, trapRow: 2, hqRow: 1);
 
-            List<(string ingredient, string matter)> commands = new List<(string, string)>
+            List<(string, RfidMatter)> commands = new List<(string, RfidMatter)>
             {
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveDown),  // (1,0)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (1,1) 자원(0,1) 우회
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (1,2)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (1,3) 기지 도착
+                Move(Constants.RfidIds.Level4.MoveDown),  // (1,0)
+                Move(Constants.RfidIds.Level4.MoveRight), // (1,1) 자원(0,1) 우회
+                Move(Constants.RfidIds.Level4.MoveRight), // (1,2)
+                Move(Constants.RfidIds.Level4.MoveRight), // (1,3) 기지 도착
             };
 
             bool result = _board.EvaluateOutcome(commands);
@@ -78,12 +87,12 @@ namespace DGAIZone.Tests
             // 배치: 로봇(R0, C0), 자원(R0, C1), 함정(R2, C2), 기지(R1, C3)
             _board.SetPlacementForTest(robotRow: 0, resourceRow: 0, trapRow: 2, hqRow: 1);
 
-            List<(string ingredient, string matter)> commands = new List<(string, string)>
+            List<(string, RfidMatter)> commands = new List<(string, RfidMatter)>
             {
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveDown),  // (1,0)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveDown),  // (2,0)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (2,1)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (2,2) 함정!
+                Move(Constants.RfidIds.Level4.MoveDown),  // (1,0)
+                Move(Constants.RfidIds.Level4.MoveDown),  // (2,0)
+                Move(Constants.RfidIds.Level4.MoveRight), // (2,1)
+                Move(Constants.RfidIds.Level4.MoveRight), // (2,2) 함정!
             };
 
             bool result = _board.EvaluateOutcome(commands);
@@ -99,9 +108,9 @@ namespace DGAIZone.Tests
             // 로봇 시작 행이 0인데 위쪽으로 이동
             _board.SetPlacementForTest(robotRow: 0, resourceRow: 1, trapRow: 2, hqRow: 3);
 
-            List<(string ingredient, string matter)> commands = new List<(string, string)>
+            List<(string, RfidMatter)> commands = new List<(string, RfidMatter)>
             {
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveUp) // (-1, 0) 그리드 밖!
+                Move(Constants.RfidIds.Level4.MoveUp) // (-1, 0) 그리드 밖!
             };
 
             bool result = _board.EvaluateOutcome(commands);
@@ -117,12 +126,12 @@ namespace DGAIZone.Tests
             // 배치: 로봇(R0, C0), 자원(R0, C2 아님 - C1), 기지(R0 불가이므로 R1, C3), 함정(R3, C2)
             _board.SetPlacementForTest(robotRow: 0, resourceRow: 0, trapRow: 3, hqRow: 1);
 
-            List<(string ingredient, string matter)> commands = new List<(string, string)>
+            List<(string, RfidMatter)> commands = new List<(string, RfidMatter)>
             {
-                (Constants.Level4Commands.RepeatIngredient, "2회"),
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (0,1)->자원, (0,2)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveDown),  // (1,2)
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight), // (1,3)->기지
+                Repeat(2),
+                Move(Constants.RfidIds.Level4.MoveRight), // (0,1)->자원, (0,2)
+                Move(Constants.RfidIds.Level4.MoveDown),  // (1,2)
+                Move(Constants.RfidIds.Level4.MoveRight), // (1,3)->기지
             };
 
             bool result = _board.EvaluateOutcome(commands);
@@ -137,9 +146,9 @@ namespace DGAIZone.Tests
         {
             _board.SetPlacementForTest(robotRow: 0, resourceRow: 0, trapRow: 2, hqRow: 1);
 
-            List<(string ingredient, string matter)> commands = new List<(string, string)>
+            List<(string, RfidMatter)> commands = new List<(string, RfidMatter)>
             {
-                (Constants.Level4Commands.MoveIngredient, Constants.Level4Commands.MoveRight) // (0,1) 자원만 먹고 정지
+                Move(Constants.RfidIds.Level4.MoveRight) // (0,1) 자원만 먹고 정지
             };
 
             bool result = _board.EvaluateOutcome(commands);

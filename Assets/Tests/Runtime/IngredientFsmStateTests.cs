@@ -1,4 +1,7 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
+using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.UI;
@@ -7,6 +10,8 @@ using HuliacDev.Core;
 using NUnit.Framework;
 using R3;
 using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace DGAIZone.Tests
 {
@@ -101,9 +106,52 @@ namespace DGAIZone.Tests
             Assert.IsTrue(l4.IsCodingCompleteInteractable(_controller, 3, 5));
 
             // 중복 제외 없음 규칙: 동일한 물질 목록이 그대로 반환되어야 함
-            string[] matters = { "위쪽 한칸", "아래쪽 한칸", "오른쪽 한칸" };
-            string[] filtered = l4.FilterMatters(_controller, "이동하기", matters);
+            RfidMatter[] matters =
+            {
+                new RfidMatter { id = Constants.RfidIds.Level4.MoveUp, label = "위쪽 한 칸" },
+                new RfidMatter { id = Constants.RfidIds.Level4.MoveDown, label = "아래쪽 한 칸" },
+                new RfidMatter { id = Constants.RfidIds.Level4.MoveRight, label = "오른쪽 한 칸" }
+            };
+            RfidMatter[] filtered = l4.FilterMatters(_controller, Constants.RfidIds.Level4.Move, matters);
             Assert.AreSame(matters, filtered, "레벨 4는 중복 제외를 하지 않고 원본 배열을 그대로 반환해야 함");
+        }
+
+        /// <summary>
+        /// 레벨 1 추진력은 화면 이름(label)이 아니라 재료 id와 물질 value로 계산되어야 함(이름을 바꿔도 판정이 유지됨).
+        /// </summary>
+        [Test]
+        public void 레벨1_추진력은_라벨이_아니라_value로_계산된다()
+        {
+            IngredientLevel1State l1 = new IngredientLevel1State();
+
+            l1.OnStepConfirmed(_controller, 0, Constants.RfidIds.Level1.Engine, new RfidMatter { id = "SolidRocket", label = "이름이 바뀐 엔진", value = 5 });
+            l1.OnStepConfirmed(_controller, 1, Constants.RfidIds.Level1.Payload, new RfidMatter { id = "Satellite", label = "괄호 없는 이름", value = 3 });
+            l1.OnStepConfirmed(_controller, 2, Constants.RfidIds.Level1.Fuel, new RfidMatter { id = "Fuel4", label = "넷", value = 4 });
+
+            Assert.AreEqual(5 + 4 - 3, _controller.CalculateTotalThrust(), "엔진 출력량 + 연료량 - 탑재 중량이 value 기준으로 계산되어야 함");
+
+            l1.OnStepRolledBack(_controller, 2, Constants.RfidIds.Level1.Fuel, null);
+            Assert.AreEqual(5 + 0 - 3, _controller.CalculateTotalThrust(), "연료 단계를 되돌리면 연료량이 0으로 돌아가야 함");
+        }
+
+        /// <summary>
+        /// 레벨 1은 추진력이 목표 거리와 정확히 같아야 성공하고, 게이지는 목표에서 가장 차며 넘치면 다시 줄어들어야 함.
+        /// </summary>
+        [Test]
+        public void 레벨1_목표거리와_정확히_같아야_성공하고_넘치면_게이지가_줄어든다()
+        {
+            MissionBoardController board = _go.AddComponent<MissionBoardController>();
+            int target = 20; // Start 전 기본 목적지(외계 행성, 거리 20)
+
+            Assert.IsTrue(board.IsThrustValid(target), "목표 거리와 같으면 성공해야 함");
+            Assert.IsFalse(board.IsThrustValid(target - 1), "모자라면 실패해야 함");
+            Assert.IsFalse(board.IsThrustValid(target + 1), "넘쳐도 실패해야 함");
+
+            Assert.AreEqual(0.5f, board.CalculateFillAmount(10), 0.0001f, "목표의 절반이면 50%");
+            Assert.AreEqual(1f, board.CalculateFillAmount(20), 0.0001f, "목표와 같으면 100%");
+            Assert.AreEqual(0.75f, board.CalculateFillAmount(25), 0.0001f, "목표를 5 넘으면 75%로 다시 줄어듦");
+            Assert.AreEqual(0f, board.CalculateFillAmount(40), 0.0001f, "목표의 2배 이상 넘치면 0%");
+            Assert.AreEqual(0f, board.CalculateFillAmount(-3), 0.0001f, "음수면 0%");
         }
 
         /// <summary>
@@ -122,6 +170,65 @@ namespace DGAIZone.Tests
             string formatted = l2.FormatDesignItemText(_controller, "발사 코딩 순서", "점화하기");
             Assert.IsTrue(formatted.Contains("점화하기"));
             Assert.IsFalse(formatted.Contains("발사 코딩 순서"), "레벨 2는 재료명이 텍스트에 포함되지 않아야 함");
+        }
+
+        /// <summary>
+        /// 레벨 2 선택지는 카드를 찍을 때마다 섞여야 하고(정답 순서로 고정되면 설정하기만 눌러도 성공함), 원본 배열 순서는 바뀌지 않아야 함.
+        /// </summary>
+        [Test]
+        public void 레벨2_선택지는_섞이고_원본은_바뀌지_않는다()
+        {
+            IngredientLevel2State l2 = new IngredientLevel2State();
+            string[] ids =
+            {
+                Constants.RfidIds.Level2.Ignite, Constants.RfidIds.Level2.Ascend, Constants.RfidIds.Level2.SeparateStage1,
+                Constants.RfidIds.Level2.SeparateStage2, Constants.RfidIds.Level2.EnterOrbit
+            };
+            RfidMatter[] original = System.Array.ConvertAll(ids, id => new RfidMatter { id = id });
+
+            bool anyDifferentOrder = false;
+            for (int trial = 0; trial < 20; trial++)
+            {
+                RfidMatter[] result = l2.FilterMatters(_controller, "LaunchSequence", original);
+                Assert.AreNotSame(original, result, "원본 배열을 그대로 섞으면 안 됨");
+                CollectionAssert.AreEquivalent(original, result, "섞어도 같은 선택지 집합이어야 함");
+                for (int i = 0; i < ids.Length; i++)
+                {
+                    if (result[i].id != ids[i]) { anyDifferentOrder = true; break; }
+                }
+            }
+
+            for (int i = 0; i < ids.Length; i++) Assert.AreEqual(ids[i], original[i].id, "원본 배열 순서는 그대로여야 함");
+            Assert.IsTrue(anyDifferentOrder, "20번 섞는 동안 정답 순서와 다른 순서가 한 번은 나와야 함");
+        }
+
+        /// <summary>
+        /// 레벨 2에서 취소하면 진행바(Image_Fill)가 남은 확정 개수만큼 줄어들어야 함.
+        /// (컨트롤러가 OnStepRolledBack을 디자인 항목 제거보다 먼저 호출하므로, 항목 수 기준이면 줄어들지 않던 버그 회귀 방지)
+        /// </summary>
+        [UnityTest]
+        public IEnumerator 레벨2_취소하면_진행바가_남은_개수만큼_줄어든다()
+        {
+            IngredientLevel2State l2 = new IngredientLevel2State();
+            GameObject fillGo = new GameObject("TestLevel2Fill", typeof(RectTransform));
+            try
+            {
+                Image fill = fillGo.AddComponent<Image>();
+                typeof(IngredientSelectionController).GetField("level2FillImage", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(_controller, fill);
+                RfidMatter matter = new RfidMatter { id = Constants.RfidIds.Level2.Ignite };
+
+                for (int step = 0; step < 3; step++) l2.OnStepConfirmed(_controller, step, "LaunchSequence", matter);
+                yield return new WaitForSeconds(0.6f); // 진행바 트윈(기본 0.45초)이 끝날 때까지 대기
+                Assert.AreEqual(0.5f, fill.fillAmount, 0.001f, "3개 확정 시 진행바는 50%여야 함");
+
+                l2.OnStepRolledBack(_controller, 2, "LaunchSequence", matter);
+                yield return new WaitForSeconds(0.6f);
+                Assert.AreEqual(0.25f, fill.fillAmount, 0.001f, "하나 취소해 2개가 남으면 25%로 줄어야 함");
+            }
+            finally
+            {
+                Object.DestroyImmediate(fillGo);
+            }
         }
 
         /// <summary>

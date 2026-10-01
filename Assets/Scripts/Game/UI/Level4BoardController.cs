@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
+using DGAIZone.Game.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -49,12 +50,12 @@ namespace DGAIZone.Game.UI
         private float StepPauseDuration => _sceneSettings?.level4StepPauseDuration ?? DefaultStepPauseDuration;
         private float CollisionScaleDuration => _sceneSettings?.level4CollisionScaleDuration ?? DefaultCollisionScaleDuration;
 
-        private const string MoveIngredientName = Constants.Level4Commands.MoveIngredient;
-        private const string RepeatIngredientName = Constants.Level4Commands.RepeatIngredient;
-        private const string MoveUp = Constants.Level4Commands.MoveUp;
-        private const string MoveDown = Constants.Level4Commands.MoveDown;
-        private const string MoveRight = Constants.Level4Commands.MoveRight;
-        private const string MoveLeft = Constants.Level4Commands.MoveLeft;
+        private const string MoveIngredientId = Constants.RfidIds.Level4.Move;
+        private const string RepeatIngredientId = Constants.RfidIds.Level4.Repeat;
+        private const string MoveUp = Constants.RfidIds.Level4.MoveUp;
+        private const string MoveDown = Constants.RfidIds.Level4.MoveDown;
+        private const string MoveRight = Constants.RfidIds.Level4.MoveRight;
+        private const string MoveLeft = Constants.RfidIds.Level4.MoveLeft;
 
         // Grid.png(742x234) 사다리꼴 그리드의 행 경계 Y좌표 5개(행 4개 = 경계 5개)와,
         // 각 행 경계에서의 열 경계 X좌표 5개(열 4개 = 경계 5개). 이미지 픽셀 분석으로 산출됨.
@@ -345,7 +346,7 @@ namespace DGAIZone.Game.UI
         /// IsResourceCell/IsHqCell)을 그대로 재사용해 연출 버전과 판정이 어긋나지 않도록 함.
         /// commands를 넘기면 그 값을 그대로 평가하고(테스트/외부 호출용), null이면 기존처럼 ingredientSelection에서 직접 읽음.
         /// </summary>
-        public bool EvaluateOutcome(IReadOnlyList<(string ingredient, string matter)> commands = null)
+        public bool EvaluateOutcome(IReadOnlyList<(string ingredientId, RfidMatter matter)> commands = null)
         {
             List<Level4MoveStep> steps = BuildMoveSteps(commands);
 
@@ -413,12 +414,12 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// (재료, 물질) 순서를 실제 이동 스텝 목록으로 변환함. commands가 주어지지 않으면 IngredientSelectionController에서
+        /// (재료 id, 물질) 순서를 실제 이동 스텝 목록으로 변환함. commands가 주어지지 않으면 IngredientSelectionController에서
         /// 확정된 명령을 직접 읽어옴(연출 시뮬레이션용). "반복하기(N회)" 바로 다음에 "이동하기(방향)"가 오면 그 방향으로
         /// N번 연속 이동하는 스텝으로 펼치고, "이동하기(방향)"가 단독이면 1번 이동하는 스텝으로 처리함.
         /// 뒤에 이동하기가 없는 반복하기는 무시함.
         /// </summary>
-        private List<Level4MoveStep> BuildMoveSteps(IReadOnlyList<(string ingredient, string matter)> commands = null)
+        private List<Level4MoveStep> BuildMoveSteps(IReadOnlyList<(string ingredientId, RfidMatter matter)> commands = null)
         {
             List<Level4MoveStep> steps = new List<Level4MoveStep>();
 
@@ -436,12 +437,12 @@ namespace DGAIZone.Game.UI
             int i = 0;
             while (i < commands.Count)
             {
-                (string ingredient, string matter) current = commands[i];
+                (string ingredientId, RfidMatter matter) current = commands[i];
 
-                if (string.Equals(current.ingredient, RepeatIngredientName, StringComparison.Ordinal))
+                if (string.Equals(current.ingredientId, RepeatIngredientId, StringComparison.Ordinal))
                 {
                     bool hasFollowingMove = i + 1 < commands.Count &&
-                        string.Equals(commands[i + 1].ingredient, MoveIngredientName, StringComparison.Ordinal);
+                        string.Equals(commands[i + 1].ingredientId, MoveIngredientId, StringComparison.Ordinal);
 
                     if (!hasFollowingMove)
                     {
@@ -450,26 +451,26 @@ namespace DGAIZone.Game.UI
                         continue;
                     }
 
-                    int repeatCount = ParseRepeatCount(current.matter);
-                    Level4MoveStep? moveStep = ToMoveStep(commands[i + 1].matter);
+                    int repeatCount = GetRepeatCount(current.matter);
+                    Level4MoveStep? moveStep = ToMoveStep(commands[i + 1].matter?.id);
                     if (moveStep.HasValue)
                     {
                         for (int r = 0; r < repeatCount; r++) steps.Add(moveStep.Value);
                     }
                     else if (_logger != null)
                     {
-                        _logger.ZLogWarning($"[Level4BoardController] 알 수 없는 이동 방향 '{commands[i + 1].matter}'이라 반복 스텝을 건너뜀.");
+                        _logger.ZLogWarning($"[Level4BoardController] 알 수 없는 이동 방향 id '{commands[i + 1].matter?.id}'이라 반복 스텝을 건너뜀.");
                     }
 
                     i += 2;
                 }
-                else if (string.Equals(current.ingredient, MoveIngredientName, StringComparison.Ordinal))
+                else if (string.Equals(current.ingredientId, MoveIngredientId, StringComparison.Ordinal))
                 {
-                    Level4MoveStep? moveStep = ToMoveStep(current.matter);
+                    Level4MoveStep? moveStep = ToMoveStep(current.matter?.id);
                     if (moveStep.HasValue) steps.Add(moveStep.Value);
                     else if (_logger != null)
                     {
-                        _logger.ZLogWarning($"[Level4BoardController] 알 수 없는 이동 방향 '{current.matter}'이라 스텝을 건너뜀.");
+                        _logger.ZLogWarning($"[Level4BoardController] 알 수 없는 이동 방향 id '{current.matter?.id}'이라 스텝을 건너뜀.");
                     }
 
                     i += 1;
@@ -483,21 +484,19 @@ namespace DGAIZone.Game.UI
             return steps;
         }
 
-        /// <summary> "1회"/"2회"/"3회" 문자열에서 반복 횟수를 파싱함. 실패하면 1회로 처리함. </summary>
-        private static int ParseRepeatCount(string matter)
+        /// <summary> 반복하기 물질의 value(RfidMappings.json)를 반복 횟수로 씀. 1 미만이면 경고를 남기고 1회로 처리함. </summary>
+        private int GetRepeatCount(RfidMatter matter)
         {
-            if (!string.IsNullOrEmpty(matter))
-            {
-                System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(matter, @"\d+");
-                if (match.Success && int.TryParse(match.Value, out int count)) return count;
-            }
+            if (matter != null && matter.value >= 1) return matter.value;
+
+            if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 반복하기 물질 '{matter?.id}'의 value({matter?.value})가 1 미만이라 1회로 처리함.");
             return 1;
         }
 
-        /// <summary> 방향 문자열을 열/행 변화량으로 변환함. 알 수 없는 값이면 null. </summary>
-        private static Level4MoveStep? ToMoveStep(string direction)
+        /// <summary> 이동 방향 id를 열/행 변화량으로 변환함. 알 수 없는 값이면 null. </summary>
+        private static Level4MoveStep? ToMoveStep(string directionId)
         {
-            switch (direction)
+            switch (directionId)
             {
                 case MoveUp: return new Level4MoveStep(0, -1);
                 case MoveDown: return new Level4MoveStep(0, 1);
