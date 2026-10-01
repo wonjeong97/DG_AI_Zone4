@@ -88,24 +88,50 @@ namespace DGAIZone.Tests
         }
 
         [Test]
-        public void 레벨1_모든_목적지에서_정답을_확정하면_성공한다()
+        public void 레벨1_모든_목적지에서_무작위로_고른_정답을_확정하면_성공한다()
         {
+            const int Draws = 30;
             UseLevelMapping(1);
             MissionBoardController board = UseMissionBoard();
             MissionDestination[] destinations = LoadLevelData(1).destinations;
             Assert.IsNotEmpty(destinations, "Level1 LevelData에 목적지가 없음");
 
-            foreach (MissionDestination destination in destinations)
+            RfidLevelMapping mapping = _settings.FindLevelMapping(1);
+            RfidMatter[] engines = mapping.FindMatters("Engine");
+            RfidMatter[] payloads = mapping.FindMatters("Payload");
+            RfidMatter[] fuels = mapping.FindMatters("Fuel");
+
+            Random.State savedState = Random.state;
+            Random.InitState(1234); // 무작위 선택을 매번 같게 재현해 테스트가 흔들리지 않게 함
+            try
             {
-                board.SetTargetDistanceForTest(destination.targetDistance);
-                IngredientLevel1State state = new IngredientLevel1State();
+                foreach (MissionDestination destination in destinations)
+                {
+                    board.SetTargetDistanceForTest(destination.targetDistance);
+                    int combinationCount = engines.Sum(e => payloads.Sum(p => fuels.Count(f => e.value + f.value - p.value == destination.targetDistance)));
+                    HashSet<string> seen = new HashSet<string>();
 
-                List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = state.BuildSolution(_controller);
+                    for (int i = 0; i < Draws; i++)
+                    {
+                        IngredientLevel1State state = new IngredientLevel1State();
+                        List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = state.BuildSolution(_controller);
 
-                Assert.AreEqual(3, solution.Count, $"{destination.planetName}(거리 {destination.targetDistance}): 엔진·탑재·연료 3단계 정답이 나와야 함");
-                CollectionAssert.AreEqual(_controller.StepDefinitions.Select(s => s.ingredientId), solution.Select(s => s.ingredient.ingredientId), "정답은 단계 순서대로여야 함");
-                ConfirmAll(state, solution);
-                Assert.IsTrue(state.EvaluateMission(_controller), $"{destination.planetName}(거리 {destination.targetDistance}) 정답을 확정했는데 실패 판정이 남");
+                        Assert.AreEqual(3, solution.Count, $"{destination.planetName}(거리 {destination.targetDistance}): 엔진·탑재·연료 3단계 정답이 나와야 함");
+                        CollectionAssert.AreEqual(_controller.StepDefinitions.Select(s => s.ingredientId), solution.Select(s => s.ingredient.ingredientId), "정답은 단계 순서대로여야 함");
+                        ConfirmAll(state, solution);
+                        Assert.IsTrue(state.EvaluateMission(_controller), $"{destination.planetName}(거리 {destination.targetDistance}) 정답을 확정했는데 실패 판정이 남");
+                        seen.Add(string.Join(",", solution.Select(s => s.matter.id)));
+                    }
+
+                    if (combinationCount > 1)
+                    {
+                        Assert.Greater(seen.Count, 1, $"{destination.planetName}(거리 {destination.targetDistance}): 정답 조합이 {combinationCount}가지인데 {Draws}번 모두 같은 조합만 나옴");
+                    }
+                }
+            }
+            finally
+            {
+                Random.state = savedState;
             }
         }
 

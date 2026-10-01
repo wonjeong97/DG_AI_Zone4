@@ -25,6 +25,10 @@
   - 비활동 타이머: 결과 씬 입장부터 미션 결과 문구(컴플리트 패널)가 나올 때까지 `InactivityTimer.Pause()`, 이후·씬 파괴 시 `Resume()`.
   - 영상 준비: `VideoReadyGate.PrepareAsync`(오류 콜백 + 5초 타임아웃) 추가. 플레이어 결과 영상은 실패하면 바로 AI 연출로, AI 패널 영상은 실패하면 설계창을 둔 채 완료 패널로 넘어감. 두 수정이 함께 있어야 영상 실패 시 타이머가 멈춘 채 화면이 영구히 멈추는 일이 없음.
   - 컴파일 에러 0건. PlayMode 테스트는 사용자가 에디터를 쓰는 중이라 이번에는 돌리지 않음.
+- 후속(에디터 사용 허락 후):
+  - 사용자 지시로 Antigravity 7번 의견 중 "레벨 1 정답 무작위" 반영 — 정답 조합 전부를 모아 매번 하나를 무작위로 고름(달 2가지, 화성 8가지, 외계 행성 1가지). 테스트는 시드를 고정해 목적지마다 30번 뽑아 모두 성공하는지와 조합이 2가지 이상인 목적지에서 실제로 다른 조합이 나오는지 확인.
+  - Play 모드 확인 중 `PrepareAsync`의 `CancelAfterSlim` 타이머를 해제하지 않아, 준비가 일찍 끝나면 5초 뒤 해제된 CTS를 Cancel해 `ObjectDisposedException`이 나는 것을 발견하고 고침(타이머 등록을 CTS보다 먼저 해제). Play 모드에서는 없는 파일에 `errorReceived`가 바로 와 0.0초에 false 반환함을 확인.
+  - Play 모드로 결과 씬 확인: 설계가 한 줄씩 올라옴, 결과 씬 입장 시 타이머 정지 → 컴플리트 패널이 뜬 직후 재개. PlayMode 56/56 통과.
 
 ### [2026-10-01 16:06] Claude → Antigravity · T12
 - 변경 파일: T11(PR #32 레벨 4 반복 필수화, 커밋 795985a·bc24bbd) — `App/Constants.cs`(Level4Board), `Game/UI/Level4BoardController.cs`(BuildPlacementPool·CanClearWithin·TryRun·Level4Layout), `Game/Data/RfidMappingValidator.cs`(레벨 4 단계 수·반복 3회 검사), `Tests/Runtime/Level4OutcomeEvaluationTests.cs`, `Tests/Runtime/RfidMappingDataTests.cs`
