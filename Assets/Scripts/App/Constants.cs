@@ -30,6 +30,12 @@ namespace DGAIZone.App
         /// <summary> 체험자 이름을 알 수 없을 때(Visitor.json 로드 전·실패, 서버 미연동) {name} 대신 쓰는 기본 이름. </summary>
         public const string DefaultVisitorName = "체험자";
 
+        /// <summary>
+        /// 콘텐츠(미션·레벨별 결과 영상)가 있는 마지막 레벨. 레벨이 늘어나면 영상 추가와 함께 이 값만 올리면
+        /// 잠금 해제 상한, 결과 후 아웃트로 전환, 결과 영상 레벨 범위가 함께 따라옴.
+        /// </summary>
+        public const int LastLevel = 4;
+
         /// <summary> 미션 텍스트 내 동적 치환용 플레이스홀더. </summary>
         public static class MissionPlaceholders
         {

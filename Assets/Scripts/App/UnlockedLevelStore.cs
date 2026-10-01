@@ -10,14 +10,12 @@ namespace DGAIZone.App
     /// </summary>
     public class UnlockedLevelStore
     {
-        private const int MaxLevel = 4; // 실제로 콘텐츠가 있는 최대 레벨. 레벨이 늘어나면 이 값만 올리면 됨.
-
         public int UnlockedLevelCount { get; set; } = 1;
 
-        /// <summary> 레벨 completedLevel(1부터)을 완료했을 때, 다음 레벨까지 잠금 해제되도록 갱신함(MaxLevel을 넘지 않음). 이미 더 넓게 열려있으면 그대로 유지함. </summary>
+        /// <summary> 레벨 completedLevel(1부터)을 완료했을 때, 다음 레벨까지 잠금 해제되도록 갱신함(Constants.LastLevel을 넘지 않음). 이미 더 넓게 열려있으면 그대로 유지함. </summary>
         public void UnlockThrough(int completedLevel)
         {
-            int candidate = Mathf.Min(completedLevel + 1, MaxLevel);
+            int candidate = Mathf.Min(completedLevel + 1, Constants.LastLevel);
             if (candidate > UnlockedLevelCount) UnlockedLevelCount = candidate;
         }
 

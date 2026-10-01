@@ -19,7 +19,7 @@ namespace DGAIZone.Result
     /// 우측 상단 AI 패널(ResultAiPanel)에서 정답 설계창과 성공 영상을 보여 준 뒤 컴플리트 패널로 페이드인함.
     /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 완료!" 또는 "미션 실패!"로 표시함.
     /// 컴플리트 패널의 "다음 미션" 버튼은 방금 플레이한 레벨이 마지막 레벨이 아니면 2_LevelSelect로(다음 레벨을
-    /// 고를 수 있도록), 마지막 레벨(LastLevel)이면 5_Outro로 전환하며 버튼 문구도 "종료하기"로 바뀜.
+    /// 고를 수 있도록), 마지막 레벨(Constants.LastLevel)이면 5_Outro로 전환하며 버튼 문구도 "종료하기"로 바뀜.
     /// </summary>
     public class ResultFlowController : MonoBehaviour
     {
@@ -35,7 +35,6 @@ namespace DGAIZone.Result
         private readonly float aiDesignHoldDuration = 4f; // 4_Result.json 로드 전까지의 폴백 기본값
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
-        private const int LastLevel = 4; // 이 레벨을 완료하면 다음 미션(LevelSelect) 대신 Outro로 감. 레벨이 늘어나면 이 값만 올리면 됨.
         private const string EndButtonText = "종료하기";
         private const string MissionSuccessText = "미션 완료!";
         private const string MissionFailText = "미션 실패!";
@@ -88,7 +87,7 @@ namespace DGAIZone.Result
             if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockThrough(playedLevel);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] unlockedLevelStore가 null이라 다음 레벨을 잠금 해제할 수 없음.");
 
-            if (playedLevel >= LastLevel) ApplyEndButtonText();
+            if (playedLevel >= Constants.LastLevel) ApplyEndButtonText();
 
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
@@ -174,7 +173,7 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// 컴플리트 패널의 다음 버튼 클릭 시 화면 페이드와 함께 전환함. 방금 플레이한 레벨이 마지막 레벨(LastLevel)이면
+        /// 컴플리트 패널의 다음 버튼 클릭 시 화면 페이드와 함께 전환함. 방금 플레이한 레벨이 마지막 레벨(Constants.LastLevel)이면
         /// 아웃트로 씬으로, 아니면 다음 레벨을 고를 수 있도록 레벨 선택 씬으로 전환함.
         /// </summary>
         private void OnCompleteNextClicked()
@@ -188,7 +187,7 @@ namespace DGAIZone.Result
             }
 
             int playedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
-            string nextScene = playedLevel >= LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
+            string nextScene = playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
 
             _isBusy = true;
             _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
