@@ -138,6 +138,19 @@ namespace DGAIZone.App
             }
         }
 
+        /// <summary> 레벨 4(탐사 로봇) 보드 규칙. 보드 배치(Level4BoardController)와 RfidMappings.json 검증(RfidMappingValidator)이 함께 씀. </summary>
+        public static class Level4Board
+        {
+            /// <summary> 한 판에 놓을 수 있는 카드 수. RfidMappings.json 레벨 4 steps 수와 같아야 함. </summary>
+            public const int MaxCards = 5;
+
+            /// <summary>
+            /// 보드 배치가 전제로 하는 반복 횟수. 이동하기만으로는 MaxCards장 안에 못 풀고 '반복하기(이 횟수) + 이동하기'를 써야 풀리는 배치만 나오므로,
+            /// RfidMappings.json 반복하기 블록에 이 value가 꼭 있어야 함.
+            /// </summary>
+            public const int RequiredRepeatCount = 3;
+        }
+
         /// <summary>
         /// 스토리 텍스트가 한 줄씩 올라오는 연출 상수(타이틀/레벨 선택/아웃트로 공용).
         /// 실제 값은 00_Common.json(Data.CommonSettings)에서 재빌드 없이 조정 가능하며, 여기 값은 로드 전/실패 시 폴백으로만 쓰임.
