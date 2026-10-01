@@ -122,10 +122,16 @@ namespace DGAIZone.Game.UI
             _logger = logger;
         }
 
-        /// <summary> 레벨 4일 때만 보드를 무작위로 배치하고 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억함. </summary>
+        /// <summary>
+        /// 레벨 4일 때만 보드를 무작위로 배치하고 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억함.
+        /// 스페이스바 시뮬레이션(Update)은 레벨 4의 에디터·개발 빌드에서만 켜 둠.
+        /// </summary>
         private void Start()
         {
+            enabled = IsLevel4() && Debug.isDebugBuild;
             if (!IsLevel4()) return;
+
+            if (!Debug.isDebugBuild && _logger != null) _logger.ZLogInformation($"[Level4BoardController] 릴리스 빌드라 스페이스바 이동 시뮬레이션을 끔.");
 
             if (robotIcon)
             {
@@ -152,12 +158,11 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 레벨 4에서 게임 패널이 활성 상태일 때 스페이스바 입력을 감지해 이동 시뮬레이션을 (재)시작함.
-        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거이며, '코딩완료' 버튼도 결과 씬으로
-        /// 넘어가기 전에 동일한 시뮬레이션(PlaySimulationAsync)을 재생함(IngredientSelectionController에서 호출).
+        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거라 Start에서 레벨 4의 에디터·개발 빌드일 때만 켜 두며,
+        /// '코딩완료' 버튼도 결과 씬으로 넘어가기 전에 동일한 시뮬레이션(PlaySimulationAsync)을 재생함(IngredientSelectionController에서 호출).
         /// </summary>
         private void Update()
         {
-            if (!IsLevel4()) return;
             if (gamePanel && !gamePanel.interactable) return;
             if (Keyboard.current == null) return;
 

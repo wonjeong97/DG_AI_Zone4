@@ -12,6 +12,7 @@ namespace DGAIZone.Game.Hardware
     /// <summary>
     /// RFID 리더기가 없는 환경에서 키보드 숫자키로 카드 인식을 대체하는 개발용 시뮬레이터.
     /// 1번 키는 "동작", 2번 키는 "제어", 3번 키는 "논리", 4번 키는 "함수" 카테고리 카드를 찍은 것처럼 RfidTagEvent를 발행함.
+    /// 에디터와 개발 빌드에서만 동작함. 릴리스 빌드에서는 현장 키보드·QR 스캐너 입력이 가짜 카드 인식이 되지 않도록 꺼짐.
     /// </summary>
     public class KeyboardRfidSimulator : MonoBehaviour
     {
@@ -34,6 +35,15 @@ namespace DGAIZone.Game.Hardware
         {
             _publisher = publisher;
             _logger = logger;
+        }
+
+        /// <summary> 릴리스 빌드면 키 입력 확인(Update)을 끔. </summary>
+        private void Start()
+        {
+            if (Debug.isDebugBuild) return;
+
+            enabled = false;
+            if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] 릴리스 빌드라 숫자키 카드 시뮬레이션을 끔.");
         }
 
         /// <summary> 매 프레임 1~4번 키 입력을 확인해 대응하는 카테고리 카드 인식을 발행함. </summary>
