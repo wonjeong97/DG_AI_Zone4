@@ -174,6 +174,11 @@ namespace DGAIZone.Tests
             {
                 Assert.GreaterOrEqual(matter.value, 1, $"반복하기 블록 '{matter.id}'의 반복 횟수(value)가 1 미만임");
             }
+
+            // 보드는 이동하기만으로는 카드 MaxCards장 안에 못 풀고 RequiredRepeatCount회 반복하기로 풀리는 배치만 고름
+            Assert.AreEqual(Constants.Level4Board.MaxCards, mapping.steps.Length, "레벨 4 단계 수는 보드 배치 기준 카드 수와 같아야 함");
+            CollectionAssert.Contains(repeats.Select(m => m.value).ToArray(), Constants.Level4Board.RequiredRepeatCount,
+                $"반복하기 블록에 보드 배치가 전제로 하는 {Constants.Level4Board.RequiredRepeatCount}회가 없음");
         }
 
         [Test]
@@ -276,6 +281,20 @@ namespace DGAIZone.Tests
 
             AssertHasError(errors, "레벨 4", $"'{Constants.RfidCategories.Action}' 카드");
             AssertHasError(errors, "레벨 4", $"'{Constants.RfidCategories.Control}' 카드");
+        }
+
+        [Test]
+        public void 검증기는_레벨4_카드_수나_반복_횟수가_보드_배치와_맞지_않으면_찾아낸다()
+        {
+            RfidLevelMapping level4 = GetMapping(4);
+            level4.steps = level4.steps.Take(Constants.Level4Board.MaxCards - 1).ToArray();
+            RfidMatterSet repeatSet = level4.matterSets.First(s => s.id == Constants.RfidIds.Level4.Repeat);
+            repeatSet.matters = repeatSet.matters.Where(m => m.value != Constants.Level4Board.RequiredRepeatCount).ToArray();
+
+            List<string> errors = RfidMappingValidator.Validate(_settings);
+
+            AssertHasError(errors, "레벨 4 단계 수", $"{Constants.Level4Board.MaxCards}장");
+            AssertHasError(errors, "레벨 4 반복하기", $"{Constants.Level4Board.RequiredRepeatCount}회");
         }
 
         [Test]

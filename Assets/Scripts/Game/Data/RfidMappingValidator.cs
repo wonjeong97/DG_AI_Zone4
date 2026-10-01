@@ -140,7 +140,10 @@ namespace DGAIZone.Game.Data
             RequireRangeCovered(levelData.minOxygenRange, "레벨 3 LevelData의 산소량 하한 범위(minOxygenRange)", oxygenConditions, "산소량 조건", errors);
         }
 
-        /// <summary> 레벨 4: 동작 카드로 고르는 이동하기, 제어 카드로 고르는 반복하기 재료가 있고, 이동 방향은 아는 id, 반복 횟수는 1 이상이어야 함. </summary>
+        /// <summary>
+        /// 레벨 4: 동작 카드로 고르는 이동하기, 제어 카드로 고르는 반복하기 재료가 있고, 이동 방향은 아는 id, 반복 횟수는 1 이상이어야 함.
+        /// 보드 배치 규칙에 맞게 단계 수는 카드 수(Constants.Level4Board.MaxCards)와 같고, 반복 횟수 블록에 RequiredRepeatCount가 있어야 함.
+        /// </summary>
         private static void ValidateLevel4(RfidLevelMapping mapping, List<string> errors)
         {
             if (!ValidateLevelBasics(4, mapping, errors)) return;
@@ -160,6 +163,20 @@ namespace DGAIZone.Game.Data
             }
 
             RequireMinValue(repeats, "레벨 4 반복하기(Repeat)", 1, "반복 횟수로 쓰임", errors);
+
+            // 보드는 이동하기만으로는 MaxCards장 안에 못 풀고 '반복하기(RequiredRepeatCount회) + 이동하기'로 풀리는 배치만 고르므로,
+            // 카드 수(단계 수)가 다르거나 그 반복 횟수 블록이 없으면 풀 수 없거나 반복하기 없이도 풀리게 됨
+            int maxCards = Constants.Level4Board.MaxCards;
+            if (mapping.steps.Length != maxCards)
+            {
+                errors.Add($"레벨 4 단계 수가 {mapping.steps.Length}개라 보드 배치 기준 카드 수 {maxCards}장과 맞지 않음(적으면 풀 수 없고 많으면 반복하기 없이도 풀림).");
+            }
+
+            int requiredRepeat = Constants.Level4Board.RequiredRepeatCount;
+            if (repeats != null && !Array.Exists(repeats, m => m != null && m.value == requiredRepeat))
+            {
+                errors.Add($"레벨 4 반복하기 블록에 {requiredRepeat}회(value {requiredRepeat})가 없어 보드를 풀 수 없음(배치가 {requiredRepeat}회 반복을 전제로 함).");
+            }
         }
 
         /// <summary> 레벨 정의와 단계 목록이 있는지, 블록 목록 id·블록 id가 비거나 중복되지 않는지 검사함. 이후 검사를 이어갈 수 없으면 false. </summary>
