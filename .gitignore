@@ -125,3 +125,6 @@ InitTestScene*.unity*
 # Locally-published exe (~150MB, com.wonjeong.template's Tools/Build Shutdown Scheduler Exe) - not committed per template convention
 /[Aa]ssets/StreamingAssets/ShutdownScheduleEditor.exe
 /[Aa]ssets/StreamingAssets/ShutdownScheduleEditor.exe.meta
+
+# Documents (review PDFs etc.) - already tracked files such as the TextMesh Pro guide stay tracked
+*.pdf
