@@ -42,36 +42,35 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> JSON에 정의된 단계별 고정 재료/물질을 그대로 사용함. </summary>
-        public (string ingredientName, string[] matterNames) ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
+        public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
         {
-            return (step.ingredientName, step.matterNames);
+            return step;
         }
 
         /// <summary> 이미 확정된 물질을 제외한 목록을 반환함. </summary>
-        public string[] FilterMatters(IngredientSelectionController controller, string ingredientName, string[] matterNames)
+        public RfidMatter[] FilterMatters(IngredientSelectionController controller, string ingredientId, RfidMatter[] matters)
         {
-            return controller.ExcludeConfirmedMatters(ingredientName, matterNames);
+            return controller.ExcludeConfirmedMatters(ingredientId, matters);
         }
 
-        /// <summary> 선택된 물질 값을 파싱해 추진력 계산식에 반영함. </summary>
-        public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredient, string chosenMatter)
+        /// <summary> 선택된 물질의 value를 재료 역할(엔진/탑재/연료)에 맞춰 추진력 계산식에 반영함. </summary>
+        public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter chosenMatter)
         {
-            int value = controller.ParseIngredientValue(ingredient, chosenMatter);
-            controller.ApplyConfirmedValue(ingredient, value);
+            controller.ApplyConfirmedValue(ingredientId, chosenMatter.value);
         }
 
         /// <summary> 되돌려진 재료의 확정값을 0으로 리셋함. </summary>
-        public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredient, string matter)
+        public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter)
         {
-            controller.ApplyConfirmedValue(ingredient, 0);
+            controller.ApplyConfirmedValue(ingredientId, 0);
         }
 
         /// <summary> "· 재료 [물질]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredient, string matter)
+        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
-            return string.IsNullOrEmpty(ingredient)
-                ? $" · [<color=yellow>{controller.ApplyNumberSizeTag(matter)}</color>]"
-                : $" · {ingredient} [<color=yellow>{controller.ApplyNumberSizeTag(matter)}</color>]";
+            return string.IsNullOrEmpty(ingredientName)
+                ? $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]"
+                : $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
         }
 
         /// <summary> 모든 단계가 완료되었을 때만 코딩완료 버튼을 활성화함. </summary>
@@ -87,7 +86,7 @@ namespace DGAIZone.Game.UI.States
             bool valid = controller.MissionBoard && controller.MissionBoard.IsThrustValid(totalThrust);
             if (controller.Logger != null)
             {
-                controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={controller.ConfirmedEngineValue} x 연료={controller.ConfirmedFuelValue} - 탑재={controller.ConfirmedPayloadValue}) vs 목적지 '{controller.MissionBoard?.Destination}' -> {(valid ? "성공" : "실패")}");
+                controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={controller.ConfirmedEngineValue} + 연료={controller.ConfirmedFuelValue} - 탑재={controller.ConfirmedPayloadValue}) vs 목적지 '{controller.MissionBoard?.Destination}' -> {(valid ? "성공" : "실패")}");
             }
             return valid;
         }

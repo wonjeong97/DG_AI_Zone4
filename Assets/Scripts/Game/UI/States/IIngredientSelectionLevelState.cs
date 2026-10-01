@@ -19,20 +19,20 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 해당 단계에서 리더기가 안내할 허용 카테고리 목록을 반환. </summary>
         string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step);
 
-        /// <summary> 스캔된 카드 정보로부터 실제 사용할 재료명과 물질 목록을 해석. </summary>
-        (string ingredientName, string[] matterNames) ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category);
+        /// <summary> 스캔된 카드 정보로부터 실제 사용할 재료(id, 이름, 물질 목록)를 해석. 해석할 수 없으면 null. </summary>
+        RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category);
 
         /// <summary> 물질 선택 목록 중 이미 확정된 값을 제외할지 여부를 결정하여 반환. </summary>
-        string[] FilterMatters(IngredientSelectionController controller, string ingredientName, string[] matterNames);
+        RfidMatter[] FilterMatters(IngredientSelectionController controller, string ingredientId, RfidMatter[] matters);
 
         /// <summary> 단계 확정 시 레벨별 효과 및 값을 적용. </summary>
-        void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredient, string chosenMatter);
+        void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter chosenMatter);
 
         /// <summary> 단계 취소(되돌리기) 시 적용되었던 레벨별 효과를 원복. </summary>
-        void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredient, string matter);
+        void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter);
 
-        /// <summary> 확정된 디자인 항목의 텍스트 표기 형식을 결정. </summary>
-        string FormatDesignItemText(IngredientSelectionController controller, string ingredient, string matter);
+        /// <summary> 확정된 디자인 항목의 텍스트 표기 형식을 결정(재료 이름과 물질 이름은 화면 표시용 문자열). </summary>
+        string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel);
 
         /// <summary> 코딩완료 버튼의 활성화 가능 여부를 반환. </summary>
         bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps);

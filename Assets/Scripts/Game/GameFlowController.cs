@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
@@ -35,6 +34,7 @@ namespace DGAIZone.Game
         [SerializeField] private Image storyImage;          // Image_Story
         [SerializeField] private GameObject[] storyLevels;  // Story_Level1..5 순서
         [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 2_LevelSelect와 공유하는 스토리 텍스트 소스
+        public LevelData[] LevelDataList => levelDataList;
 
         [Header("Current Situation Panel")]
         [SerializeField] private GameObject[] situationPanels; // Image_CurrentSituation 하위 Panel_Level1..5 순서
@@ -48,20 +48,27 @@ namespace DGAIZone.Game
         private bool _isBusy;
         private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
+        private VisitorInfoProvider _visitorInfoProvider;
+        private string _visitorName = Constants.DefaultVisitorName;
+        private string _sceneStoryTemplate; // levelDataList가 비었을 때 쓰는 씬 스토리 텍스트 원본({name} 치환 전)
 
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private CommonSettings _commonSettings;
 
         /// <summary>
-        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. debugStartLevel이 설정되어 있으면(1~5)
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. debugStartLevel이 설정되어 있으면(1~5)
         /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
         /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함.
         /// </summary>
         [Inject]
-        public void Construct(SelectedLevelStore selectedLevelStore, ILogger<GameFlowController> logger)
+        public void Construct(
+            SelectedLevelStore selectedLevelStore,
+            ILogger<GameFlowController> logger,
+            VisitorInfoProvider visitorInfoProvider = null)
         {
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _visitorInfoProvider = visitorInfoProvider;
 
             if (debugStartLevel > 0 && _selectedLevelStore != null)
             {
@@ -73,8 +80,8 @@ namespace DGAIZone.Game
         /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리/상황 패널을 설정한 뒤 버튼 이벤트를 연결하고 00_Common.json을 비동기로 불러옴. </summary>
         private void Start()
         {
-            ApplyPanelState(gamePanel, true);
-            ApplyPanelState(storyPanel, false);
+            PanelFader.ApplyState(gamePanel, true, _logger);
+            PanelFader.ApplyState(storyPanel, false, _logger);
 
             _selectedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
 
@@ -88,10 +95,21 @@ namespace DGAIZone.Game
             LoadCommonSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
+        /// <summary> 00_Common.json(CommonSettings) 및 체험자 이름을 비동기로 로드하고 스토리 텍스트에 체험자 이름을 반영함. </summary>
         private async UniTaskVoid LoadCommonSettingsAsync(CancellationToken token)
         {
-            _commonSettings = await CommonSettingsProvider.GetAsync(token);
+            UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+            if (_visitorInfoProvider == null && _logger != null)
+            {
+                _logger.ZLogWarning($"[GameFlowController] visitorInfoProvider가 null이라 스토리 텍스트에 기본 이름 '{Constants.DefaultVisitorName}'을 사용함.");
+            }
+            UniTask<string> visitorTask = _visitorInfoProvider != null
+                ? _visitorInfoProvider.GetNameAsync(token)
+                : UniTask.FromResult(Constants.DefaultVisitorName);
+
+            (_commonSettings, _visitorName) = await UniTask.WhenAll(commonTask, visitorTask);
+
+            ApplyStoryText();
         }
 
         /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 게임 패널로 전환함. </summary>
@@ -128,26 +146,36 @@ namespace DGAIZone.Game
                     else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyLevels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
                 }
 
-                // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
-                // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
-                if (index >= 0 && index < storyLevels.Length && storyLevels[index])
+                ApplyStoryText();
+            }
+        }
+
+        /// <summary> 활성화된 레벨의 스토리 텍스트에 levelData 및 체험자 이름을 반영함. </summary>
+        private void ApplyStoryText()
+        {
+            int index = _selectedLevel - 1;
+            if (storyLevels == null || index < 0 || index >= storyLevels.Length || !storyLevels[index]) return;
+
+            // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
+            // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
+            // 스토리 텍스트 안의 {name} 자리표시자를 실제 체험자 이름으로 교체함.
+            if (ChildComponentFinder.TryGetInDirectChildren(storyLevels[index].transform, out TMP_Text storyText))
+            {
+                if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                 {
-                    if (ChildComponentFinder.TryGetInDirectChildren(storyLevels[index].transform, out TMP_Text storyText))
-                    {
-                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
-                        {
-                            storyText.text = levelDataList[index].storyText;
-                        }
-                        else if (_logger != null)
-                        {
-                            _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
-                        }
-                    }
-                    else if (_logger != null)
-                    {
-                        _logger.ZLogWarning($"[GameFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 바꿀 수 없음.");
-                    }
+                    storyText.text = PlaceholderFormatter.ReplaceVisitorName(levelDataList[index].storyText, _visitorName);
                 }
+                else
+                {
+                    // 씬 텍스트를 제자리에서 치환하면 {name}이 사라져 이름이 늦게 로드됐을 때 다시 반영할 수 없으므로, 처음 읽은 원본을 템플릿으로 보관함
+                    _sceneStoryTemplate ??= storyText.text;
+                    storyText.text = PlaceholderFormatter.ReplaceVisitorName(_sceneStoryTemplate, _visitorName);
+                    if (_logger != null) _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
+                }
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[GameFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 바꿀 수 없음.");
             }
         }
 
@@ -236,8 +264,8 @@ namespace DGAIZone.Game
             {
                 if (storyPanel)
                 {
-                    await FadeCanvasGroupAsync(storyPanel, 1f, 0f, duration, token);
-                    ApplyPanelState(storyPanel, false);
+                    await PanelFader.FadeAsync(storyPanel, 1f, 0f, duration, _logger, token);
+                    PanelFader.ApplyState(storyPanel, false, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -246,8 +274,8 @@ namespace DGAIZone.Game
 
                 if (gamePanel)
                 {
-                    await FadeCanvasGroupAsync(gamePanel, 0f, 1f, duration, token);
-                    ApplyPanelState(gamePanel, true);
+                    await PanelFader.FadeAsync(gamePanel, 0f, 1f, duration, _logger, token);
+                    PanelFader.ApplyState(gamePanel, true, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -275,8 +303,8 @@ namespace DGAIZone.Game
             {
                 if (gamePanel)
                 {
-                    await FadeCanvasGroupAsync(gamePanel, 1f, 0f, duration, token);
-                    ApplyPanelState(gamePanel, false);
+                    await PanelFader.FadeAsync(gamePanel, 1f, 0f, duration, _logger, token);
+                    PanelFader.ApplyState(gamePanel, false, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -285,8 +313,9 @@ namespace DGAIZone.Game
 
                 if (storyPanel)
                 {
-                    await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
-                    ApplyPanelState(storyPanel, true);
+                    ApplyStoryText();
+                    await PanelFader.FadeAsync(storyPanel, 0f, 1f, duration, _logger, token);
+                    PanelFader.ApplyState(storyPanel, true, _logger);
                 }
                 else if (_logger != null)
                 {
@@ -295,35 +324,6 @@ namespace DGAIZone.Game
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
-        }
-
-        /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>
-        private async UniTask FadeCanvasGroupAsync(CanvasGroup group, float startAlpha, float endAlpha, float duration, CancellationToken token)
-        {
-            if (!group) return;
-            if (duration <= 0f) duration = 0.4f;
-
-            group.alpha = startAlpha;
-            group.interactable = false;
-            group.blocksRaycasts = false;
-
-            await group.DOFade(endAlpha, duration)
-                .SetEase(Ease.Linear)
-                .SetUpdate(true) // Zone1과 동일하게 Time.timeScale과 무관하게 동작하도록 함
-                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
-        }
-
-        /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. 활성 상태는 유지하고 알파로만 제어함. </summary>
-        private void ApplyPanelState(CanvasGroup group, bool visible)
-        {
-            if (!group)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] 패널 CanvasGroup이 null이라 표시 상태를 적용할 수 없음.");
-                return;
-            }
-            group.alpha = visible ? 1f : 0f;
-            group.interactable = visible;
-            group.blocksRaycasts = visible;
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
@@ -67,21 +68,21 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> JSON에 정의된 단계별 고정 재료/물질을 그대로 사용함. </summary>
-        public (string ingredientName, string[] matterNames) ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
+        public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
         {
-            return (step.ingredientName, step.matterNames);
+            return step;
         }
 
         /// <summary> 이미 확정된 물질을 제외한 목록을 반환함. </summary>
-        public string[] FilterMatters(IngredientSelectionController controller, string ingredientName, string[] matterNames)
+        public RfidMatter[] FilterMatters(IngredientSelectionController controller, string ingredientId, RfidMatter[] matters)
         {
-            return controller.ExcludeConfirmedMatters(ingredientName, matterNames);
+            return controller.ExcludeConfirmedMatters(ingredientId, matters);
         }
 
         /// <summary> 확정된 단계와 값에 따라 게이지를 채우거나 불안정 상태를 예약하고, 5단계 완료 시 불안정 깜빡임을 시작함. </summary>
-        public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredient, string chosenMatter)
+        public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter chosenMatter)
         {
-            UpdateLevel3Effects(controller, stepIndex, chosenMatter);
+            UpdateLevel3Effects(controller, ingredientId, chosenMatter);
 
             if (stepIndex + 1 >= controller.TotalSteps && _level3InstabilityPending)
             {
@@ -90,17 +91,17 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> 취소 시 적용되었던 게이지 충전량과 효과를 반대로 되돌림. </summary>
-        public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredient, string matter)
+        public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter)
         {
-            RevertLevel3Effects(controller, stepIndex, matter);
+            RevertLevel3Effects(controller, ingredientId, matter);
         }
 
         /// <summary> 재료명이 비어있는 경우(논리 연결어) 물질만 표시하고, 그 외에는 재료와 물질을 함께 표시함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredient, string matter)
+        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
-            return string.IsNullOrEmpty(ingredient)
-                ? $" · [<color=yellow>{controller.ApplyNumberSizeTag(matter)}</color>]"
-                : $" · {ingredient} [<color=yellow>{controller.ApplyNumberSizeTag(matter)}</color>]";
+            return string.IsNullOrEmpty(ingredientName)
+                ? $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]"
+                : $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
         }
 
         /// <summary> 모든 단계가 완료되었을 때만 코딩완료 버튼을 활성화함. </summary>
@@ -155,62 +156,57 @@ namespace DGAIZone.Game.UI.States
             StopLevel3IconInstability(controller);
         }
 
-        /// <summary> 확정된 단계와 값에 따라 산소/전기 게이지를 채움. </summary>
-        private void UpdateLevel3Effects(IngredientSelectionController controller, int stepIndex, string matter)
+        /// <summary>
+        /// 확정된 재료(ingredientId)와 값에 따라 게이지를 채우거나 불안정 상태를 예약함. 단계 순서가 아니라 재료 id로 정하므로 JSON에서
+        /// 단계 순서를 바꿔도 맞는 게이지가 참. '또는'(Or) 논리 블록이면 불안정 상태를 예약함.
+        /// </summary>
+        private void UpdateLevel3Effects(IngredientSelectionController controller, string ingredientId, RfidMatter matter)
         {
-            switch (stepIndex)
+            if (string.Equals(ingredientId, Constants.RfidIds.Level3.Logic, StringComparison.Ordinal))
             {
-                case 0:
-                    if (controller.MissionBoard && string.Equals(matter, $"{controller.MissionBoard.MaxElectricity} 이상", StringComparison.Ordinal))
-                    {
-                        AddOxygenGaugeFill(controller, 0.5f);
-                    }
-                    break;
-                case 1:
-                    if (string.Equals(matter, "낮추기", StringComparison.Ordinal)) AddOxygenGaugeFill(controller, 0.5f);
-                    break;
-                case 2:
-                    _level3InstabilityPending = string.Equals(matter, "또는", StringComparison.Ordinal);
-                    break;
-                case 3:
-                    if (controller.MissionBoard && string.Equals(matter, $"{controller.MissionBoard.MinOxygen} 이하", StringComparison.Ordinal))
-                    {
-                        AddElectricGaugeFill(controller, 0.5f);
-                    }
-                    break;
-                case 4:
-                    if (string.Equals(matter, "올리기", StringComparison.Ordinal)) AddElectricGaugeFill(controller, 0.5f);
-                    break;
+                _level3InstabilityPending = string.Equals(matter.id, Constants.RfidIds.Level3.Or, StringComparison.Ordinal);
+                return;
             }
+
+            ApplyGaugeEffect(controller, ingredientId, matter, 0.5f);
         }
 
         /// <summary> 취소 시 UpdateLevel3Effects로 적용됐던 효과를 반대로 되돌림. </summary>
-        private void RevertLevel3Effects(IngredientSelectionController controller, int stepIndex, string matter)
+        private void RevertLevel3Effects(IngredientSelectionController controller, string ingredientId, RfidMatter matter)
         {
             StopLevel3IconInstability(controller);
 
-            switch (stepIndex)
+            if (string.Equals(ingredientId, Constants.RfidIds.Level3.Logic, StringComparison.Ordinal))
             {
-                case 0:
-                    if (controller.MissionBoard && string.Equals(matter, $"{controller.MissionBoard.MaxElectricity} 이상", StringComparison.Ordinal))
-                    {
-                        AddOxygenGaugeFill(controller, -0.5f);
-                    }
+                _level3InstabilityPending = false;
+                return;
+            }
+
+            ApplyGaugeEffect(controller, ingredientId, matter, -0.5f);
+        }
+
+        /// <summary>
+        /// 정답 블록이면 재료에 해당하는 게이지를 delta만큼 증감함. 전기량 조건·전기량 동작은 전기 게이지를, 산소량 조건·산소량 동작은 산소 게이지를
+        /// 바꾸며, 조건 블록은 value를 미션 기준값과, 동작 블록은 id(전기량 낮추기/산소량 올리기)를 비교함.
+        /// </summary>
+        private void ApplyGaugeEffect(IngredientSelectionController controller, string ingredientId, RfidMatter matter, float delta)
+        {
+            switch (ingredientId)
+            {
+                case Constants.RfidIds.Level3.ElectricityCondition:
+                    if (controller.MissionBoard && matter.value == controller.MissionBoard.MaxElectricity) AddElectricGaugeFill(controller, delta);
                     break;
-                case 1:
-                    if (string.Equals(matter, "낮추기", StringComparison.Ordinal)) AddOxygenGaugeFill(controller, -0.5f);
+                case Constants.RfidIds.Level3.Electricity:
+                    if (string.Equals(matter.id, Constants.RfidIds.Level3.Lower, StringComparison.Ordinal)) AddElectricGaugeFill(controller, delta);
                     break;
-                case 2:
-                    _level3InstabilityPending = false;
+                case Constants.RfidIds.Level3.OxygenCondition:
+                    if (controller.MissionBoard && matter.value == controller.MissionBoard.MinOxygen) AddOxygenGaugeFill(controller, delta);
                     break;
-                case 3:
-                    if (controller.MissionBoard && string.Equals(matter, $"{controller.MissionBoard.MinOxygen} 이하", StringComparison.Ordinal))
-                    {
-                        AddElectricGaugeFill(controller, -0.5f);
-                    }
+                case Constants.RfidIds.Level3.Oxygen:
+                    if (string.Equals(matter.id, Constants.RfidIds.Level3.Raise, StringComparison.Ordinal)) AddOxygenGaugeFill(controller, delta);
                     break;
-                case 4:
-                    if (string.Equals(matter, "올리기", StringComparison.Ordinal)) AddElectricGaugeFill(controller, -0.5f);
+                default:
+                    if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3에서 알 수 없는 재료 id '{ingredientId}'라 게이지 효과를 적용하지 않음.");
                     break;
             }
         }

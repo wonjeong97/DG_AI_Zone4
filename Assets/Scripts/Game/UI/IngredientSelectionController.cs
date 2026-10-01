@@ -86,10 +86,6 @@ namespace DGAIZone.Game.UI
         private readonly float warningShakeCycleDuration = 0.08f;
         private readonly float warningHoldDuration = 1.0f;
 
-        private const string FuelIngredientName = "연료량";
-        private const string EngineIngredientName = "추진체 종류";
-        private const string PayloadIngredientName = "탑재 종류";
-
         private StateMachine<IngredientSelectionController> _stateMachine;
         private IngredientLevel1State _level1State;
         private IngredientLevel2State _level2State;
@@ -117,9 +113,8 @@ namespace DGAIZone.Game.UI
 
         internal Level4BoardController Level4Board => level4Board;
         internal MissionBoardController MissionBoard => _missionBoard;
-        internal int DesignItemsCount => _designItems.Count;
         internal ILogger<IngredientSelectionController> Logger => _logger;
-        internal string[] ConfirmedMatters => _confirmedMatters;
+        internal RfidMatter[] ConfirmedMatters => _confirmedMatters;
         internal string[] ConfirmedIngredients => _confirmedIngredients;
         internal int CurrentStepIndex => _currentStepIndex;
         internal int TotalSteps => _totalSteps;
@@ -143,9 +138,12 @@ namespace DGAIZone.Game.UI
         private int _totalSteps = 3;        // 현재 스테이지에서 찍어야 하는 총 read 횟수
         private int _currentStageIndex = 0; // 현재 스테이지 (0부터 시작)
         private int[] _stageReadCounts = { 3 }; // 스테이지별 read 횟수 (JSON stageReadCounts, steps 미설정 시 폴백)
+        private RfidLevelMapping _levelMapping; // 현재 레벨의 블록 목록(matterSets)·단계 정의. 단계가 고를 블록은 matterSetId로 여기서 찾음
         private RfidStepDefinition[] _stepDefinitions; // "동작" 카드를 찍을 때마다 순서대로 진행되는 재료 목록 (추진체 종류 -> 탑재 종류 -> 연료량)
-        private string[] _confirmedMatters;
-        private string[] _confirmedIngredients;
+        private RfidStepDefinition[] _categoryIngredients; // 카드 분류로 재료가 정해지는 레벨(레벨 4)의 분류별 재료 정의
+        private RfidMatter[] _confirmedMatters;
+        private string[] _confirmedIngredients; // 각 스탭에서 확정된 재료의 ingredientId
+        private string _currentIngredientId; // 현재 대기 중인(아직 확정 안 된) 재료의 ingredientId. 화면 표시용 이름은 _currentIngredient
         private string[] _confirmedCategories; // 각 스탭을 확정시킨 카드의 category(동작/제어/논리/함수). 리더기별 스탭 라우팅에서 카드 변경 감지에 사용
         private string _currentCategory; // 현재 대기 중인(아직 확정 안 된) 태그의 category. Confirm 시 _confirmedCategories에 기록됨
 
@@ -158,7 +156,7 @@ namespace DGAIZone.Game.UI
         private readonly HashSet<int> _idleReaderStepIndices = new HashSet<int>();
         private const float DesignItemDeactivatedAlpha = 0.35f;
 
-        // 추진력 계산식(엔진 출력량 x 연료량 - 탑재 중량)에 쓰이는 역할별 확정 값. 미확정 상태의 기본값은 0.
+        // 추진력 계산식(엔진 출력량 + 연료량 - 탑재 중량)에 쓰이는 역할별 확정 값. 미확정 상태의 기본값은 0.
         private int _confirmedEngineValue = 0;
         private int _confirmedFuelValue = 0;
         private int _confirmedPayloadValue = 0;
@@ -168,7 +166,7 @@ namespace DGAIZone.Game.UI
 
         // R3 반응형 상태 관리
         private readonly ReactiveProperty<string> _currentIngredient = new ReactiveProperty<string>("");
-        private readonly ReactiveProperty<string[]> _currentMatters = new ReactiveProperty<string[]>(Array.Empty<string>());
+        private readonly ReactiveProperty<RfidMatter[]> _currentMatters = new ReactiveProperty<RfidMatter[]>(Array.Empty<RfidMatter>());
         private readonly ReactiveProperty<int> _currentMatterIndex = new ReactiveProperty<int>(0);
 
         private R3.DisposableBag _disposables = new R3.DisposableBag();
@@ -349,19 +347,28 @@ namespace DGAIZone.Game.UI
                     _ => _level1State
                 };
                 _stateMachine.ChangeState(targetState);
-                _stepDefinitions = settings != null ? settings.GetStepsForLevel(level) : null;
+                ValidateMappings(settings);
+
+                _levelMapping = settings != null ? settings.FindLevelMapping(level) : null;
+                _stepDefinitions = _levelMapping?.steps;
+                _categoryIngredients = _levelMapping?.categoryIngredients;
 
                 _currentStageIndex = Mathf.Clamp(_currentStageIndex, 0, _stageReadCounts.Length - 1);
                 _totalSteps = (_stepDefinitions != null && _stepDefinitions.Length > 0)
                     ? _stepDefinitions.Length
                     : _stageReadCounts[_currentStageIndex];
+
+                if ((_stepDefinitions == null || _stepDefinitions.Length == 0) && _logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 stageReadCounts의 {_totalSteps}회로 진행함.");
+                }
             }
             catch (Exception e)
             {
                 if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] 워크플로우용 RfidMappings.json 로드 실패: {e.Message}");
             }
 
-            _confirmedMatters = new string[_totalSteps];
+            _confirmedMatters = new RfidMatter[_totalSteps];
             _confirmedIngredients = new string[_totalSteps];
             _confirmedCategories = new string[_totalSteps];
             _idleReaderStepIndices.Clear();
@@ -370,6 +377,34 @@ namespace DGAIZone.Game.UI
             UpdateCategoryHint();
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
+        }
+
+        /// <summary>
+        /// RfidMappings.json의 레벨 1~4 블록 정의를 검사해 문제마다 오류 로그를 남김. 블록 목록이 비었거나 값이 빠지면 게임 중에는
+        /// 선택지가 비거나 미션을 깰 수 없을 뿐 다른 오류가 나지 않으므로, 로드 직후 원인을 바로 알 수 있게 함.
+        /// 레벨 1 목적지 거리와 레벨 3 기준값 범위(LevelData)도 블록으로 만들 수 있는지 함께 검사함.
+        /// </summary>
+        private void ValidateMappings(RfidSettings settings)
+        {
+            if (_logger == null) return; // 오류를 남길 곳이 없으면 검사할 의미가 없음
+
+            LevelData level1Data = null;
+            LevelData level3Data = null;
+            if (_missionBoard)
+            {
+                level1Data = _missionBoard.GetLevelData(1);
+                level3Data = _missionBoard.GetLevelData(3);
+            }
+            else
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 null이라 레벨 1 목적지 거리·레벨 3 기준값 범위 검사를 건너뜀.");
+            }
+
+            List<string> errors = RfidMappingValidator.Validate(settings, level1Data, level3Data);
+            foreach (string error in errors)
+            {
+                _logger.ZLogError($"[IngredientSelectionController] RfidMappings.json 검증 실패: {error}");
+            }
         }
 
         /// <summary>
@@ -538,24 +573,44 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            (string ingredientName, string[] matterNames) = CurrentLevelState != null
+            RfidStepDefinition ingredient = CurrentLevelState != null
                 ? CurrentLevelState.ResolveStepCard(this, step, evt.Category)
-                : (step.ingredientName, step.matterNames);
+                : step;
+
+            if (ingredient == null)
+            {
+                if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] '{evt.Category}' 카드에 해당하는 재료 정의가 RfidMappings.json에 없어 {evt.ReaderId} 태그를 무시함.");
+                }
+                return;
+            }
+
+            RfidMatter[] matters = _levelMapping?.FindMatters(ingredient.matterSetId);
+            if (matters == null || matters.Length == 0)
+            {
+                if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] {ingredient.ingredientName}({ingredient.ingredientId})의 블록 목록 '{ingredient.matterSetId}'가 RfidMappings.json에 없거나 비어 있어 {evt.ReaderId} 태그를 무시함.");
+                }
+                return;
+            }
 
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {ingredientName}");
+                _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {ingredient.ingredientName}({ingredient.ingredientId})");
             }
 
             // 현재 단계에 허용된 카드로 확인된 경우에만 CodingCategories 강조를 갱신함(허용되지 않으면 흑백 상태가 그대로 유지됨)
             if (_codingCategoryIndicator) _codingCategoryIndicator.HighlightCategory(evt.Category);
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] codingCategoryIndicator가 null이라 카테고리 강조를 갱신할 수 없음.");
 
-            _currentIngredient.Value = ingredientName;
+            _currentIngredient.Value = ingredient.ingredientName ?? "";
+            _currentIngredientId = ingredient.ingredientId;
             _currentCategory = evt.Category;
             _currentMatters.Value = CurrentLevelState != null
-                ? CurrentLevelState.FilterMatters(this, ingredientName, matterNames)
-                : ExcludeConfirmedMatters(ingredientName, matterNames);
+                ? CurrentLevelState.FilterMatters(this, ingredient.ingredientId, matters)
+                : ExcludeConfirmedMatters(ingredient.ingredientId, matters);
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
@@ -641,17 +696,17 @@ namespace DGAIZone.Game.UI
         internal bool IsRepeatFollowUpRequired()
         {
             if (_currentStepIndex <= 0 || _confirmedIngredients == null || _currentStepIndex - 1 >= _confirmedIngredients.Length) return false;
-            return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Constants.Level4Commands.RepeatIngredient, StringComparison.Ordinal);
+            return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal);
         }
 
         /// <summary>
-        /// 레벨 4 전용: 지금까지 확정된 (재료, 물질) 순서 목록을 확정된 순서 그대로 반환함.
+        /// 레벨 4 전용: 지금까지 확정된 (재료 id, 물질) 순서 목록을 확정된 순서 그대로 반환함.
         /// Level4BoardController가 이 목록으로 로봇 이동 경로(스페이스바 시뮬레이션)를 만드는 데 사용함.
         /// 아직 확정되지 않은 뒤쪽 슬롯은 포함하지 않음(레벨 4는 5단계를 다 채우지 않아도 되므로).
         /// </summary>
-        public IReadOnlyList<(string ingredient, string matter)> GetConfirmedCommands()
+        public IReadOnlyList<(string ingredientId, RfidMatter matter)> GetConfirmedCommands()
         {
-            List<(string ingredient, string matter)> commands = new List<(string ingredient, string matter)>();
+            List<(string ingredientId, RfidMatter matter)> commands = new List<(string ingredientId, RfidMatter matter)>();
             if (_confirmedIngredients == null || _confirmedMatters == null) return commands;
 
             for (int i = 0; i < _currentStepIndex && i < _confirmedIngredients.Length; i++)
@@ -660,6 +715,19 @@ namespace DGAIZone.Game.UI
             }
 
             return commands;
+        }
+
+        /// <summary> 레벨 4 전용: 찍은 카드 분류(동작/제어)로 고를 재료 정의를 categoryIngredients에서 찾음. 없으면 null. </summary>
+        internal RfidStepDefinition FindCategoryIngredient(string category)
+        {
+            if (_categoryIngredients == null) return null;
+
+            foreach (RfidStepDefinition ingredient in _categoryIngredients)
+            {
+                if (ingredient != null && IsCategoryAllowedForStep(ingredient, category)) return ingredient;
+            }
+
+            return null;
         }
 
         /// <summary> 해당 단계가 허용하는 category 목록에 주어진 category가 포함되는지 검사함. </summary>
@@ -768,23 +836,23 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 같은 ingredientName을 쓰는 여러 단계가 matterNames 목록을 공유할 때(예: 레벨 2의 발사 코딩 순서), 이미 다른 단계에서
-        /// 확정된 값은 다시 고를 수 없도록 목록에서 제외함. ingredientName까지 함께 비교하므로, 서로 다른 ingredient가
-        /// 우연히 같은 값 텍스트를 공유해도(예: 레벨 3의 전기량/산소량이 둘 다 "올리기"/"낮추기") 서로 간섭하지 않음.
+        /// 같은 ingredientId를 쓰는 여러 단계가 matters 목록을 공유할 때(예: 레벨 2의 발사 코딩 순서), 이미 다른 단계에서
+        /// 확정된 값은 다시 고를 수 없도록 목록에서 제외함. ingredientId까지 함께 비교하므로, 서로 다른 ingredient가
+        /// 우연히 같은 물질 id를 공유해도(예: 레벨 3의 전기량/산소량이 둘 다 Raise/Lower) 서로 간섭하지 않음.
         /// </summary>
-        internal string[] ExcludeConfirmedMatters(string ingredientName, string[] matterNames)
+        internal RfidMatter[] ExcludeConfirmedMatters(string ingredientId, RfidMatter[] matters)
         {
-            if (matterNames == null || matterNames.Length == 0) return Array.Empty<string>();
-            if (_confirmedMatters == null || _confirmedIngredients == null) return matterNames;
+            if (matters == null || matters.Length == 0) return Array.Empty<RfidMatter>();
+            if (_confirmedMatters == null || _confirmedIngredients == null) return matters;
 
-            List<string> available = new List<string>(matterNames.Length);
-            foreach (string matter in matterNames)
+            List<RfidMatter> available = new List<RfidMatter>(matters.Length);
+            foreach (RfidMatter matter in matters)
             {
                 bool alreadyConfirmed = false;
                 for (int i = 0; i < _confirmedMatters.Length; i++)
                 {
-                    if (string.Equals(_confirmedIngredients[i], ingredientName, StringComparison.Ordinal) &&
-                        string.Equals(_confirmedMatters[i], matter, StringComparison.Ordinal))
+                    if (string.Equals(_confirmedIngredients[i], ingredientId, StringComparison.Ordinal) &&
+                        string.Equals(_confirmedMatters[i]?.id, matter.id, StringComparison.Ordinal))
                     {
                         alreadyConfirmed = true;
                         break;
@@ -810,7 +878,7 @@ namespace DGAIZone.Game.UI
 
             // ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 있으므로, "스캔된 것이 없음"은
             // ingredient가 아니라 matters 목록의 존재 여부로 판단함.
-            string[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정할 RFID 태그가 스캔되어 있지 않음.");
@@ -823,26 +891,26 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            string ingredient = _currentIngredient.Value;
-            string chosenMatter = matters[_currentMatterIndex.Value];
+            string ingredientName = _currentIngredient.Value;
+            string ingredientId = _currentIngredientId;
+            RfidMatter chosenMatter = matters[_currentMatterIndex.Value];
             _confirmedMatters[_currentStepIndex] = chosenMatter;
-            _confirmedIngredients[_currentStepIndex] = ingredient;
+            _confirmedIngredients[_currentStepIndex] = ingredientId;
             if (_confirmedCategories != null && _currentStepIndex < _confirmedCategories.Length)
             {
                 _confirmedCategories[_currentStepIndex] = _currentCategory;
             }
 
-            int value = (_selectedLevel == 1) ? ParseIngredientValue(ingredient, chosenMatter) : 0;
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[IngredientSelectionController] {_currentStepIndex + 1}번째 단계 확정: {ingredient} -> {chosenMatter} (값={value})");
+                _logger.ZLogInformation($"[IngredientSelectionController] {_currentStepIndex + 1}번째 단계 확정: {ingredientName}({ingredientId}) -> {chosenMatter.label}({chosenMatter.id}, 값={chosenMatter.value})");
             }
 
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
-            AddDesignItem(ingredient, chosenMatter);
+            AddDesignItem(ingredientName, chosenMatter.label);
 
             // 레벨별 상태 객체에 확정 처리 위임 (스텝 볼, 게이지, 불안정 깜빡임, 추진력 등)
-            CurrentLevelState?.OnStepConfirmed(this, _currentStepIndex, ingredient, chosenMatter);
+            CurrentLevelState?.OnStepConfirmed(this, _currentStepIndex, ingredientId, chosenMatter);
 
             // 확정된 엔진 출력량/연료량/탑재 중량을 계산식에 반영해 진행도(Image_Fill)를 갱신함
             ApplyProgressToMissionBoard();
@@ -903,8 +971,9 @@ namespace DGAIZone.Game.UI
         private void ClearPendingSelection()
         {
             _currentIngredient.Value = "";
+            _currentIngredientId = null;
             _currentCategory = null;
-            _currentMatters.Value = Array.Empty<string>();
+            _currentMatters.Value = Array.Empty<RfidMatter>();
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
@@ -955,7 +1024,7 @@ namespace DGAIZone.Game.UI
         /// 레벨 2는 모든 단계의 ingredientName이 "발사 코딩 순서"로 동일해 매번 반복 표시할 필요가 없고,
         /// ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 재료 이름 없이 "· [물질]" 형태로만 표시함.
         /// </summary>
-        private void AddDesignItem(string ingredient, string matter)
+        private void AddDesignItem(string ingredientName, string matterLabel)
         {
             if (!designContent || !designItemPrefab)
             {
@@ -971,8 +1040,8 @@ namespace DGAIZone.Game.UI
 
             TextMeshProUGUI text = _resolver.Instantiate(designItemPrefab, designContent);
             text.text = CurrentLevelState != null
-                ? CurrentLevelState.FormatDesignItemText(this, ingredient, matter)
-                : $" · {ingredient} [<color=yellow>{ApplyNumberSizeTag(matter)}</color>]";
+                ? CurrentLevelState.FormatDesignItemText(this, ingredientName, matterLabel)
+                : $" · {ingredientName} [<color=yellow>{ApplyNumberSizeTag(matterLabel)}</color>]";
 
             _designItems.Add(text);
             UpdateCodingCompleteButton();
@@ -1020,7 +1089,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 코딩완료 버튼 클릭 시 확정된 추진력(엔진 출력량 x 연료량 - 탑재 중량)을 목적지 조건과 대조해 성공/실패를 기록하고, 화면 페이드와 함께 결과 씬으로 전환함.
+        /// 코딩완료 버튼 클릭 시 확정된 추진력(엔진 출력량 + 연료량 - 탑재 중량)을 목적지 조건과 대조해 성공/실패를 기록하고, 화면 페이드와 함께 결과 씬으로 전환함.
         /// </summary>
         private void OnCodingCompleteClicked()
         {
@@ -1122,12 +1191,12 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 엔진 출력량 x 연료량 - 탑재 중량으로 총 추진력을 계산함.
+        /// 확정된 엔진 출력량 + 연료량 - 탑재 중량으로 총 추진력을 계산함.
         /// </summary>
         internal int CalculateTotalThrust() => CalculateThrust(_confirmedEngineValue, _confirmedFuelValue, _confirmedPayloadValue);
 
-        /// <summary> 엔진 출력량 x 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
-        private int CalculateThrust(int engine, int fuel, int payload) => engine * fuel - payload;
+        /// <summary> 엔진 출력량 + 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
+        private int CalculateThrust(int engine, int fuel, int payload) => engine + fuel - payload;
 
         /// <summary>
         /// 확정된 역할(엔진/연료/탑재)별 값에, 현재 조절 중인 임시 선택값을 대입해 미리보기용 추진력을 계산함.
@@ -1146,60 +1215,36 @@ namespace DGAIZone.Game.UI
             int fuel = _confirmedFuelValue;
             int payload = _confirmedPayloadValue;
 
-            string ingredient = _currentIngredient.Value;
-            if (!string.IsNullOrEmpty(ingredient))
+            RfidMatter selected = CurrentSelectedMatter();
+            if (!string.IsNullOrEmpty(_currentIngredientId) && selected != null)
             {
-                int tempValue = ParseIngredientValue(ingredient, CurrentSelectedMatter());
-                if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) engine = tempValue;
-                else if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal)) fuel = tempValue;
-                else if (string.Equals(ingredient, PayloadIngredientName, StringComparison.Ordinal)) payload = tempValue;
+                int tempValue = selected.value;
+                if (string.Equals(_currentIngredientId, Constants.RfidIds.Level1.Engine, StringComparison.Ordinal)) engine = tempValue;
+                else if (string.Equals(_currentIngredientId, Constants.RfidIds.Level1.Fuel, StringComparison.Ordinal)) fuel = tempValue;
+                else if (string.Equals(_currentIngredientId, Constants.RfidIds.Level1.Payload, StringComparison.Ordinal)) payload = tempValue;
             }
 
             return CalculateThrust(engine, fuel, payload);
         }
 
-        /// <summary> 현재 좌우 버튼으로 선택 중인 물질 문자열을 반환함. 선택된 것이 없으면 null. </summary>
-        internal string CurrentSelectedMatter()
+        /// <summary> 현재 좌우 버튼으로 선택 중인 물질을 반환함. 선택된 것이 없으면 null. </summary>
+        internal RfidMatter CurrentSelectedMatter()
         {
-            string[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters.Value;
             int idx = _currentMatterIndex.Value;
             return (matters != null && idx >= 0 && idx < matters.Length) ? matters[idx] : null;
         }
 
         /// <summary>
-        /// 확정된 값을 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌리는 데도 사용됨.
+        /// 확정된 값을 재료 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌리는 데도 사용됨.
+        /// 값은 RfidMappings.json 물질의 value(항상 양수 크기)이며, 탑재 중량의 빼기는 계산식이 담당함.
         /// </summary>
-        internal void ApplyConfirmedValue(string ingredient, int value)
+        internal void ApplyConfirmedValue(string ingredientId, int value)
         {
-            if (string.Equals(ingredient, EngineIngredientName, StringComparison.Ordinal)) _confirmedEngineValue = value;
-            else if (string.Equals(ingredient, FuelIngredientName, StringComparison.Ordinal)) _confirmedFuelValue = value;
-            else if (string.Equals(ingredient, PayloadIngredientName, StringComparison.Ordinal)) _confirmedPayloadValue = value;
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 알 수 없는 재료 역할 '{ingredient}'. 추진력 계산식에 값이 반영되지 않음.");
-        }
-
-        /// <summary>
-        /// 물질 문자열에서 계산식에 쓸 정수 값(항상 양수 크기)을 파싱함. 연료량은 값 자체가 숫자("0".."10")이고,
-        /// 엔진 출력량/탑재 중량은 "고체 로켓 (+5)", "인공위성 (-3)"처럼 괄호 안의 부호 있는 숫자를 파싱함.
-        /// 괄호 안 부호는 화면 표시용(플레이어에게 보너스/페널티를 직관적으로 보여주기 위함)이고,
-        /// 실제 공식(엔진 출력량 x 연료량 - 탑재 중량)은 연산자 자체가 방향을 담당하므로 크기(절댓값)만 사용함.
-        /// 실패 시 0.
-        /// </summary>
-        internal int ParseIngredientValue(string ingredientName, string matterValue)
-        {
-            if (string.IsNullOrEmpty(matterValue)) return 0;
-
-            if (string.Equals(ingredientName, FuelIngredientName, StringComparison.Ordinal))
-            {
-                if (int.TryParse(matterValue, out int fuel)) return fuel;
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 연료량 값 '{matterValue}'이 숫자가 아님. 0으로 처리함.");
-                return 0;
-            }
-
-            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(matterValue, @"\(([+-]?\d+)\)");
-            if (match.Success && int.TryParse(match.Groups[1].Value, out int parsed)) return Math.Abs(parsed);
-
-            if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] '{ingredientName}' 재료의 '{matterValue}' 값에서 숫자를 파싱할 수 없음. 0으로 처리함.");
-            return 0;
+            if (string.Equals(ingredientId, Constants.RfidIds.Level1.Engine, StringComparison.Ordinal)) _confirmedEngineValue = value;
+            else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Fuel, StringComparison.Ordinal)) _confirmedFuelValue = value;
+            else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Payload, StringComparison.Ordinal)) _confirmedPayloadValue = value;
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 알 수 없는 재료 역할 '{ingredientId}'. 추진력 계산식에 값이 반영되지 않음.");
         }
 
         /// <summary>
@@ -1207,7 +1252,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnLeftButtonClicked()
         {
-            string[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0) return;
 
             int len = matters.Length;
@@ -1219,7 +1264,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnRightButtonClicked()
         {
-            string[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0) return;
 
             int len = matters.Length;
@@ -1254,12 +1299,12 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            string[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters.Value;
             int idx = _currentMatterIndex.Value;
 
             if (matters != null && idx >= 0 && idx < matters.Length)
             {
-                textMatter.text = ApplyNumberSizeTag(matters[idx]);
+                textMatter.text = ApplyNumberSizeTag(matters[idx].label);
             }
             else
             {

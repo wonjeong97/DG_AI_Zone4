@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
@@ -20,18 +19,16 @@ namespace DGAIZone.Intro
     /// <summary>
     /// 인트로 씬의 화면 흐름 제어. 인트로 패널에서 스토리 텍스트가 한 줄씩 올라오듯 순차 표시된 뒤 화면을 클릭하면
     /// 튜토리얼 패널로 크로스페이드함. 연출 중 터치 시 즉시 전체 텍스트가 노출되고, 연출 완료/스킵 후 터치 시 크로스페이드함.
-    /// 튜토리얼 패널의 "이해했어요" 버튼을 누르면 화면 페이드와 함께 레벨 선택 씬으로 전환함.
+    /// 튜토리얼(체험 방법) 마지막 페이지(7/7)에서 우측 영역 터치 시 화면 페이드와 함께 레벨 선택 씬으로 전환함.
     /// </summary>
     public class IntroFlowController : MonoBehaviour
     {
         [SerializeField] private CanvasGroup introPanel;
         [SerializeField] private CanvasGroup tutorialPanel;
         [SerializeField] private TMP_Text storyText;
-        [SerializeField] private Button understandButton;
+        [SerializeField] private TutorialImageSlider tutorialSlider;
         private readonly float crossFadeDuration = 0.4f; // 1_Intro.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-
-        private const string VisitorPlaceholder = "{name}"; // storyText 안의 이 자리표시자를 실제 체험자 이름으로 교체함
 
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
@@ -80,8 +77,19 @@ namespace DGAIZone.Intro
             ApplyPanelVisibility(tutorialPanel, false);
             _isIntroActive = true;
 
-            if (understandButton) understandButton.onClick.AddListener(OnUnderstandClicked);
-            else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] understandButton이 null임.");
+            if (!tutorialSlider && tutorialPanel)
+            {
+                tutorialSlider = tutorialPanel.GetComponentInChildren<TutorialImageSlider>(true);
+            }
+
+            if (tutorialSlider)
+            {
+                tutorialSlider.OnTutorialCompleted += OnTutorialCompleted;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IntroFlowController] tutorialSlider가 null임.");
+            }
 
             InitializeStoryTextAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
@@ -125,13 +133,7 @@ namespace DGAIZone.Intro
             }
 
             string visitorName = await _visitorInfoProvider.GetNameAsync(token);
-
-            using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
-            {
-                sb.Append(storyText.text);
-                sb.Replace(VisitorPlaceholder, visitorName);
-                storyText.text = sb.ToString();
-            }
+            storyText.text = PlaceholderFormatter.ReplaceVisitorName(storyText.text, visitorName);
         }
 
         /// <summary> 인트로 패널 활성화 상태에서 연출 중 터치 시 스킵, 연출 종료 또는 스킵 후 터치 시 튜토리얼 패널로 크로스페이드. </summary>
@@ -159,13 +161,19 @@ namespace DGAIZone.Intro
             return pointer != null && pointer.press.wasPressedThisFrame;
         }
 
-        /// <summary> 버튼 리스너 해제. </summary>
+        /// <summary> 이벤트 리스너 해제. </summary>
         private void OnDestroy()
         {
-            if (understandButton) understandButton.onClick.RemoveListener(OnUnderstandClicked);
+            if (tutorialSlider) tutorialSlider.OnTutorialCompleted -= OnTutorialCompleted;
         }
 
-        /// <summary> "이해했어요" 버튼 클릭 시 화면 페이드와 함께 레벨 선택 씬으로 전환함. </summary>
+        /// <summary> 튜토리얼(체험 방법) 마지막 페이지에서 다음 터치 시 레벨 선택 씬으로 전환함. </summary>
+        internal void OnTutorialCompleted()
+        {
+            OnUnderstandClicked();
+        }
+
+        /// <summary> 화면 페이드와 함께 레벨 선택 씬으로 전환함. 기존 테스트 호환성을 위해 유지. </summary>
         internal void OnUnderstandClicked()
         {
             if (_isBusy) return;
