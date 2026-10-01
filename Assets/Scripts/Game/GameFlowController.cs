@@ -35,6 +35,7 @@ namespace DGAIZone.Game
         [SerializeField] private Image storyImage;          // Image_Story
         [SerializeField] private GameObject[] storyLevels;  // Story_Level1..5 순서
         [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 2_LevelSelect와 공유하는 스토리 텍스트 소스
+        public LevelData[] LevelDataList => levelDataList;
 
         [Header("Current Situation Panel")]
         [SerializeField] private GameObject[] situationPanels; // Image_CurrentSituation 하위 Panel_Level1..5 순서
@@ -48,20 +49,26 @@ namespace DGAIZone.Game
         private bool _isBusy;
         private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
+        private VisitorInfoProvider _visitorInfoProvider;
+        private string _visitorName = "체험자";
 
         // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private CommonSettings _commonSettings;
 
         /// <summary>
-        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. debugStartLevel이 설정되어 있으면(1~5)
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. debugStartLevel이 설정되어 있으면(1~5)
         /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
         /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함.
         /// </summary>
         [Inject]
-        public void Construct(SelectedLevelStore selectedLevelStore, ILogger<GameFlowController> logger)
+        public void Construct(
+            SelectedLevelStore selectedLevelStore,
+            ILogger<GameFlowController> logger,
+            VisitorInfoProvider visitorInfoProvider = null)
         {
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _visitorInfoProvider = visitorInfoProvider;
 
             if (debugStartLevel > 0 && _selectedLevelStore != null)
             {
@@ -88,10 +95,17 @@ namespace DGAIZone.Game
             LoadCommonSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
+        /// <summary> 00_Common.json(CommonSettings) 및 체험자 이름을 비동기로 로드하고 스토리 텍스트에 체험자 이름을 반영함. </summary>
         private async UniTaskVoid LoadCommonSettingsAsync(CancellationToken token)
         {
-            _commonSettings = await CommonSettingsProvider.GetAsync(token);
+            UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+            UniTask<string> visitorTask = _visitorInfoProvider != null
+                ? _visitorInfoProvider.GetNameAsync(token)
+                : UniTask.FromResult("체험자");
+
+            (_commonSettings, _visitorName) = await UniTask.WhenAll(commonTask, visitorTask);
+
+            ApplyStoryText();
         }
 
         /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 게임 패널로 전환함. </summary>
@@ -128,27 +142,43 @@ namespace DGAIZone.Game
                     else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyLevels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
                 }
 
-                // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
-                // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
-                if (index >= 0 && index < storyLevels.Length && storyLevels[index])
+                ApplyStoryText();
+            }
+        }
+
+        /// <summary> 활성화된 레벨의 스토리 텍스트에 levelData 및 체험자 이름을 반영함. </summary>
+        private void ApplyStoryText()
+        {
+            int index = _selectedLevel - 1;
+            if (storyLevels == null || index < 0 || index >= storyLevels.Length || !storyLevels[index]) return;
+
+            // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
+            // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
+            // 스토리 텍스트 안의 {name} 자리표시자를 실제 체험자 이름으로 교체함.
+            if (ChildComponentFinder.TryGetInDirectChildren(storyLevels[index].transform, out TMP_Text storyText))
+            {
+                if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                 {
-                    if (ChildComponentFinder.TryGetInDirectChildren(storyLevels[index].transform, out TMP_Text storyText))
-                    {
-                        if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
-                        {
-                            storyText.text = levelDataList[index].storyText;
-                        }
-                        else if (_logger != null)
-                        {
-                            _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
-                        }
-                    }
-                    else if (_logger != null)
-                    {
-                        _logger.ZLogWarning($"[GameFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 바꿀 수 없음.");
-                    }
+                    storyText.text = FormatStoryText(levelDataList[index].storyText);
+                }
+                else
+                {
+                    if (storyText) storyText.text = FormatStoryText(storyText.text);
+                    if (_logger != null) _logger.ZLogWarning($"[GameFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
                 }
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[GameFlowController] {storyLevels[index].name}의 직계 자식에 TMP_Text가 없어 스토리 텍스트를 바꿀 수 없음.");
+            }
+        }
+
+        /// <summary> 스토리 텍스트의 {name} 자리표시자를 실제 체험자 이름으로 교체함. </summary>
+        private string FormatStoryText(string rawText)
+        {
+            if (string.IsNullOrEmpty(rawText)) return string.Empty;
+            string visitorName = !string.IsNullOrEmpty(_visitorName) ? _visitorName : "체험자";
+            return rawText.Contains(Constants.VisitorPlaceholder) ? rawText.Replace(Constants.VisitorPlaceholder, visitorName) : rawText;
         }
 
         /// <summary>
@@ -285,6 +315,7 @@ namespace DGAIZone.Game
 
                 if (storyPanel)
                 {
+                    ApplyStoryText();
                     await FadeCanvasGroupAsync(storyPanel, 0f, 1f, duration, token);
                     ApplyPanelState(storyPanel, true);
                 }

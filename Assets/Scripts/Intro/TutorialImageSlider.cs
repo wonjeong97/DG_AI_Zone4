@@ -16,7 +16,7 @@ namespace DGAIZone.Intro
 {
     /// <summary>
     /// 튜토리얼 이미지를 페이지 단위로 넘겨보는 슬라이더. Addressables에서 Tutorial1~7 스프라이트를 로드해 캐싱하고,
-    /// 이미지의 좌/우 클릭 위치에 따라 이전/다음 페이지로 순환 이동함.
+    /// 이미지의 좌/우 클릭 위치에 따라 이전/다음 페이지로 이동함. 1페이지 좌측 클릭 시 순환하지 않고, 마지막 페이지 우측 클릭 시 완료 이벤트 발생.
     /// </summary>
     [RequireComponent(typeof(Image))]
     public class TutorialImageSlider : MonoBehaviour, IPointerClickHandler
@@ -26,6 +26,9 @@ namespace DGAIZone.Intro
 
         [SerializeField] private TMP_Text pageText;
 
+        /// <summary> 마지막 페이지(7/7)에서 우측 영역을 터치했을 때 발생하는 완료 이벤트. </summary>
+        public event Action OnTutorialCompleted;
+
         // 페이지별로 1회만 Addressables에서 로드하고 이후에는 캐시된 핸들에서 반환. OnDestroy에서 모두 Release함.
         private readonly Dictionary<int, AsyncOperationHandle<Sprite>> _spriteHandles = new();
 
@@ -33,6 +36,9 @@ namespace DGAIZone.Intro
         private ILogger<TutorialImageSlider> _logger;
         private RectTransform _rectTransform;
         private int _currentIndex;
+
+        /// <summary> 현재 페이지 인덱스 (0: 1페이지 ~ 6: 7페이지). </summary>
+        public int CurrentIndex => _currentIndex;
 
         /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
         [Inject]
@@ -68,7 +74,7 @@ namespace DGAIZone.Intro
             _spriteHandles.Clear();
         }
 
-        /// <summary> 클릭 위치가 이미지의 좌측 절반이면 이전 페이지, 우측 절반이면 다음 페이지로 이동함. </summary>
+        /// <summary> 클릭 위치가 이미지의 좌측 절반이면 이전 페이지, 우측 절반이면 다음 페이지(또는 완료)로 이동함. </summary>
         public void OnPointerClick(PointerEventData eventData)
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(_rectTransform, eventData.position, eventData.pressEventCamera, out Vector2 localPoint);
@@ -80,17 +86,25 @@ namespace DGAIZone.Intro
             else ShowPrevious();
         }
 
-        /// <summary> 다음 페이지로 순환 이동함. </summary>
-        private void ShowNext()
+        /// <summary> 다음 페이지로 이동함. 마지막 페이지(7/7)에서 호출 시 OnTutorialCompleted 이벤트를 발생시킴. </summary>
+        public void ShowNext()
         {
-            _currentIndex = (_currentIndex + 1) % TotalPages;
+            if (_currentIndex >= TotalPages - 1)
+            {
+                OnTutorialCompleted?.Invoke();
+                return;
+            }
+
+            _currentIndex++;
             ShowPageAsync().Forget();
         }
 
-        /// <summary> 이전 페이지로 순환 이동함. </summary>
-        private void ShowPrevious()
+        /// <summary> 이전 페이지로 이동함. 1페이지(1/7)에서는 더 이상 이전으로 가지 않고 머무름. </summary>
+        public void ShowPrevious()
         {
-            _currentIndex = (_currentIndex - 1 + TotalPages) % TotalPages;
+            if (_currentIndex <= 0) return;
+
+            _currentIndex--;
             ShowPageAsync().Forget();
         }
 
@@ -98,7 +112,7 @@ namespace DGAIZone.Intro
         private async UniTaskVoid ShowPageAsync()
         {
             int page = _currentIndex + 1;
-            if (pageText) pageText.text = ZString.Format("튜토리얼 ({0}/{1})", page, TotalPages);
+            if (pageText) pageText.text = ZString.Format("체험 방법 ({0}/{1})", page, TotalPages);
             else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] pageText가 null이라 페이지 번호를 표시할 수 없음.");
 
             try

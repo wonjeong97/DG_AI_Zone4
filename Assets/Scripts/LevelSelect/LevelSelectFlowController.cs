@@ -34,9 +34,6 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
         [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
         [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 3_Game(스토리 다시보기)과 공유하는 스토리 텍스트 소스
-        [Header("Difficulty Display")]
-        [SerializeField] private RectTransform difficultyPanel;
-        [SerializeField] private GameObject[] difficultyStars;
         [Header("Selected Level Button Move")]
         [SerializeField] private RectTransform selectedLevelButtonParent; // 선택된 버튼이 이동해 들어갈 부모(Background)
         [Header("Theme Background")]
@@ -49,8 +46,6 @@ namespace DGAIZone.LevelSelect
         private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float selectedLevelButtonMoveDuration = 1.0f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float difficultyPanelBaseWidth = 239f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float difficultyPanelWidthPerStar = 51f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float themeBackgroundFadeDuration = 0.6f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly Vector2 selectedLevelButtonTargetPosition = new(85f, -181f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly Vector2 selectedLevelButtonTargetSize = new(450f, 229f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
@@ -63,6 +58,8 @@ namespace DGAIZone.LevelSelect
         private ILogger<LevelSelectFlowController> _logger;
         private InactivityTimer _inactivityTimer;
         private IObjectResolver _resolver;
+        private VisitorInfoProvider _visitorInfoProvider;
+        private string _visitorName = "체험자";
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
@@ -71,15 +68,23 @@ namespace DGAIZone.LevelSelect
         private LevelSelectSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 별 생성용 리졸버, 로거, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 리졸버, 로거, 체험자 정보 제공자, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, IObjectResolver resolver, ILogger<LevelSelectFlowController> logger, InactivityTimer inactivityTimer = null)
+        public void Construct(
+            SceneTransitionService sceneTransition,
+            SelectedLevelStore selectedLevelStore,
+            UnlockedLevelStore unlockedLevelStore,
+            IObjectResolver resolver,
+            ILogger<LevelSelectFlowController> logger,
+            VisitorInfoProvider visitorInfoProvider = null,
+            InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
             _unlockedLevelStore = unlockedLevelStore;
             _resolver = resolver;
             _logger = logger;
+            _visitorInfoProvider = visitorInfoProvider;
             _inactivityTimer = inactivityTimer;
         }
 
@@ -162,14 +167,17 @@ namespace DGAIZone.LevelSelect
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함. </summary>
+        /// <summary> 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings), 체험자 이름을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함. </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.LevelSelect}";
             UniTask<LevelSelectSceneSettings> settingsTask = JsonLoader.LoadAsync<LevelSelectSceneSettings>(path, token);
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
+            UniTask<string> visitorTask = _visitorInfoProvider != null
+                ? _visitorInfoProvider.GetNameAsync(token)
+                : UniTask.FromResult("체험자");
 
-            (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
+            (_sceneSettings, _commonSettings, _visitorName) = await UniTask.WhenAll(settingsTask, commonTask, visitorTask);
 
             ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount));
         }
@@ -187,73 +195,15 @@ namespace DGAIZone.LevelSelect
                     else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}]가 null이라 잠금 상태를 적용할 수 없음.");
                 }
             }
-
-            // 현재는 난이도(열린 레벨 수)와 무관하게 별 1개로 고정 표시함(기획 요청).
-            // ApplyDifficulty 자체는 나중에 복구될 수 있어 그대로 두고, 호출 인자만 1로 고정함.
-            ApplyDifficulty(1);
         }
 
-        /// <summary> 플레이어가 선택 가능한 난이도(열린 레벨 수)에 맞춰 별 표시 개수와 난이도 패널 너비를 동적으로 조정함. </summary>
+        /// <summary>
+        /// (더 이상 사용되지 않음) 기존에는 난이도에 맞춰 별 표시 개수를 동적으로 조정했으나,
+        /// 난이도 표시 이미지가 고정형으로 변경되어 별도 처리를 수행하지 않음.
+        /// </summary>
+        [Obsolete("난이도 표시 이미지가 고정형으로 변경되어 더 이상 별 개수를 동적으로 제어하지 않습니다.")]
         public void ApplyDifficulty(int count)
         {
-            if (!difficultyPanel && (difficultyStars == null || difficultyStars.Length == 0))
-            {
-                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] difficultyPanel과 difficultyStars가 모두 비어 있어 난이도 표시를 건너뜀.");
-                return;
-            }
-
-            count = Mathf.Clamp(count, 1, 5);
-
-            EnsureAndSetDifficultyStars(count);
-
-            if (difficultyPanel)
-            {
-                float baseWidth = _sceneSettings?.difficultyPanelBaseWidth ?? difficultyPanelBaseWidth;
-                float widthPerStar = _sceneSettings?.difficultyPanelWidthPerStar ?? difficultyPanelWidthPerStar;
-                float targetWidth = baseWidth + Mathf.Max(0, count - 1) * widthPerStar;
-
-                difficultyPanel.sizeDelta = new Vector2(targetWidth, difficultyPanel.sizeDelta.y);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(difficultyPanel);
-            }
-            else if (_logger != null)
-            {
-                _logger.ZLogWarning($"[LevelSelectFlowController] difficultyPanel이 null이라 난이도 패널 너비를 조정할 수 없음.");
-            }
-        }
-
-        /// <summary> difficultyStars 배열 및 difficultyPanel 자식 오브젝트의 별 개수를 확보하고 활성/비활성 상태를 설정함. </summary>
-        private void EnsureAndSetDifficultyStars(int count)
-        {
-            if (difficultyStars != null && difficultyStars.Length > 0)
-            {
-                for (int i = 0; i < difficultyStars.Length; i++)
-                {
-                    if (difficultyStars[i])
-                    {
-                        difficultyStars[i].SetActive(i < count);
-                    }
-                    else if (_logger != null)
-                    {
-                        _logger.ZLogWarning($"[LevelSelectFlowController] difficultyStars[{i}]가 null이라 표시 상태를 바꿀 수 없음.");
-                    }
-                }
-
-                if (difficultyStars.Length < count && difficultyStars[0] && difficultyPanel && _resolver != null)
-                {
-                    List<GameObject> list = new List<GameObject>(difficultyStars);
-                    while (list.Count < count)
-                    {
-                        GameObject newStar = _resolver.Instantiate(difficultyStars[0], difficultyPanel);
-                        newStar.name = $"Image_Star{list.Count + 1}";
-                        newStar.SetActive(true);
-                        list.Add(newStar);
-                    }
-                    difficultyStars = list.ToArray();
-                }
-                return;
-            }
-
-            if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] difficultyStars가 비어 있어 난이도 별을 표시할 수 없음.");
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
@@ -374,13 +324,15 @@ namespace DGAIZone.LevelSelect
                     {
                         // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 3_Game(스토리 다시보기)과 같은 에셋을 참조하므로
                         // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
+                        // 스토리 텍스트 안의 {name} 자리표시자를 실제 체험자 이름으로 교체함.
                         if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                         {
-                            storyText.text = levelDataList[index].storyText;
+                            storyText.text = FormatStoryText(levelDataList[index].storyText);
                         }
-                        else if (_logger != null)
+                        else
                         {
-                            _logger.ZLogWarning($"[LevelSelectFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
+                            if (storyText) storyText.text = FormatStoryText(storyText.text);
+                            if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelDataList[{index}]가 비어 있어 씬에 입력된 텍스트를 그대로 사용함.");
                         }
 
                         // 페이드인 도중 전체 텍스트가 잠깐 보이지 않도록 미리 숨겨 둠
@@ -442,6 +394,16 @@ namespace DGAIZone.LevelSelect
                     _logger.ZLogWarning($"[LevelSelectFlowController] storyPanel이 null이라 패널 전환 연출을 건너뜀.");
                 }
 
+                if (storyText && storyText.text.Contains(Constants.VisitorPlaceholder))
+                {
+                    if (_visitorInfoProvider != null && _visitorName == "체험자")
+                    {
+                        _visitorName = await _visitorInfoProvider.GetNameAsync(token);
+                    }
+                    storyText.text = FormatStoryText(storyText.text);
+                    storyText.ForceMeshUpdate();
+                }
+
                 await StoryLineAnimator.AnimateAsync(storyText,
                     _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
                     _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
@@ -452,6 +414,14 @@ namespace DGAIZone.LevelSelect
             }
             catch (OperationCanceledException) { }
             finally { _isBusy = false; }
+        }
+
+        /// <summary> 스토리 텍스트의 {name} 자리표시자를 실제 체험자 이름으로 교체함. </summary>
+        private string FormatStoryText(string rawText)
+        {
+            if (string.IsNullOrEmpty(rawText)) return string.Empty;
+            string visitorName = !string.IsNullOrEmpty(_visitorName) ? _visitorName : "체험자";
+            return rawText.Contains(Constants.VisitorPlaceholder) ? rawText.Replace(Constants.VisitorPlaceholder, visitorName) : rawText;
         }
 
         /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함(연출 스킵용). </summary>

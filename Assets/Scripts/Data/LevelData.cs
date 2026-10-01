@@ -12,5 +12,9 @@ namespace DGAIZone.Data
         [Tooltip("2_LevelSelect와 3_Game(스토리 다시보기)에서 공통으로 사용하는 레벨 소개 텍스트(TMP 리치 텍스트 태그 포함)")]
         [TextArea(3, 10)]
         public string storyText;
+
+        [Tooltip("3_Game 씬의 미션 보드(Image_MissionBoard)에 표시되는 미션 안내 텍스트(TMP 리치 텍스트 태그 및 플레이스홀더 포함)")]
+        [TextArea(3, 10)]
+        public string missionText;
     }
 }

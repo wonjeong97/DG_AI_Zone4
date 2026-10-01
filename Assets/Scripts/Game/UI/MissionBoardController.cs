@@ -27,6 +27,10 @@ namespace DGAIZone.Game.UI
         [SerializeField] private TMP_Text goalPlanetNameText;
         [SerializeField] private Image progressFillImage; // Image_Fill
         [SerializeField] private Image previewFillImage; // Image_Fill_Preview
+        [SerializeField] private LevelData[] levelDataList; // Level1..5 순서의 LevelData 에셋
+
+        /// <summary> Level1..5 순서의 레벨 데이터 에셋 목록. </summary>
+        public LevelData[] LevelDataList => levelDataList;
 
         // 3_Game.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
         private readonly float fillTweenDuration = 0.5f;
@@ -36,6 +40,8 @@ namespace DGAIZone.Game.UI
 
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<MissionBoardController> _logger;
+        private VisitorInfoProvider _visitorInfoProvider;
+        private string _visitorName = "체험자";
         private Constants.Mission.Definition _current = Constants.Mission.Definitions[0];
 
         // 3_Game.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
@@ -64,20 +70,33 @@ namespace DGAIZone.Game.UI
         /// <summary> 레벨 3: 산소량이 이 값보다 낮으면 안 됨(3~5 중 무작위로 정해짐). </summary>
         public int MinOxygen { get; private set; }
 
-        /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. </summary>
         [Inject]
-        public void Construct(SelectedLevelStore selectedLevelStore, ILogger<MissionBoardController> logger)
+        public void Construct(
+            SelectedLevelStore selectedLevelStore,
+            ILogger<MissionBoardController> logger,
+            VisitorInfoProvider visitorInfoProvider = null)
         {
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _visitorInfoProvider = visitorInfoProvider;
         }
 
         /// <summary>
-        /// 씬 시작 시 레벨에 맞는 미션 보드 텍스트를 구성함. 레벨 1은 무작위 목적지를 골라 목적지/목표 표시까지 구성하고,
-        /// 레벨 2는 고정된 코딩 안내 문구만 표시하며, 레벨 3은 전기량 상한/산소량 하한을 무작위로 정해 안내함.
+        /// 씬 시작 시 레벨에 맞는 미션 보드 텍스트를 구성함. LevelData 에셋(ScriptableObject)의 missionText가
+        /// 정의되어 있으면 해당 텍스트의 플레이스홀더를 치환하여 적용함.
         /// </summary>
         private void Start()
         {
+            if (levelDataList == null || levelDataList.Length == 0)
+            {
+                GameFlowController gameFlow = UnityEngine.Object.FindObjectOfType<GameFlowController>();
+                if (gameFlow != null && gameFlow.LevelDataList != null)
+                {
+                    levelDataList = gameFlow.LevelDataList;
+                }
+            }
+
             int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
 
             if (level == 2)
@@ -91,6 +110,10 @@ namespace DGAIZone.Game.UI
             else if (level == 4)
             {
                 ApplyLevel4MissionText();
+            }
+            else if (level >= 5)
+            {
+                ApplyLevel5MissionText();
             }
             else
             {
@@ -110,7 +133,71 @@ namespace DGAIZone.Game.UI
 
             _previewFillAmount.Subscribe(AnimatePreviewFillAmount).AddTo(ref _disposables);
 
-            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+            CancellationToken destroyToken = this.GetCancellationTokenOnDestroy();
+            LoadSceneSettingsAsync(destroyToken).Forget();
+            LoadVisitorNameAsync(destroyToken).Forget();
+        }
+
+        /// <summary> 체험자 이름을 비동기로 불러와 {name} 플레이스홀더가 포함된 미션 텍스트에 반영함. </summary>
+        private async UniTaskVoid LoadVisitorNameAsync(CancellationToken token)
+        {
+            if (_visitorInfoProvider == null) return;
+            try
+            {
+                _visitorName = await _visitorInfoProvider.GetNameAsync(token);
+                if (missionText && missionText.text.Contains(Constants.VisitorPlaceholder))
+                {
+                    int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+                    string raw = GetRawMissionTextFromData(level);
+                    if (!string.IsNullOrEmpty(raw))
+                    {
+                        missionText.text = FormatMissionText(raw);
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+        }
+
+        /// <summary> LevelData 에셋에서 해당 레벨의 미션 텍스트 원본을 가져옴. </summary>
+        private string GetRawMissionTextFromData(int level)
+        {
+            int index = level - 1;
+            if (levelDataList != null && index >= 0 && index < levelDataList.Length && levelDataList[index])
+            {
+                return levelDataList[index].missionText;
+            }
+            return null;
+        }
+
+        /// <summary> 미션 텍스트 내 플레이스홀더({destination}, {maxElectricity}, {minOxygen}, {name})를 실제 값으로 치환함. </summary>
+        private string FormatMissionText(string rawText)
+        {
+            if (string.IsNullOrEmpty(rawText)) return string.Empty;
+
+            string formatted = rawText;
+
+            if (formatted.Contains(Constants.MissionPlaceholders.Destination))
+            {
+                formatted = formatted.Replace(Constants.MissionPlaceholders.Destination, _current.Destination);
+            }
+
+            if (formatted.Contains(Constants.MissionPlaceholders.MaxElectricity))
+            {
+                formatted = formatted.Replace(Constants.MissionPlaceholders.MaxElectricity, MaxElectricity.ToString());
+            }
+
+            if (formatted.Contains(Constants.MissionPlaceholders.MinOxygen))
+            {
+                formatted = formatted.Replace(Constants.MissionPlaceholders.MinOxygen, MinOxygen.ToString());
+            }
+
+            if (formatted.Contains(Constants.VisitorPlaceholder))
+            {
+                string visitorName = !string.IsNullOrEmpty(_visitorName) ? _visitorName : "체험자";
+                formatted = formatted.Replace(Constants.VisitorPlaceholder, visitorName);
+            }
+
+            return formatted;
         }
 
         /// <summary> 3_Game.json(GameSceneSettings)을 GameSceneSettingsProvider를 통해 비동기로 불러옴(씬 내 다른 컨트롤러와 로드를 공유함). </summary>
@@ -119,7 +206,7 @@ namespace DGAIZone.Game.UI
             _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
-        /// <summary> 레벨 1 미션 텍스트(무작위 목적지와 동작 블록 안내)를 적용함. </summary>
+        /// <summary> 레벨 1 미션 텍스트(무작위 목적지와 동작 블록 안내)를 적용함. LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함. </summary>
         private void ApplyMissionText()
         {
             if (!missionText)
@@ -128,13 +215,21 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            missionText.text =
-                $"목적지는 <color=yellow>[{_current.Destination}]</color>입니다.\n" +
-                $"<color=yellow>[동작 블럭]</color>을 사용하여,\n" +
-                $"추진체와 탑재 종류를 설정해주세요.";
+            string raw = GetRawMissionTextFromData(1);
+            if (!string.IsNullOrEmpty(raw))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
+            else
+            {
+                missionText.text =
+                    $"목적지는 <color=yellow>[{_current.Destination}]</color>입니다.\n" +
+                    $"<color=yellow>[동작 블럭]</color>을 사용하여,\n" +
+                    $"추진체와 탑재 종류를 설정해주세요.";
+            }
         }
 
-        /// <summary> 레벨 2 전용 고정 미션 텍스트(목적지/목표 개념 없이 5개 동작 블록을 순서대로 코딩하라는 안내)를 적용함. </summary>
+        /// <summary> 레벨 2 전용 미션 텍스트를 적용함. LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함. </summary>
         private void ApplyLevel2MissionText()
         {
             if (!missionText)
@@ -143,13 +238,22 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            missionText.text =
-                "설계한 로켓이 우주까지 날아 갈 수 있도록\n" +
-                "<color=yellow>[동작 블록]</color> 5개를 사용하여 순서대로 코딩해주세요.";
+            string raw = GetRawMissionTextFromData(2);
+            if (!string.IsNullOrEmpty(raw))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
+            else
+            {
+                missionText.text =
+                    "설계한 로켓이 우주까지 날아 갈 수 있도록\n" +
+                    "<color=yellow>[동작 블록]</color> 5개를 사용하여 순서대로 코딩해주세요.";
+            }
         }
 
         /// <summary>
         /// 레벨 3 전용 미션 텍스트를 적용함. 전기량 상한(MaxElectricity)과 산소량 하한(MinOxygen)을 각각 3~5 중 무작위로 정해 안내함.
+        /// LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함.
         /// </summary>
         private void ApplyLevel3MissionText()
         {
@@ -167,12 +271,20 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            missionText.text =
-                $"현재 우주정거장은 전기량이 <color=yellow>[{MaxElectricity}]</color>을 넘으면 안되고,\n" +
-                $"산소량은 <color=yellow>[{MinOxygen}]</color>보다 낮으면 안돼요!";
+            string raw = GetRawMissionTextFromData(3);
+            if (!string.IsNullOrEmpty(raw))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
+            else
+            {
+                missionText.text =
+                    $"현재 우주정거장은 전기량이 <color=yellow>[{MaxElectricity}]</color>을 넘으면 안되고,\n" +
+                    $"산소량은 <color=yellow>[{MinOxygen}]</color>보다 낮으면 안돼요!";
+            }
         }
 
-        /// <summary> 레벨 4 전용 고정 미션 텍스트(자원 수집 후 기지로 복귀, 함정 회피)를 적용함. </summary>
+        /// <summary> 레벨 4 전용 미션 텍스트를 적용함. LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함. </summary>
         private void ApplyLevel4MissionText()
         {
             if (!missionText)
@@ -181,10 +293,34 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            missionText.text =
-                "<color=yellow>[동작 및 제어 블록]</color>을 통해 탐사 로봇을 이동하여\n" +
-                "먼저 자원을 수집하고, 기지에 안전하게 돌아올 수 있게\n" +
-                "경로를 코딩해 주세요. 함정은 피해야해요!";
+            string raw = GetRawMissionTextFromData(4);
+            if (!string.IsNullOrEmpty(raw))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
+            else
+            {
+                missionText.text =
+                    "<color=yellow>[동작 및 제어 블록]</color>을 통해 탐사 로봇을 이동하여\n" +
+                    "먼저 자원을 수집하고, 기지에 안전하게 돌아올 수 있게\n" +
+                    "경로를 코딩해 주세요. 함정은 피해야해요!";
+            }
+        }
+
+        /// <summary> 레벨 5 전용 미션 텍스트를 적용함. LevelData가 있으면 해당 텍스트를 적용함. </summary>
+        private void ApplyLevel5MissionText()
+        {
+            if (!missionText)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
+                return;
+            }
+
+            string raw = GetRawMissionTextFromData(5);
+            if (!string.IsNullOrEmpty(raw))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
         }
 
         /// <summary> 목적지에 맞는 행성 이름 텍스트를 적용하고, 이미지는 Addressables에서 비동기로 불러와 Image_Goal에 적용함. </summary>
