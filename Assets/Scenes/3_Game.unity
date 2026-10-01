@@ -8975,12 +8975,6 @@ MonoBehaviour:
   goalPlanetNameText: {fileID: 1230299618}
   progressFillImage: {fileID: 266491278}
   previewFillImage: {fileID: 1540329298}
-  levelDataList:
-  - {fileID: 11400000, guid: 3346f28ddefaf3c4aaf2ed3266087320, type: 2}
-  - {fileID: 11400000, guid: 85e9cb95269d7f643a173e2c467a0d7f, type: 2}
-  - {fileID: 11400000, guid: a7533cc948c8db04d8b7ad643c067596, type: 2}
-  - {fileID: 11400000, guid: 9443289bee2da2648ab965e99be26607, type: 2}
-  - {fileID: 11400000, guid: 7a71c89646456064a8d5d30958cdc3a5, type: 2}
 --- !u!1 &1425319426
 GameObject:
   m_ObjectHideFlags: 0
