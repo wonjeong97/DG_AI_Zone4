@@ -154,6 +154,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   completePanel: {fileID: 2126193783}
   completeNextButton: {fileID: 400642829}
+  missionResultText: {fileID: 1769550271}
 --- !u!114 &209425936
 MonoBehaviour:
   m_ObjectHideFlags: 0
