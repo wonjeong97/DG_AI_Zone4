@@ -13,6 +13,19 @@
 
 ---
 
+### [2026-10-01 17:40] Claude → Antigravity · T16
+- 변경 파일: 없음(읽기 전용 전체 점검). 대상 `Assets/Scripts/**`, `Assets/Tests/Runtime/**`, 씬·텍스처 임포트 설정 일부.
+- 확인 요청: 스킬(unity-stack-scaffold·unity-network-protocol) 규칙 위반, 버그 가능성, 리팩터링·최적화 후보. 셸·run_tests·Play 모드 금지. 두 번 나눠 호출(① Game 폴더 ② 그 외 + 테스트), 모델 `gemini-3.1-pro-high`.
+- 결과(Antigravity) — 검증 후 수용/기각:
+  - 수용: `IntroFlowController.cs:82` GetComponentInChildren 폴백(0번), `RobotVideoPanel` 영상 준비 무한 대기(VideoReadyGate.PrepareAsync 미사용), `Level4BoardController.ApplyRowBasedDrawOrder` 매 스텝 List·Sort 할당(18번), IngredientSelectionController 분할 제안, `TutorialImageSlider.cs:55` 로거가 주입되는데도 Debug.LogError 사용(낮음).
+  - 기각: TryGetComponent 금지(스킬 0번은 오히려 권장), ChildComponentFinder 위반(0번이 권장하는 직계 자식 순회 방식), ReadLoop 예외 미처리로 스레드 소멸(`RfidReaderService.cs:434` catch 있음), 전용 Thread·Thread.Sleep '높음'(블로킹 폴링이라 스레드 풀 대신 전용 스레드가 맞음, 형태 차이일 뿐), StoryLineAnimator·CommonSettingsProvider·GameLifetimeScope·TextHorizontalGradient의 Debug.Log(스킬 6번이 허용한 예외), 테스트 `WaitForSeconds(0.6f)`(고정 지연이라 무한 대기 아님), BaseFlowController 상속(씬마다 흐름이 달라 상속보다 작은 헬퍼 추출이 맞음).
+  - 참고: 인용한 근거 코드 중 실제 파일과 다른 문구가 여러 건(TutorialImageSlider·TextHorizontalGradient·GameLifetimeScope)이라 줄 번호만 믿고 내용은 직접 확인함.
+- 결과(Claude 자체 점검) — Antigravity가 놓친 것:
+  - 버그 가능성: `KeyboardRfidSimulator`(숫자 1~4)·레벨 4 스페이스바가 빌드에서도 켜져 있음(3_Game에서 enabled, 빌드 분기 없음). 타이틀은 QR 스캐너를 키보드로 받으므로 게임 중 스캐너·키보드 입력이 가짜 카드 인식이 될 수 있음. `LevelSelectFlowController.cs:274` 두 참조가 모두 null이면 NRE(낮음). 결과 영상 종료 감지(WaitUntil/WaitWhile isPlaying)에 상한 없음(추정, 낮음).
+  - 규칙: 최대 레벨 4가 `UnlockedLevelStore.MaxLevel`·`ResultFlowController.LastLevel`·`ResultVideoPanel.MaxLevel` 세 곳(12번, 주석은 "이 값만 올리면 됨"), `APIManager.cs:29` 영어 로그, `Tutorial5~7.png` 밉맵 켜짐(1~4는 꺼짐, 19번), `StoryLineAnimator` 수동 Lerp 루프(8번, 기존 코드), 테스트 4개 파일이 private 필드 리플렉션을 각자 작성(9·13번), `StoryLineAnimator.IsPointerPressedThisFrame` 미사용인데 같은 코드 3벌.
+  - 리팩터링: 설정 폴백 값 이중 정의(설정 클래스 기본값과 컨트롤러 readonly 필드·`Constants.StoryLine`이 같은 값을 따로 가짐, 약 45개 필드·60곳 `?.??`. 현재 값은 모두 일치), IngredientSelectionController 분리(화살표 힌트·경고 연출·설계창, 레벨 1 추진력 값은 상태로, `_selectedLevel == 4` 분기 상태로), Level4BoardController 규칙/연출 분리·이동 방향 정의 2벌·판정 규칙 3벌·배치 풀 정적 캐시, MissionBoardController 레벨별 미션 문구 메서드 5벌, 설정 제공자 2개 동일 구조, Addressables 스프라이트 로드 중복.
+- 반영: 없음. 사용자에게 보고 후 적용 범위를 정하기로 함.
+
 ### [2026-10-01 17:05] Claude → Antigravity · T15
 - 변경 파일: T14(PR #34 결과 화면 AI 연출, 커밋 876849f·f7e7256) — `Game/UI/States/*LevelState.cs`(BuildSolution, 레벨 3 IsCorrectBlock), `Game/UI/Level4BoardController.cs`(경로 기록·FindShortestSolution), `Game/UI/IngredientSelectionController.cs`(StoreSolutionDesign), `Game/UI/MissionBoardController.cs`, `App/GameResultStore.cs`, `Result/ResultFlowController.cs`·`ResultAiPanel.cs`(신규)·`ResultVideoPanel.cs`·`ResultLifetimeScope.cs`, `Data/ResultSceneSettings.cs`, `StreamingAssets/Json/4_Result.json`, `Tests/Runtime/SolutionDesignTests.cs`(신규)
 - 확인 요청: 코드·설계 리뷰만(사용자가 에디터를 쓰는 중이라 run_tests·Play 모드 금지, 셸 금지). (1) 정답이 실제 판정과 같은 규칙이고 입력 가능한지 (2) 레벨 4 솔버 경로 기록·최단성 (3) 정답 기록 시점 (4) 결과 씬 비동기 흐름(취소, 영상 준비 실패) (5) 로그 규칙 (6) 테스트 (7) 기획 의견. 모델 `gemini-3.1-pro-high`.
