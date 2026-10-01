@@ -8,6 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
+using HuliacDev.Core;
 using HuliacDev.Utils;
 using ZLogger;
 
@@ -46,31 +47,36 @@ namespace DGAIZone.Result
         private SelectedLevelStore _selectedLevelStore;
         private UnlockedLevelStore _unlockedLevelStore;
         private GameResultStore _resultStore;
+        private InactivityTimer _inactivityTimer;
         private ILogger<ResultFlowController> _logger;
         private bool _isBusy;
+        private bool _isTimerPaused; // 이 씬이 비활동 타이머를 멈춰 둔 상태인지(재개를 한 번만 하기 위함)
 
         // 4_Result.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
         private ResultSceneSettings _sceneSettings;
         private CommonSettings _commonSettings;
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
             _unlockedLevelStore = unlockedLevelStore;
             _resultStore = resultStore;
             _logger = logger;
+            _inactivityTimer = inactivityTimer;
         }
 
         /// <summary>
-        /// 초기 패널 상태(AI 코딩 안내·컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 방금 플레이한 레벨(SelectedLevelStore)을
+        /// 초기 패널 상태(AI 코딩 안내·컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 결과 영상과 AI 연출은 입력 없이 보는 구간이라
+        /// 미션 결과 문구(컴플리트 패널)가 나올 때까지 비활동 타이머를 멈춤. 방금 플레이한 레벨(SelectedLevelStore)을
         /// 완료한 것으로 간주해 다음 레벨까지 잠금 해제하고(성공/실패 무관, 체험 자체를 진행도로 인정),
         /// 패널 제목을 미션 결과에 맞추고, 마지막 레벨이면 버튼 문구를 "종료하기"로 바꾼 뒤 연출 타이밍을 비동기로 불러옴.
         /// </summary>
         private void Start()
         {
+            PauseInactivityTimer();
             PanelFader.ApplyState(completePanel, false, _logger);
             PanelFader.ApplyState(aiCodingPanel, false, _logger);
             ApplyMissionResultText();
@@ -135,6 +141,29 @@ namespace DGAIZone.Result
         private void OnDestroy()
         {
             if (completeNextButton) completeNextButton.onClick.RemoveListener(OnCompleteNextClicked);
+            ResumeInactivityTimer(); // 연출 도중 씬이 사라져도 전역 타이머가 멈춘 채로 남지 않게 함
+        }
+
+        /// <summary> 비활동 타이머를 멈춤. 타이머가 주입되지 않았으면(테스트·디버그) 경고만 남김. </summary>
+        private void PauseInactivityTimer()
+        {
+            if (!_inactivityTimer)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] inactivityTimer가 주입되지 않아 결과 연출 중 비활동 타이머를 멈출 수 없음.");
+                return;
+            }
+
+            _inactivityTimer.Pause();
+            _isTimerPaused = true;
+        }
+
+        /// <summary> 이 씬이 멈춰 둔 비활동 타이머를 재개함(재개 시점부터 다시 셈). 멈춘 적이 없거나 이미 재개했으면 아무것도 하지 않음. </summary>
+        private void ResumeInactivityTimer()
+        {
+            if (!_isTimerPaused) return;
+
+            _isTimerPaused = false;
+            if (_inactivityTimer) _inactivityTimer.Resume();
         }
 
         /// <summary> 외부 트리거(플레이어 결과 영상 재생 종료, ResultVideoPanel)에서 AI 연출을 재생한 뒤 컴플리트 패널로 전환함. </summary>
@@ -189,7 +218,11 @@ namespace DGAIZone.Result
                 }
             }
             catch (OperationCanceledException) { }
-            finally { _isBusy = false; }
+            finally
+            {
+                _isBusy = false;
+                ResumeInactivityTimer(); // 미션 결과 문구가 나왔으니 이제부터 입력 대기로 봄
+            }
         }
 
         /// <summary> 화면 중앙 'AI가 코딩중입니다...' 띠를 페이드인 -> aiCodingHoldDuration초 유지(점 0~3개 반복) -> 페이드아웃함. </summary>

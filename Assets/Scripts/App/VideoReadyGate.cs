@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine.Video;
@@ -12,6 +13,37 @@ namespace DGAIZone.App
     public static class VideoReadyGate
     {
         public const float DefaultProgressThreshold = 0.01f;
+        public const float DefaultPrepareTimeoutSeconds = 5f; // 로컬 파일은 보통 1초 안에 준비됨. SceneTransitionService의 영상 준비 대기와 같은 값
+
+        /// <summary>
+        /// videoPlayer.Prepare()를 호출하고 준비가 끝날 때까지 대기함. 준비되면 true, 오류(errorReceived)가 오거나
+        /// timeoutSeconds 안에 준비되지 않으면 false를 반환함. 파일이 없으면 Unity가 경고만 남기고 errorReceived 없이
+        /// isPrepared가 계속 false로 남으므로(에디터에서 확인), 타임아웃으로도 끊어 연출이 멈추지 않게 함.
+        /// token 취소 시에는 OperationCanceledException을 그대로 전파함.
+        /// </summary>
+        public static async UniTask<bool> PrepareAsync(VideoPlayer videoPlayer, float timeoutSeconds, CancellationToken token)
+        {
+            bool failed = false;
+            VideoPlayer.ErrorEventHandler onError = (_, _) => failed = true;
+            videoPlayer.errorReceived += onError;
+
+            using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            timeoutCts.CancelAfterSlim(TimeSpan.FromSeconds(timeoutSeconds));
+            try
+            {
+                videoPlayer.Prepare();
+                await UniTask.WaitUntil(() => videoPlayer.isPrepared || failed, cancellationToken: timeoutCts.Token);
+                return videoPlayer.isPrepared;
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                return false; // 타임아웃
+            }
+            finally
+            {
+                videoPlayer.errorReceived -= onError;
+            }
+        }
 
         /// <summary> videoPlayer.Play() 호출 이후에 사용. frame 진행률이 threshold 이상이 될 때까지 대기하고 한 프레임 더 대기함. </summary>
         public static async UniTask WaitUntilFrameRenderedAsync(VideoPlayer videoPlayer, float progressThreshold, CancellationToken token)

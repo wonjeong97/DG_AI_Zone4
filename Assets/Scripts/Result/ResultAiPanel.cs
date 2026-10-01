@@ -75,11 +75,11 @@ namespace DGAIZone.Result
 
         /// <summary>
         /// 패널을 열고 정답 설계를 한 줄씩 올린 뒤 designHoldDuration초 보여 주고, 성공 영상으로 교차 페이드해 끝까지 재생함.
-        /// 영상은 패널이 열릴 때 미리 준비해 두며, videoPlayer가 없으면 설계창까지만 보여 주고 끝냄.
+        /// 영상은 패널이 열릴 때 미리 준비해 두며, 준비하지 못하면(videoPlayer 없음, 파일 없음, 준비 실패) 설계창까지만 보여 주고 끝냄.
         /// </summary>
         public async UniTask PlayAsync(float fadeDuration, float designHoldDuration, CancellationToken token)
         {
-            bool hasVideo = PrepareSuccessVideo();
+            UniTask<bool> prepareTask = PrepareSuccessVideoAsync(token);
 
             PanelFader.ApplyState(designGroup, true, _logger);
             await OpenPanelAsync(fadeDuration, token);
@@ -93,9 +93,8 @@ namespace DGAIZone.Result
                 null, token);
 
             await UniTask.Delay(TimeSpan.FromSeconds(designHoldDuration), cancellationToken: token);
-            if (!hasVideo) return;
+            if (!await prepareTask) return;
 
-            await UniTask.WaitUntil(() => videoPlayer.isPrepared, cancellationToken: token);
             videoPlayer.Play();
             await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
 
@@ -110,8 +109,8 @@ namespace DGAIZone.Result
             await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
         }
 
-        /// <summary> 선택된 레벨의 성공 영상을 준비(Prepare)함. videoPlayer가 없으면 false. </summary>
-        private bool PrepareSuccessVideo()
+        /// <summary> 선택된 레벨의 성공 영상을 준비함. 준비되면 true, videoPlayer가 없거나 준비에 실패하면 로그를 남기고 false. </summary>
+        private async UniTask<bool> PrepareSuccessVideoAsync(CancellationToken token)
         {
             if (!videoPlayer)
             {
@@ -126,8 +125,13 @@ namespace DGAIZone.Result
             videoPlayer.source = VideoSource.Url;
             videoPlayer.url = ResultVideoPanel.GetVideoPath(fileName);
             videoPlayer.isLooping = false;
-            videoPlayer.Prepare();
-            return true;
+
+            bool prepared = await VideoReadyGate.PrepareAsync(videoPlayer, VideoReadyGate.DefaultPrepareTimeoutSeconds, token);
+            if (!prepared && _logger != null)
+            {
+                _logger.ZLogError($"[ResultAiPanel] {fileName}을(를) 준비하지 못함(파일 없음·재생 오류·{VideoReadyGate.DefaultPrepareTimeoutSeconds}초 초과). 설계창을 그대로 두고 완료 패널로 넘어감.");
+            }
+            return prepared;
         }
 
         /// <summary> 패널을 페이드인하면서 OpenStartScale에서 원래 크기로 살짝 튀듯이 키워 "열리는" 느낌을 줌. </summary>

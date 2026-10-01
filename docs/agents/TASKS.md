@@ -15,6 +15,7 @@
 
 | ID | 작업 | 담당 | 완료일 |
 |---|---|---|---|
+| T15 | T14(PR #34) 교차 리뷰: Claude 자체 리뷰 + Antigravity 코드·설계 리뷰 — 결과 연출 중 비활동 타이머 정지, 영상 준비 실패 시 무한 대기 방지 반영(HANDOFF.md 참고) | Claude, Antigravity | 2026-10-01 |
 | T14 | 결과 화면 AI 연출: 결과 영상 후 "AI가 코딩중입니다..." → 우측 상단 AI 패널(이번 판 정답 설계창 → 성공 영상) → 컴플리트 패널 | Claude | 2026-10-01 |
 | T13 | 결과 화면 Text_MissionComplete를 미션 결과에 따라 "미션 완료!"/"미션 실패!"로 표시 | Claude | 2026-10-01 |
 | T12 | T11(PR #32 레벨 4 반복 필수화) 교차 검토: Claude 자체 리뷰 + Antigravity 코드·설계 리뷰 — 검증기 제어 카드 단계 검사 반영(HANDOFF.md 참고) | Claude, Antigravity | 2026-10-01 |
