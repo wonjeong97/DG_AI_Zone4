@@ -334,6 +334,7 @@ namespace DGAIZone.Game
             if (!group) return;
             if (duration <= 0f) duration = 0.4f;
 
+            SetPanelCanvasEnabled(group, true); // 숨김 상태에서 꺼 둔 패널 캔버스를 페이드 동안 다시 켬
             group.alpha = startAlpha;
             group.interactable = false;
             group.blocksRaycasts = false;
@@ -344,7 +345,10 @@ namespace DGAIZone.Game
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
-        /// <summary> 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. 활성 상태는 유지하고 알파로만 제어함. </summary>
+        /// <summary>
+        /// 패널의 표시 여부에 따라 알파와 상호작용 상태를 설정함. 게임오브젝트 활성 상태는 유지하되(스크립트는 계속 동작함),
+        /// 숨긴 패널은 중첩 Canvas를 꺼 배치·렌더링 대상에서 뺌.
+        /// </summary>
         private void ApplyPanelState(CanvasGroup group, bool visible)
         {
             if (!group)
@@ -355,6 +359,14 @@ namespace DGAIZone.Game
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;
+            SetPanelCanvasEnabled(group, visible);
+        }
+
+        /// <summary> 패널에 붙은 중첩 Canvas를 켜거나 끔. Canvas가 없으면 숨겨도 계속 배치되므로 경고를 남김. </summary>
+        private void SetPanelCanvasEnabled(CanvasGroup group, bool enabled)
+        {
+            if (group.TryGetComponent(out Canvas canvas)) canvas.enabled = enabled;
+            else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] {group.name}에 Canvas가 없어 숨김 상태에서도 배치 대상에 남음.");
         }
     }
 }
