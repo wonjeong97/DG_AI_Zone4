@@ -188,10 +188,10 @@ namespace DGAIZone.Tests
             SetField("level4Board", board);
             IngredientLevel4State state = new IngredientLevel4State();
 
-            List<Level4BoardController.Level4Layout> pool = Level4BoardController.BuildPlacementPool();
+            IReadOnlyList<Level4Layout> pool = Level4Rules.PlacementPool;
             Assert.IsNotEmpty(pool, "레벨 4 배치 후보가 없음");
 
-            foreach (Level4BoardController.Level4Layout layout in pool)
+            foreach (Level4Layout layout in pool)
             {
                 board.SetPlacementForTest(layout.RobotRow, layout.ResourceRow, layout.TrapRow, layout.HqRow);
 

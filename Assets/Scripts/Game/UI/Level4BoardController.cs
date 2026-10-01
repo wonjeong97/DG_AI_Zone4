@@ -23,6 +23,7 @@ namespace DGAIZone.Game.UI
     /// 아이콘 바닥이 목표 지점에 닿도록 높이 절반만큼 보정함.
     /// 스페이스바를 누르면 디자인 윈도우에 확정된 "반복하기/이동하기" 명령대로 로봇 아이콘이 셀 단위로 순차 이동하는
     /// 검증용 시뮬레이션을 재생함('코딩완료' 버튼은 결과 씬으로 바로 전환되므로 개발/플레이 확인용으로 둠).
+    /// 이동 판정·배치 후보·정답 탐색 규칙은 Level4Rules에 있고, 이 클래스는 화면 배치와 연출을 맡음.
     /// </summary>
     public class Level4BoardController : MonoBehaviour
     {
@@ -32,8 +33,6 @@ namespace DGAIZone.Game.UI
         [SerializeField] private RectTransform hqIcon;
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 스페이스 입력을 받음
 
-        private const int Rows = 4;
-        private const int Columns = 4;
         private const int MaxCommands = Constants.Level4Board.MaxCards; // 플레이어가 입력 가능한 카드 최대 개수. 반복하기 없이는 이 장수 안에 못 푸는 배치만 고르는 기준으로 씀.
         private const int RequiredRepeatCount = Constants.Level4Board.RequiredRepeatCount; // 배치가 전제로 하는 반복하기 횟수
         private const float DebugMarkerHeight = 28f; // CellMarkers 디버그 라벨(TMP, sizeDelta 80x28, pivot 0.5,0.5)의 높이. 아이콘 정렬 기준점(라벨의 중앙 하단) 계산에 씀.
@@ -50,22 +49,6 @@ namespace DGAIZone.Game.UI
 
         private const string MoveIngredientId = Constants.RfidIds.Level4.Move;
         private const string RepeatIngredientId = Constants.RfidIds.Level4.Repeat;
-        private const string MoveUp = Constants.RfidIds.Level4.MoveUp;
-        private const string MoveDown = Constants.RfidIds.Level4.MoveDown;
-        private const string MoveRight = Constants.RfidIds.Level4.MoveRight;
-        private const string MoveLeft = Constants.RfidIds.Level4.MoveLeft;
-
-        // 배치 검사(CanClearWithin)에서 놓아 보는 이동 방향(위/아래/오른쪽/왼쪽). ToMoveStep과 같은 변화량을 씀
-        private static readonly Level4MoveStep[] MoveDirections =
-        {
-            new Level4MoveStep(0, -1),
-            new Level4MoveStep(0, 1),
-            new Level4MoveStep(1, 0),
-            new Level4MoveStep(-1, 0)
-        };
-
-        // MoveDirections와 같은 순서의 이동 방향 id. 정답 경로(FindShortestSolution)를 블록으로 돌려줄 때 씀
-        private static readonly string[] MoveDirectionIds = { MoveUp, MoveDown, MoveRight, MoveLeft };
 
         // Grid.png(742x234) 사다리꼴 그리드의 행 경계 Y좌표 5개(행 4개 = 경계 5개)와,
         // 각 행 경계에서의 열 경계 X좌표 5개(열 4개 = 경계 5개). 이미지 픽셀 분석으로 산출됨.
@@ -84,6 +67,9 @@ namespace DGAIZone.Game.UI
         public int ResourceRow { get; private set; }
         public int TrapRow { get; private set; }
         public int HqRow { get; private set; }
+
+        /// <summary> 이번 판 배치(행 위치). </summary>
+        private Level4Layout Layout => new Level4Layout(RobotRow, ResourceRow, TrapRow, HqRow);
 
         /// <summary>
         /// 유닛 테스트용: 결정론적 판정 검증을 위해 아이콘 행 위치를 직접 설정함.
@@ -174,11 +160,11 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 열은 로봇=0, 자원=1, 함정=2, 기지=3으로 고정하고 행만 무작위로 뽑되, 반복하기(제어) 블록을 꼭 쓰도록
-        /// 이동하기만으로는 카드 MaxCommands장 안에 풀 수 없고 반복하기를 쓰면 풀리는 배치(BuildPlacementPool) 중 하나를 고름.
+        /// 이동하기만으로는 카드 MaxCommands장 안에 풀 수 없고 반복하기를 쓰면 풀리는 배치(Level4Rules.PlacementPool) 중 하나를 고름.
         /// </summary>
         private void RandomizePlacement()
         {
-            List<Level4Layout> pool = BuildPlacementPool();
+            IReadOnlyList<Level4Layout> pool = Level4Rules.PlacementPool;
             if (pool.Count == 0)
             {
                 if (_logger != null) _logger.ZLogError($"[Level4BoardController] 반복하기를 써야만 풀리는 배치가 없어 보드를 배치할 수 없음(카드 {MaxCommands}장, 반복 {RequiredRepeatCount}회 기준).");
@@ -192,12 +178,12 @@ namespace DGAIZone.Game.UI
             HqRow = chosen.HqRow;
             TrapRow = chosen.TrapRow;
 
-            PlaceAtCellCenter(robotIcon, 0, RobotRow);
-            PlaceAtCellCenter(resourceIcon, 1, ResourceRow);
-            PlaceAtCellCenter(trapIcon, 2, TrapRow);
-            PlaceAtCellCenter(hqIcon, 3, HqRow);
+            PlaceAtCellCenter(robotIcon, Level4Rules.RobotColumn, RobotRow);
+            PlaceAtCellCenter(resourceIcon, Level4Rules.ResourceColumn, ResourceRow);
+            PlaceAtCellCenter(trapIcon, Level4Rules.TrapColumn, TrapRow);
+            PlaceAtCellCenter(hqIcon, Level4Rules.HqColumn, HqRow);
 
-            _robotCurrentColumn = 0;
+            _robotCurrentColumn = Level4Rules.RobotColumn;
             _robotCurrentRow = RobotRow;
             _facingLeft = StartFacingLeft;
             ApplyRobotFacing();
@@ -205,109 +191,10 @@ namespace DGAIZone.Game.UI
             ApplyRowBasedDrawOrder();
         }
 
-        /// <summary>
-        /// 반복하기를 써야만 풀리는 배치 목록을 만듦. 로봇과 기지가 같은 행인 일자 경로는 빼고, 이동하기만으로는 카드 MaxCommands장 안에
-        /// 풀 수 없지만 '반복하기(RequiredRepeatCount회) + 이동하기'를 쓰면 MaxCommands장 안에 풀리는 조합만 남김.
-        /// </summary>
-        internal static List<Level4Layout> BuildPlacementPool()
-        {
-            List<Level4Layout> pool = new List<Level4Layout>();
-
-            for (int robotRow = 0; robotRow < Rows; robotRow++)
-            {
-                for (int resourceRow = 0; resourceRow < Rows; resourceRow++)
-                {
-                    for (int hqRow = 0; hqRow < Rows; hqRow++)
-                    {
-                        if (hqRow == robotRow) continue; // 일자 진행 방지
-
-                        for (int trapRow = 0; trapRow < Rows; trapRow++)
-                        {
-                            Level4Layout layout = new Level4Layout(robotRow, resourceRow, trapRow, hqRow);
-                            if (!CanClearWithin(layout, MaxCommands, 1) && CanClearWithin(layout, MaxCommands, RequiredRepeatCount))
-                            {
-                                pool.Add(layout);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return pool;
-        }
-
-        /// <summary>
-        /// 이 배치를 카드 maxCards장 안에 풀 수 있는지 판정함. EvaluateOutcome과 같은 규칙(그리드 밖·함정은 실패, 자원을 먼저 지나 기지에 도착하면 성공)으로
-        /// 가능한 카드 조합을 모두 따져 봄. repeatCount가 2 이상이면 '반복하기(repeatCount회) + 이동하기' 두 장 묶음도 쓰고, 1이면 이동하기만 씀.
-        /// </summary>
-        internal static bool CanClearWithin(Level4Layout layout, int maxCards, int repeatCount)
-        {
-            return CanClearFrom(layout, 0, layout.RobotRow, false, maxCards, repeatCount, null);
-        }
-
-        /// <summary>
-        /// 이 배치를 가장 적은 카드로 푸는 경로를 찾음(카드 1장부터 maxCards장까지 늘려 가며 CanClearWithin과 같은 규칙으로 탐색).
-        /// 반환하는 구간 하나는 (이동 칸 수, 이동 방향 id)이며, 칸 수가 1이면 이동하기 한 장, 그보다 크면 '반복하기(칸 수) + 이동하기' 두 장임.
-        /// maxCards장 안에 풀 수 없으면 null.
-        /// </summary>
-        internal static List<(int moves, string directionId)> FindShortestSolution(Level4Layout layout, int maxCards, int repeatCount)
-        {
-            List<(int moves, string directionId)> path = new List<(int moves, string directionId)>();
-            for (int cards = 1; cards <= maxCards; cards++)
-            {
-                path.Clear();
-                if (CanClearFrom(layout, 0, layout.RobotRow, false, cards, repeatCount, path)) return path;
-            }
-
-            return null;
-        }
-
         /// <summary> 이번 판 배치를 가장 적은 카드(최대 MaxCommands장, 반복 RequiredRepeatCount회)로 푸는 경로. 풀 수 없으면 null. </summary>
         internal List<(int moves, string directionId)> FindSolution()
         {
-            return FindShortestSolution(new Level4Layout(RobotRow, ResourceRow, TrapRow, HqRow), MaxCommands, RequiredRepeatCount);
-        }
-
-        /// <summary>
-        /// 현재 칸에서 이동하기 한 장 또는 반복하기+이동하기 두 장을 방향마다 놓아 보며, 남은 카드로 성공할 수 있는지 재귀로 찾음.
-        /// path가 있으면 성공한 경로의 구간(이동 칸 수, 방향 id)을 순서대로 남김.
-        /// </summary>
-        private static bool CanClearFrom(Level4Layout layout, int column, int row, bool collected, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
-        {
-            for (int d = 0; d < MoveDirections.Length; d++)
-            {
-                if (cardsLeft >= 1 && TryRun(layout, column, row, collected, d, 1, cardsLeft - 1, repeatCount, path)) return true;
-                if (repeatCount > 1 && cardsLeft >= 2 && TryRun(layout, column, row, collected, d, repeatCount, cardsLeft - 2, repeatCount, path)) return true;
-            }
-
-            return false;
-        }
-
-        /// <summary> 구간 하나(directionIndex 방향으로 moves칸)를 경로에 넣고 놓아 보며, 실패하면 경로에서 다시 뺌. </summary>
-        private static bool TryRun(Level4Layout layout, int column, int row, bool collected, int directionIndex, int moves, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
-        {
-            path?.Add((moves, MoveDirectionIds[directionIndex]));
-            if (RunSucceeds(layout, column, row, collected, MoveDirections[directionIndex], moves, cardsLeft, repeatCount, path)) return true;
-
-            path?.RemoveAt(path.Count - 1);
-            return false;
-        }
-
-        /// <summary> direction으로 moves칸 가 봄. 기지에 닿으면 자원을 먼저 모았는지가 곧 결과이고, 그리드 밖·함정이면 실패, 그 외에는 남은 카드로 이어서 찾음. </summary>
-        private static bool RunSucceeds(Level4Layout layout, int column, int row, bool collected, Level4MoveStep direction, int moves, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
-        {
-            for (int i = 0; i < moves; i++)
-            {
-                column += direction.DeltaColumn;
-                row += direction.DeltaRow;
-
-                if (IsOutOfBounds(column, row)) return false;
-                if (column == 1 && row == layout.ResourceRow) collected = true;
-                if (column == 2 && row == layout.TrapRow) return false;
-                if (column == 3 && row == layout.HqRow) return collected;
-            }
-
-            return cardsLeft > 0 && CanClearFrom(layout, column, row, collected, cardsLeft, repeatCount, path);
+            return Level4Rules.FindShortestSolution(Layout, MaxCommands, RequiredRepeatCount);
         }
 
         /// <summary>
@@ -358,26 +245,23 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 자원 아이콘은 항상 로봇보다 앞에, 함정/기지 아이콘은 항상 로봇보다 뒤에 그려지도록 고정 우선순위로
-        /// sibling을 재배치함. 행(row) 기준으로 정렬하면 로봇이 자원/함정/기지와 같은 행을 지날 때 그리기
-        /// 순서가 뒤집혀(예: 로봇이 함정 셀 위로 지나가면 함정이 로봇을 가림) 요구사항과 어긋나므로 사용하지 않음.
+        /// 자원 아이콘은 항상 로봇보다 앞에, 함정/기지 아이콘은 항상 로봇보다 뒤에 그려지도록 고정 순서로
+        /// sibling을 재배치함(뒤에 그릴 것부터 차례로 맨 뒤 sibling으로 보냄). 행(row) 기준으로 정렬하면 로봇이 자원/함정/기지와
+        /// 같은 행을 지날 때 그리기 순서가 뒤집혀(예: 로봇이 함정 셀 위로 지나가면 함정이 로봇을 가림) 요구사항과 어긋나므로 사용하지 않음.
         /// </summary>
         private void ApplyRowBasedDrawOrder()
         {
-            List<(RectTransform icon, int priority)> order = new List<(RectTransform icon, int priority)>
-            {
-                (trapIcon, 0),
-                (hqIcon, 0),
-                (robotIcon, 1),
-                (resourceIcon, 2),
-            };
-            order.Sort((a, b) => a.priority.CompareTo(b.priority));
+            MoveToFront(trapIcon, nameof(trapIcon));
+            MoveToFront(hqIcon, nameof(hqIcon));
+            MoveToFront(robotIcon, nameof(robotIcon));
+            MoveToFront(resourceIcon, nameof(resourceIcon));
+        }
 
-            foreach ((RectTransform icon, int priority) entry in order)
-            {
-                if (entry.icon) entry.icon.SetAsLastSibling();
-                else if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 그리기 순서를 정할 아이콘이 null이라 건너뜀.");
-            }
+        /// <summary> 아이콘을 형제 중 맨 마지막(가장 앞에 그려짐)으로 옮김. </summary>
+        private void MoveToFront(RectTransform icon, string fieldName)
+        {
+            if (icon) icon.SetAsLastSibling();
+            else if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] {fieldName}이 null이라 그리기 순서를 정할 수 없어 건너뜀.");
         }
 
         /// <summary>
@@ -437,48 +321,36 @@ namespace DGAIZone.Game.UI
         /// 확정된 이동 명령을 연출 없이 즉시 계산해 성공/실패를 판정함(IngredientSelectionController.EvaluateMission이
         /// '코딩완료' 클릭 시 호출함). 성공 = 자원을 먼저 수집한 뒤 기지 셀에 정확히 도착. 그 외(그리드 밖으로 나감,
         /// 함정 셀 도착, 자원 없이 기지 도착, 스텝을 다 써도 기지에 도착하지 못함)는 전부 실패.
-        /// ExecuteStepAsync/HandleCellArrivalAsync가 쓰는 것과 동일한 판정 규칙(IsOutOfBounds/IsTrapCell/
-        /// IsResourceCell/IsHqCell)을 그대로 재사용해 연출 버전과 판정이 어긋나지 않도록 함.
+        /// 연출(ExecuteStepAsync)과 같은 Level4Rules.Step으로 한 칸씩 판정해 연출 버전과 판정이 어긋나지 않도록 함.
         /// commands를 넘기면 그 값을 그대로 평가하고(테스트/외부 호출용), null이면 기존처럼 ingredientSelection에서 직접 읽음.
         /// </summary>
         public bool EvaluateOutcome(IReadOnlyList<(string ingredientId, RfidMatter matter)> commands = null)
         {
             List<Level4MoveStep> steps = BuildMoveSteps(commands);
+            Level4Layout layout = Layout;
 
-            int column = 0;
+            int column = Level4Rules.RobotColumn;
             int row = RobotRow;
             bool resourceCollected = false;
 
             foreach (Level4MoveStep step in steps)
             {
-                int nextColumn = column + step.DeltaColumn;
-                int nextRow = row + step.DeltaRow;
-
-                if (IsOutOfBounds(nextColumn, nextRow))
+                switch (Level4Rules.Step(layout, ref column, ref row, ref resourceCollected, step))
                 {
-                    if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 판정: 그리드 밖(Column={nextColumn}, Row={nextRow})으로 나감. 실패.");
-                    return false;
-                }
+                    case Level4StepResult.OutOfBounds:
+                        if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 판정: 그리드 밖(Column={column + step.DeltaColumn}, Row={row + step.DeltaRow})으로 나감. 실패.");
+                        return false;
 
-                column = nextColumn;
-                row = nextRow;
+                    case Level4StepResult.Trap:
+                        if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 판정: 함정 셀(R{TrapRow}C{Level4Rules.TrapColumn})에 도착함. 실패.");
+                        return false;
 
-                if (IsResourceCell(column, row)) resourceCollected = true;
-
-                if (IsTrapCell(column, row))
-                {
-                    if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 판정: 함정 셀(R{TrapRow}C2)에 도착함. 실패.");
-                    return false;
-                }
-
-                if (IsHqCell(column, row))
-                {
-                    bool success = resourceCollected;
-                    if (_logger != null)
-                    {
-                        _logger.ZLogInformation($"[Level4BoardController] 판정: 기지 셀(R{HqRow}C3)에 도착함(자원 수집={resourceCollected}). {(success ? "성공" : "실패")}.");
-                    }
-                    return success;
+                    case Level4StepResult.Hq:
+                        if (_logger != null)
+                        {
+                            _logger.ZLogInformation($"[Level4BoardController] 판정: 기지 셀(R{HqRow}C{Level4Rules.HqColumn})에 도착함(자원 수집={resourceCollected}). {(resourceCollected ? "성공" : "실패")}.");
+                        }
+                        return resourceCollected;
                 }
             }
 
@@ -495,7 +367,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void ResetRobotToStart()
         {
-            _robotCurrentColumn = 0;
+            _robotCurrentColumn = Level4Rules.RobotColumn;
             _robotCurrentRow = RobotRow;
             _facingLeft = StartFacingLeft;
             _resourceCollected = false;
@@ -547,10 +419,9 @@ namespace DGAIZone.Game.UI
                     }
 
                     int repeatCount = GetRepeatCount(current.matter);
-                    Level4MoveStep? moveStep = ToMoveStep(commands[i + 1].matter?.id);
-                    if (moveStep.HasValue)
+                    if (Level4Rules.TryGetMoveStep(commands[i + 1].matter?.id, out Level4MoveStep moveStep))
                     {
-                        for (int r = 0; r < repeatCount; r++) steps.Add(moveStep.Value);
+                        for (int r = 0; r < repeatCount; r++) steps.Add(moveStep);
                     }
                     else if (_logger != null)
                     {
@@ -561,8 +432,7 @@ namespace DGAIZone.Game.UI
                 }
                 else if (string.Equals(current.ingredientId, MoveIngredientId, StringComparison.Ordinal))
                 {
-                    Level4MoveStep? moveStep = ToMoveStep(current.matter?.id);
-                    if (moveStep.HasValue) steps.Add(moveStep.Value);
+                    if (Level4Rules.TryGetMoveStep(current.matter?.id, out Level4MoveStep moveStep)) steps.Add(moveStep);
                     else if (_logger != null)
                     {
                         _logger.ZLogWarning($"[Level4BoardController] 알 수 없는 이동 방향 id '{current.matter?.id}'이라 스텝을 건너뜀.");
@@ -588,24 +458,10 @@ namespace DGAIZone.Game.UI
             return 1;
         }
 
-        /// <summary> 이동 방향 id를 열/행 변화량으로 변환함. 알 수 없는 값이면 null. </summary>
-        private static Level4MoveStep? ToMoveStep(string directionId)
-        {
-            switch (directionId)
-            {
-                case MoveUp: return new Level4MoveStep(0, -1);
-                case MoveDown: return new Level4MoveStep(0, 1);
-                case MoveRight: return new Level4MoveStep(1, 0);
-                case MoveLeft: return new Level4MoveStep(-1, 0);
-                default: return null;
-            }
-        }
-
         /// <summary>
-        /// 스텝 하나(한 칸 이동)를 실행함: 좌우 이동이면 시선 방향을 바꾸고(위/아래는 기존 시선 유지),
-        /// 목표 열/행이 그리드 범위(0~3)를 벗어나면 성공/실패 판정 전에 즉시 실패 처리하고 로봇 소멸 연출을 재생함
-        /// (더 이상 clamp하지 않음). 범위 안이면 DOTween으로 부드럽게 이동하고, 이동 완료 시 z-order를 갱신하고,
-        /// 도착한 셀이 자원/함정/기지 셀이면 해당 연출을 재생함(HandleCellArrivalAsync). 마지막으로 다음 스텝 전 짧게 대기함.
+        /// 스텝 하나(한 칸 이동)를 실행함: 좌우 이동이면 시선 방향을 바꾸고(위/아래는 기존 시선 유지), Level4Rules.Step으로
+        /// 판정함. 그리드 밖이면 로봇 소멸 연출을 재생하고 멈춤. 범위 안이면 DOTween으로 부드럽게 이동하고 z-order를 갱신한 뒤,
+        /// 도착한 셀이 자원/함정/기지 셀이면 해당 연출을 재생함(PlayCellArrivalAsync). 마지막으로 다음 스텝 전 짧게 대기함.
         /// 반환값: 그리드 밖으로 나갔거나 함정/기지 셀에 도착해 로봇이 사라져서 남은 스텝을 더 진행하면 안 되면 true.
         /// </summary>
         private async UniTask<bool> ExecuteStepAsync(Level4MoveStep step, CancellationToken token)
@@ -613,21 +469,19 @@ namespace DGAIZone.Game.UI
             if (step.DeltaColumn > 0) SetFacing(faceLeft: false);
             else if (step.DeltaColumn < 0) SetFacing(faceLeft: true);
 
-            int nextColumn = _robotCurrentColumn + step.DeltaColumn;
-            int nextRow = _robotCurrentRow + step.DeltaRow;
+            Level4StepResult result = Level4Rules.Step(Layout, ref _robotCurrentColumn, ref _robotCurrentRow, ref _resourceCollected, step);
 
-            if (IsOutOfBounds(nextColumn, nextRow))
+            if (result == Level4StepResult.OutOfBounds)
             {
+                int targetColumn = _robotCurrentColumn + step.DeltaColumn;
+                int targetRow = _robotCurrentRow + step.DeltaRow;
                 if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[Level4BoardController] 로봇이 그리드 밖(Column={nextColumn}, Row={nextRow})으로 나가려 함: 실패 처리, 로봇 소멸 연출 재생.");
+                    _logger.ZLogWarning($"[Level4BoardController] 로봇이 그리드 밖(Column={targetColumn}, Row={targetRow})으로 나가려 함: 실패 처리, 로봇 소멸 연출 재생.");
                 }
-                await PlayOutOfBoundsExitAsync(nextColumn, nextRow, token);
+                await PlayOutOfBoundsExitAsync(targetColumn, targetRow, token);
                 return true;
             }
-
-            _robotCurrentColumn = nextColumn;
-            _robotCurrentRow = nextRow;
 
             Vector2 target = GetIconAnchoredPositionForCell(robotIcon, _robotCurrentColumn, _robotCurrentRow);
 
@@ -636,7 +490,7 @@ namespace DGAIZone.Game.UI
 
             ApplyRowBasedDrawOrder();
 
-            bool shouldStop = await HandleCellArrivalAsync(token);
+            bool shouldStop = await PlayCellArrivalAsync(result, token);
 
             await UniTask.Delay(TimeSpan.FromSeconds(StepPauseDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
 
@@ -644,48 +498,33 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 로봇이 방금 도착한 셀(_robotCurrentColumn/_robotCurrentRow)이 자원/함정/기지 셀과 겹치는지 검사하고
-        /// 해당 연출을 재생함. 자원 셀이면 자원 아이콘이 로봇에 빨려들어가듯 스케일 1->0(한 시뮬레이션당 한 번만).
+        /// 로봇이 방금 도착한 셀의 판정 결과에 맞는 연출을 재생함. 자원 셀에 처음 닿았으면 자원 아이콘이 로봇에 빨려들어가듯 스케일 1->0.
         /// 함정 또는 기지 셀이면 로봇 아이콘 스케일이 1->0으로 사라짐.
         /// 반환값: 함정 또는 기지 셀에 도착해 로봇이 사라졌으면 true(더 이상 이동하면 안 됨).
         /// </summary>
-        private async UniTask<bool> HandleCellArrivalAsync(CancellationToken token)
+        private async UniTask<bool> PlayCellArrivalAsync(Level4StepResult result, CancellationToken token)
         {
-            if (!_resourceCollected && IsResourceCell(_robotCurrentColumn, _robotCurrentRow))
+            switch (result)
             {
-                _resourceCollected = true;
-                if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 로봇이 자원 셀(R{ResourceRow}C1)에 도착함: 자원 흡수 연출 재생.");
-                await AnimateScaleToZeroAsync(resourceIcon, token);
-            }
+                case Level4StepResult.CollectedResource:
+                    if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 로봇이 자원 셀(R{ResourceRow}C{Level4Rules.ResourceColumn})에 도착함: 자원 흡수 연출 재생.");
+                    await AnimateScaleToZeroAsync(resourceIcon, token);
+                    return false;
 
-            if (IsTrapCell(_robotCurrentColumn, _robotCurrentRow))
-            {
-                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 로봇이 함정 셀(R{TrapRow}C2)에 도착함: 로봇 소멸 연출 재생.");
-                await AnimateScaleToZeroAsync(robotIcon, token);
-                return true;
-            }
+                case Level4StepResult.Trap:
+                    if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 로봇이 함정 셀(R{TrapRow}C{Level4Rules.TrapColumn})에 도착함: 로봇 소멸 연출 재생.");
+                    await AnimateScaleToZeroAsync(robotIcon, token);
+                    return true;
 
-            if (IsHqCell(_robotCurrentColumn, _robotCurrentRow))
-            {
-                if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 로봇이 기지 셀(R{HqRow}C3)에 도착함: 로봇 소멸 연출 재생.");
-                await AnimateScaleToZeroAsync(robotIcon, token);
-                return true;
-            }
+                case Level4StepResult.Hq:
+                    if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 로봇이 기지 셀(R{HqRow}C{Level4Rules.HqColumn})에 도착함: 로봇 소멸 연출 재생.");
+                    await AnimateScaleToZeroAsync(robotIcon, token);
+                    return true;
 
-            return false;
+                default:
+                    return false;
+            }
         }
-
-        /// <summary> 지정한 열/행이 그리드 범위(0~3)를 벗어나는지. </summary>
-        private static bool IsOutOfBounds(int column, int row) => column < 0 || column >= Columns || row < 0 || row >= Rows;
-
-        /// <summary> 지정한 열/행이 함정 셀(C2, TrapRow)인지. </summary>
-        private bool IsTrapCell(int column, int row) => column == 2 && row == TrapRow;
-
-        /// <summary> 지정한 열/행이 자원 셀(C1, ResourceRow)인지. </summary>
-        private bool IsResourceCell(int column, int row) => column == 1 && row == ResourceRow;
-
-        /// <summary> 지정한 열/행이 기지 셀(C3, HqRow)인지. </summary>
-        private bool IsHqCell(int column, int row) => column == 3 && row == HqRow;
 
         /// <summary>
         /// 대상 아이콘의 스케일을 0으로 부드럽게 줄임(살짝 끌려들어가는 느낌을 위해 Ease.InBack 사용).
@@ -731,8 +570,8 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private Vector2 GetOutOfBoundsPeekPosition(RectTransform icon, int targetColumn, int targetRow)
         {
-            int clampedColumn = Mathf.Clamp(targetColumn, 0, Columns - 1);
-            int clampedRow = Mathf.Clamp(targetRow, 0, Rows - 1);
+            int clampedColumn = Mathf.Clamp(targetColumn, 0, Level4Rules.Columns - 1);
+            int clampedRow = Mathf.Clamp(targetRow, 0, Level4Rules.Rows - 1);
             Vector2 edgePosition = GetIconAnchoredPositionForCell(icon, clampedColumn, clampedRow);
 
             if (targetColumn != clampedColumn)
@@ -778,41 +617,6 @@ namespace DGAIZone.Game.UI
         {
             _simulationCts?.Cancel();
             _simulationCts?.Dispose();
-        }
-
-        /// <summary> 한 칸 이동을 나타내는 열/행 변화량. </summary>
-        private readonly struct Level4MoveStep
-        {
-            public readonly int DeltaColumn;
-            public readonly int DeltaRow;
-
-            /// <summary> 열/행 변화량으로 이동 스텝을 초기화함. </summary>
-            public Level4MoveStep(int deltaColumn, int deltaRow)
-            {
-                DeltaColumn = deltaColumn;
-                DeltaRow = deltaRow;
-            }
-        }
-
-        /// <summary> 로봇·자원·함정·기지의 행 배치 하나(열은 로봇=0, 자원=1, 함정=2, 기지=3으로 고정). </summary>
-        internal readonly struct Level4Layout
-        {
-            public readonly int RobotRow;
-            public readonly int ResourceRow;
-            public readonly int TrapRow;
-            public readonly int HqRow;
-
-            /// <summary> 각 아이콘의 행으로 배치를 초기화함. </summary>
-            public Level4Layout(int robotRow, int resourceRow, int trapRow, int hqRow)
-            {
-                RobotRow = robotRow;
-                ResourceRow = resourceRow;
-                TrapRow = trapRow;
-                HqRow = hqRow;
-            }
-
-            /// <summary> 로그·테스트 메시지용 배치 표기. </summary>
-            public override string ToString() => $"로봇 R{RobotRow}, 자원 R{ResourceRow}, 함정 R{TrapRow}, 기지 R{HqRow}";
         }
     }
 }
