@@ -43,9 +43,10 @@ namespace DGAIZone.Tests
         private RectTransform _content;
         private DesignPanel _panel;
         private DesignBlockView _prefab;
+        private ScrollRect _scrollRect;
 
-        /// <summary> 보이는 영역(Viewport)과 content, DesignPanel을 만들고 실제 블록 프리팹과 빈 리졸버를 넣음. </summary>
-        private void CreatePanel(DesignLayoutMode mode)
+        /// <summary> 보이는 영역(Viewport)과 content, DesignPanel을 만들고 실제 블록 프리팹과 빈 리졸버를 넣음. withScrollRect면 3_Game처럼 세로 ScrollRect도 붙임. </summary>
+        private void CreatePanel(DesignLayoutMode mode, bool withScrollRect = false)
         {
 #if UNITY_EDITOR
             DesignBlockView prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<DesignBlockView>("Assets/Prefabs/DesignBlock.prefab");
@@ -68,8 +69,18 @@ namespace DGAIZone.Tests
             _content.pivot = new Vector2(0.5f, 1f);
             _content.sizeDelta = Vector2.zero;
 
+            if (withScrollRect)
+            {
+                _scrollRect = _root.AddComponent<ScrollRect>();
+                _scrollRect.viewport = viewport;
+                _scrollRect.content = _content;
+                _scrollRect.horizontal = false;
+                _scrollRect.vertical = true;
+                _scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            }
+
             _panel = _root.AddComponent<DesignPanel>();
-            _panel.SetUpForTest(_content, prefab, mode);
+            _panel.SetUpForTest(_content, prefab, mode, _scrollRect);
             _panel.Construct(new ContainerBuilder().Build(), null);
         }
 
@@ -272,6 +283,37 @@ namespace DGAIZone.Tests
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
             float s = _panel.Scale;
             Assert.AreEqual((oneSlot - BottomTabHeight) * s, BlockPosition(1).y - LastBlockPosition().y, Tolerance, "완성하기 블록은 줄어든 만약 블록 바로 아래에 놓여야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 위로_올려_둔_상태에서_완성하면_맨_아래로_내린_뒤_완성하기_블록을_붙인다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            _panel.Initialize(Commands(5), true);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기(0.8초)·자동 스크롤(0.3초) 연출이 끝나길 기다림
+            Assert.AreEqual(0f, _scrollRect.verticalNormalizedPosition, Tolerance, "블록이 쌓이면 맨 아래로 스크롤돼 있어야 함");
+
+            _scrollRect.verticalNormalizedPosition = 1f; // 사용자가 드래그로 맨 위까지 올린 상태
+            UniTask attach = _panel.AttachEndBlockAsync(default);
+            Assert.IsFalse(_panel.IsCompleted, "맨 아래로 내려가는 동안에는 완성하기 블록이 아직 붙지 않아야 함");
+
+            await attach.AwaitWithRealtimeTimeout(5f);
+            Assert.IsTrue(_panel.IsCompleted, "맨 아래로 내린 뒤 완성하기 블록이 붙어야 함");
+            Assert.AreEqual(0f, _scrollRect.verticalNormalizedPosition, Tolerance, "완성하기 블록까지 보이도록 맨 아래에 있어야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 이미_맨_아래면_기다리지_않고_바로_완성하기_블록을_붙인다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            _panel.Initialize(Commands(5), true);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나 맨 아래에 있음
+
+            UniTask attach = _panel.AttachEndBlockAsync(default);
+            Assert.IsTrue(_panel.IsCompleted, "이미 맨 아래면 스크롤을 기다리지 않고 바로 완성하기 블록이 붙어야 함");
+            await attach.AwaitWithRealtimeTimeout(5f);
         });
     }
 }

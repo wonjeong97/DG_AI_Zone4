@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-04 00:25] Claude → Antigravity · T26
+- 요청(사용자): 블록이 쌓여 아래로 스크롤된 설계창을 터치·마우스 드래그로 올릴 수 있게, 올린 상태에서 코딩 완료를 누르면 아래로 자연스럽게 내린 뒤 완성하기 블록 연결.
+- 원인: DesignScrollView(ScrollRect 세로·Clamped·관성)는 중첩 Canvas인데 GraphicRaycaster가 없어 입력이 닿지 않았고, Viewport·블록에 Raycast Target이 하나도 없었음.
+- 변경 파일: `Scenes/3_Game.unity`(DesignScrollView에 GraphicRaycaster, Viewport에 투명 Image — 알파 0·Raycast Target 켬·Cull Transparent Mesh 켬. 이 hunk만 커밋, 사용자 쪽 layoutMode·debugStartLevel·TMP 머티리얼 변경은 작업 트리에 둠), `Game/UI/DesignPanel.cs`(`AttachEndBlockAsync`가 `IsScrolledUp`이면 `ScrollToBottom` 트윈을 기다린 뒤 완성하기 생성, `ScrollToBottom`은 `StopMovement`로 드래그 관성을 멈추고 트윈 반환, `SetUpForTest`에 ScrollRect 인자), `Tests/Runtime/DesignPanelTests.cs`(ScrollRect 붙인 준비, 올려 둔 상태·이미 맨 아래 2개 추가)
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(입력 경로·다른 버튼과 겹침 없음·투명 메시 그리기 비용 없음, StopMovement·gamePanel 입력 차단으로 드래그 충돌 없음, IsScrolledUp 판정·취소 처리, 스킬 규칙, 테스트 결정성). 제안: 이미 맨 아래일 때 바로 붙는지 테스트 → 수용해 추가.
+- 결과(Claude): PlayMode 66/66, 콘솔 오류 0, Enter Play Mode Options 꺼짐 확인. Play 모드(레벨 3, 자동 스크롤 방식)에서 Viewport 위·가운데·아래 RaycastAll 결과 Viewport·드래그 대상 DesignScrollView, 드래그 시뮬레이션으로 스크롤 0→0.86, 그 상태에서 완성하기 → 0.13 내려가는 중에도 완성하기 없음 → 0에서 완성하기 붙음. 실제 터치스크린 확인은 하지 않음(현장 확인 필요).
+- 사고 기록: 사용자가 Play 모드(레벨 3, 키보드 카드 입력)로 테스트하던 중 Claude가 테스트 파일 수정 뒤 `refresh_unity(compile)`를 요청해 Play 중 핫 리로드가 일어남(RFID 수신 스레드 중단, VContainer 주입 실패 로그, RelayoutAll 예외). 이후 컴파일·테스트 전마다 isPlaying·포커스를 확인함. 또 한 번은 PlayMode 테스트 시작 직후 테스트 파일 재임포트가 끼어 Test Runner가 내부 오류로 멈추며 임시 씬(InitTestScene)이 열린 채 남음 → 3_Game 다시 열고 임시 씬 삭제, 멈춘 작업 정리 후 재실행해 통과.
+
 ### [2026-10-04 00:00] Claude → Antigravity · T25
 - 요청(사용자): 레벨 3 설계창이 만약·그리고까지 모두 명령 블록이라, DG_AI_Zone1처럼 만약은 ㄷ자 블록으로. Zone1은 '그리고'를 만약 머리 오른쪽에 조건과 가로로 잇지만 이 프로젝트 레벨 3은 '만약 전기량이 → 전기량 → 그리고 → 만약 산소량이 → 산소량' 순서라, 시안 3가지(초록 세로 블록/명령 블록 유지/Zone1 Logic 그대로) 중 사용자가 '초록 세로 블록'을 고름.
 - 변경 파일: 신규 `UI/3_Game/Blocks/If.png`(Zone1 원본, 9-slice 왼20·아래121·위121)·`Logic.png`(CommandNoValue 모양을 Zone1 Logic 색으로 HSV 변환), `Game/UI/DesignBlockView.cs`(If·Logic 종류, 만약 치수 상수, `SetIfInnerHeight`·`IfBodyHeight`, If는 Sliced), `Game/UI/DesignPanel.cs`(`DesignStepShape` Command/If/InsideIf/Logic, `Initialize(plannedShapes)`·`AddItem(shape, …)`, 위치를 `Layout`이 한 번에 계산 — InsideIf는 앞 만약 블록 안쪽, 만약 블록은 안쪽 높이만큼(최소 블록 하나) 늘어남), `IIngredientSelectionLevelState`·레벨 1~4 상태(`GetDesignStepShape`, 레벨 3만 재료 id로 구분), `IngredientSelectionController`(단계 정의로 계획 모양을 만들어 Initialize, 확정 시 모양 전달), `Prefabs/DesignBlock.prefab`(ifSprite·logicSprite), `Tests/Runtime/DesignPanelTests.cs`(API 변경 반영, 레벨 3 맞물림·만약 블록 늘고 줄어듦 2개 추가)

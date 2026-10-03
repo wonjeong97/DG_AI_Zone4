@@ -37,6 +37,7 @@ namespace DGAIZone.Game.UI
     public class DesignPanel : MonoBehaviour
     {
         private const float DeactivatedAlpha = 0.35f;
+        private const float ScrolledUpEpsilon = 0.5f; // 맨 아래에서 이만큼(UI 단위) 넘게 올라가 있으면 사용자가 올려 둔 것으로 봄
         private const string StartLabel = "시작하기";
         private const string EndLabel = "완성하기";
 
@@ -83,9 +84,10 @@ namespace DGAIZone.Game.UI
         /// <summary> 블록 배율(레이아웃 검증용). </summary>
         internal float Scale => _scale;
 
-        /// <summary> 테스트 전용: 인스펙터로 연결하는 블록 content·프리팹과 배치 방식을 넣음(scrollRect 없이 content의 부모를 보이는 영역으로 씀). </summary>
-        internal void SetUpForTest(RectTransform contentRoot, DesignBlockView prefab, DesignLayoutMode mode)
+        /// <summary> 테스트 전용: 인스펙터로 연결하는 블록 content·프리팹·배치 방식과 ScrollRect를 넣음(scroll이 없으면 content의 부모를 보이는 영역으로 쓰고 자동 스크롤은 하지 않음). </summary>
+        internal void SetUpForTest(RectTransform contentRoot, DesignBlockView prefab, DesignLayoutMode mode, ScrollRect scroll = null)
         {
+            scrollRect = scroll;
             content = contentRoot;
             blockPrefab = prefab;
             layoutMode = mode;
@@ -158,7 +160,10 @@ namespace DGAIZone.Game.UI
             UpdateContentHeight();
         }
 
-        /// <summary> 맨 아래에 완성하기 블록을 붙이고, 맞물리는 연출과 잠깐의 대기가 끝날 때까지 기다림. 이미 붙어 있으면 바로 끝남. </summary>
+        /// <summary>
+        /// 맨 아래에 완성하기 블록을 붙이고, 맞물리는 연출과 잠깐의 대기가 끝날 때까지 기다림. 사용자가 드래그로 위로 올려 둔 상태면 먼저 맨 아래로
+        /// 부드럽게 내린 뒤 붙임. 이미 붙어 있으면 바로 끝남.
+        /// </summary>
         public async UniTask AttachEndBlockAsync(CancellationToken token)
         {
             if (_endBlock) return;
@@ -168,13 +173,19 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            if (IsScrolledUp())
+            {
+                Tween scrollBack = ScrollToBottom();
+                if (scrollBack != null) await scrollBack.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
+            }
+
             _endBlock = CreateBlock(DesignBlockKind.End, EndLabel, null);
             if (!_endBlock) return;
 
             Relayout();
             Sequence attach = PlayAttach(_endBlock, _steps.Count + 1);
             UpdateContentHeight();
-            ScrollToBottom();
+            _ = ScrollToBottom(); // 붙는 연출과 함께 스크롤하며 기다리지 않음
 
             await attach.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
             await UniTask.Delay(TimeSpan.FromSeconds(completeHoldDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
@@ -388,18 +399,35 @@ namespace DGAIZone.Game.UI
             content.sizeDelta = new Vector2(content.sizeDelta.x, height);
         }
 
-        /// <summary> '크게 두고 자동 스크롤' 방식에서 새로 놓인 블록이 보이도록 맨 아래로 스크롤함. </summary>
-        private void ScrollToBottom()
+        /// <summary>
+        /// '크게 두고 자동 스크롤' 방식에서 새로 놓인 블록이 보이도록 맨 아래로 스크롤하는 연출을 시작하고 반환함(그 방식이 아니거나 scrollRect가
+        /// 없으면 null). 사용자가 드래그로 튕겨 둔 관성은 멈춰 연출과 겹치지 않게 함.
+        /// </summary>
+        private Tween ScrollToBottom()
         {
-            if (layoutMode != DesignLayoutMode.ScrollLarge) return;
+            if (layoutMode != DesignLayoutMode.ScrollLarge) return null;
             if (!scrollRect)
             {
                 if (_logger != null) _logger.ZLogWarning($"[DesignPanel] scrollRect가 null이라 자동 스크롤을 할 수 없음.");
-                return;
+                return null;
             }
 
+            scrollRect.StopMovement();
             _scrollTween?.Kill();
             _scrollTween = scrollRect.DOVerticalNormalizedPos(0f, scrollDuration).SetEase(Ease.OutQuad).SetUpdate(true).SetLink(gameObject);
+            return _scrollTween;
+        }
+
+        /// <summary>
+        /// '크게 두고 자동 스크롤' 방식에서 사용자가 드래그로 위로 올려 둬 맨 아래가 보이지 않는지 여부. 블록 묶음이 보이는 영역보다 짧으면 false.
+        /// scrollRect가 없으면 false(경고는 이어서 부르는 ScrollToBottom이 남김).
+        /// </summary>
+        private bool IsScrolledUp()
+        {
+            if (layoutMode != DesignLayoutMode.ScrollLarge || !scrollRect || !content) return false;
+
+            float overflow = content.rect.height - ViewportRect().height; // 보이는 영역 밖으로 넘친 높이(스크롤 범위)
+            return overflow > ScrolledUpEpsilon && scrollRect.verticalNormalizedPosition * overflow > ScrolledUpEpsilon;
         }
 
         /// <summary> 놓인 블록(시작하기·단계·완성하기)을 모두 즉시 파괴함. </summary>
