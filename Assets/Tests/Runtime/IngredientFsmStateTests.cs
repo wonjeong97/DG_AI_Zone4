@@ -165,10 +165,10 @@ namespace DGAIZone.Tests
             Assert.IsFalse(l2.IsCodingCompleteInteractable(_controller, 4, 5));
             Assert.IsTrue(l2.IsCodingCompleteInteractable(_controller, 5, 5));
 
-            // 디자인 텍스트 표기 규칙: 재료명 없이 [물질] 형태
-            string formatted = l2.FormatDesignItemText(_controller, "발사 코딩 순서", "점화하기");
-            Assert.IsTrue(formatted.Contains("점화하기"));
-            Assert.IsFalse(formatted.Contains("발사 코딩 순서"), "레벨 2는 재료명이 텍스트에 포함되지 않아야 함");
+            // 설계창 블록 규칙: 재료명 없이 고른 블록 이름만 명령 블록에 쓰고 값 블록은 없음
+            (string command, string value) = l2.GetDesignBlockTexts(_controller, "발사 코딩 순서", "점화하기");
+            Assert.AreEqual("점화하기", command, "레벨 2는 고른 블록 이름을 명령 블록에 써야 함");
+            Assert.IsNull(value, "레벨 2는 값 블록이 없어야 함");
         }
 
         /// <summary>
@@ -325,9 +325,9 @@ namespace DGAIZone.Tests
             Assert.IsFalse(l1.IsCodingCompleteInteractable(_controller, 2, 3));
             Assert.IsTrue(l1.IsCodingCompleteInteractable(_controller, 3, 3));
 
-            string formatted = l1.FormatDesignItemText(_controller, "연료량", "5");
-            Assert.IsTrue(formatted.Contains("연료량"));
-            Assert.IsTrue(formatted.Contains("5"));
+            (string command, string value) = l1.GetDesignBlockTexts(_controller, "연료량", "5");
+            Assert.AreEqual("연료량", command, "레벨 1은 재료 이름을 명령 블록에 써야 함");
+            Assert.AreEqual("5", value, "레벨 1은 고른 값을 값 블록에 써야 함");
         }
     }
 }

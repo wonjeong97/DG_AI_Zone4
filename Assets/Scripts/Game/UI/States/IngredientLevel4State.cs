@@ -99,11 +99,64 @@ namespace DGAIZone.Game.UI.States
         {
         }
 
-        /// <summary> "· 재료 [물질]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
+        /// <summary> 재료 이름은 명령 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계는 값 블록 없이 블록 이름만 씀. </summary>
+        public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
-            return $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
+            return string.IsNullOrEmpty(ingredientName) ? (matterLabel, null) : (ingredientName, matterLabel);
         }
+
+        /// <summary> 반복하기는 ㄷ자 블록(횟수는 값 블록), 반복하기 바로 뒤(previousIngredientId가 반복하기) 이동하기는 그 안쪽, 그 밖의 이동하기는 명령 블록으로 쌓음. </summary>
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
+        {
+            bool known = string.Equals(ingredientId, Constants.RfidIds.Level4.Move, StringComparison.Ordinal)
+                || string.Equals(ingredientId, Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal);
+            if (!known && controller.Logger != null)
+            {
+                controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 4에서 알 수 없는 재료 id '{ingredientId}'라 설계창에 명령 블록으로 쌓음.");
+            }
+
+            return DesignShapeOf(ingredientId, string.Equals(previousIngredientId, Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal));
+        }
+
+        /// <summary> 반복하기면 ㄷ자 블록, 직전 단계가 반복하기(afterRepeat)면 그 안쪽, 그 밖에는 명령 블록. </summary>
+        internal static DesignStepShape DesignShapeOf(string ingredientId, bool afterRepeat)
+        {
+            if (string.Equals(ingredientId, Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal)) return DesignStepShape.FlowControl;
+            return afterRepeat ? DesignStepShape.InsideFlowControl : DesignStepShape.Command;
+        }
+
+        /// <summary> 단계 정의(카드 분류)로 설계창이 가장 길어지는 모양을 셈. </summary>
+        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
+        {
+            FillPlannedShapes(controller.StepDefinitions, controller.TotalSteps, shapes);
+        }
+
+        /// <summary>
+        /// 제어 카드를 받는 단계마다 반복하기(ㄷ자 블록)를, 그 바로 뒤 단계에는 반복할 이동하기(안쪽)를 놓고, 나머지는 이동하기(명령 블록)로 채움.
+        /// ㄷ자 블록은 안쪽까지 몸통 303px로 명령 블록 둘(202px)보다 길어, 반복하기를 가장 많이 쓴 경우가 가장 김. 정의가 없는 단계는 명령 블록으로 셈.
+        /// </summary>
+        internal static void FillPlannedShapes(RfidStepDefinition[] steps, int totalSteps, List<DesignStepShape> shapes)
+        {
+            for (int i = 0; i < totalSteps; i++)
+            {
+                RfidStepDefinition step = steps != null && i < steps.Length ? steps[i] : null;
+                if (step == null || !step.AllowsCategory(Constants.RfidCategories.Control))
+                {
+                    shapes.Add(DesignStepShape.Command);
+                    continue;
+                }
+
+                shapes.Add(DesignStepShape.FlowControl);
+                if (i + 1 < totalSteps) // 반복하기 뒤에는 이동하기만 올 수 있음(마지막 단계의 반복하기는 안쪽이 빈 채로 남음)
+                {
+                    shapes.Add(DesignStepShape.InsideFlowControl);
+                    i++;
+                }
+            }
+        }
+
+        /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
+        public bool UsesValueBlocks => true;
 
         /// <summary> 레벨 4는 5단계를 다 채우지 않아도 되므로 최소 1개만 확정되면 코딩완료 버튼을 활성화함. </summary>
         public bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps)
@@ -121,6 +174,12 @@ namespace DGAIZone.Game.UI.States
             }
 
             return controller.Level4Board.EvaluateOutcome(controller.GetConfirmedCommands());
+        }
+
+        /// <summary> 실패 원인별 결과 영상이 없어 기본 실패 영상을 씀. </summary>
+        public string GetFailVideoSuffix(IngredientSelectionController controller)
+        {
+            return null;
         }
 
         /// <summary>

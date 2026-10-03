@@ -8,7 +8,6 @@ using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using VContainer;
 using ZLogger;
 
@@ -21,7 +20,7 @@ namespace DGAIZone.Game.UI
     /// robotIcon/resourceIcon/trapIcon/hqIcon은 앵커/피벗이 모두 (0.5, 0.5)(정중앙)라, 자원 흡수/로봇 소멸
     /// 스케일 연출이 피벗 보정 없이 자연스럽게 중심 기준으로 줄어듦. 대신 배치 시(GetIconAnchoredPositionForCell)
     /// 아이콘 바닥이 목표 지점에 닿도록 높이 절반만큼 보정함.
-    /// 스페이스바를 누르면 디자인 윈도우에 확정된 "반복하기/이동하기" 명령대로 로봇 아이콘이 셀 단위로 순차 이동하는
+    /// 디버그 액션 PlayLevel4Simulation(DebugInputActions, 기본 스페이스바)을 누르면 디자인 윈도우에 확정된 "반복하기/이동하기" 명령대로 로봇 아이콘이 셀 단위로 순차 이동하는
     /// 검증용 시뮬레이션을 재생함('코딩완료' 버튼은 결과 씬으로 바로 전환되므로 개발/플레이 확인용으로 둠).
     /// 이동 판정·배치 후보·정답 탐색 규칙은 Level4Rules에 있고, 이 클래스는 화면 배치와 연출을 맡음.
     /// </summary>
@@ -95,6 +94,8 @@ namespace DGAIZone.Game.UI
         private IngredientSelectionController _ingredientSelection;
         private ILogger<Level4BoardController> _logger;
         private CancellationTokenSource _simulationCts;
+        private DebugInputActions _debugInput;
+        private bool _acceptsSimulationInput; // Start에서 정함 — 레벨 4의 에디터·개발 빌드일 때만 이동 시뮬레이션 디버그 입력을 받음
 
         /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소, 확정 명령을 읽어올 재료 선택 컨트롤러, 로거를 할당함. </summary>
         [Inject]
@@ -105,13 +106,33 @@ namespace DGAIZone.Game.UI
             _logger = logger;
         }
 
+        /// <summary> 이동 시뮬레이션 디버그 액션을 만들고 시뮬레이션 재생에 연결함. </summary>
+        private void Awake()
+        {
+            _debugInput = new DebugInputActions();
+            _debugInput.Debug.PlayLevel4Simulation.performed += OnPlaySimulationInput;
+        }
+
+        /// <summary> 다시 활성화되면 Start에서 허용한 경우에만 이동 시뮬레이션 디버그 액션을 켬. </summary>
+        private void OnEnable()
+        {
+            if (_acceptsSimulationInput) _debugInput.Debug.PlayLevel4Simulation.Enable();
+        }
+
+        /// <summary> 이동 시뮬레이션 디버그 액션을 끔. </summary>
+        private void OnDisable()
+        {
+            _debugInput.Debug.PlayLevel4Simulation.Disable();
+        }
+
         /// <summary>
         /// 레벨 4일 때만 보드를 무작위로 배치하고 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억함.
-        /// 스페이스바 시뮬레이션(Update)은 레벨 4의 에디터·개발 빌드에서만 켜 둠.
+        /// 이동 시뮬레이션 디버그 액션은 레벨 4의 에디터·개발 빌드에서만 켬.
         /// </summary>
         private void Start()
         {
-            enabled = IsLevel4() && Debug.isDebugBuild;
+            _acceptsSimulationInput = IsLevel4() && Debug.isDebugBuild;
+            if (_acceptsSimulationInput) _debugInput.Debug.PlayLevel4Simulation.Enable();
             if (!IsLevel4()) return;
 
             if (!Debug.isDebugBuild && _logger != null) _logger.ZLogInformation($"[Level4BoardController] 릴리스 빌드라 스페이스바 이동 시뮬레이션을 끔.");
@@ -140,19 +161,19 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 레벨 4에서 게임 패널이 활성 상태일 때 스페이스바 입력을 감지해 이동 시뮬레이션을 (재)시작함.
-        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거라 Start에서 레벨 4의 에디터·개발 빌드일 때만 켜 두며,
+        /// 게임 패널이 활성 상태일 때 이동 시뮬레이션 디버그 액션(기본 스페이스바)이 눌리면 이동 시뮬레이션을 (재)시작함.
+        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거라 레벨 4의 에디터·개발 빌드일 때만 켜 두며(Start),
         /// '코딩완료' 버튼도 결과 씬으로 넘어가기 전에 동일한 시뮬레이션(PlaySimulationAsync)을 재생함(IngredientSelectionController에서 호출).
         /// </summary>
-        private void Update()
+        private void OnPlaySimulationInput(UnityEngine.InputSystem.InputAction.CallbackContext _)
         {
-            if (gamePanel && !gamePanel.interactable) return;
-            if (Keyboard.current == null) return;
-
-            if (Keyboard.current.spaceKey.wasPressedThisFrame)
+            if (gamePanel && !gamePanel.interactable)
             {
-                PlaySimulationAsync().Forget();
+                if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 게임 패널이 비활성이라 이동 시뮬레이션 디버그 입력을 무시함.");
+                return;
             }
+
+            PlaySimulationAsync().Forget();
         }
 
         /// <summary> 현재 선택된 레벨이 레벨 4인지. </summary>
@@ -612,11 +633,12 @@ namespace DGAIZone.Game.UI
             robotIcon.localScale = new Vector3(signedX, _robotBaseScale.y, _robotBaseScale.z);
         }
 
-        /// <summary> 오브젝트 파괴 시 진행 중인 시뮬레이션 취소 토큰을 정리함. </summary>
+        /// <summary> 오브젝트 파괴 시 진행 중인 시뮬레이션 취소 토큰과 디버그 액션 에셋 사본을 정리함. </summary>
         private void OnDestroy()
         {
             _simulationCts?.Cancel();
             _simulationCts?.Dispose();
+            _debugInput.Dispose();
         }
     }
 }

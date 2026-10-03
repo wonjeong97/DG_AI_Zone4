@@ -29,6 +29,7 @@ namespace DGAIZone.Result
         [SerializeField] private CanvasGroup aiCodingPanel; // 화면 중앙 'AI가 코딩중입니다...' 띠
         [SerializeField] private TMP_Text aiCodingText;
         [SerializeField] private ResultAiPanel aiPanel; // 우측 상단 AI 패널(정답 설계창 -> 성공 영상)
+        [SerializeField] private ResultPlayerPanel playerPanel; // 좌측 하단 '나의 코딩 결과' 패널
 
         private const string EndButtonText = "종료하기";
         private const string MissionSuccessText = "미션 완료!";
@@ -124,7 +125,11 @@ namespace DGAIZone.Result
             if (missionResultText.TryGetComponent(out TextHorizontalGradient gradient)) gradient.Apply();
         }
 
-        /// <summary> 4_Result.json(ResultSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
+        /// <summary>
+        /// 4_Result.json(ResultSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 씬 전환 페이드인이 끝나 화면이 다 보이면
+        /// 좌측 하단 '나의 코딩 결과' 패널에 블록 쌓기를 시작시킴(블록 간격이 4_Result.json 값이라 로드 뒤에, 첫 블록이 검은 화면 뒤에서
+        /// 붙어 버리지 않도록 전환이 끝난 뒤에 시작함).
+        /// </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Result}";
@@ -132,6 +137,12 @@ namespace DGAIZone.Result
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
+
+            if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 나의 코딩 결과를 쌓음.");
+
+            if (playerPanel) playerPanel.Play(_sceneSettings.designBlockInterval);
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] playerPanel이 null이라 나의 코딩 결과를 쌓지 않음.");
         }
 
         /// <summary> 버튼 리스너를 해제함. </summary>
@@ -201,7 +212,7 @@ namespace DGAIZone.Result
             {
                 await PlayAiCodingAsync(duration, token);
 
-                if (aiPanel) await aiPanel.PlayAsync(duration, _sceneSettings.aiDesignHoldDuration, token);
+                if (aiPanel) await aiPanel.PlayAsync(duration, _sceneSettings.aiDesignHoldDuration, _sceneSettings.designBlockInterval, token);
                 else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] aiPanel이 null이라 AI 패널 연출을 건너뜀.");
 
                 if (completePanel)

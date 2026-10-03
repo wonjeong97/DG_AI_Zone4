@@ -20,6 +20,7 @@ namespace DGAIZone.LevelSelect
     /// 레벨 선택 씬의 화면 흐름 제어. 시작 시 잠긴 레벨 버튼을 흑백 처리해 비활성화하고, 열린 레벨 버튼을 누르면
     /// 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼을 Background로 옮겨
     /// 목표 위치·크기로 튀어 들어오도록(OutBack) 이동시키고, 해당 레벨의 스토리 오브젝트만 활성화함.
+    /// 에디터·개발 빌드에서는 레벨을 고르기 전에 디버그 액션 UnlockAllLevels(DebugInputActions, 기본 스페이스바)를 누르면 모든 레벨이 열림.
     /// </summary>
     public class LevelSelectFlowController : MonoBehaviour
     {
@@ -50,6 +51,7 @@ namespace DGAIZone.LevelSelect
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
+        private DebugInputActions _debugInput;
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();
@@ -92,6 +94,31 @@ namespace DGAIZone.LevelSelect
                 _unlockedLevelStore.UnlockedLevelCount = jsonOrFallback;
             }
             return _unlockedLevelStore.UnlockedLevelCount;
+        }
+
+        /// <summary> 유닛 테스트용: 씬 없이 레벨 버튼 목록을 직접 지정함. </summary>
+        internal void SetLevelButtonsForTest(Button[] buttons)
+        {
+            levelButtons = buttons;
+        }
+
+        /// <summary> 전체 해금 디버그 액션을 만들고 해금 처리에 연결함. </summary>
+        private void Awake()
+        {
+            _debugInput = new DebugInputActions();
+            _debugInput.Debug.UnlockAllLevels.performed += OnUnlockAllLevelsInput;
+        }
+
+        /// <summary> 에디터·개발 빌드에서만 전체 해금 디버그 액션을 켬(릴리스 빌드에서는 현장 키보드·QR 스캐너 입력으로 열리지 않도록 끔). </summary>
+        private void OnEnable()
+        {
+            if (Debug.isDebugBuild) _debugInput.Debug.UnlockAllLevels.Enable();
+        }
+
+        /// <summary> 전체 해금 디버그 액션을 끔. </summary>
+        private void OnDisable()
+        {
+            _debugInput.Debug.UnlockAllLevels.Disable();
         }
 
         /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
@@ -179,9 +206,23 @@ namespace DGAIZone.LevelSelect
             }
         }
 
-        /// <summary> 버튼 리스너를 해제함. </summary>
+        /// <summary>
+        /// 전체 해금 디버그 입력 — 세션 진행도와 버튼 잠금을 마지막 레벨까지 엶. 진행도에도 남겨 2_LevelSelect.json 로드가 끝난 뒤
+        /// 다시 적용되는 잠금이나 이번 체험(0_Title로 돌아가기 전)에 다시 들어온 레벨 선택 화면에서도 모두 열려 있음.
+        /// </summary>
+        private void OnUnlockAllLevelsInput(UnityEngine.InputSystem.InputAction.CallbackContext _)
+        {
+            if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockedLevelCount = Constants.LastLevel;
+            else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] unlockedLevelStore가 null이라 이번 화면의 버튼만 모두 엶.");
+
+            ApplyLevelButtonLocks(Constants.LastLevel);
+            if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 디버그 입력으로 모든 레벨({Constants.LastLevel}개)을 잠금 해제함.");
+        }
+
+        /// <summary> 버튼 리스너를 해제하고 디버그 액션 에셋 사본을 정리함. </summary>
         private void OnDestroy()
         {
+            _debugInput.Dispose();
             if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
 
             if (levelButtons == null) return;
@@ -235,6 +276,9 @@ namespace DGAIZone.LevelSelect
         {
             if (_isBusy) return;
             if (index < 0 || index >= _currentUnlockedCount) return;
+
+            // 레벨을 고른 뒤 전체 해금이 다시 적용되면 스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 되므로 디버그 입력을 끔
+            _debugInput.Debug.UnlockAllLevels.Disable();
 
             if (_selectedLevelStore != null)
             {

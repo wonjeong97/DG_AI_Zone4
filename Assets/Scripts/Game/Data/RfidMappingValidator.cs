@@ -7,7 +7,7 @@ using UnityEngine;
 namespace DGAIZone.Game.Data
 {
     /// <summary>
-    /// RfidMappings.json의 레벨 1~4 블록 정의를 레벨별 규칙으로 검사해 문제 목록을 돌려주는 검증기. 블록 목록이 비었거나 값이 빠지면
+    /// RfidMappings.json의 레벨 1~5 블록 정의를 레벨별 규칙으로 검사해 문제 목록을 돌려주는 검증기. 블록 목록이 비었거나 값이 빠지면
     /// 게임 중에는 아무 오류 없이 선택지가 비거나 미션을 깰 수 없게 되므로, 로드 직후 호출해 원인을 오류 로그로 남기는 데 씀.
     /// </summary>
     public static class RfidMappingValidator
@@ -30,7 +30,7 @@ namespace DGAIZone.Game.Data
         };
 
         /// <summary>
-        /// 레벨 1~4 블록 정의를 검사함. level1Data/level3Data를 넘기면 레벨 1 목적지 거리를 블록 조합으로 만들 수 있는지,
+        /// 레벨 1~5 블록 정의를 검사함. level1Data/level3Data를 넘기면 레벨 1 목적지 거리를 블록 조합으로 만들 수 있는지,
         /// 레벨 3 기준값 범위의 모든 값에 맞는 조건 블록이 있는지도 검사함(null이면 그 검사는 건너뜀). 문제가 없으면 빈 목록을 반환함.
         /// </summary>
         public static List<string> Validate(RfidSettings settings, LevelData level1Data = null, LevelData level3Data = null)
@@ -46,6 +46,7 @@ namespace DGAIZone.Game.Data
             ValidateLevel2(settings.FindLevelMapping(2), errors);
             ValidateLevel3(settings.FindLevelMapping(3), level3Data, errors);
             ValidateLevel4(settings.FindLevelMapping(4), errors);
+            ValidateLevel5(settings.FindLevelMapping(5), errors);
             return errors;
         }
 
@@ -149,8 +150,8 @@ namespace DGAIZone.Game.Data
         {
             if (!ValidateLevelBasics(4, mapping, errors)) return;
 
-            RfidMatter[] moves = GetCategoryIngredientMatters(mapping, Constants.RfidCategories.Action, Constants.RfidIds.Level4.Move, errors);
-            RfidMatter[] repeats = GetCategoryIngredientMatters(mapping, Constants.RfidCategories.Control, Constants.RfidIds.Level4.Repeat, errors);
+            RfidMatter[] moves = GetCategoryIngredientMatters(4, mapping, Constants.RfidCategories.Action, Constants.RfidIds.Level4.Move, errors);
+            RfidMatter[] repeats = GetCategoryIngredientMatters(4, mapping, Constants.RfidCategories.Control, Constants.RfidIds.Level4.Repeat, errors);
 
             if (moves != null)
             {
@@ -194,6 +195,47 @@ namespace DGAIZone.Game.Data
                 if (!isLastStep && Array.IndexOf(categories, Constants.RfidCategories.Control) < 0)
                 {
                     errors.Add($"레벨 4 {i + 1}번째 단계가 '{Constants.RfidCategories.Control}' 카드를 받지 않아 반복하기를 놓을 수 없는 배치가 생김(마지막 단계를 뺀 모든 단계에 반복하기를 놓을 수 있어야 함).");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 레벨 5(임시 규칙): 함수·동작·논리 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이며
+        /// (놓은 블록은 다시 고를 수 없음), 정답 설계에 쓰는 '그리고' 논리 블록이 있어야 함. 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고
+        /// 모든 단계가 세 분류 카드를 받아야 함.
+        /// </summary>
+        private static void ValidateLevel5(RfidLevelMapping mapping, List<string> errors)
+        {
+            if (!ValidateLevelBasics(5, mapping, errors)) return;
+
+            GetCategoryIngredientMatters(5, mapping, Constants.RfidCategories.Func, Constants.RfidIds.Level5.Function, errors);
+            RfidMatter[] actions = GetCategoryIngredientMatters(5, mapping, Constants.RfidCategories.Action, Constants.RfidIds.Level5.Action, errors);
+            RfidMatter[] logics = GetCategoryIngredientMatters(5, mapping, Constants.RfidCategories.Logic, Constants.RfidIds.Level5.Logic, errors);
+
+            if (actions != null && actions.Length < Constants.Level5Cards.Action)
+            {
+                errors.Add($"레벨 5 동작 블록이 {actions.Length}개라 동작 카드 {Constants.Level5Cards.Action}장을 모두 놓을 수 없음(놓은 블록은 다시 고를 수 없음).");
+            }
+
+            RequireMatterId(logics, Constants.RfidIds.Level5.And, "레벨 5 논리 블록", "정답 설계를 만들 수 없음", errors);
+
+            if (mapping.steps.Length != Constants.Level5Cards.Total)
+            {
+                errors.Add($"레벨 5 단계 수가 {mapping.steps.Length}개라 놓을 카드 수 합 {Constants.Level5Cards.Total}장과 맞지 않음.");
+            }
+
+            string[] required = { Constants.RfidCategories.Func, Constants.RfidCategories.Action, Constants.RfidCategories.Logic };
+            for (int i = 0; i < mapping.steps.Length; i++)
+            {
+                string[] categories = mapping.steps[i]?.categories;
+                if (categories == null) continue; // ValidateLevelBasics가 이미 오류로 남김
+
+                foreach (string category in required)
+                {
+                    if (Array.IndexOf(categories, category) < 0)
+                    {
+                        errors.Add($"레벨 5 {i + 1}번째 단계가 '{category}' 카드를 받지 않아 카드를 순서 없이 놓을 수 없음.");
+                    }
                 }
             }
         }
@@ -290,7 +332,7 @@ namespace DGAIZone.Game.Data
         }
 
         /// <summary> category 카드로 고르는 재료(레벨 4 categoryIngredients)를 찾아 ingredientId를 확인하고 블록 목록을 반환함. 문제가 있으면 오류를 추가하고 null을 반환함. </summary>
-        private static RfidMatter[] GetCategoryIngredientMatters(RfidLevelMapping mapping, string category, string expectedIngredientId, List<string> errors)
+        private static RfidMatter[] GetCategoryIngredientMatters(int level, RfidLevelMapping mapping, string category, string expectedIngredientId, List<string> errors)
         {
             if (mapping.categoryIngredients != null)
             {
@@ -300,15 +342,15 @@ namespace DGAIZone.Game.Data
 
                     if (!string.Equals(ingredient.ingredientId, expectedIngredientId, StringComparison.Ordinal))
                     {
-                        errors.Add($"레벨 4 '{category}' 카드 재료의 ingredientId가 '{ingredient.ingredientId}'라 '{expectedIngredientId}'여야 함.");
+                        errors.Add($"레벨 {level} '{category}' 카드 재료의 ingredientId가 '{ingredient.ingredientId}'라 '{expectedIngredientId}'여야 함.");
                         return null;
                     }
 
-                    return GetMatters(mapping, ingredient, $"레벨 4 '{category}' 카드 재료({expectedIngredientId})", errors);
+                    return GetMatters(mapping, ingredient, $"레벨 {level} '{category}' 카드 재료({expectedIngredientId})", errors);
                 }
             }
 
-            errors.Add($"레벨 4 categoryIngredients에 '{category}' 카드로 고르는 재료({expectedIngredientId})가 없어 '{category}' 카드를 찍어도 고를 블록이 없음.");
+            errors.Add($"레벨 {level} categoryIngredients에 '{category}' 카드로 고르는 재료({expectedIngredientId})가 없어 '{category}' 카드를 찍어도 고를 블록이 없음.");
             return null;
         }
 

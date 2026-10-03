@@ -13,7 +13,8 @@ namespace DGAIZone.Result
 {
     /// <summary>
     /// 결과 씬 진입 시 선택된 레벨과 게임 결과(성공/실패)에 맞는 영상을 재생함. 파일명은
-    /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4").
+    /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4"). 레벨 3처럼 실패 원인별 영상이 있으면
+    /// GameResultStore.FailVideoSuffix에 따라 "4-3-Fail-O2.mp4"처럼 고름.
     /// 반복 재생은 하지 않으며, 재생이 끝나면 AI 연출(ResultFlowController.PlayAiSequence)로 넘어감.
     /// </summary>
     public class ResultVideoPanel : MonoBehaviour, ISceneVideoReadiness
@@ -31,9 +32,14 @@ namespace DGAIZone.Result
         /// <summary> 레벨을 영상이 존재하는 범위(MinLevel~Constants.LastLevel)로 맞춤. </summary>
         internal static int ClampLevel(int level) => Mathf.Clamp(level, MinLevel, Constants.LastLevel);
 
-        /// <summary> "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. level은 ClampLevel을 거친 값이어야 함. </summary>
-        internal static string GetVideoFileName(int level, bool success) =>
-            ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-", success ? "Success" : "Fail", ".mp4");
+        /// <summary>
+        /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. 실패이고 failSuffix가 있으면 실패 원인별 영상
+        /// "{videoFileNamePrefix}-{레벨}-Fail-{failSuffix}.mp4"(예: "4-3-Fail-O2.mp4"). level은 ClampLevel을 거친 값이어야 함.
+        /// </summary>
+        internal static string GetVideoFileName(int level, bool success, string failSuffix = null) =>
+            success || string.IsNullOrEmpty(failSuffix)
+                ? ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-", success ? "Success" : "Fail", ".mp4")
+                : ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-Fail-", failSuffix, ".mp4");
 
         /// <summary> StreamingAssets/Videos 아래 영상 파일의 전체 경로. </summary>
         internal static string GetVideoPath(string fileName) =>
@@ -101,6 +107,19 @@ namespace DGAIZone.Result
             }
         }
 
+        /// <summary> 재생할 결과 영상 파일명. 실패 원인별 영상(failSuffix)이 있으면 그 파일을, 그 파일이 없으면 경고를 남기고 기본 실패 영상을 씀. </summary>
+        private string ResolveVideoFileName(int level, bool success, string failSuffix)
+        {
+            if (success || string.IsNullOrEmpty(failSuffix)) return GetVideoFileName(level, success);
+
+            string causeFileName = GetVideoFileName(level, false, failSuffix);
+            if (System.IO.File.Exists(GetVideoPath(causeFileName))) return causeFileName;
+
+            string fallback = GetVideoFileName(level, false);
+            if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] 실패 원인별 영상 {causeFileName}이(가) 없어 {fallback}을(를) 재생함.");
+            return fallback;
+        }
+
         /// <summary> 결과 영상을 준비해 끝까지 재생함. videoPlayer가 없거나 준비에 실패하면 로그를 남기고 바로 반환함. </summary>
         private async UniTask PlayVideoToEndAsync(CancellationToken token)
         {
@@ -119,7 +138,7 @@ namespace DGAIZone.Result
                 _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{Constants.LastLevel})를 벗어나 {clampedLevel}로 대체함.");
             }
 
-            string fileName = GetVideoFileName(clampedLevel, success);
+            string fileName = ResolveVideoFileName(clampedLevel, success, _resultStore != null ? _resultStore.FailVideoSuffix : null);
             if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 레벨={clampedLevel}, 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
 
             videoPlayer.source = VideoSource.Url;

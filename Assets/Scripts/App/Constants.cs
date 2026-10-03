@@ -34,7 +34,7 @@ namespace DGAIZone.App
         /// 콘텐츠(미션·레벨별 결과 영상)가 있는 마지막 레벨. 레벨이 늘어나면 영상 추가와 함께 이 값만 올리면
         /// 잠금 해제 상한, 결과 후 아웃트로 전환, 결과 영상 레벨 범위가 함께 따라옴.
         /// </summary>
-        public const int LastLevel = 4;
+        public const int LastLevel = 5;
 
         /// <summary> 미션 텍스트 내 동적 치환용 플레이스홀더. </summary>
         public static class MissionPlaceholders
@@ -60,6 +60,12 @@ namespace DGAIZone.App
 
             /// <summary> 결과 영상 파일명 앞자리("{접두어}-{레벨}-{Success|Fail}.mp4"). </summary>
             public const string ResultVideoPrefix = "4";
+
+            /// <summary> 레벨 3 실패 원인별 결과 영상 접미사("{접두어}-3-Fail-{접미사}.mp4"): 전기 게이지만 모자랄 때. </summary>
+            public const string ResultVideoFailElectricity = "Electricity";
+
+            /// <summary> 레벨 3 실패 원인별 결과 영상 접미사: 산소 게이지만 모자랄 때. </summary>
+            public const string ResultVideoFailO2 = "O2";
         }
 
         /// <summary> 리소스 경로 및 Addressables 주소/라벨 상수. </summary>
@@ -142,6 +148,15 @@ namespace DGAIZone.App
                 public const string MoveRight = "MoveRight";
                 public const string MoveLeft = "MoveLeft";
             }
+
+            /// <summary> 레벨 5 재료(함수 사용·동작·논리)와 판정·정답에 쓰는 블록 id. 카드 분류로 재료가 정해지며 순서는 자유(기획 검토 중, 임시). </summary>
+            public static class Level5
+            {
+                public const string Function = "Function";
+                public const string Action = "Action";
+                public const string Logic = "Logic";
+                public const string And = "And";
+            }
         }
 
         /// <summary> 레벨 4(탐사 로봇) 보드 규칙. 보드 배치(Level4BoardController)와 RfidMappings.json 검증(RfidMappingValidator)이 함께 씀. </summary>
@@ -155,6 +170,18 @@ namespace DGAIZone.App
             /// RfidMappings.json 반복하기 블록에 이 value가 꼭 있어야 함.
             /// </summary>
             public const int RequiredRepeatCount = 3;
+        }
+
+        /// <summary>
+        /// 레벨 5에서 분류별로 놓을 수 있는 카드 수. 합이 RfidMappings.json 레벨 5 단계 수와 같아야 하며, 다 쓴 분류의 카드는 받지 않음.
+        /// 판정(임시)은 모두 놓으면 성공(기획 확정 뒤 수정).
+        /// </summary>
+        public static class Level5Cards
+        {
+            public const int Function = 1;
+            public const int Action = 3;
+            public const int Logic = 1;
+            public const int Total = Function + Action + Logic;
         }
     }
 }

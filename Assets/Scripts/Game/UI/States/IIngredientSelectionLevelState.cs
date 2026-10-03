@@ -9,7 +9,7 @@ using HuliacDev.Core;
 namespace DGAIZone.Game.UI.States
 {
     /// <summary>
-    /// IngredientSelectionController의 레벨별(1~4) 동작 및 판정 상태를 추상화하는 인터페이스.
+    /// IngredientSelectionController의 레벨별(1~5) 동작 및 판정 상태를 추상화하는 인터페이스.
     /// </summary>
     public interface IIngredientSelectionLevelState : IState<IngredientSelectionController>
     {
@@ -31,14 +31,32 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 단계 취소(되돌리기) 시 적용되었던 레벨별 효과를 원복. </summary>
         void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter);
 
-        /// <summary> 확정된 디자인 항목의 텍스트 표기 형식을 결정(재료 이름과 물질 이름은 화면 표시용 문자열). </summary>
-        string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel);
+        /// <summary> 설계창에 값 블록(명령 블록 오른쪽에 끼우는 블록)이 쌓일 수 있는 레벨인지 여부. 설계창이 블록 묶음을 가운데 놓는 폭 계산에 쓰임. </summary>
+        bool UsesValueBlocks { get; }
+
+        /// <summary> 설계창 블록에 쓸 문구(명령 블록 문구, 값 블록 문구)를 반환. 값 문구가 null이면 값 블록 없는 명령 블록으로 쌓임. </summary>
+        (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel);
+
+        /// <summary>
+        /// 재료(ingredientId)를 설계창에 쌓을 블록 모양(명령, ㄷ자, ㄷ자 안쪽, 논리, 함수 사용)을 반환. 바로 앞 단계의 재료(previousIngredientId,
+        /// 첫 단계면 null)에 따라 달라질 수 있음(레벨 4: 반복하기 바로 뒤 이동하기는 ㄷ자 안쪽). 게임 중 확정과 결과 씬 정답 설계에 함께 쓰임.
+        /// </summary>
+        DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId);
+
+        /// <summary> 이번 레벨 단계를 설계창에 가장 길게 쌓았을 때의 블록 모양을 단계 순서대로 shapes에 채움('줄여서 한 화면에' 배율 계산용). </summary>
+        void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes);
 
         /// <summary> 코딩완료 버튼의 활성화 가능 여부를 반환. </summary>
         bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps);
 
         /// <summary> 미션 성공/실패 여부를 판정. </summary>
         bool EvaluateMission(IngredientSelectionController controller);
+
+        /// <summary>
+        /// 실패했을 때 실패 원인별 결과 영상이 있으면 그 접미사("4-{레벨}-Fail-{접미사}.mp4")를, 없으면 null(기본 실패 영상)을 반환.
+        /// 코딩완료 판정 뒤 실패일 때만 불림.
+        /// </summary>
+        string GetFailVideoSuffix(IngredientSelectionController controller);
 
         /// <summary>
         /// 이번 판 문제(레벨 1 목적지, 레벨 3 기준값, 레벨 4 보드 배치 등)를 성공시키는 정답 블록을 입력 순서대로 반환.

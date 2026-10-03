@@ -110,11 +110,26 @@ namespace DGAIZone.Game.UI.States
             UpdateLevel2FillAmount(controller, stepIndex);
         }
 
-        /// <summary> 레벨 2는 모든 단계의 재료명이 동일하므로 재료명 없이 물질만 표기함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
+        /// <summary> 레벨 2는 모든 단계의 재료 이름이 같으므로 값 블록 없이 고른 블록 이름만 명령 블록에 씀. </summary>
+        public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
-            return $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
+            return (matterLabel, null);
         }
+
+        /// <summary> 모든 단계를 명령 블록으로 쌓음. </summary>
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
+        {
+            return DesignStepShape.Command;
+        }
+
+        /// <summary> 모든 단계를 명령 블록으로 셈. </summary>
+        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
+        {
+            for (int i = 0; i < controller.TotalSteps; i++) shapes.Add(DesignStepShape.Command);
+        }
+
+        /// <summary> 레벨 2는 값 블록을 쓰지 않음. </summary>
+        public bool UsesValueBlocks => false;
 
         /// <summary> 모든 단계가 완료되었을 때만 코딩완료 버튼을 활성화함. </summary>
         public bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps)
@@ -149,6 +164,12 @@ namespace DGAIZone.Game.UI.States
                 controller.Logger.ZLogInformation($"[IngredientSelectionController] 레벨 2 판정: 발사 코딩 순서가 정확히 일치함. 성공으로 처리함.");
             }
             return true;
+        }
+
+        /// <summary> 실패 원인별 결과 영상이 없어 기본 실패 영상을 씀. </summary>
+        public string GetFailVideoSuffix(IngredientSelectionController controller)
+        {
+            return null;
         }
 
         /// <summary> 단계 순서대로 올바른 발사 시퀀스(Level2LaunchSequence)의 블록을 반환함. </summary>

@@ -13,6 +13,116 @@
 
 ---
 
+### [2026-10-04 03:10] Claude → Antigravity · T34 (PR #39 머지 전 리뷰)
+- 요청(사용자): 3_Game debugStartLevel·StoryPanel 되돌리기(f784a54), PR 생성 후 Antigravity와 리뷰, 수정할 것이 없으면 머지 후 main 체크아웃·브랜치 삭제.
+- 리뷰 방식: Antigravity가 PR diff를 6묶음(설계창, 게임 진행·입력, 결과 화면, 3_Game 씬, 설정·문서)으로 나눠 읽기 전용 리뷰. 동시에 Claude 다중 에이전트 워크플로가 영역 5개를 탐색하고, 문제마다 코드 추적·실제 재현 가능성 두 관점으로 반박 검증.
+- 결과(Antigravity, `gemini-3.8-flash-high`): 6묶음 모두 코드·에셋 **수정 필요 없음**. 문서 1건(CHANGELOG 13행 두 문장). PR 범위 밖 주의 1건: debugStartLevel·debugUnlockedLevelCount가 릴리스 빌드에서도 적용됨 → TODO T35.
+- 결과(워크플로, 검증 통과):
+  - (중간) AI 패널 설계창 드래그 스크롤 불가. T32에서 GraphicRaycaster를 AiPanel에 붙였으나 DesignArea는 중첩 Canvas인 DesignWindow에 등록됨. T26 3_Game과 같은 원인.
+  - (낮음) '나의 코딩 결과' 첫 블록이 씬 전환 페이드인 전에 붙음.
+  - (낮음) CHANGELOG에 내부 변경(디버그 InputAction) 항목, 사용자 카드 문구 변경 누락.
+  - 낡은 주석 2곳.
+- 수정 파일:
+  - `Scenes/4_Result.unity`: GraphicRaycaster를 AiPanel에서 DesignWindow로 이동.
+  - `ResultFlowController.cs`: 설정 로드 뒤 SceneTransitionService.IsTransitioning이 꺼질 때까지 기다린 다음 playerPanel.Play.
+  - `CHANGELOG.md`: 결과 화면 항목 분리, 디버그 InputAction 항목 삭제, 레벨 3·4 카드 문구 변경 추가.
+  - 주석: `RfidMappingValidator.cs` 레벨 1~5, `IngredientSelectionController.cs` UpdateCodingCompleteButton 레벨 4·5.
+- 결과(Antigravity 수정본 재검증): **수정 필요 없음**(YAML 일관성·버튼 가림 없음, 전환 대기의 직접 실행·finally·취소, CHANGELOG 사실 일치, 주석).
+- 결과(Claude):
+  - Play 모드에서 2_LevelSelect → 4_Result 전환. 전환 중(0.34~1.03초)에는 시작하기 블록만 있고, 전환 직후 1.06초부터 1초 간격으로 7개까지 쌓임.
+  - AI 연출 중 AI DesignArea 중심 RaycastAll이 DesignArea(드래그 핸들러)를 맞힘. PlayerPanel도 동일.
+  - PlayMode 80/80, 콘솔 오류 0, Enter Play Mode Options 꺼짐.
+- 사용자 확인 필요: RfidMappings.json 레벨 4 이동 문구 '윗쪽'·'아랫쪽'의 표준 표기는 '위쪽'·'아래쪽'(사용자 직접 변경이라 그대로 둠).
+
+### [2026-10-04 02:15] Claude → Antigravity · T33
+- 요청(사용자): LevelSelect 씬에서 스페이스바를 누르면 모든 레벨이 해금되는 디버그 기능, 모든 디버그 입력은 InputAction으로.
+- 변경 파일: 신규 `App/DebugInputActions.inputactions`(Debug 맵 — SimulateActionCard~SimulateFunctionCard 숫자키 1~4, PlayLevel4Simulation·UnlockAllLevels 스페이스바)와 Input System이 생성한 래퍼 `DebugInputActions.cs`(네임스페이스 DGAIZone.App, Template의 TemplateInputActions와 같은 방식), `KeyboardRfidSimulator.cs`·`Level4BoardController.cs`(Keyboard.current 폴링 → 액션 구독, Awake 생성·OnEnable/OnDisable·OnDestroy Dispose, 레벨 4 판정은 주입 뒤인 Start에서), `LevelSelectFlowController.cs`(UnlockAllLevels → UnlockedLevelStore·버튼을 Constants.LastLevel까지, 에디터·개발 빌드만, 레벨을 고르면 끔, SetLevelButtonsForTest), 테스트(신규 DebugInputTests — InputTestFixture 가상 키보드, 테스트 asmdef에 Unity.InputSystem.TestFramework 참조). 실제 기능 입력(TitleFlowController QR 스캐너, StoryLineAnimator 포인터)은 그대로.
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): **전 항목 통과**(동작 동등성·릴리스 빌드 차단, 전체 해금·JSON 재적용과 충돌 없음·레벨 선택 뒤 꺼짐, 액션 수명주기·같은 space 바인딩 간섭 없음, 남은 직접 키 폴링 없음, 규칙·문서). 제안(OnDestroy에서 performed 구독 명시 해제)은 각 컴포넌트가 자기 사본을 Dispose로 파괴해 같은 효과라 반영하지 않음. 보고서의 'PlayMode 78/78'은 agy가 실행한 결과가 아님.
+- 결과(Claude): PlayMode 80/80(신규 2개 포함), 콘솔 오류 0, Enter Play Mode Options 꺼짐 유지. 실제 키보드로 2_LevelSelect에서 스페이스바 확인은 사용자 몫으로 남김.
+- 도구 참고: InputTestFixture는 [UnityTest]에서 키 이벤트를 큐에만 넣으므로(Set의 queueEventOnly 강제) 누른 뒤 `yield return null` 한 프레임이 지나야 액션이 불림. [Test]에서는 바로 처리됨.
+
+### [2026-10-04 02:00] Claude → Antigravity · T32
+- 요청(사용자): 4_Result 왼쪽 아래 '나의 코딩 결과'(레퍼런스 4-9.png, PlayerPanel.png), 플레이어·AI 설계창도 3_Game 블록 이미지로, 레벨 3 실패 원인별 영상(전기만 부족 4-3-Fail-Electricity, 산소만 부족 4-3-Fail-O2, 논리 '또는'·둘 다 부족은 4-3-Fail), 4-5 영상 추가. 이어서 결과 패널도 3_Game 배치 방식을 따르고 블록 붙는 속도를 늦춤. 마지막 레벨은 사용자 선택으로 4→5.
+- 변경 파일: `GameResultStore.cs`(SolutionDesignItems 문구 → DesignStep 단위 SolutionDesign·PlayerDesign·PlayerDesignCompleted·DesignLayoutMode·FailVideoSuffix), `DesignPanel.cs`(DesignStep 구조체, LayoutMode 공개 속성), `IngredientSelectionController.cs`(플레이어 블록 기록·StoreResultDesigns·FailVideoSuffix), 레벨 상태 인터페이스·레벨 1~5(GetDesignStepShape에 직전 재료 인자, FormatDesignItemText 삭제, GetFailVideoSuffix — 레벨 3 FailVideoSuffixOf), `Constants.cs`(LastLevel 5, 실패 영상 접미사), `ResultVideoPanel.cs`(원인 영상·없으면 기본 실패 영상), 신규 `ResultDesignPlayback.cs`·`ResultPlayerPanel.cs`, `ResultAiPanel.cs`(글자 줄 → 블록), `ResultFlowController.cs`(설정 로드 뒤 플레이어 패널 쌓기, AI 패널에 블록 간격), `ResultLifetimeScope.cs`, `ResultSceneSettings.cs`·`4_Result.json`(designBlockInterval 1.0), `Scenes/4_Result.unity`(PlayerPanel 3,2·610×419·블록 영역 562×339, AI 패널 Text_Design → DesignArea, 두 영역에 ScrollRect·RectMask2D·투명 Image, 패널 Canvas에 GraphicRaycaster, 결과 설계창 rise 0.7·slide 0.4), 영상 4개·PlayerPanel.png, 테스트(SolutionDesignTests·IngredientFsmStateTests 갱신, 신규 ResultVideoTests, DesignPanelTests 배치 방식 테스트).
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): 1차 **전 항목 통과**(기록 동기화·정답 모양, 실패 영상 규칙·대체·잔존 없음, LastLevel 5 부작용 없음, 패널 주입·순서·취소, 규칙, 테스트). 제안(확정 흐름을 거친 플레이어 설계 테스트, 레벨 4 정답 모양 테스트)은 컨트롤러 확정 흐름·보드 배치가 필요해 반영하지 않음. 추가 변경(배치 방식·속도·스크롤 구성) 리뷰: **전 항목 통과**(자동 스크롤 마스킹·스크롤·드래그 구성과 화면 맞추기 회귀 없음, 설정 로드 뒤 시작·로드 실패 기본값·취소·null 경고, 결과 패널 GraphicRaycaster·투명 Image가 다음 버튼을 가리지 않음, 실패 로그·MonoBehaviour `?.` 금지).
+- 결과(Claude): PlayMode 78/78, 콘솔 오류 0. Play 모드에서 결과 저장소에 예시 데이터를 넣고 4_Result를 다시 띄워 캡처: 레벨 5(화면 맞추기) 두 패널 블록·함수 정의 표시, 레벨 3(자동 스크롤·Fail-O2) 4-3-Fail-O2.mp4 재생·0.7배 블록·잘림·맨 아래 스크롤, 사용자가 같은 세션에서 결과 패널 드래그 스크롤 확인. 4-9.png(레퍼런스)와 TMP 글꼴 에셋(GamtanRoadTantan SDF, 실행 중 자동 추가된 글자)은 사용자 요청으로 버림.
+- 도구 참고: 테스트가 끝나 MCP가 Interaction Mode를 되돌린 뒤 Editor가 백그라운드면 컴파일 요청이 실행되지 않고 대기함 → 사용자가 Editor를 한 번 클릭해 진행.
+
+### [2026-10-04 01:25] Claude → Antigravity · T31
+- 요청(사용자): 모든 레벨에서 시작하기를 더 왼쪽으로, 레벨 5는 시작하기가 옮긴 만큼 함수 정의 블록도 왼쪽으로. 거리는 정해지지 않아 인스펙터 값(기본 30)으로 둠.
+- 변경 파일: `DesignPanel.cs`(stackShiftLeft — 왼쪽 여백 edgePadding까지만, 실제로 옮긴 거리 _shiftX만큼 함수 정의 블록도 왼쪽, 폭 제한 식에 반영), `DesignPanelTests.cs`(기대 위치 반영). 3_Game 왼쪽 여백: 자동 스크롤 86→56, 화면 맞추기 49→19.
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(여백·넘침, 간격 유지·겹침 없음, OnValidate 즉시 반영·레벨 간 왼쪽 끝 같음, 테스트 기대값).
+- 결과(Claude): 전후 비교 렌더링 전달, PlayMode는 T30·T32와 함께 78/78. `stackShiftLeft: 30`은 사용자가 3_Game을 저장할 때 씬에 기록됨(이 커밋엔 씬 미포함).
+
+### [2026-10-04 01:15] Claude → Antigravity · T30
+- 요청(사용자): 기획의 함수 블록을 DG_AI_Zone1에서 가져오기(함수 사용·함수 정의 ㄷ자). 레벨 5는 함수 1(우주 도시 만들기)·동작 3(우주 정거장 코드·탐사 로봇 코드·통신 시스템 코드)·논리 1(그리고/또는), 순서 자유. 우선 함수 카드를 설정하면 함수 사용 블록은 시작하기 아래, 함수 정의 블록은 설계창 오른쪽 빈 곳. 동작·논리 위치와 판정은 기획 확인 중(판정은 사용자 선택으로 임시 '5장 다 놓으면 성공').
+- 변경 파일: 신규 `UI/3_Game/Blocks/Func.png`·`FuncBody.png`(Zone1 meta째, FuncBody 9-slice 왼20·아래101·위121), `DesignBlockView.cs`(Function·FunctionDef 종류, 함수 정의는 아래 돌기·값 소켓 없음), `DesignPanel.cs`(DesignStepShape.FunctionCall — 붙일 때 보이는 영역 오른쪽 끝·시작하기 높이에 함수 정의 블록, 취소·흐림·재배치·전체 삭제·content 높이 함께 처리, 함수 정의가 있는 레벨은 겹치지 않게 폭 제한), `Prefabs/DesignBlock.prefab`, 신규 `States/IngredientLevel5State.cs`(분류별 장수 제한 Constants.Level5Cards, 다 쓴 분류 카드 경고·무시, 동작은 놓은 것 제외, 모두 놓으면 성공, 정답 함수→동작 전부→그리고), `Constants.cs`(RfidIds.Level5·Level5Cards), `IngredientSelectionController.cs`(레벨 5 상태 연결 — 전엔 레벨 1 상태로 대체), `RfidMappingValidator.cs`(ValidateLevel5, GetCategoryIngredientMatters에 level 인자), `RfidMappings.json`(level 5 — 이 hunk만 커밋, 사용자 쪽 레벨 3·4 문구 변경은 작업 트리에 둠), 신규 `Tests/Runtime/Level5RuleTests.cs`, DesignPanelTests 함수 블록 테스트.
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): **전 항목 통과**(카드 처리 흐름·장수·롤백, 함수 정의 블록 수명주기·폭 계산, 9-slice·라벨, 검사기 실제 JSON 통과·레벨 4 메시지 회귀 없음, 규칙, 테스트). 제안(자동 스크롤 겹침 테스트, 카드 거부 단위 테스트)은 같은 폭 제한 식·장수 세기 테스트로 덮여 반영하지 않음.
+- 결과(Claude): 컴파일 오류 0, 미리보기 씬 렌더링으로 함수 사용·함수 정의 배치 확인, PlayMode는 T31·T32와 함께 78/78.
+
+### [2026-10-04 01:40] Claude → Antigravity · T29
+- 요청(사용자): `UI/3_Game/Level5`에 화면 레퍼런스(`level5_ref.png`)와 Image_CurrentSituation용 이미지 4장을 넣음 → 범위는 사용자 선택으로 '현재 상황 화면만'(레벨 5 게임 진행·함수 블록은 기획 확정 뒤).
+- 현황: 레벨 5는 `RfidMappings.json` 정의가 없고 레벨 상태가 레벨 1로 대체되며, `GameFlowController.situationPanels`가 Panel_Level1~4(길이 4)뿐이라 레벨 5에서는 현재 상황 창이 비어 있었음.
+- 배치: 현재 상황 창 이미지(`Window_Situation.png` 742×234)의 테두리가 레퍼런스 프레임(x589·y235부터)과 1:1이라, 레퍼런스에서 잰 그림 영역을 리소스의 알파 영역과 맞대어 원본 크기·왼쪽 위 기준 위치를 구함: Image_Rover(image 80, 37,-138), Image_Tower(image 78, 107,-53), Image_Corridor(image 79, 468,-116 — 왼쪽이 돔 뒤에 가려져 돔보다 먼저 둠), Image_Dome(돔 기지, 233,-29). Raycast Target 끔, Cull Transparent Mesh 켬, 패널은 다른 레벨 패널과 같이 부모 전체·비활성.
+- 변경 파일: `Scenes/3_Game.unity`(Panel_Level5와 이미지 4장, situationPanels 5번째 연결 — 이 hunk들만 커밋, 사용자 쪽 debugStartLevel·TMP 머티리얼·기타 변경은 작업 트리에 둠), `UI/3_Game/Level5/`의 이미지 4장(사용자가 넣은 것, `level5_ref.png`는 씬에서 쓰지 않아 커밋하지 않음)
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): **전 항목 통과**(fileID 부모·자식·컴포넌트·스프라이트 GUID 일치, 레벨 5에서만 켜지고 길이 가정 코드 없음, 다른 패널과 설정 일관, 레퍼런스 위치 일치).
+- 결과(Claude): 실제 씬 오브젝트를 미리보기 씬에 복제해 렌더링한 결과가 레퍼런스와 일치. Play 모드에서 레벨 5로 들어가 보는 확인은 하지 않음(사용자 씬의 debugStartLevel이 다른 레벨이고 Editor를 사용자가 쓰는 중).
+
+### [2026-10-04 01:10] Claude → Antigravity · T28
+- 요청(사용자): 블록 안 글자를 Zone1처럼 블록 가운데에.
+- 확인: Zone4 라벨은 이미 Zone1과 같은 가운데 정렬(Center/Middle)이었고, 사용자에게 보낸 합성 시안·미리보기를 글자 왼쪽 정렬로 그려 달라 보였음. 실제 프리팹 렌더링과 Zone1 프리팹 라벨 영역을 비교하니 값 블록만 글자 영역에서 왼쪽 홈(20px)을 빼 Zone1(블록 폭 가운데 180.5)보다 10px 오른쪽(190.5)에 있었음.
+- 변경 파일: `Game/UI/DesignBlockView.cs`(값 블록 라벨 왼쪽 여백 32 → 12, `ValueNotchWidth` 제거). 렌더링으로 모든 블록 글자 영역 중심이 x=180.5인 것 확인.
+- 결과(Antigravity): T27과 함께 리뷰, **통과**. 제안(값 글자가 25~30자 넘으면 최소 크기에서도 왼쪽 홈과 겹칠 수 있음)은 지금 데이터 최대 13자·Zone1과 같은 방식이라 반영하지 않음.
+- 결과(Claude): PlayMode 69/69, 콘솔 오류 0.
+
+### [2026-10-04 01:00] Claude → Antigravity · T27
+- 요청(사용자): 반복하기도 ㄷ자 블록으로.
+- 규칙 확인: 반복하기는 바로 다음 이동하기 하나에만 적용(`Level4BoardController`), 반복 뒤에는 동작 카드만, 5단계는 동작만(`RfidMappings.json`) → 반복+안쪽 이동이 한 묶음, 그다음 이동은 ㄷ자 아래, 마지막 반복은 안쪽이 빈 ㄷ자. 가장 길게 쌓여도 반복 2개(묶음 908px, 레벨 3과 같음).
+- 이미지: Zone1 반복하기(`while.png`, 폭 361)는 값 소켓이 없어 횟수(1~3회) 값 블록을 붙일 수 없음 → 만약과 같은 `If.png` 사용.
+- 변경 파일: `Game/UI/DesignBlockView.cs`·`DesignPanel.cs`·`Tests/Runtime/DesignPanelTests.cs`·`States/IngredientLevel3State.cs`·`Prefabs/DesignBlock.prefab`(만약 전용 이름 If/InsideIf/If*/ifSprite → 공용 FlowControl/InsideFlowControl/Flow*/flowControlSprite, 프리팹 YAML 키 포함), `IIngredientSelectionLevelState`(`FillPlannedDesignShapes` 추가 — 배율 계산용 '가장 길게 쌓인 모양'을 레벨 상태가 정함, 컨트롤러 `ResetDesignPanel`의 반복문을 옮김), 레벨 1·2(모두 명령)·3(단계 순서)·4(`GetDesignStepShape`=`DesignShapeOf(id, IsRepeatFollowUpRequired)`, `FillPlannedShapes`=제어 카드를 받는 단계마다 반복+안쪽 이동), 신규 `Tests/Runtime/Level4DesignShapeTests.cs`(모양 판정, 실제 JSON으로 가장 긴 모양), DesignPanelTests 레벨 4 배치 테스트.
+- 결과(Antigravity, `gemini-3.8-flash-high`): 첫 호출은 5분 제한에 걸려 결과 없음 → 범위를 좁히고 Unity MCP 없이 다시 호출, **전 항목 통과**(확정 시점 직전 단계 판정·게임 해석 일치, 가장 긴 모양·경계 안전, 이름 변경 누락 없음, 규칙).
+- 결과(Claude): 컴파일 오류 0, PlayMode 69/69, 씬·프리팹에 옛 이름 참조 없음. 실제 프리팹을 미리보기 씬(저장 안 되는 오브젝트)에서 렌더링해 반복 ㄷ자·횟수 값 블록·안쪽 이동 확인. 레벨 4를 Play 모드에서 카드로 쌓아 보는 확인은 하지 않음.
+- 사고: PlayMode 테스트가 두 번 멈춤 — `refresh_unity(scope=scripts)`가 컴파일만 하고 편집한 .cs를 임포트하지 않아, 테스트가 Play 모드로 들어갈 때 다시 임포트·재컴파일되며 도메인 재로드(`PlayModeRunTask` NullReference, 0/N에서 멈춤, InitTestScene이 활성 씬으로 남음). 3_Game 다시 열기·임시 씬 삭제·멈춘 작업 정리 후 `scope=all` 새로고침으로 재실행해 통과. 두 번째는 사용자가 Editor를 쓰는 중이라 사용자 확인 뒤 복구.
+
+### [2026-10-04 00:25] Claude → Antigravity · T26
+- 요청(사용자): 블록이 쌓여 아래로 스크롤된 설계창을 터치·마우스 드래그로 올릴 수 있게, 올린 상태에서 코딩 완료를 누르면 아래로 자연스럽게 내린 뒤 완성하기 블록 연결.
+- 원인: DesignScrollView(ScrollRect 세로·Clamped·관성)는 중첩 Canvas인데 GraphicRaycaster가 없어 입력이 닿지 않았고, Viewport·블록에 Raycast Target이 하나도 없었음.
+- 변경 파일: `Scenes/3_Game.unity`(DesignScrollView에 GraphicRaycaster, Viewport에 투명 Image — 알파 0·Raycast Target 켬·Cull Transparent Mesh 켬. 이 hunk만 커밋, 사용자 쪽 layoutMode·debugStartLevel·TMP 머티리얼 변경은 작업 트리에 둠), `Game/UI/DesignPanel.cs`(`AttachEndBlockAsync`가 `IsScrolledUp`이면 `ScrollToBottom` 트윈을 기다린 뒤 완성하기 생성, `ScrollToBottom`은 `StopMovement`로 드래그 관성을 멈추고 트윈 반환, `SetUpForTest`에 ScrollRect 인자), `Tests/Runtime/DesignPanelTests.cs`(ScrollRect 붙인 준비, 올려 둔 상태·이미 맨 아래 2개 추가)
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(입력 경로·다른 버튼과 겹침 없음·투명 메시 그리기 비용 없음, StopMovement·gamePanel 입력 차단으로 드래그 충돌 없음, IsScrolledUp 판정·취소 처리, 스킬 규칙, 테스트 결정성). 제안: 이미 맨 아래일 때 바로 붙는지 테스트 → 수용해 추가.
+- 결과(Claude): PlayMode 66/66, 콘솔 오류 0, Enter Play Mode Options 꺼짐 확인. Play 모드(레벨 3, 자동 스크롤 방식)에서 Viewport 위·가운데·아래 RaycastAll 결과 Viewport·드래그 대상 DesignScrollView, 드래그 시뮬레이션으로 스크롤 0→0.86, 그 상태에서 완성하기 → 0.13 내려가는 중에도 완성하기 없음 → 0에서 완성하기 붙음. 실제 터치스크린 확인은 하지 않음(현장 확인 필요).
+- 사고 기록: 사용자가 Play 모드(레벨 3, 키보드 카드 입력)로 테스트하던 중 Claude가 테스트 파일 수정 뒤 `refresh_unity(compile)`를 요청해 Play 중 핫 리로드가 일어남(RFID 수신 스레드 중단, VContainer 주입 실패 로그, RelayoutAll 예외). 이후 컴파일·테스트 전마다 isPlaying·포커스를 확인함. 또 한 번은 PlayMode 테스트 시작 직후 테스트 파일 재임포트가 끼어 Test Runner가 내부 오류로 멈추며 임시 씬(InitTestScene)이 열린 채 남음 → 3_Game 다시 열고 임시 씬 삭제, 멈춘 작업 정리 후 재실행해 통과.
+
+### [2026-10-04 00:00] Claude → Antigravity · T25
+- 요청(사용자): 레벨 3 설계창이 만약·그리고까지 모두 명령 블록이라, DG_AI_Zone1처럼 만약은 ㄷ자 블록으로. Zone1은 '그리고'를 만약 머리 오른쪽에 조건과 가로로 잇지만 이 프로젝트 레벨 3은 '만약 전기량이 → 전기량 → 그리고 → 만약 산소량이 → 산소량' 순서라, 시안 3가지(초록 세로 블록/명령 블록 유지/Zone1 Logic 그대로) 중 사용자가 '초록 세로 블록'을 고름.
+- 변경 파일: 신규 `UI/3_Game/Blocks/If.png`(Zone1 원본, 9-slice 왼20·아래121·위121)·`Logic.png`(CommandNoValue 모양을 Zone1 Logic 색으로 HSV 변환), `Game/UI/DesignBlockView.cs`(If·Logic 종류, 만약 치수 상수, `SetIfInnerHeight`·`IfBodyHeight`, If는 Sliced), `Game/UI/DesignPanel.cs`(`DesignStepShape` Command/If/InsideIf/Logic, `Initialize(plannedShapes)`·`AddItem(shape, …)`, 위치를 `Layout`이 한 번에 계산 — InsideIf는 앞 만약 블록 안쪽, 만약 블록은 안쪽 높이만큼(최소 블록 하나) 늘어남), `IIngredientSelectionLevelState`·레벨 1~4 상태(`GetDesignStepShape`, 레벨 3만 재료 id로 구분), `IngredientSelectionController`(단계 정의로 계획 모양을 만들어 Initialize, 확정 시 모양 전달), `Prefabs/DesignBlock.prefab`(ifSprite·logicSprite), `Tests/Runtime/DesignPanelTests.cs`(API 변경 반영, 레벨 3 맞물림·만약 블록 늘고 줄어듦 2개 추가)
+- If.png 측정: 위 홈 x52~70(중심 61), 머리 0~100행, 머리 오른쪽 값 소켓 x361~380, 안쪽 돌기 x51~70(60.5), 왼팔 x1~20, 아래 막대 200~300행, 아래 돌기 x51~71(61). 레벨 3 묶음 높이 908px(이전 706) → '줄여서 한 화면에' 배율 0.57 → 0.44.
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(측정값·배치 좌표, 9-slice·라벨 고정, 추가·취소·되돌리기·완성하기·흐림·OnValidate 경로, 레벨 1·2·4 높이 공식 동일, 스킬 규칙, 테스트 검증력, 콘솔 0). 제안 ① OnValidate delayCall 중복 등록 방지(기존 코드라 이번 범위 밖) ② 빈 만약 블록 테스트(늘고 줄어듦 테스트에서 이미 확인) — 둘 다 반영하지 않음.
+- 결과(Claude): 컴파일 경고·오류 0, PlayMode 66/66(T26 테스트 포함 실행), Play 모드에서 레벨 3 블록 5개를 쌓아 묶음 높이(자동 스크롤 0.7배 594.9) 확인. 화면 캡처는 하지 않음.
+- 보완: Play 중 스크립트가 다시 로드되면 `OnValidate`→`RelayoutAll`이 빈 위치 목록으로 `PositionOf`를 불러 예외가 남(T26 작업 중 사용자 Play 세션에서 발생, 위 T26 참고) → `RelayoutAll`이 위치를 다시 계산(`Relayout`)한 뒤 놓도록 고침.
+
+### [2026-10-03 23:35] Claude → Antigravity · T24
+- 요청(사용자): 설계창 블록 코딩 위치를 레벨 1처럼 왼쪽에. 원인: 블록 묶음을 레벨별 묶음 폭으로 가로 가운데에 놓아, 3단계라 배율 0.8로 폭을 채우는 레벨 1(왼쪽 여백 49.3)과 달리 5단계 레벨 3·4(배율 0.57, 여백 133.7)·값 블록 없는 레벨 2(여백 236.6)가 가운데로 몰림(표시 영역 691 기준).
+- 변경 파일: `Game/UI/DesignPanel.cs`(`_offsetX`를 `LeftInset`으로 — 가장 넓은 묶음(값 블록까지)을 배치 방식의 최대 배율(폭 제한 포함)로 가운데 놓았을 때의 왼쪽 끝, `StackWidth(bool)` static화), `Tests/Runtime/DesignPanelTests.cs`('값 블록 없는 레벨 가운데' → '레벨 1·2·3/4 왼쪽 끝이 같음', 다시 Initialize한 뒤 새 시작하기 블록은 마지막 자식으로 읽음)
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과** — 레벨 1 `_offsetX` 변경 전후 동일(한 화면 49.3, 자동 스크롤 86.325), 레벨 2·3·4 왼쪽 끝 일치·오른쪽 끝 최대 641.7 ≤ 683, `RelayoutAll`·`ViewportRect` 폴백 회귀 없음, 마지막 자식 가정 결정적, 스킬 규칙 위반 없음. 제안(테스트에서 시작하기 블록 직접 노출)은 기각 — 테스트 전용 노출을 늘리지 않고 주석으로 이유를 남김. Antigravity가 리뷰 중 `run_tests`(PlayMode)를 돌려 DesignPanelTests 6개 통과를 보고했고, 그 여파로 `EditorSettings.enterPlayModeOptionsEnabled`가 1로 바뀜.
+- 결과(Claude): Rider 정적 분석 오류 0, Editor.log `error CS` 0, PlayMode 62/62 통과, 콘솔 오류 0, `EditorSettings.enterPlayModeOptionsEnabled` 꺼짐 확인(diff 없음). Play 모드 화면 캡처는 하지 않음(위치는 테스트로 확인).
+- 도구 참고: 이 세션의 `unityMCP` 도구가 Claude 데스크톱 앱 설정(`claude_desktop_config.json`)의 같은 이름 stdio 서버로 가서 "인스턴스 없음"으로 실패함. Unity는 프로젝트의 HTTP 서버(127.0.0.1:8080)에 붙어 있어, 테스트 실행·설정 확인은 8080 서버에 직접 MCP 요청을 보내 진행함.
+
+### [2026-10-03 22:10] Claude → Antigravity · T22 후속(붙는 연출 변경)
+- 요청(사용자): 블록이 위에서 내려오지 말고 스토리 라인 연출처럼 아래에서 올라오며 붙을 것, 값 블록은 명령 블록이 붙은 뒤 오른쪽에서 왼쪽으로 움직여 붙을 것.
+- 변경 파일: `Game/UI/DesignBlockView.cs`(PlayDropIn→PlayAttach: 목표 아래에서 InOutSine으로 올라오며 페이드인 → 값 블록이 오른쪽 120에서 OutCubic으로 소켓까지 미끄러지며 페이드인 / PlayRemoveAndDestroy→PlayDetachAndDestroy: 가라앉으며 사라짐), `Game/UI/DesignPanel.cs`(riseDuration 0.5·riseHeight 40·valueSlideDuration 0.3·valueSlideDistance 120), `Prefabs/DesignBlock.prefab`(Value에 CanvasGroup), `Scenes/3_Game.unity`(DesignPanel 필드 이름만), `Tests/Runtime/DesignPanelTests.cs`·`DGAIZone.Tests.asmdef`(DOTween.dll 참조)
+- 테스트 참고: 처음엔 실시간 대기(250ms)로 연출 중간을 확인했다가, 테스트 시작 직후 한 프레임이 길게 걸려 연출이 통째로 끝나 버리는 바람에 한 번 실패함 → 시퀀스를 Pause 후 Goto로 시점별(올라오는 중/값 블록 미끄러지는 중/붙은 뒤) 확인하는 결정적 [Test]로 바꿈.
+- 씬 참고: 3_Game을 다시 저장하자 `CodingCategories/Image_Action/Text_Action`(TMP '동작')의 머티리얼이 인스턴스 2개("TextMeshPro/Mobile/Distance Field (Instance)")로 바뀐 내용이 함께 저장됨. 프로젝트 스크립트 중 에디터에서 TMP 머티리얼을 건드리는 것은 없고 당시 에디터 포커스가 사용자에게 있어 사용자 편집으로 보고, 되돌리지 않고 작업 트리에 둔 채 커밋에서는 DesignPanel 필드 hunk만 넣음(저장 전에 씬 dirty를 확인하지 않은 것이 원인 — 앞으로 저장 전 확인).
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(연출 순서·Join/Append, 값 블록 초기 상태(부모 CanvasGroup과 곱연산으로 투명), Complete 시 끝 상태, 좌표계(riseHeight만 배율), 씬 hunk 1개·프리팹 diff, Goto 테스트 결정성, asmdef 영향, 스킬 규칙, validate_script 0).
+- 결과(Claude): 컴파일 에러 0, PlayMode 62/62. 에디터 포커스가 사용자에게 있어 Play 모드 화면 캡처는 하지 않음.
+
+### [2026-10-03 21:10] Claude → Antigravity · T22
+- 요청: 클라이언트 의견으로 설계창을 DG_AI_Zone1 블록 코딩 이미지로 바꿈. 맨 위 '시작하기', 설정하기마다 블록이 쌓이는 연출, 코딩 완료 시 맨 아래 '완성하기' 연결. 블록 모양은 사용자 선택으로 '명령(재료 이름, 살몬)+값(고른 블록, 파랑)'. 블록이 최대 7개라 배치 방식 두 가지('줄여서 한 화면에'/'크게 두고 자동 스크롤')를 DesignPanel 인스펙터 드롭다운으로 비교하게 하고 기획 확인 뒤 하나만 남김(T23).
+- 변경 파일: 신규 `Game/UI/DesignBlockView.cs`·`Prefabs/DesignBlock.prefab`·`UI/3_Game/Blocks/*.png`(Zone1 Start·Command·CommandNoValue·End·Value를 .meta째 복사, GUID 충돌 없음 확인)·`Tests/Runtime/DesignPanelTests.cs`, `Game/UI/DesignPanel.cs`(블록 쌓기로 다시 작성), 레벨 상태(`GetDesignBlockTexts`·`UsesValueBlocks`), `IngredientSelectionController`(`ResetDesignPanel`·`AttachEndBlockAsync`), `Scenes/3_Game.unity`(DesignContainer 레이아웃 그룹 제거, DesignScrollView 중첩 Canvas·표시 영역 651×364→691×420), 삭제 `Prefabs/DesignItem.prefab`(참조 없음 확인)
+- 블록 맞물림: Zone1 이미지를 PIL로 재서 홈·돌기 중심(시작 돌기 x=60, 명령 홈·돌기 x=40.5, 완성 홈 x=60), 몸통 높이(시작 100, 명령·완성 101), 값 소켓(명령 x=360) 값을 상수로 둠. Zone1·Zone4는 같은 폰트 에셋(GamtanRoadTantan, 같은 GUID).
+- 확인 요청: 위치·배율·content 높이 계산, 트윈 수명·취소, 기존 동작 회귀(흐림 표시·코딩완료 조건·결과 씬 정답 문구), 씬·프리팹 참조·Raycast Target·밉맵, 스킬 규칙, `validate_script`·`read_console`. 셸·run_tests·Play 모드 금지.
+- 결과(Antigravity): `gemini-3.1-pro-high` 첫 호출은 셸 명령을 쓰려다 자동 거부되어 결과 없음 → `gemini-3.8-flash-high`로 다시 호출, **전 항목 통과**. 제안: ① Initialize에서 스크롤 트윈 정리(기각 — Initialize는 씬 시작 때 한 번만 불림) ② `BottomTabHeight` 주석 수치(수용, 주석 수정) ③ 배치 방식 확정 뒤 정리(T23).
+- 결과(Claude): 컴파일 에러 0, PlayMode 61/61(설계창 테스트 5개 추가: 맞물림 위치, 한 화면 방식 7개 수용, 자동 스크롤 배율·스크롤 범위, 값 블록 없는 레벨 가운데 맞춤, 취소 후 파괴). Play 모드 캡처(Overlay Canvas는 카메라 캡처에 안 잡혀 Play 중에만 Screen Space - Camera로 바꿔 찍음): 레벨 1 3단계(배율 0.80)·완성하기, 레벨 4 5단계 두 방식(한 화면 0.57 / 스크롤 0.7, 시작하기는 위로 가려짐), 레벨 2(값 블록 없음, 가운데 정렬, 긴 문구 자동 축소), 코딩 완료→완성하기→판정→결과 씬 전환, 취소 시 블록 빠짐·코딩완료 버튼 비활성. 콘솔 오류 0(기존 영상 색 공간 경고만). 인스펙터 값 변경 시 `OnValidate`에서 바로 재배치하면 SendMessage 경고가 나서 `EditorApplication.delayCall`로 미룸.
+
 ### [2026-10-03 19:50] Claude → Antigravity · T21
 - 변경 파일: `Game/UI/MissionBoardController.cs`(레벨별 미션 문구 메서드 5개 → `ApplyMissionText(level, 기본 문구)` + `PickLevel1Destination`·`PickLevel3Limits`, 레벨 2·4 기본 문구 const), `Game/UI/IngredientSelectionController.cs`(`InitializeWorkflowAsync`에서 `JsonLoader.LoadAsync` 직후 취소 확인)
 - 발견 경위(버그): Play 모드에서 3_Game을 바로 다시 불러오자 파괴되는 이전 컨트롤러가 "워크플로우용 RfidMappings.json 로드 실패: Cannot access a disposed object" 오류와 null 경고 10여 줄을 남김. 템플릿 `JsonLoader.LoadAsync`가 취소를 삼키고 `new T()`를 돌려줘 초기화가 계속되고, 이미 해제된 상태 머신에 `ChangeState`하다 `ObjectDisposedException`이 `catch (Exception)`에 잡힘. 템플릿 쪽 근본 수정은 Template 저장소 `TODO.md`에 기록(커밋 4e2c86d, 이 프로젝트에서 발견).
