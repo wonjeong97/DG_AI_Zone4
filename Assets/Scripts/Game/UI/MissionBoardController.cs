@@ -41,6 +41,16 @@ namespace DGAIZone.Game.UI
         private static MissionDestination CreateFallbackDestination() => new MissionDestination { planetName = "외계 행성", targetDistance = 20, spriteKey = "ExoPlanet" };
         private static readonly Vector2Int FallbackLevel3Range = new Vector2Int(3, 5);
 
+        // LevelData에 미션 문구가 없을 때 쓰는 기본 문구(레벨 1·3은 이번 판 값이 들어가므로 Start에서 만듦)
+        private const string Level2FallbackMissionText =
+            "로켓을 우주로 출발시켜 볼까요?\n" +
+            "<color=yellow>[동작]</color> 블록 5개를 알맞은 순서로 이어서\n" +
+            "로켓을 우주로 출발시켜 주세요.";
+        private const string Level4FallbackMissionText =
+            "<color=yellow>[동작]</color>과 <color=yellow>[제어]</color> 블록으로 탐사 로봇을 움직여 주세요.\n" +
+            "먼저 우주 자원을 모으고, 기지로 안전하게 돌아오세요.\n" +
+            "함정은 꼭 피해야 해요.";
+
         // 3_Game.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private GameSceneSettings _sceneSettings = new GameSceneSettings();
         private AsyncOperationHandle<Sprite> _goalSpriteHandle;
@@ -112,36 +122,32 @@ namespace DGAIZone.Game.UI
 
             if (level == 2)
             {
-                ApplyLevel2MissionText();
+                ApplyMissionText(2, Level2FallbackMissionText);
             }
             else if (level == 3)
             {
-                ApplyLevel3MissionText();
+                PickLevel3Limits();
+                ApplyMissionText(3,
+                    $"우주정거장을 안전하게 지키려면 어떻게 해야 할까요?\n" +
+                    $"전기량은 <color=yellow>[{MaxElectricity}]</color>보다 많으면 안 돼요.\n" +
+                    $"<color=yellow>[그리고]</color> 산소량은 <color=yellow>[{MinOxygen}]</color>보다 적으면 안 돼요.\n" +
+                    $"두 가지 조건을 모두 지켜 주세요.");
             }
             else if (level == 4)
             {
-                ApplyLevel4MissionText();
+                ApplyMissionText(4, Level4FallbackMissionText);
             }
             else if (level >= 5)
             {
-                ApplyLevel5MissionText();
+                ApplyMissionText(5, null);
             }
             else
             {
-                LevelData level1 = GetLevelData(1);
-                MissionDestination[] destinations = level1 ? level1.destinations : null;
-                if (destinations != null && destinations.Length > 0)
-                {
-                    _current = destinations[UnityEngine.Random.Range(0, destinations.Length)];
-                }
-                else if (_logger != null)
-                {
-                    _logger.ZLogError($"[MissionBoardController] Level1 LevelData에 목적지(destinations)가 없어 기본 목적지 '{_current.planetName}'를 사용함.");
-                }
-
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 미션 설정됨: {Destination} (목표거리={_current.targetDistance})");
-
-                ApplyMissionText();
+                PickLevel1Destination();
+                ApplyMissionText(1,
+                    $"<color=yellow>[{_current.planetName}]</color>까지 거리는 <color=yellow>[{_current.targetDistance}]</color>{PlaceholderFormatter.GetCopula(_current.targetDistance)}.\n" +
+                    $"로켓을 날리는 추진체, 탑재할 장비, 연료량을 골라\n" +
+                    $"<color=yellow>[동작]</color> 블록으로 로켓의 힘을 <color=yellow>[{_current.targetDistance}]</color>에 맞춰 보세요.");
                 ApplyGoalDisplay();
             }
 
@@ -221,57 +227,52 @@ namespace DGAIZone.Game.UI
             _sceneSettings = await GameSceneSettingsProvider.GetAsync(token);
         }
 
-        /// <summary> 레벨 1 미션 텍스트(무작위 목적지와 동작 블록 안내)를 적용함. LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함. </summary>
-        private void ApplyMissionText()
-        {
-            if (!missionText)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
-                return;
-            }
-
-            string raw = GetRawMissionTextFromData(1);
-            if (!string.IsNullOrEmpty(raw))
-            {
-                missionText.text = FormatMissionText(raw);
-            }
-            else
-            {
-                missionText.text =
-                    $"<color=yellow>[{_current.planetName}]</color>까지 거리는 <color=yellow>[{_current.targetDistance}]</color>{PlaceholderFormatter.GetCopula(_current.targetDistance)}.\n" +
-                    $"로켓을 날리는 추진체, 탑재할 장비, 연료량을 골라\n" +
-                    $"<color=yellow>[동작]</color> 블록으로 로켓의 힘을 <color=yellow>[{_current.targetDistance}]</color>에 맞춰 보세요.";
-            }
-        }
-
-        /// <summary> 레벨 2 전용 미션 텍스트를 적용함. LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함. </summary>
-        private void ApplyLevel2MissionText()
-        {
-            if (!missionText)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
-                return;
-            }
-
-            string raw = GetRawMissionTextFromData(2);
-            if (!string.IsNullOrEmpty(raw))
-            {
-                missionText.text = FormatMissionText(raw);
-            }
-            else
-            {
-                missionText.text =
-                    "로켓을 우주로 출발시켜 볼까요?\n" +
-                    "<color=yellow>[동작]</color> 블록 5개를 알맞은 순서로 이어서\n" +
-                    "로켓을 우주로 출발시켜 주세요.";
-            }
-        }
-
         /// <summary>
-        /// 레벨 3 전용 미션 텍스트를 적용함. 전기량 상한(MaxElectricity)과 산소량 하한(MinOxygen)을 Level3 LevelData의 범위에서 각각 무작위로 정해 안내함.
-        /// LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함.
+        /// 해당 레벨 LevelData의 미션 문구를 자리표시자를 치환해 적용함. LevelData에 문구가 없으면 fallbackText를 쓰고,
+        /// fallbackText도 null이면(레벨 5) 씬에 입력된 문구를 그대로 둔 채 경고를 남김.
         /// </summary>
-        private void ApplyLevel3MissionText()
+        private void ApplyMissionText(int level, string fallbackText)
+        {
+            if (!missionText)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
+                return;
+            }
+
+            string raw = GetRawMissionTextFromData(level);
+            if (!string.IsNullOrEmpty(raw))
+            {
+                missionText.text = FormatMissionText(raw);
+            }
+            else if (fallbackText != null)
+            {
+                missionText.text = fallbackText;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[MissionBoardController] Level{level} LevelData에 미션 문구(missionText)가 없어 씬에 입력된 문구를 그대로 둠.");
+            }
+        }
+
+        /// <summary> 레벨 1 목적지를 Level1 LevelData의 목적지 중 하나로 무작위로 정함. 목적지가 없으면 기본 목적지를 씀. </summary>
+        private void PickLevel1Destination()
+        {
+            LevelData level1 = GetLevelData(1);
+            MissionDestination[] destinations = level1 ? level1.destinations : null;
+            if (destinations != null && destinations.Length > 0)
+            {
+                _current = destinations[UnityEngine.Random.Range(0, destinations.Length)];
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogError($"[MissionBoardController] Level1 LevelData에 목적지(destinations)가 없어 기본 목적지 '{_current.planetName}'를 사용함.");
+            }
+
+            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 미션 설정됨: {Destination} (목표거리={_current.targetDistance})");
+        }
+
+        /// <summary> 레벨 3 전기량 상한(MaxElectricity)과 산소량 하한(MinOxygen)을 Level3 LevelData의 범위에서 각각 무작위로 정함. </summary>
+        private void PickLevel3Limits()
         {
             LevelData level3 = GetLevelData(3);
             if (!level3 && _logger != null)
@@ -287,69 +288,6 @@ namespace DGAIZone.Game.UI
             if (_logger != null)
             {
                 _logger.ZLogInformation($"[MissionBoardController] 레벨 3 미션 설정됨: 전기량 상한={MaxElectricity}, 산소량 하한={MinOxygen}");
-            }
-
-            if (!missionText)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
-                return;
-            }
-
-            string raw = GetRawMissionTextFromData(3);
-            if (!string.IsNullOrEmpty(raw))
-            {
-                missionText.text = FormatMissionText(raw);
-            }
-            else
-            {
-                missionText.text =
-                    $"우주정거장을 안전하게 지키려면 어떻게 해야 할까요?\n" +
-                    $"전기량은 <color=yellow>[{MaxElectricity}]</color>보다 많으면 안 돼요.\n" +
-                    $"<color=yellow>[그리고]</color> 산소량은 <color=yellow>[{MinOxygen}]</color>보다 적으면 안 돼요.\n" +
-                    $"두 가지 조건을 모두 지켜 주세요.";
-            }
-        }
-
-        /// <summary> 레벨 4 전용 미션 텍스트를 적용함. LevelData가 있으면 해당 텍스트를 사용하고 없으면 기본 텍스트를 적용함. </summary>
-        private void ApplyLevel4MissionText()
-        {
-            if (!missionText)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
-                return;
-            }
-
-            string raw = GetRawMissionTextFromData(4);
-            if (!string.IsNullOrEmpty(raw))
-            {
-                missionText.text = FormatMissionText(raw);
-            }
-            else
-            {
-                missionText.text =
-                    "<color=yellow>[동작]</color>과 <color=yellow>[제어]</color> 블록으로 탐사 로봇을 움직여 주세요.\n" +
-                    "먼저 우주 자원을 모으고, 기지로 안전하게 돌아오세요.\n" +
-                    "함정은 꼭 피해야 해요.";
-            }
-        }
-
-        /// <summary> 레벨 5 전용 미션 텍스트를 적용함. LevelData가 있으면 해당 텍스트를 적용함. </summary>
-        private void ApplyLevel5MissionText()
-        {
-            if (!missionText)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[MissionBoardController] missionText가 null이라 미션 텍스트를 설정할 수 없음.");
-                return;
-            }
-
-            string raw = GetRawMissionTextFromData(5);
-            if (!string.IsNullOrEmpty(raw))
-            {
-                missionText.text = FormatMissionText(raw);
-            }
-            else if (_logger != null)
-            {
-                _logger.ZLogWarning($"[MissionBoardController] Level5 LevelData에 미션 문구(missionText)가 없어 씬에 입력된 문구를 그대로 둠.");
             }
         }
 
