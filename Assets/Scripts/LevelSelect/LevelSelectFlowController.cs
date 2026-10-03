@@ -38,7 +38,7 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Image themeBackgroundImage; // Background/ThemeBackground: 평소엔 투명, 레벨 선택 시 테마 스프라이트로 페이드인됨
         [SerializeField] private Sprite[] themeBackgroundSprites; // Level1..5 순서. 레벨 1·2는 같은 스프라이트(Background_1)를 지정하면 됨
         [Header("Debug (Editor Testing)")]
-        [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
+        [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터·개발 빌드에서만 적용되는 테스트 전용 값이라 JSON으로 분리하지 않음.
 
         private static readonly ProfilerMarker WarmUpThemeBackgroundMarker = new ProfilerMarker("LevelSelectFlowController.WarmUpThemeBackgroundSprites");
 
@@ -76,13 +76,17 @@ namespace DGAIZone.LevelSelect
         }
 
         /// <summary>
-        /// debugUnlockedLevelCount가 설정되어 있으면 그 값을 그대로 씀(에디터 테스트 전용, 최우선). 아니면 이번에
+        /// debugUnlockedLevelCount가 설정되어 있으면 그 값을 그대로 씀(에디터·개발 빌드 전용, 최우선 — 현장용 릴리스 빌드에서는 무시하고 경고만 남김). 아니면 이번에
         /// 적용하려는 값(jsonOrFallback: JSON 프리셋 또는 폴백 상수)과 세션 진행도(_unlockedLevelStore) 중 더 큰
         /// 값을 실제 잠금 해제 수로 확정하고, 진행도가 그보다 낮았다면 갱신함(레벨 완료로 넓어진 잠금이 줄어들지 않도록).
         /// </summary>
         private int ResolveUnlockedCount(int jsonOrFallback)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (debugUnlockedLevelCount > 0) return debugUnlockedLevelCount;
+#else
+            if (debugUnlockedLevelCount > 0 && _logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 릴리스 빌드라 씬에 남은 디버그 잠금 해제 수({debugUnlockedLevelCount})를 무시함.");
+#endif
             if (_unlockedLevelStore == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] unlockedLevelStore가 null이라 세션 진행도 없이 JSON/폴백 값({jsonOrFallback})을 그대로 사용함.");
@@ -174,7 +178,7 @@ namespace DGAIZone.LevelSelect
             }
 
             // 기본값(설정 클래스 초기값)으로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
-            // 로드가 끝나면 실제 값으로 다시 적용함 (debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
+            // 로드가 끝나면 실제 값으로 다시 적용함 (에디터·개발 빌드에서 debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
             ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
