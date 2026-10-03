@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-03 19:20] Claude → Antigravity · T19
+- 변경 파일: `Game/UI/IngredientSelectionController.cs`(1487→1238줄), 신규 `Game/UI/RightArrowHint.cs`·`InvalidCardWarning.cs`·`DesignPanel.cs`, `Game/GameSceneLifetimeScope.cs`(세 컴포넌트 등록), `Game/UI/States/*`(레벨 1 확정 값·미리보기를 레벨 1 상태로, 레벨 4 반복 후속 규칙·분류별 재료 찾기를 레벨 4 상태로, 인터페이스에 `CalculateConfirmedThrust`), `Game/Data/RfidMappingData.cs`(`RfidStepDefinition.AllowsCategory`), `Result/ResultFlowController.cs`·`App/SceneTransitionService.cs`(테스트 전용 setter), `Scenes/3_Game.unity`, 테스트 5개 파일
+- 씬: `GamePanel/Arrows`에 RightArrowHint, `GamePanel/Image_Warning`에 InvalidCardWarning(자기 CanvasGroup, shakeTarget=GamePanel), `GamePanel/Image_DesignWindow`에 DesignPanel을 붙이고 컨트롤러의 `rightArrowImages`·`designContent`·`designItemPrefab`·`warningPanel` 값을 그대로 옮긴 뒤 옛 필드 제거·재저장(diff는 컴포넌트 3개 추가와 옮긴 필드 4개 삭제뿐).
+- 테스트: 리플렉션을 모두 없앰(`Construct`, `ApplyLevelMapping`, `ChangeLevelState`, `...ForTest` setter). `_warningCts` 필드 타입만 보던 테스트는 실제 InvalidCardWarning을 연달아 띄워 CTS 정리·경고 숨김을 확인하는 테스트로 바꿈.
+- 확인 요청: 동작 동등성(화살표·경고·설계창·코딩완료 조건·레벨 1 추진력·레벨 4 규칙), 버튼 갱신 시점, 씬 참조, 스킬 규칙, 테스트, `validate_script`·`read_console`. 셸·run_tests·Play 모드 금지. 모델 `gemini-3.1-pro-high`(설계 판단).
+- 결과(Antigravity): **전 항목 통과**. 확정 수를 설계창 줄 수 대신 `_currentStepIndex`로 세도 정상 경로에서 같음, 씬 참조가 옛 필드와 같은 오브젝트를 가리킴, 변경 파일 에러 0.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과. 3_Game Play 모드에서 직접 확인: 세 컴포넌트·로거·리졸버 주입 정상, 레벨 1(카드 인식→화살표 재생→설정하기→설계창 1줄·화살표 정지, '논리' 카드 경고, 3단계 확정 시 코딩완료 활성·취소 시 비활성, 진행도 4/5=0.8), 레벨 4(반복하기 확정 후 '제어' 거부·경고·안내 '동작'만, '동작' 수락, 1단계부터 코딩완료 가능, 코딩완료→판정·정답 설계 5줄 기록→4_Result 전환). 콘솔 오류 0(기존 영상 색 공간 경고 1건).
+  - 참고: 확정 수를 `_currentStepIndex`로 바꿔, 설계창 프리팹 연결이 빠진 경우에도 코딩완료 버튼과 판정이 단계 진행을 따라감(이전에는 줄이 안 생겨 버튼이 영영 꺼져 있었음).
+
 ### [2026-10-03 18:40] Claude → Antigravity · T20
 - 변경 파일: `Game/Hardware/RfidReaderService.cs`, `App/VideoReadyGate.cs`, `Result/ResultVideoPanel.cs`·`ResultAiPanel.cs`, `Game/UI/States/IngredientLevel1State.cs`·`IngredientLevel3State.cs`, `LevelSelect/LevelSelectFlowController.cs`, `Intro/IntroFlowController.cs`·`TutorialImageSlider.cs`, `Game/GameFlowController.cs`, `Tests/Runtime/TutorialSliderTests.cs`
 - 점검(읽기 전용, 두 묶음 병렬, `gemini-3.8-flash-high`): ① Game 폴더 ② 그 외 + 테스트. 검증 후 수용/기각:

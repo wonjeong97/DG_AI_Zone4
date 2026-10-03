@@ -1,4 +1,3 @@
-using System.Reflection;
 using DGAIZone.App;
 using DGAIZone.Result;
 using NUnit.Framework;
@@ -27,7 +26,7 @@ namespace DGAIZone.Tests
             textGo.transform.SetParent(_go.transform);
             _missionResultText = textGo.AddComponent<TextMeshProUGUI>();
             _missionResultText.text = "미션 완료!";
-            typeof(ResultFlowController).GetField("missionResultText", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(_controller, _missionResultText);
+            _controller.SetMissionResultTextForTest(_missionResultText);
 
             _resultStore = new GameResultStore();
             _controller.Construct(null, null, null, _resultStore, null);

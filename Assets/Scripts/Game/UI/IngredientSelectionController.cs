@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
@@ -16,7 +15,6 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using VContainer;
-using VContainer.Unity;
 using HuliacDev.Core;
 using HuliacDev.Utils;
 using DGAIZone.Game.UI.States;
@@ -35,18 +33,11 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
 
-        [Header("Right Arrow Hint")]
-        [SerializeField] private Image[] rightArrowImages; // Arrows/Image_Arrow1..5 순서
-
         [Header("Workflow Buttons")]
         [SerializeField] private Button buttonConfirm;
         [SerializeField] private Button buttonCancel;
         [SerializeField] private Button buttonCodingComplete;
         [SerializeField] private Button buttonSkip;
-
-        [Header("Design Panel")]
-        [SerializeField] private Transform designContent;
-        [SerializeField] private TextMeshProUGUI designItemPrefab;
 
         [Header("Level 2 Step Balls")]
         [SerializeField] private Image[] stepBallImages; // Image_Step1_Ball..Image_Step5_Ball 순서 (Panel_Level2 하위)
@@ -63,9 +54,6 @@ namespace DGAIZone.Game.UI
 
         [Header("Activation")]
         [SerializeField] private CanvasGroup gamePanel; // 게임 패널이 활성(상호작용 가능)일 때만 RFID를 처리함
-
-        [Header("Warning")]
-        [SerializeField] private CanvasGroup warningPanel; // Image_Warning: 레벨/스텝에 맞지 않는 카드 인식 시 표시
 
         [Header("Level 4 Board")]
         [SerializeField] private Level4BoardController level4Board; // Panel_Level4. Level4BoardController가 이 클래스를 주입받는 순환 의존이라 VContainer 대신 인스펙터로 연결함
@@ -102,11 +90,10 @@ namespace DGAIZone.Game.UI
         internal string[] ConfirmedIngredients => _confirmedIngredients;
         internal RfidLevelMapping LevelMapping => _levelMapping;
         internal RfidStepDefinition[] StepDefinitions => _stepDefinitions;
+        internal RfidStepDefinition[] CategoryIngredients => _categoryIngredients;
         internal int CurrentStepIndex => _currentStepIndex;
         internal int TotalSteps => _totalSteps;
-        internal int ConfirmedEngineValue => _confirmedEngineValue;
-        internal int ConfirmedFuelValue => _confirmedFuelValue;
-        internal int ConfirmedPayloadValue => _confirmedPayloadValue;
+        internal string CurrentIngredientId => _currentIngredientId;
 
         private ISubscriber<RfidTagEvent> _subscriber;
         private ISubscriber<RfidReaderIdleEvent> _idleSubscriber;
@@ -115,7 +102,9 @@ namespace DGAIZone.Game.UI
         private MissionBoardController _missionBoard;
         private CodingCategoryIndicatorController _codingCategoryIndicator;
         private GameResultStore _resultStore;
-        private IObjectResolver _resolver;
+        private RightArrowHint _rightArrowHint;
+        private InvalidCardWarning _invalidCardWarning;
+        private DesignPanel _designPanel;
         private ILogger<IngredientSelectionController> _logger;
         private bool _isBusy;
 
@@ -140,15 +129,6 @@ namespace DGAIZone.Game.UI
         // 이미 확정된 스탭의 카드가 리더기에서 떨어져(RfidReaderIdleEvent) 값이 불확실해진 스탭 인덱스 목록.
         // 여기 포함된 스탭부터 이후 DesignItem이 흐리게(비활성) 표시됨. 카드가 다시 인식되면 해당 인덱스가 제거됨.
         private readonly HashSet<int> _idleReaderStepIndices = new HashSet<int>();
-        private const float DesignItemDeactivatedAlpha = 0.35f;
-
-        // 추진력 계산식(엔진 출력량 + 연료량 - 탑재 중량)에 쓰이는 역할별 확정 값. 미확정 상태의 기본값은 0.
-        private int _confirmedEngineValue = 0;
-        private int _confirmedFuelValue = 0;
-        private int _confirmedPayloadValue = 0;
-
-        // 디자인 컨테이너에 동적으로 추가된 확정 항목 텍스트 목록
-        private readonly List<TMP_Text> _designItems = new List<TMP_Text>();
 
         // R3 반응형 상태 관리
         private readonly ReactiveProperty<string> _currentIngredient = new ReactiveProperty<string>("");
@@ -156,10 +136,6 @@ namespace DGAIZone.Game.UI
         private readonly ReactiveProperty<int> _currentMatterIndex = new ReactiveProperty<int>(0);
 
         private R3.DisposableBag _disposables = new R3.DisposableBag();
-        private Sequence _rightArrowSequence;
-        private Sequence _warningSequence;
-        private CancellationTokenSource _warningCts;
-        private CanvasGroup[] _rightArrowCanvasGroups;
         private CanvasGroup _level3OxygenIconCanvasGroup;
         private CanvasGroup _level3ElectricIconCanvasGroup;
 
@@ -179,7 +155,7 @@ namespace DGAIZone.Game.UI
             _stateMachine = new StateMachine<IngredientSelectionController>(this);
 
             InitSubCanvases();
-            InitCanvasGroups();
+            InitLevel3IconCanvasGroups();
         }
 
         /// <summary> fillAmount가 트윈될 때 메인 UI 캔버스의 리빌드를 차단하도록 서브 캔버스를 보장함. </summary>
@@ -199,25 +175,9 @@ namespace DGAIZone.Game.UI
             }
         }
 
-        /// <summary> 이미지 알파 페이드/깜빡임 시 정점 리빌드 없이 GPU 블렌딩을 사용하도록 CanvasGroup을 구성함. </summary>
-        private void InitCanvasGroups()
+        /// <summary> 레벨 3 아이콘 깜빡임이 정점 리빌드 없이 GPU 블렌딩을 사용하도록 CanvasGroup을 구성함. </summary>
+        private void InitLevel3IconCanvasGroups()
         {
-            if (rightArrowImages != null && rightArrowImages.Length > 0)
-            {
-                _rightArrowCanvasGroups = new CanvasGroup[rightArrowImages.Length];
-                for (int i = 0; i < rightArrowImages.Length; i++)
-                {
-                    if (rightArrowImages[i])
-                    {
-                        if (!rightArrowImages[i].TryGetComponent(out _rightArrowCanvasGroups[i]))
-                        {
-                            _rightArrowCanvasGroups[i] = rightArrowImages[i].gameObject.AddComponent<CanvasGroup>();
-                        }
-                        _rightArrowCanvasGroups[i].alpha = 0f;
-                    }
-                }
-            }
-
             if (level3OxygenIcon && !level3OxygenIcon.TryGetComponent(out _level3OxygenIconCanvasGroup))
             {
                 _level3OxygenIconCanvasGroup = level3OxygenIcon.gameObject.AddComponent<CanvasGroup>();
@@ -230,10 +190,11 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 디자인 항목 생성용 리졸버, 로거를 할당함.
+        /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 미션 보드·카테고리 안내·결과 저장소,
+        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, IObjectResolver resolver, ILogger<IngredientSelectionController> logger)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger)
         {
             _subscriber = subscriber;
             _idleSubscriber = idleSubscriber;
@@ -242,7 +203,9 @@ namespace DGAIZone.Game.UI
             _missionBoard = missionBoard;
             _codingCategoryIndicator = codingCategoryIndicator;
             _resultStore = resultStore;
-            _resolver = resolver;
+            _rightArrowHint = rightArrowHint;
+            _invalidCardWarning = invalidCardWarning;
+            _designPanel = designPanel;
             _logger = logger;
         }
 
@@ -280,8 +243,6 @@ namespace DGAIZone.Game.UI
             _currentMatterIndex.Subscribe(_ => { UpdateMatterText(); UpdateProgressPreview(); }).AddTo(ref _disposables);
 
             UpdateCodingCompleteButton();
-            ResetRightArrow();
-            InitializeWarningPanel();
 
             // 비동기로 설정을 로드하여 워크플로우 단계를 설정함
             InitializeWorkflowAsync().Forget();
@@ -323,21 +284,9 @@ namespace DGAIZone.Game.UI
                 _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
 
                 int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
-                _selectedLevel = level;
-                IIngredientSelectionLevelState targetState = level switch
-                {
-                    1 => _level1State,
-                    2 => _level2State,
-                    3 => _level3State,
-                    4 => _level4State,
-                    _ => _level1State
-                };
-                _stateMachine.ChangeState(targetState);
+                ChangeLevelState(level);
                 ValidateMappings(settings);
-
-                _levelMapping = settings != null ? settings.FindLevelMapping(level) : null;
-                _stepDefinitions = _levelMapping?.steps;
-                _categoryIngredients = _levelMapping?.categoryIngredients;
+                ApplyLevelMapping(settings != null ? settings.FindLevelMapping(level) : null);
 
                 _currentStageIndex = Mathf.Clamp(_currentStageIndex, 0, _stageReadCounts.Length - 1);
                 _totalSteps = (_stepDefinitions != null && _stepDefinitions.Length > 0)
@@ -363,6 +312,29 @@ namespace DGAIZone.Game.UI
             UpdateCategoryHint();
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
+        }
+
+        /// <summary> 선택된 레벨(1~4)에 맞는 레벨 상태로 전환함. 범위를 벗어나면 레벨 1 상태를 씀. </summary>
+        internal void ChangeLevelState(int level)
+        {
+            _selectedLevel = level;
+            IIngredientSelectionLevelState targetState = level switch
+            {
+                1 => _level1State,
+                2 => _level2State,
+                3 => _level3State,
+                4 => _level4State,
+                _ => _level1State
+            };
+            _stateMachine.ChangeState(targetState);
+        }
+
+        /// <summary> 현재 레벨의 블록 목록·단계 정의·분류별 재료 정의를 적용함. mapping이 null이면 모두 비움. </summary>
+        internal void ApplyLevelMapping(RfidLevelMapping mapping)
+        {
+            _levelMapping = mapping;
+            _stepDefinitions = mapping?.steps;
+            _categoryIngredients = mapping?.categoryIngredients;
         }
 
         /// <summary>
@@ -544,13 +516,13 @@ namespace DGAIZone.Game.UI
 
             RfidStepDefinition step = _stepDefinitions[_currentStepIndex];
 
-            if (!IsCategoryAllowedForStep(step, evt.Category))
+            if (!step.AllowsCategory(evt.Category))
             {
                 if (_logger != null)
                 {
                     _logger.ZLogInformation($"[IngredientSelectionController] '{evt.Category}' 카테고리는 {_currentStepIndex + 1}번째 단계({step.ingredientName})에서 허용되지 않아 {evt.ReaderId} 태그를 무시함.");
                 }
-                ShowInvalidCategoryWarningAsync().Forget();
+                ShowInvalidCardWarning();
                 return;
             }
 
@@ -660,29 +632,24 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// _idleReaderStepIndices 중 가장 이른 인덱스부터 끝까지 DesignItem의 알파를 낮춰 흐리게(비활성) 표시하고,
+        /// _idleReaderStepIndices 중 가장 이른 인덱스부터 끝까지 설계창 항목을 흐리게(비활성) 표시하고,
         /// 그 앞쪽은 정상 알파로 되돌림. 값 자체는 바꾸지 않고 시각적 표시만 담당함.
         /// </summary>
         private void UpdateDesignItemGrayState()
         {
+            if (!_designPanel)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창 흐림 표시를 갱신할 수 없음.");
+                return;
+            }
+
             int grayFromIndex = int.MaxValue;
             foreach (int idx in _idleReaderStepIndices)
             {
                 if (idx < grayFromIndex) grayFromIndex = idx;
             }
 
-            for (int i = 0; i < _designItems.Count; i++)
-            {
-                if (!_designItems[i]) continue;
-                _designItems[i].alpha = (i >= grayFromIndex) ? DesignItemDeactivatedAlpha : 1f;
-            }
-        }
-
-        /// <summary> 레벨 4 전용: 바로 이전 단계에서 확정한 재료가 "반복하기"(제어, 횟수 카드)였다면, 이번 단계는 반드시 "이동하기"(동작)여야 함. </summary>
-        internal bool IsRepeatFollowUpRequired()
-        {
-            if (_currentStepIndex <= 0 || _confirmedIngredients == null || _currentStepIndex - 1 >= _confirmedIngredients.Length) return false;
-            return string.Equals(_confirmedIngredients[_currentStepIndex - 1], Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal);
+            _designPanel.DimFrom(grayFromIndex);
         }
 
         /// <summary>
@@ -703,122 +670,17 @@ namespace DGAIZone.Game.UI
             return commands;
         }
 
-        /// <summary> 레벨 4 전용: 찍은 카드 분류(동작/제어)로 고를 재료 정의를 categoryIngredients에서 찾음. 없으면 null. </summary>
-        internal RfidStepDefinition FindCategoryIngredient(string category)
+        /// <summary> 현재 레벨·단계에서 받지 않는 카드가 인식됐을 때 경고 연출(경고 이미지 + 게임 패널 흔들기)을 보여 줌. </summary>
+        internal void ShowInvalidCardWarning()
         {
-            if (_categoryIngredients == null) return null;
-
-            foreach (RfidStepDefinition ingredient in _categoryIngredients)
+            if (_invalidCardWarning)
             {
-                if (ingredient != null && IsCategoryAllowedForStep(ingredient, category)) return ingredient;
+                _invalidCardWarning.Show();
             }
-
-            return null;
-        }
-
-        /// <summary> 해당 단계가 허용하는 category 목록에 주어진 category가 포함되는지 검사함. </summary>
-        private bool IsCategoryAllowedForStep(RfidStepDefinition step, string category)
-        {
-            if (step.categories == null || step.categories.Length == 0) return false;
-
-            for (int i = 0; i < step.categories.Length; i++)
+            else if (_logger != null)
             {
-                if (string.Equals(step.categories[i], category, StringComparison.Ordinal)) return true;
+                _logger.ZLogWarning($"[IngredientSelectionController] invalidCardWarning이 null이라 잘못된 카드 경고를 표시할 수 없음.");
             }
-            return false;
-        }
-
-        /// <summary> Image_Warning의 알파를 0으로 스냅해 시작 시 숨겨진 상태로 만듦. </summary>
-        private void InitializeWarningPanel()
-        {
-            if (!warningPanel)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] warningPanel이 null이라 경고 표시가 비활성화됨.");
-                return;
-            }
-
-            warningPanel.alpha = 0f;
-            warningPanel.interactable = false;
-            warningPanel.blocksRaycasts = false;
-        }
-
-        /// <summary>
-        /// 현재 레벨/스텝에서 허용되지 않는 카드가 인식됐을 때: Image_Warning을 페이드인하고, 게임 패널(GamePanel)을
-        /// 좌우로 3회 흔든 뒤, warningHoldDuration(초)만큼 더 붙잡아 보여주고 나서 Image_Warning을 페이드아웃해 숨김.
-        /// 연달아 잘못된 카드가 인식되면 진행 중이던 연출을 정지하고 처음부터 다시 시작함.
-        /// </summary>
-        internal async UniTaskVoid ShowInvalidCategoryWarningAsync()
-        {
-            if (!warningPanel)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] warningPanel이 null이라 잘못된 카드 경고를 표시할 수 없음.");
-                return;
-            }
-
-            // 이전 호출의 UniTask.Delay 등 진행 중이던 비동기 흐름을 확실히 취소함(_warningSequence.Kill()만으로는
-            // DOTween 트윈만 멈출 뿐, 이전 호출이 대기 중인 await까지 중단시키진 못해 레이스 컨디션이 발생할 수 있음).
-            _warningCts?.Cancel();
-            _warningCts?.Dispose();
-            CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
-            _warningCts = cts;
-            CancellationToken token = cts.Token;
-            float fadeDuration = _sceneSettings.warningFadeDuration;
-
-            try
-            {
-                _warningSequence?.Kill();
-                if (gamePanel) ((RectTransform)gamePanel.transform).anchoredPosition = Vector2.zero;
-
-                warningPanel.interactable = false;
-                warningPanel.blocksRaycasts = false;
-                await warningPanel.DOFade(1f, fadeDuration).SetUpdate(true)
-                    .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
-
-                await ShakeGamePanelAsync(token);
-
-                float holdDuration = _sceneSettings.warningHoldDuration;
-                await UniTask.Delay(TimeSpan.FromSeconds(holdDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
-
-                await warningPanel.DOFade(0f, fadeDuration).SetUpdate(true)
-                    .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
-            }
-            catch (OperationCanceledException) { }
-            finally
-            {
-                // 더 최신 경고 연출이 이미 시작되어 필드가 교체됐다면 그 CTS는 건드리지 않음
-                if (_warningCts == cts)
-                {
-                    _warningCts.Dispose();
-                    _warningCts = null;
-                }
-            }
-        }
-
-        /// <summary> GamePanel의 RectTransform을 좌우로 3회(왕복) 흔들고 원위치로 되돌림. </summary>
-        private UniTask ShakeGamePanelAsync(CancellationToken token)
-        {
-            if (!gamePanel)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] gamePanel이 null이라 흔들기 연출을 건너뜀.");
-                return UniTask.CompletedTask;
-            }
-
-            RectTransform target = (RectTransform)gamePanel.transform;
-            Vector2 originalPos = target.anchoredPosition;
-            float amount = _sceneSettings.warningShakeAmount;
-            float cycleDuration = _sceneSettings.warningShakeCycleDuration;
-            float half = cycleDuration / 2f;
-
-            _warningSequence?.Kill();
-            _warningSequence = DOTween.Sequence().SetUpdate(true);
-            for (int i = 0; i < 3; i++)
-            {
-                _warningSequence.Append(target.DOAnchorPos(originalPos + new Vector2(amount, 0f), half).SetEase(Ease.InOutSine));
-                _warningSequence.Append(target.DOAnchorPos(originalPos - new Vector2(amount, 0f), half).SetEase(Ease.InOutSine));
-            }
-            _warningSequence.Append(target.DOAnchorPos(originalPos, half).SetEase(Ease.InOutSine));
-
-            return _warningSequence.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
         /// <summary>
@@ -905,6 +767,7 @@ namespace DGAIZone.Game.UI
 
             // 다음 단계로 인덱스 증가
             _currentStepIndex++;
+            UpdateCodingCompleteButton();
 
             // 다음 단계가 남아있으면 그 단계의 카테고리 힌트를 다시 페이드로 안내하고, 없으면 힌트를 멈춤
             // (동작 확정으로 켜졌던 CodingCategories 강조도 여기서 함께 흑백으로 정리됨)
@@ -1006,62 +869,44 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 재료/물질을 "· 재료 [물질]" 형태의 Text로 만들어 디자인 컨테이너의 자식으로 추가함. 물질은 노란색으로 표시함.
+        /// 확정된 재료/물질을 레벨 상태가 정한 형식("· 재료 [물질]" 등)의 문구로 만들어 설계창에 한 줄 추가함. 물질은 노란색으로 표시함.
         /// 레벨 2는 모든 단계의 ingredientName이 "발사 코딩 순서"로 동일해 매번 반복 표시할 필요가 없고,
         /// ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 재료 이름 없이 "· [물질]" 형태로만 표시함.
         /// </summary>
         private void AddDesignItem(string ingredientName, string matterLabel)
         {
-            if (!designContent || !designItemPrefab)
+            if (!_designPanel)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designContent 또는 designItemPrefab이 null이라 확정 항목을 추가할 수 없음.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 확정 항목을 추가할 수 없음.");
                 return;
             }
 
-            if (_resolver == null)
-            {
-                if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] IObjectResolver가 주입되지 않아 확정 항목을 생성할 수 없음.");
-                return;
-            }
-
-            TextMeshProUGUI text = _resolver.Instantiate(designItemPrefab, designContent);
-            text.text = CurrentLevelState != null
+            string text = CurrentLevelState != null
                 ? CurrentLevelState.FormatDesignItemText(this, ingredientName, matterLabel)
                 : $" · {ingredientName} [<color=yellow>{ApplyNumberSizeTag(matterLabel)}</color>]";
-
-            _designItems.Add(text);
-            UpdateCodingCompleteButton();
+            _designPanel.AddItem(text);
         }
 
-        /// <summary>
-        /// 디자인 컨테이너에 마지막으로 추가된 확정 항목을 제거함.
-        /// </summary>
+        /// <summary> 설계창에 마지막으로 추가된 확정 항목을 지우고 코딩완료 버튼 상태를 갱신함. </summary>
         private void RemoveLastDesignItem()
         {
-            if (_designItems.Count == 0) return;
+            if (_designPanel) _designPanel.RemoveLastItem();
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 마지막 확정 항목을 지울 수 없음.");
 
-            int lastIndex = _designItems.Count - 1;
-            TMP_Text last = _designItems[lastIndex];
-            _designItems.RemoveAt(lastIndex);
-            if (last) Destroy(last.gameObject);
             UpdateCodingCompleteButton();
         }
 
-        /// <summary>
-        /// 디자인 컨테이너에 추가된 모든 확정 항목을 제거함.
-        /// </summary>
+        /// <summary> 설계창의 확정 항목을 모두 지우고 코딩완료 버튼 상태를 갱신함. </summary>
         private void ClearDesignItems()
         {
-            for (int i = 0; i < _designItems.Count; i++)
-            {
-                if (_designItems[i]) Destroy(_designItems[i].gameObject);
-            }
-            _designItems.Clear();
+            if (_designPanel) _designPanel.Clear();
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창을 비울 수 없음.");
+
             UpdateCodingCompleteButton();
         }
 
         /// <summary>
-        /// 디자인 컨테이너에 확정 항목이 필요한 만큼 채워졌을 때만 코딩완료 버튼을 활성화함.
+        /// 확정된 단계 수가 레벨 상태의 코딩 완료 조건(레벨 4는 1단계 이상, 나머지는 모든 단계)을 채웠을 때만 코딩완료 버튼을 활성화함.
         /// </summary>
         private void UpdateCodingCompleteButton()
         {
@@ -1071,7 +916,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            buttonCodingComplete.interactable = CurrentLevelState?.IsCodingCompleteInteractable(this, _designItems.Count, _totalSteps) ?? false;
+            buttonCodingComplete.interactable = CurrentLevelState?.IsCodingCompleteInteractable(this, _currentStepIndex, _totalSteps) ?? false;
         }
 
         /// <summary>
@@ -1186,36 +1031,35 @@ namespace DGAIZone.Game.UI
                 return false;
             }
 
-            int requiredCount = (_selectedLevel == 4) ? 1 : _totalSteps;
-            if (_designItems.Count < requiredCount)
+            IIngredientSelectionLevelState state = CurrentLevelState;
+            if (state == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정된 단계가 부족함 ({_designItems.Count}/{requiredCount}). 실패로 처리함.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 미션을 판정할 수 없음. 실패로 처리함.");
                 return false;
             }
 
-            return CurrentLevelState?.EvaluateMission(this) ?? false;
+            // 코딩완료 버튼을 켜는 조건(레벨 4는 1단계 이상, 나머지는 모든 단계)을 채우지 못했으면 실패로 처리함
+            if (!state.IsCodingCompleteInteractable(this, _currentStepIndex, _totalSteps))
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정된 단계({_currentStepIndex}/{_totalSteps})가 {_selectedLevel}레벨 코딩 완료 조건에 못 미침. 실패로 처리함.");
+                return false;
+            }
+
+            return state.EvaluateMission(this);
         }
 
-        /// <summary> 확정된 추진력을 미션보드 진행도(Image_Fill)에 반영함. </summary>
+        /// <summary> 확정된 추진력(레벨 1 외에는 0)을 미션보드 진행도(Image_Fill)에 반영함. </summary>
         private void ApplyProgressToMissionBoard()
         {
             if (_missionBoard)
             {
-                _missionBoard.SetProgress(CalculateTotalThrust());
+                _missionBoard.SetProgress(CurrentLevelState != null ? CurrentLevelState.CalculateConfirmedThrust(this) : 0);
             }
             else if (_logger != null)
             {
                 _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 null이라 진행도를 갱신할 수 없음.");
             }
         }
-
-        /// <summary>
-        /// 확정된 엔진 출력량 + 연료량 - 탑재 중량으로 총 추진력을 계산함.
-        /// </summary>
-        internal int CalculateTotalThrust() => CalculateThrust(_confirmedEngineValue, _confirmedFuelValue, _confirmedPayloadValue);
-
-        /// <summary> 엔진 출력량 + 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
-        internal static int CalculateThrust(int engine, int fuel, int payload) => engine + fuel - payload;
 
         /// <summary>
         /// 확정된 역할(엔진/연료/탑재)별 값에, 현재 조절 중인 임시 선택값을 대입해 미리보기용 추진력을 계산함.
@@ -1225,45 +1069,12 @@ namespace DGAIZone.Game.UI
             return CurrentLevelState?.CalculatePreviewThrust(this) ?? 0;
         }
 
-        /// <summary>
-        /// 레벨 1 전용: 임시 선택값을 반영한 미리보기 추진력을 계산함.
-        /// </summary>
-        internal int CalculateLevel1PreviewThrust()
-        {
-            int engine = _confirmedEngineValue;
-            int fuel = _confirmedFuelValue;
-            int payload = _confirmedPayloadValue;
-
-            RfidMatter selected = CurrentSelectedMatter();
-            if (!string.IsNullOrEmpty(_currentIngredientId) && selected != null)
-            {
-                int tempValue = selected.value;
-                if (string.Equals(_currentIngredientId, Constants.RfidIds.Level1.Engine, StringComparison.Ordinal)) engine = tempValue;
-                else if (string.Equals(_currentIngredientId, Constants.RfidIds.Level1.Fuel, StringComparison.Ordinal)) fuel = tempValue;
-                else if (string.Equals(_currentIngredientId, Constants.RfidIds.Level1.Payload, StringComparison.Ordinal)) payload = tempValue;
-            }
-
-            return CalculateThrust(engine, fuel, payload);
-        }
-
         /// <summary> 현재 좌우 버튼으로 선택 중인 물질을 반환함. 선택된 것이 없으면 null. </summary>
         internal RfidMatter CurrentSelectedMatter()
         {
             RfidMatter[] matters = _currentMatters.Value;
             int idx = _currentMatterIndex.Value;
             return (matters != null && idx >= 0 && idx < matters.Length) ? matters[idx] : null;
-        }
-
-        /// <summary>
-        /// 확정된 값을 재료 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌리는 데도 사용됨.
-        /// 값은 RfidMappings.json 물질의 value(항상 양수 크기)이며, 탑재 중량의 빼기는 계산식이 담당함.
-        /// </summary>
-        internal void ApplyConfirmedValue(string ingredientId, int value)
-        {
-            if (string.Equals(ingredientId, Constants.RfidIds.Level1.Engine, StringComparison.Ordinal)) _confirmedEngineValue = value;
-            else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Fuel, StringComparison.Ordinal)) _confirmedFuelValue = value;
-            else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Payload, StringComparison.Ordinal)) _confirmedPayloadValue = value;
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 알 수 없는 재료 역할 '{ingredientId}'. 추진력 계산식에 값이 반영되지 않음.");
         }
 
         /// <summary>
@@ -1379,86 +1190,31 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// Text_Matter 또는 Text_Material에 값이 있는지(RFID 태그/디버그 키로 재료가 선택된 상태인지)에 따라
-        /// Image_RightArrow의 반복 펄스 애니메이션을 시작하거나 멈춤.
+        /// 오른쪽 화살표 안내 연출을 시작하거나 멈춤.
         /// </summary>
         private void UpdateRightArrowAnimation()
         {
-            if (rightArrowImages == null || rightArrowImages.Length == 0)
+            if (!_rightArrowHint)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] rightArrowImages가 비어 있어 화살표 안내 연출을 건너뜀.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] rightArrowHint가 null이라 화살표 안내 연출을 건너뜀.");
                 return;
             }
 
             bool hasValue = (textMatter && !string.IsNullOrEmpty(textMatter.text))
                           || (textIngredient && !string.IsNullOrEmpty(textIngredient.text));
 
-            if (hasValue) StartRightArrowLoop();
-            else ResetRightArrow();
+            if (hasValue) _rightArrowHint.Play();
+            else _rightArrowHint.Stop();
         }
 
-        /// <summary>
-        /// Image_Arrow1..5를 순서대로 알파 0->1로 페이드인한 뒤(하나씩 차례로 켜짐), 다 켜진 상태로
-        /// rightArrowHoldDuration(초)만큼 붙잡아 보여주고, 다섯 개를 동시에 페이드아웃함. 페이드아웃이 끝난 뒤에도
-        /// 바로 다음 루프를 시작하지 않고 다시 rightArrowHoldDuration(초)만큼 대기했다가 반복함. 이미 재생 중이면 무시함.
-        /// </summary>
-        private void StartRightArrowLoop()
-        {
-            if (_rightArrowSequence != null && _rightArrowSequence.IsActive()) return;
+        /// <summary> 테스트 전용: 인스펙터로 연결하는 레벨 4 보드를 넣음. </summary>
+        internal void SetLevel4BoardForTest(Level4BoardController board) => level4Board = board;
 
-            float stepDuration = _sceneSettings.rightArrowStepFadeDuration;
-            float fadeOutDuration = _sceneSettings.rightArrowFadeOutDuration;
-            float holdDuration = _sceneSettings.rightArrowHoldDuration;
+        /// <summary> 테스트 전용: 인스펙터로 연결하는 레벨 2 진행바 이미지를 넣음. </summary>
+        internal void SetLevel2FillImageForTest(Image fillImage) => level2FillImage = fillImage;
 
-            if (_rightArrowCanvasGroups == null || _rightArrowCanvasGroups.Length == 0) InitCanvasGroups();
-            if (_rightArrowCanvasGroups == null || _rightArrowCanvasGroups.Length == 0) return;
-
-            for (int i = 0; i < _rightArrowCanvasGroups.Length; i++)
-            {
-                if (_rightArrowCanvasGroups[i]) _rightArrowCanvasGroups[i].alpha = 0f;
-            }
-
-            _rightArrowSequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject);
-            for (int i = 0; i < _rightArrowCanvasGroups.Length; i++)
-            {
-                if (_rightArrowCanvasGroups[i])
-                {
-                    _rightArrowSequence.Append(_rightArrowCanvasGroups[i].DOFade(1f, stepDuration));
-                }
-            }
-
-            _rightArrowSequence.AppendInterval(holdDuration);
-
-            if (_rightArrowCanvasGroups.Length > 0 && _rightArrowCanvasGroups[0])
-            {
-                _rightArrowSequence.Append(_rightArrowCanvasGroups[0].DOFade(0f, fadeOutDuration));
-                for (int i = 1; i < _rightArrowCanvasGroups.Length; i++)
-                {
-                    if (_rightArrowCanvasGroups[i])
-                    {
-                        _rightArrowSequence.Join(_rightArrowCanvasGroups[i].DOFade(0f, fadeOutDuration));
-                    }
-                }
-            }
-
-            _rightArrowSequence.AppendInterval(holdDuration);
-
-            _rightArrowSequence.SetLoops(-1);
-        }
-
-        /// <summary>
-        /// 반복 애니메이션을 멈추고 Image_Arrow1..5를 전부 알파 0의 시작 상태로 되돌림.
-        /// </summary>
-        private void ResetRightArrow()
-        {
-            _rightArrowSequence?.Kill();
-            _rightArrowSequence = null;
-
-            if (_rightArrowCanvasGroups == null) return;
-            for (int i = 0; i < _rightArrowCanvasGroups.Length; i++)
-            {
-                if (_rightArrowCanvasGroups[i]) _rightArrowCanvasGroups[i].alpha = 0f;
-            }
-        }
+        /// <summary> 테스트 전용: 단계별로 확정된 블록 목록을 넣음. </summary>
+        internal void SetConfirmedMattersForTest(RfidMatter[] matters) => _confirmedMatters = matters;
 
         /// <summary>
         /// 오브젝트 파괴 시 이벤트 구독 해제 및 리스너 정리.
@@ -1477,11 +1233,6 @@ namespace DGAIZone.Game.UI
             _currentIngredient?.Dispose();
             _currentMatters?.Dispose();
             _currentMatterIndex?.Dispose();
-
-            _rightArrowSequence?.Kill();
-            _warningSequence?.Kill();
-            _warningCts?.Cancel();
-            _warningCts?.Dispose();
         }
     }
 }

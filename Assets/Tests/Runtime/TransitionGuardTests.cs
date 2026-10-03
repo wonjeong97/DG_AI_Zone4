@@ -1,4 +1,3 @@
-using System.Reflection;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Intro;
@@ -39,10 +38,7 @@ namespace DGAIZone.Tests
         public void SceneTransitionService_전환중일때_추가요청은_즉시무시된다()
         {
             SceneTransitionService service = new SceneTransitionService(null, null);
-
-            FieldInfo field = typeof(SceneTransitionService).GetField("_isTransitioning", BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.IsNotNull(field, "_isTransitioning 필드를 찾을 수 없음.");
-            field.SetValue(service, true);
+            service.SetTransitioningForTest(true);
 
             // 이미 전환 중일 때 유효하지 않은 씬 이름으로 호출해도 씬 로드를 시도하지 않고 즉시 완료되어야 함
             UniTask task = service.LoadSceneWithFadeAsync("NonExistentScene_GuardCheck");
@@ -58,11 +54,15 @@ namespace DGAIZone.Tests
         [Test]
         public void IntroFlowController_IsBusy상태일때_클릭요청은_무시된다()
         {
-            FieldInfo busyField = typeof(IntroFlowController).GetField("_isBusy", BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.IsNotNull(busyField, "_isBusy 필드를 찾을 수 없음.");
-            busyField.SetValue(_introController, true);
+            // 첫 클릭으로 전환을 시작해 IsBusy 상태로 만듦(서비스는 전환 중이라 실제 씬을 로드하지 않음)
+            SceneTransitionService service = new SceneTransitionService(null, null);
+            service.SetTransitioningForTest(true);
+            _introController.Construct(service, null, null, null);
+            _introController.OnUnderstandClicked();
+            Assert.IsTrue(_introController.IsBusy);
 
-            // _sceneTransition이 null이더라도 _isBusy가 true이면 null 검사 이전에 즉시 리턴되므로 에러가 발생하지 않음
+            // 전환 서비스를 빼도 IsBusy이면 null 검사 이전에 즉시 리턴되므로 에러가 발생하지 않음
+            _introController.Construct(null, null, null, null);
             Assert.DoesNotThrow(() => _introController.OnUnderstandClicked());
             Assert.IsTrue(_introController.IsBusy);
         }
@@ -72,8 +72,7 @@ namespace DGAIZone.Tests
         {
             SceneTransitionService service = new SceneTransitionService(null, null);
             // transition 중으로 미리 만들어두어 LoadSceneWithFadeAsync 내부에서 실제 씬 로드를 실행하지 않도록 설정
-            FieldInfo transitionField = typeof(SceneTransitionService).GetField("_isTransitioning", BindingFlags.NonPublic | BindingFlags.Instance);
-            transitionField.SetValue(service, true);
+            service.SetTransitioningForTest(true);
 
             _introController.Construct(service, null, null, null);
             _introController.OnUnderstandClicked();

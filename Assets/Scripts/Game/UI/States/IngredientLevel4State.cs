@@ -35,13 +35,13 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 직전 단계가 '반복하기'인 경우 '동작' 카드만 허용하며 위반 시 경고 연출을 표시함. </summary>
         public bool ValidateTagCategory(IngredientSelectionController controller, RfidTagEvent evt)
         {
-            if (controller.IsRepeatFollowUpRequired() && !string.Equals(evt.Category, Constants.RfidCategories.Action, StringComparison.Ordinal))
+            if (IsRepeatFollowUpRequired(controller) && !string.Equals(evt.Category, Constants.RfidCategories.Action, StringComparison.Ordinal))
             {
                 if (controller.Logger != null)
                 {
                     controller.Logger.ZLogInformation($"[IngredientSelectionController] 이전 단계가 '반복하기'라 {controller.CurrentStepIndex + 1}번째 단계는 '동작' 카드만 허용되는데 '{evt.Category}' 카드가 인식되어 {evt.ReaderId} 태그를 무시함.");
                 }
-                controller.ShowInvalidCategoryWarningAsync().Forget();
+                controller.ShowInvalidCardWarning();
                 return false;
             }
 
@@ -51,13 +51,36 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 직전 단계가 '반복하기'이면 '동작'만, 아니면 단계 정의 카테고리를 안내함. </summary>
         public string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step)
         {
-            return controller.IsRepeatFollowUpRequired() ? Level4RepeatFollowUpCategories : step.categories;
+            return IsRepeatFollowUpRequired(controller) ? Level4RepeatFollowUpCategories : step.categories;
+        }
+
+        /// <summary> 바로 이전 단계에서 확정한 재료가 "반복하기"(제어, 횟수 카드)였다면, 이번 단계는 반드시 "이동하기"(동작)여야 함. </summary>
+        private static bool IsRepeatFollowUpRequired(IngredientSelectionController controller)
+        {
+            int previousIndex = controller.CurrentStepIndex - 1;
+            string[] confirmed = controller.ConfirmedIngredients;
+            if (previousIndex < 0 || confirmed == null || previousIndex >= confirmed.Length) return false;
+            return string.Equals(confirmed[previousIndex], Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal);
+        }
+
+        /// <summary> 찍은 카드 분류(동작/제어)로 고를 재료 정의를 categoryIngredients에서 찾음. 없으면 null. </summary>
+        private static RfidStepDefinition FindCategoryIngredient(IngredientSelectionController controller, string category)
+        {
+            RfidStepDefinition[] ingredients = controller.CategoryIngredients;
+            if (ingredients == null) return null;
+
+            foreach (RfidStepDefinition ingredient in ingredients)
+            {
+                if (ingredient != null && ingredient.AllowsCategory(category)) return ingredient;
+            }
+
+            return null;
         }
 
         /// <summary> 스캔된 카드의 카테고리(동작/제어)에 맞는 재료(이동하기/반복하기)를 RfidMappings.json의 categoryIngredients에서 찾음. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
         {
-            return controller.FindCategoryIngredient(category);
+            return FindCategoryIngredient(controller, category);
         }
 
         /// <summary> 레벨 4는 동일한 동작을 여러 번 사용할 수 있으므로 중복 제외를 적용하지 않음. </summary>
@@ -120,8 +143,8 @@ namespace DGAIZone.Game.UI.States
                 return solution;
             }
 
-            RfidStepDefinition move = controller.FindCategoryIngredient(Constants.RfidCategories.Action);
-            RfidStepDefinition repeat = controller.FindCategoryIngredient(Constants.RfidCategories.Control);
+            RfidStepDefinition move = FindCategoryIngredient(controller, Constants.RfidCategories.Action);
+            RfidStepDefinition repeat = FindCategoryIngredient(controller, Constants.RfidCategories.Control);
             RfidMatter[] moveMatters = move != null ? controller.LevelMapping.FindMatters(move.matterSetId) : null;
             RfidMatter[] repeatMatters = repeat != null ? controller.LevelMapping.FindMatters(repeat.matterSetId) : null;
 
@@ -154,6 +177,12 @@ namespace DGAIZone.Game.UI.States
 
         /// <summary> 레벨 4는 추진력 계산식을 사용하지 않음. </summary>
         public int CalculatePreviewThrust(IngredientSelectionController controller)
+        {
+            return 0;
+        }
+
+        /// <summary> 레벨 4는 추진력 계산식을 사용하지 않음. </summary>
+        public int CalculateConfirmedThrust(IngredientSelectionController controller)
         {
             return 0;
         }

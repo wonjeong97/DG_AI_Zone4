@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
@@ -128,10 +127,10 @@ namespace DGAIZone.Tests
             l1.OnStepConfirmed(_controller, 1, Constants.RfidIds.Level1.Payload, new RfidMatter { id = "Satellite", label = "괄호 없는 이름", value = 3 });
             l1.OnStepConfirmed(_controller, 2, Constants.RfidIds.Level1.Fuel, new RfidMatter { id = "Fuel4", label = "넷", value = 4 });
 
-            Assert.AreEqual(5 + 4 - 3, _controller.CalculateTotalThrust(), "엔진 출력량 + 연료량 - 탑재 중량이 value 기준으로 계산되어야 함");
+            Assert.AreEqual(5 + 4 - 3, l1.CalculateConfirmedThrust(_controller), "엔진 출력량 + 연료량 - 탑재 중량이 value 기준으로 계산되어야 함");
 
             l1.OnStepRolledBack(_controller, 2, Constants.RfidIds.Level1.Fuel, null);
-            Assert.AreEqual(5 + 0 - 3, _controller.CalculateTotalThrust(), "연료 단계를 되돌리면 연료량이 0으로 돌아가야 함");
+            Assert.AreEqual(5 + 0 - 3, l1.CalculateConfirmedThrust(_controller), "연료 단계를 되돌리면 연료량이 0으로 돌아가야 함");
         }
 
         /// <summary>
@@ -214,7 +213,7 @@ namespace DGAIZone.Tests
             try
             {
                 Image fill = fillGo.AddComponent<Image>();
-                typeof(IngredientSelectionController).GetField("level2FillImage", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(_controller, fill);
+                _controller.SetLevel2FillImageForTest(fill);
                 RfidMatter matter = new RfidMatter { id = Constants.RfidIds.Level2.Ignite };
 
                 for (int step = 0; step < 3; step++) l2.OnStepConfirmed(_controller, step, "LaunchSequence", matter);
@@ -236,7 +235,7 @@ namespace DGAIZone.Tests
         {
             MissionBoardController board = _go.AddComponent<MissionBoardController>();
             board.SetLevel3LimitsForTest(maxElectricity, minOxygen);
-            typeof(IngredientSelectionController).GetField("_missionBoard", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(_controller, board);
+            _controller.Construct(null, null, null, null, board, null, null, null, null, null, null);
         }
 
         /// <summary>

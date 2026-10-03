@@ -1,12 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.UI;
 using DGAIZone.Game.UI.States;
-using HuliacDev.Core;
 using HuliacDev.Utils;
 using NUnit.Framework;
 using UnityEngine;
@@ -19,8 +17,6 @@ namespace DGAIZone.Tests
     /// </summary>
     public class SolutionDesignTests
     {
-        private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
-
         private GameObject _go;
         private IngredientSelectionController _controller;
         private RfidSettings _settings;
@@ -45,24 +41,21 @@ namespace DGAIZone.Tests
         {
             RfidLevelMapping mapping = _settings.FindLevelMapping(level);
             Assert.IsNotNull(mapping, $"레벨 {level} 정의가 없음");
-            SetField("_levelMapping", mapping);
-            SetField("_stepDefinitions", mapping.steps);
-            SetField("_categoryIngredients", mapping.categoryIngredients);
+            _controller.ApplyLevelMapping(mapping);
         }
 
         /// <summary> 컨트롤러에 미션 보드를 붙여 넣고 반환함. </summary>
         private MissionBoardController UseMissionBoard()
         {
             MissionBoardController board = _go.AddComponent<MissionBoardController>();
-            SetField("_missionBoard", board);
+            InjectDependencies(board, null);
             return board;
         }
 
-        private void SetField(string name, object value)
+        /// <summary> 테스트에 필요한 의존성(미션 보드, 결과 저장소)만 컨트롤러에 주입하고 나머지는 비워 둠. </summary>
+        private void InjectDependencies(MissionBoardController board, GameResultStore resultStore)
         {
-            FieldInfo field = typeof(IngredientSelectionController).GetField(name, PrivateInstance);
-            Assert.IsNotNull(field, $"IngredientSelectionController에 {name} 필드가 없음");
-            field.SetValue(_controller, value);
+            _controller.Construct(null, null, null, null, board, null, resultStore, null, null, null, null);
         }
 
         /// <summary> 실제 LevelData 에셋(Assets/Data/LevelN.asset)을 읽음. 에셋 경로로 읽으므로 에디터에서만 실행됨. </summary>
@@ -153,7 +146,7 @@ namespace DGAIZone.Tests
             };
             CollectionAssert.AreEqual(expected, solution.Select(s => s.matter.id), "레벨 2 정답은 올바른 발사 순서여야 함");
 
-            SetField("_confirmedMatters", solution.Select(s => s.matter).ToArray());
+            _controller.SetConfirmedMattersForTest(solution.Select(s => s.matter).ToArray());
             Assert.IsTrue(state.EvaluateMission(_controller), "레벨 2 정답을 확정했는데 실패 판정이 남");
         }
 
@@ -185,7 +178,7 @@ namespace DGAIZone.Tests
         {
             UseLevelMapping(4);
             Level4BoardController board = _go.AddComponent<Level4BoardController>();
-            SetField("level4Board", board);
+            _controller.SetLevel4BoardForTest(board);
             IngredientLevel4State state = new IngredientLevel4State();
 
             IReadOnlyList<Level4Layout> pool = Level4Rules.PlacementPool;
@@ -216,10 +209,9 @@ namespace DGAIZone.Tests
         {
             UseLevelMapping(2);
             GameResultStore store = new GameResultStore();
-            SetField("_resultStore", store);
-            StateMachine<IngredientSelectionController> stateMachine = (StateMachine<IngredientSelectionController>)typeof(IngredientSelectionController).GetField("_stateMachine", PrivateInstance).GetValue(_controller);
-            IngredientLevel2State level2State = (IngredientLevel2State)typeof(IngredientSelectionController).GetField("_level2State", PrivateInstance).GetValue(_controller);
-            stateMachine.ChangeState(level2State);
+            InjectDependencies(null, store);
+            _controller.ChangeLevelState(2);
+            IngredientLevel2State level2State = (IngredientLevel2State)_controller.CurrentLevelState;
 
             _controller.StoreSolutionDesign();
 

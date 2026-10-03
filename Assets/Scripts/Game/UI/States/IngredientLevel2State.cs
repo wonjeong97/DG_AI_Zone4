@@ -187,6 +187,12 @@ namespace DGAIZone.Game.UI.States
             return 0;
         }
 
+        /// <summary> 추진력 계산식을 쓰지 않으므로 0. </summary>
+        public int CalculateConfirmedThrust(IngredientSelectionController controller)
+        {
+            return 0;
+        }
+
         /// <summary> 레벨 2는 추가 시뮬레이션 연출이 없음. </summary>
         public UniTask PlayCompletionSimulationAsync(IngredientSelectionController controller, CancellationToken token)
         {

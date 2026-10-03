@@ -722,6 +722,7 @@ GameObject:
   - component: {fileID: 128903837}
   - component: {fileID: 128903836}
   - component: {fileID: 128903838}
+  - component: {fileID: 128903839}
   m_Layer: 5
   m_Name: Image_Warning
   m_TagString: Untagged
@@ -799,6 +800,19 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &128903839
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128903834}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71ca50f6814047b4a976b8d813b40df4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shakeTarget: {fileID: 1256388730}
 --- !u!1 &212438984
 GameObject:
   m_ObjectHideFlags: 0
@@ -7258,6 +7272,7 @@ GameObject:
   - component: {fileID: 1213281920}
   - component: {fileID: 1213281922}
   - component: {fileID: 1213281921}
+  - component: {fileID: 1213281923}
   m_Layer: 5
   m_Name: Image_DesignWindow
   m_TagString: Untagged
@@ -7324,6 +7339,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1213281919}
   m_CullTransparentMesh: 1
+--- !u!114 &1213281923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1213281919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7754478ccdf3f00478b158787babaeee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  content: {fileID: 1227668177}
+  itemPrefab: {fileID: 765294952010347218, guid: 07505312dc285b64ebeea653bab4acc8,
+    type: 3}
 --- !u!1 &1218452683
 GameObject:
   m_ObjectHideFlags: 0
@@ -8217,6 +8247,7 @@ GameObject:
   - component: {fileID: 1330324431}
   - component: {fileID: 1330324433}
   - component: {fileID: 1330324434}
+  - component: {fileID: 1330324435}
   m_Layer: 5
   m_Name: Arrows
   m_TagString: Untagged
@@ -8279,6 +8310,24 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &1330324435
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1330324430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf79b554888f4ee4b97546ae50e4d14e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  arrowImages:
+  - {fileID: 1059820569}
+  - {fileID: 22117196}
+  - {fileID: 1594517304}
+  - {fileID: 1452768775}
+  - {fileID: 1754979278}
 --- !u!1 &1344057756
 GameObject:
   m_ObjectHideFlags: 0
@@ -10062,19 +10111,10 @@ MonoBehaviour:
   textMatter: {fileID: 216926069}
   buttonLeft: {fileID: 1033277504}
   buttonRight: {fileID: 1262166067}
-  rightArrowImages:
-  - {fileID: 1059820569}
-  - {fileID: 22117196}
-  - {fileID: 1594517304}
-  - {fileID: 1452768775}
-  - {fileID: 1754979278}
   buttonConfirm: {fileID: 1709456944}
   buttonCancel: {fileID: 1499980683}
   buttonCodingComplete: {fileID: 1031142014}
   buttonSkip: {fileID: 1515302615}
-  designContent: {fileID: 1227668177}
-  designItemPrefab: {fileID: 765294952010347218, guid: 07505312dc285b64ebeea653bab4acc8,
-    type: 3}
   stepBallImages:
   - {fileID: 761690815}
   - {fileID: 86762543}
@@ -10089,7 +10129,6 @@ MonoBehaviour:
   level3OxygenIcon: {fileID: 1369439384}
   level3ElectricIcon: {fileID: 514350088}
   gamePanel: {fileID: 1256388731}
-  warningPanel: {fileID: 128903838}
   level4Board: {fileID: 107690805}
 --- !u!1 &1672364096
 GameObject:

@@ -46,6 +46,9 @@ namespace DGAIZone.Game.UI.States
         /// </summary>
         List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller);
 
+        /// <summary> 확정된 값으로 계산한 추진력(레벨 1 전용, 다른 레벨은 0). 미션 보드 진행도에 쓰임. </summary>
+        int CalculateConfirmedThrust(IngredientSelectionController controller);
+
         /// <summary> 임시 선택값을 반영한 추진력 미리보기 계산(레벨 1 전용). </summary>
         int CalculatePreviewThrust(IngredientSelectionController controller);
 
