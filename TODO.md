@@ -6,12 +6,18 @@
 
 ## 진행 중
 
+- [ ] T18 T16 반영 2: Level4BoardController 규칙/연출 분리, 이동 방향·판정 규칙 중복 제거, 배치 풀 캐시, 그리기 순서 할당 제거(완료 기준: 판정·배치 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity
+
 ## 할 일
+
+- [ ] T19 T16 반영 3: IngredientSelectionController 분할(화살표 힌트·경고 연출·설계창 분리, 레벨 1 값·레벨 4 분기 상태로 이동), 테스트 리플렉션 정리(완료 기준: 씬 참조 재연결, PlayMode 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity
 
 ## 완료
 
 - [x] 프로젝트 설정 정리: Player Settings Version을 수정일 26.10.1로 — 담당: Claude / 검증: Antigravity (2026-10-01)
 - [x] UI 전용 프로젝트 렌더링 경량화: Quality 기본을 Performant로, Graphics 기본 RP를 URP-Performant로, 빌드 씬 카메라 후처리 끔 — 담당: Claude / 검증: Antigravity (2026-10-01)
+- [x] T17 T16 반영 1: 로봇 영상 준비 실패 처리, 디버그 입력 에디터·개발 빌드 한정, 마지막 레벨 상수 통합, 작은 규칙 위반, 설정 폴백 이중 정의 제거(HANDOFF.md 참고) — 담당: Claude, Antigravity (2026-10-01)
+- [x] T16 프로젝트 전체 점검: 스킬 준수 여부, 버그 가능성, 최적화·리팩터링 후보 정리(코드 변경 없음, HANDOFF.md 참고) — 담당: Claude, Antigravity (2026-10-01)
 - [x] T14(PR #34) 교차 리뷰: Claude 자체 리뷰 + Antigravity 코드·설계 리뷰 — 결과 연출 중 비활동 타이머 정지, 영상 준비 실패 시 무한 대기 방지 반영(HANDOFF.md 참고) — 담당: Claude, Antigravity (2026-10-01)
 - [x] 결과 화면 AI 연출: 결과 영상 후 "AI가 코딩중입니다..." → 우측 상단 AI 패널(이번 판 정답 설계창 → 성공 영상) → 컴플리트 패널 — 담당: Claude (2026-10-01)
 - [x] 결과 화면 Text_MissionComplete를 미션 결과에 따라 "미션 완료!"/"미션 실패!"로 표시 — 담당: Claude (2026-10-01)

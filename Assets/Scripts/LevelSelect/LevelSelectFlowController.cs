@@ -39,14 +39,6 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private Sprite[] themeBackgroundSprites; // Level1..5 순서. 레벨 1·2는 같은 스프라이트(Background_1)를 지정하면 됨
         [Header("Debug (Editor Testing)")]
         [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
-        private readonly int unlockedLevelCount = 1; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(앞에서부터 열린 레벨 수, JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float panelFadeDuration = 0.4f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float selectedLevelButtonMoveDuration = 1.0f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float selectedLevelButtonMoveOvershoot = 1.3f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float themeBackgroundFadeDuration = 0.6f; // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly Vector2 selectedLevelButtonTargetPosition = new(85f, -181f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly Vector2 selectedLevelButtonTargetSize = new(450f, 229f); // 2_LevelSelect.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private static readonly ProfilerMarker WarmUpThemeBackgroundMarker = new ProfilerMarker("LevelSelectFlowController.WarmUpThemeBackgroundSprites");
 
@@ -60,9 +52,9 @@ namespace DGAIZone.LevelSelect
         private bool _isBusy;
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
 
-        // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private LevelSelectSceneSettings _sceneSettings;
-        private CommonSettings _commonSettings;
+        // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머를 할당함. </summary>
         [Inject]
@@ -155,9 +147,9 @@ namespace DGAIZone.LevelSelect
                 button.onClick.AddListener(() => OnLevelClicked(index));
             }
 
-            // 폴백 unlockedLevelCount로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
+            // 기본값(설정 클래스 초기값)으로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
             // 로드가 끝나면 실제 값으로 다시 적용함 (debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
-            ApplyLevelButtonLocks(ResolveUnlockedCount(unlockedLevelCount));
+            ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
@@ -170,7 +162,7 @@ namespace DGAIZone.LevelSelect
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings?.unlockedLevelCount ?? unlockedLevelCount));
+            ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
         }
 
         /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
@@ -212,7 +204,7 @@ namespace DGAIZone.LevelSelect
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
         /// <summary> 버튼의 잠금 여부에 따라 상호작용 가능 상태와 흑백 머티리얼을 적용함. </summary>
@@ -339,7 +331,7 @@ namespace DGAIZone.LevelSelect
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
-            float duration = _sceneSettings?.panelFadeDuration ?? panelFadeDuration;
+            float duration = _sceneSettings.panelFadeDuration;
             try
             {
                 if (levelSelectPanel && levelSelectPanel.gameObject.activeInHierarchy)
@@ -355,10 +347,10 @@ namespace DGAIZone.LevelSelect
                     // MoveDuration/MoveOvershoot)으로 재빌드 없이 조정 가능. 페이드와 동시에 진행되어야 하므로 의도적으로 await하지 않는다.
                     if (selectedButtonRect)
                     {
-                        Vector2 targetPos = _sceneSettings?.selectedLevelButtonTargetPosition ?? selectedLevelButtonTargetPosition;
-                        Vector2 targetSize = _sceneSettings?.selectedLevelButtonTargetSize ?? selectedLevelButtonTargetSize;
-                        float moveDuration = _sceneSettings?.selectedLevelButtonMoveDuration ?? selectedLevelButtonMoveDuration;
-                        float overshoot = _sceneSettings?.selectedLevelButtonMoveOvershoot ?? selectedLevelButtonMoveOvershoot;
+                        Vector2 targetPos = _sceneSettings.selectedLevelButtonTargetPosition;
+                        Vector2 targetSize = _sceneSettings.selectedLevelButtonTargetSize;
+                        float moveDuration = _sceneSettings.selectedLevelButtonMoveDuration;
+                        float overshoot = _sceneSettings.selectedLevelButtonMoveOvershoot;
 
                         _ = selectedButtonRect.DOAnchorPos(targetPos, moveDuration)
                             .SetEase(Ease.OutBack, overshoot)
@@ -387,9 +379,9 @@ namespace DGAIZone.LevelSelect
                 }
 
                 await StoryLineAnimator.AnimateAsync(storyText,
-                    _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
-                    _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
-                    _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
+                    _commonSettings.storyLineMoveDuration,
+                    _commonSettings.storyLineInterval,
+                    _commonSettings.storyLineYOffset,
                     IsSkipRequested, token, _inactivityTimer);
 
                 if (startButton) startButton.interactable = true;
@@ -471,7 +463,7 @@ namespace DGAIZone.LevelSelect
             if (_themeBackgroundCanvasGroup)
             {
                 _themeBackgroundCanvasGroup.alpha = 0f;
-                float duration = _sceneSettings?.themeBackgroundFadeDuration ?? themeBackgroundFadeDuration;
+                float duration = _sceneSettings.themeBackgroundFadeDuration;
                 _ = _themeBackgroundCanvasGroup.DOFade(1f, duration)
                     .SetEase(Ease.Linear)
                     .SetUpdate(true)

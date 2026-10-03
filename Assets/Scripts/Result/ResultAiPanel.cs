@@ -87,9 +87,9 @@ namespace DGAIZone.Result
 
             CommonSettings common = await CommonSettingsProvider.GetAsync(token);
             await StoryLineAnimator.AnimateAsync(designText,
-                common?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
-                common?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
-                common?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
+                common.storyLineMoveDuration,
+                common.storyLineInterval,
+                common.storyLineYOffset,
                 null, token);
 
             await UniTask.Delay(TimeSpan.FromSeconds(designHoldDuration), cancellationToken: token);

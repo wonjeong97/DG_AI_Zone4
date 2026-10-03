@@ -36,20 +36,17 @@ namespace DGAIZone.Game.UI
         private const int Columns = 4;
         private const int MaxCommands = Constants.Level4Board.MaxCards; // 플레이어가 입력 가능한 카드 최대 개수. 반복하기 없이는 이 장수 안에 못 푸는 배치만 고르는 기준으로 씀.
         private const int RequiredRepeatCount = Constants.Level4Board.RequiredRepeatCount; // 배치가 전제로 하는 반복하기 횟수
-        private const float DefaultMoveDuration = 0.35f; // 3_Game.json 로드 전까지의 폴백 기본값(한 칸 이동에 걸리는 시간, 초)
-        private const float DefaultStepPauseDuration = 0.35f; // 3_Game.json 로드 전까지의 폴백 기본값(한 칸 이동 완료 후 다음 이동 전 대기 시간, 초)
         private const float DebugMarkerHeight = 28f; // CellMarkers 디버그 라벨(TMP, sizeDelta 80x28, pivot 0.5,0.5)의 높이. 아이콘 정렬 기준점(라벨의 중앙 하단) 계산에 씀.
         private const bool StartFacingLeft = false; // 로봇 기본 이미지는 왼쪽을 보고 있으나, 시작 시에는 오른쪽을 보도록 함
         private const float GridWidth = 742f; // Image_Grid(Grid.png) sizeDelta.x
         private const float GridHeight = 234f; // Image_Grid(Grid.png) sizeDelta.y
-        private const float DefaultCollisionScaleDuration = 0.25f; // 3_Game.json 로드 전까지의 폴백 기본값(자원 흡수/로봇 소멸 스케일 연출 시간, 초)
         private const float OutOfBoundsPeekFraction = 0.5f; // 그리드 밖으로 나갈 때, 나가려던 방향으로 한 칸의 이 비율만큼만 더 이동하며 사라짐
 
-        // 3_Game.json(GameSceneSettings) 튜닝 값 — 로드 완료 전까지는 null이며 위 Default 상수를 그대로 씀.
-        private GameSceneSettings _sceneSettings;
-        private float MoveDuration => _sceneSettings?.level4MoveDuration ?? DefaultMoveDuration;
-        private float StepPauseDuration => _sceneSettings?.level4StepPauseDuration ?? DefaultStepPauseDuration;
-        private float CollisionScaleDuration => _sceneSettings?.level4CollisionScaleDuration ?? DefaultCollisionScaleDuration;
+        // 3_Game.json(GameSceneSettings) 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private GameSceneSettings _sceneSettings = new GameSceneSettings();
+        private float MoveDuration => _sceneSettings.level4MoveDuration;
+        private float StepPauseDuration => _sceneSettings.level4StepPauseDuration;
+        private float CollisionScaleDuration => _sceneSettings.level4CollisionScaleDuration;
 
         private const string MoveIngredientId = Constants.RfidIds.Level4.Move;
         private const string RepeatIngredientId = Constants.RfidIds.Level4.Repeat;
@@ -122,10 +119,16 @@ namespace DGAIZone.Game.UI
             _logger = logger;
         }
 
-        /// <summary> 레벨 4일 때만 보드를 무작위로 배치하고 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억함. </summary>
+        /// <summary>
+        /// 레벨 4일 때만 보드를 무작위로 배치하고 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억함.
+        /// 스페이스바 시뮬레이션(Update)은 레벨 4의 에디터·개발 빌드에서만 켜 둠.
+        /// </summary>
         private void Start()
         {
+            enabled = IsLevel4() && Debug.isDebugBuild;
             if (!IsLevel4()) return;
+
+            if (!Debug.isDebugBuild && _logger != null) _logger.ZLogInformation($"[Level4BoardController] 릴리스 빌드라 스페이스바 이동 시뮬레이션을 끔.");
 
             if (robotIcon)
             {
@@ -152,12 +155,11 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 레벨 4에서 게임 패널이 활성 상태일 때 스페이스바 입력을 감지해 이동 시뮬레이션을 (재)시작함.
-        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거이며, '코딩완료' 버튼도 결과 씬으로
-        /// 넘어가기 전에 동일한 시뮬레이션(PlaySimulationAsync)을 재생함(IngredientSelectionController에서 호출).
+        /// 개발/플레이 중 경로를 눈으로 미리 확인하기 위한 디버그 트리거라 Start에서 레벨 4의 에디터·개발 빌드일 때만 켜 두며,
+        /// '코딩완료' 버튼도 결과 씬으로 넘어가기 전에 동일한 시뮬레이션(PlaySimulationAsync)을 재생함(IngredientSelectionController에서 호출).
         /// </summary>
         private void Update()
         {
-            if (!IsLevel4()) return;
             if (gamePanel && !gamePanel.interactable) return;
             if (Keyboard.current == null) return;
 

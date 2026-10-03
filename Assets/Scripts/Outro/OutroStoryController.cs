@@ -29,8 +29,8 @@ namespace DGAIZone.Outro
         private bool _isAnimating;
         private bool _skipRequested;
 
-        // 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 Constants.StoryLine 폴백 값을 그대로 사용함
-        private CommonSettings _commonSettings;
+        // 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary> VContainer 의존성 주입. 비활동 타이머를 주입받아 연출 중 일시정지 및 연출 완료 후 재개하고, 체험자 이름 제공자와 로거를 할당함. </summary>
         [Inject]
@@ -79,9 +79,9 @@ namespace DGAIZone.Outro
                 await ApplyVisitorNameAsync(token);
 
                 await StoryLineAnimator.AnimateAsync(storyText,
-                    _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
-                    _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
-                    _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
+                    _commonSettings.storyLineMoveDuration,
+                    _commonSettings.storyLineInterval,
+                    _commonSettings.storyLineYOffset,
                     () => _skipRequested, token, _inactivityTimer);
 
                 OnFullyShown();

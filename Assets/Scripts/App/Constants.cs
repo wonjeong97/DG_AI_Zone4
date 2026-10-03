@@ -30,6 +30,12 @@ namespace DGAIZone.App
         /// <summary> 체험자 이름을 알 수 없을 때(Visitor.json 로드 전·실패, 서버 미연동) {name} 대신 쓰는 기본 이름. </summary>
         public const string DefaultVisitorName = "체험자";
 
+        /// <summary>
+        /// 콘텐츠(미션·레벨별 결과 영상)가 있는 마지막 레벨. 레벨이 늘어나면 영상 추가와 함께 이 값만 올리면
+        /// 잠금 해제 상한, 결과 후 아웃트로 전환, 결과 영상 레벨 범위가 함께 따라옴.
+        /// </summary>
+        public const int LastLevel = 4;
+
         /// <summary> 미션 텍스트 내 동적 치환용 플레이스홀더. </summary>
         public static class MissionPlaceholders
         {
@@ -149,22 +155,6 @@ namespace DGAIZone.App
             /// RfidMappings.json 반복하기 블록에 이 value가 꼭 있어야 함.
             /// </summary>
             public const int RequiredRepeatCount = 3;
-        }
-
-        /// <summary>
-        /// 스토리 텍스트가 한 줄씩 올라오는 연출 상수(타이틀/레벨 선택/아웃트로 공용).
-        /// 실제 값은 00_Common.json(Data.CommonSettings)에서 재빌드 없이 조정 가능하며, 여기 값은 로드 전/실패 시 폴백으로만 쓰임.
-        /// </summary>
-        public static class StoryLine
-        {
-            /// <summary> 스토리 텍스트 각 줄이 올라오는 이동/페이드 연출 시간 (초, 크면 천천히 올라옴) </summary>
-            public const float StoryLineMoveDuration = 0.7f;
-
-            /// <summary> 다음 줄 연출 시작 전 대기 간격 (초) </summary>
-            public const float StoryLineInterval = 0.35f;
-
-            /// <summary> 한 줄 올라올 때 시작 Y 오프셋 거리 (픽셀) </summary>
-            public const float StoryLineYOffset = 22.0f;
         }
     }
 }

@@ -27,8 +27,6 @@ namespace DGAIZone.Intro
         [SerializeField] private CanvasGroup tutorialPanel;
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private TutorialImageSlider tutorialSlider;
-        private readonly float crossFadeDuration = 0.4f; // 1_Intro.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float sceneFadeDuration = 0.5f; // 00_Common.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
 
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
@@ -42,9 +40,9 @@ namespace DGAIZone.Intro
         private bool _skipStoryRequested;
         private Color _originalStoryColor;
 
-        // 1_Intro.json / 00_Common.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private IntroSceneSettings _sceneSettings;
-        private CommonSettings _commonSettings;
+        // 1_Intro.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private IntroSceneSettings _sceneSettings = new IntroSceneSettings();
+        private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거, 비활동 타이머를 할당함. </summary>
         [Inject]
@@ -77,11 +75,6 @@ namespace DGAIZone.Intro
             ApplyPanelVisibility(tutorialPanel, false);
             _isIntroActive = true;
 
-            if (!tutorialSlider && tutorialPanel)
-            {
-                tutorialSlider = tutorialPanel.GetComponentInChildren<TutorialImageSlider>(true);
-            }
-
             if (tutorialSlider)
             {
                 tutorialSlider.OnTutorialCompleted += OnTutorialCompleted;
@@ -111,7 +104,7 @@ namespace DGAIZone.Intro
 
                 await ApplyVisitorNameAsync(token);
 
-                float startDelay = _sceneSettings?.storyTextStartDelay ?? 0f;
+                float startDelay = _sceneSettings.storyTextStartDelay;
                 if (startDelay > 0f) await UniTask.Delay(TimeSpan.FromSeconds(startDelay), cancellationToken: token);
             }
             catch (OperationCanceledException)
@@ -185,7 +178,7 @@ namespace DGAIZone.Intro
             }
 
             _isBusy = true;
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.LevelSelect, _commonSettings?.sceneTransitionFadeDuration ?? sceneFadeDuration).Forget();
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.LevelSelect, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
         /// <summary> 인트로 패널을 페이드아웃한 뒤 튜토리얼 패널을 페이드인하는 크로스페이드 실행. </summary>
@@ -194,7 +187,7 @@ namespace DGAIZone.Intro
             _isBusy = true;
             _isIntroActive = false;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
-            float duration = _sceneSettings?.crossFadeDuration ?? crossFadeDuration;
+            float duration = _sceneSettings.crossFadeDuration;
             try
             {
                 if (introPanel)
@@ -270,9 +263,9 @@ namespace DGAIZone.Intro
             try
             {
                 await StoryLineAnimator.AnimateAsync(storyText,
-                    _commonSettings?.storyLineMoveDuration ?? Constants.StoryLine.StoryLineMoveDuration,
-                    _commonSettings?.storyLineInterval ?? Constants.StoryLine.StoryLineInterval,
-                    _commonSettings?.storyLineYOffset ?? Constants.StoryLine.StoryLineYOffset,
+                    _commonSettings.storyLineMoveDuration,
+                    _commonSettings.storyLineInterval,
+                    _commonSettings.storyLineYOffset,
                     () => _skipStoryRequested, token, _inactivityTimer);
             }
             catch (OperationCanceledException) { }

@@ -38,15 +38,11 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Image imageFunc;    // Image_Func
         [SerializeField] private Image imageFuncOverlay; // Image_Func_GrayscaleOverlay
 
-        // 3_Game.json 로드 전까지의 폴백 기본값(JSON이 값을 결정하므로 인스펙터에는 노출하지 않음)
-        private readonly float idleHintDelay = 10f;      // 카드를 이 시간(초) 이상 올려놓지 않으면 힌트 페이드를 시작함
-        private readonly float hintFadeDuration = 0.9f;  // 색상 <-> 흑백 한쪽 방향 전환에 걸리는 시간
-
         private ILogger<CodingCategoryIndicatorController> _logger;
         private readonly List<Tween> _hintTweens = new List<Tween>();
 
-        // 3_Game.json 튜닝 값 — 로드 완료 전까지는 null이며 위 인스펙터 값을 그대로 사용함
-        private GameSceneSettings _sceneSettings;
+        // 3_Game.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        private GameSceneSettings _sceneSettings = new GameSceneSettings();
 
         /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
         [Inject]
@@ -176,8 +172,8 @@ namespace DGAIZone.Game.UI
             if (!group) return;
 
             group.alpha = 1f;
-            Tween tween = group.DOFade(0f, _sceneSettings?.hintFadeDuration ?? hintFadeDuration)
-                .SetDelay(_sceneSettings?.idleHintDelay ?? idleHintDelay)
+            Tween tween = group.DOFade(0f, _sceneSettings.hintFadeDuration)
+                .SetDelay(_sceneSettings.idleHintDelay)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetEase(Ease.InOutSine)
                 .SetLink(gameObject);

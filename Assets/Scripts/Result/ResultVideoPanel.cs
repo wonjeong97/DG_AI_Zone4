@@ -22,15 +22,14 @@ namespace DGAIZone.Result
         [SerializeField] private ResultFlowController flowController;
 
         private const int MinLevel = 1;
-        private const int MaxLevel = 4; // 실제로 레벨별 영상이 존재하는 최대 레벨(4-1~4-4). 레벨이 늘어나면 영상 추가와 함께 이 값도 올려야 함.
 
         private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
         private GameResultStore _resultStore;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<ResultVideoPanel> _logger;
 
-        /// <summary> 레벨을 영상이 존재하는 범위(MinLevel~MaxLevel)로 맞춤. </summary>
-        internal static int ClampLevel(int level) => Mathf.Clamp(level, MinLevel, MaxLevel);
+        /// <summary> 레벨을 영상이 존재하는 범위(MinLevel~Constants.LastLevel)로 맞춤. </summary>
+        internal static int ClampLevel(int level) => Mathf.Clamp(level, MinLevel, Constants.LastLevel);
 
         /// <summary> "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. level은 ClampLevel을 거친 값이어야 함. </summary>
         internal static string GetVideoFileName(int level, bool success) =>
@@ -117,7 +116,7 @@ namespace DGAIZone.Result
             int clampedLevel = ClampLevel(level);
             if (clampedLevel != level && _logger != null)
             {
-                _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{MaxLevel})를 벗어나 {clampedLevel}로 대체함.");
+                _logger.ZLogWarning($"[ResultVideoPanel] SelectedLevel({level})이 영상이 존재하는 범위({MinLevel}~{Constants.LastLevel})를 벗어나 {clampedLevel}로 대체함.");
             }
 
             string fileName = GetVideoFileName(clampedLevel, success);
