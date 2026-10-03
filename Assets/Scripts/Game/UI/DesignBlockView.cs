@@ -11,11 +11,13 @@ namespace DGAIZone.Game.UI
         Start,          // 시작하기(진회색, 아래 돌기)
         Command,        // 재료 이름(살몬, 위 홈·아래 돌기·오른쪽 값 소켓) + 오른쪽에 끼운 값 블록(파랑)
         CommandNoValue, // 재료 이름 없이 값만 있는 단계(살몬, 값 소켓 없음)
+        If,             // 만약(주황 ㄷ자, 위 홈·머리 오른쪽 값 소켓·머리 아래 안쪽 돌기·아래 돌기). 안쪽 높이에 맞춰 팔 부분만 늘어남(9-slice)
+        Logic,          // 그리고·또는(초록, 값 소켓 없는 명령 블록과 같은 모양)
         End             // 완성하기(진회색, 위 홈)
     }
 
     /// <summary>
-    /// 설계창에 쌓는 블록 하나(몸통 이미지 + 라벨, 명령 블록은 오른쪽 값 블록 포함)의 표시와 쌓기·빼기 연출을 맡음.
+    /// 설계창에 쌓는 블록 하나(몸통 이미지 + 라벨, 명령·만약 블록은 오른쪽 값 블록 포함)의 표시와 쌓기·빼기 연출을 맡음.
     /// 이미지는 원본 픽셀 크기(1px = UI 1단위)로 두고, 크기 조절은 DesignPanel이 블록 전체 localScale로 함.
     /// 좌표는 모두 블록 왼쪽 위를 기준으로 하며, 아래 값들은 블록 이미지(Zone1 블록 아트)에서 잰 값임.
     /// </summary>
@@ -24,8 +26,20 @@ namespace DGAIZone.Game.UI
     {
         // 위 홈·아래 돌기의 가로 중심(px). 다음 블록의 홈 중심을 이전 블록의 돌기 중심에 맞춰 놓아야 맞물림
         private const float StartTabCenterX = 60f;
-        private const float CommandSocketCenterX = 40.5f; // 명령 블록 두 종류는 위 홈과 아래 돌기가 같은 위치
+        private const float CommandSocketCenterX = 40.5f; // 명령 블록 두 종류와 논리 블록은 위 홈과 아래 돌기가 같은 위치
+        private const float IfSocketCenterX = 61f;        // 만약 블록의 위 홈과 아래 돌기
         private const float EndNotchCenterX = 60f;
+
+        /// <summary> 만약 블록 머리 아래 안쪽 돌기의 가로 중심(px). 안쪽 첫 블록의 위 홈 중심을 여기에 맞춤. </summary>
+        public const float IfInnerTabCenterX = 60.5f;
+
+        /// <summary> 만약 블록 머리의 높이(px). 안쪽 첫 블록은 만약 블록 위쪽에서 이만큼 아래에 놓임. </summary>
+        public const float IfHeaderBodyHeight = 101f;
+
+        /// <summary> 만약 블록 안쪽의 최소 높이(px). 안쪽 블록이 아직 없어도 명령 블록 하나가 들어갈 자리를 비워 둠. </summary>
+        public const float MinIfInnerHeight = CommandBodyHeight;
+
+        private const float IfFooterBodyHeight = 101f; // 만약 블록 아래 막대 높이(아래 돌기 제외)
 
         // 몸통 높이(px). 이미지 높이에서 아래 돌기를 뺀 값으로, 다음 블록이 놓이는 위치가 됨
         private const float StartBodyHeight = 100f;
@@ -49,6 +63,8 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Sprite startSprite;
         [SerializeField] private Sprite commandSprite;
         [SerializeField] private Sprite commandNoValueSprite;
+        [SerializeField] private Sprite ifSprite;    // 9-slice 경계(왼 20, 위·아래 121)가 있어야 안쪽 높이만큼 팔이 늘어남
+        [SerializeField] private Sprite logicSprite;
         [SerializeField] private Sprite endSprite;
         [SerializeField] private Sprite valueSprite;
 
@@ -84,22 +100,33 @@ namespace DGAIZone.Game.UI
             TryGetComponent(out _group); // RequireComponent로 항상 붙어 있음
         }
 
-        /// <summary> 종류에 맞는 이미지와 라벨을 적용하고 이미지 원본 크기로 맞춤. 값 블록은 Command 종류에 값이 있을 때만 보임. </summary>
+        /// <summary>
+        /// 종류에 맞는 이미지와 라벨을 적용하고 이미지 원본 크기로 맞춤(만약 블록은 안쪽 최소 높이로). 값 블록은 값 소켓이 있는 종류(명령·만약)에
+        /// 값이 있을 때만 보임.
+        /// </summary>
         public void Setup(DesignBlockKind kind, string label, string value)
         {
             _kind = kind;
 
             body.sprite = SpriteOf(kind);
+            body.type = kind == DesignBlockKind.If ? Image.Type.Sliced : Image.Type.Simple;
             body.SetNativeSize();
             ((RectTransform)transform).sizeDelta = ((RectTransform)body.transform).sizeDelta;
-
-            float imageHeight = ((RectTransform)body.transform).sizeDelta.y;
-            float tabHeight = imageHeight - BodyHeightOf(kind);
-            float rightInset = LabelPadding + (kind == DesignBlockKind.Command ? CommandSocketWidth : 0f);
-            SetLabelArea(bodyLabel, LabelPadding, rightInset, tabHeight + LabelPadding, LabelPadding);
             bodyLabel.text = label;
 
-            bool hasValue = kind == DesignBlockKind.Command && !string.IsNullOrEmpty(value);
+            if (kind == DesignBlockKind.If)
+            {
+                SetIfInnerHeight(MinIfInnerHeight); // 이미지 높이와 머리 라벨 영역을 함께 정함
+            }
+            else
+            {
+                float imageHeight = ((RectTransform)body.transform).sizeDelta.y;
+                float tabHeight = imageHeight - BodyHeightOf(kind);
+                float rightInset = LabelPadding + (kind == DesignBlockKind.Command ? CommandSocketWidth : 0f);
+                SetLabelArea(bodyLabel, LabelPadding, rightInset, tabHeight + LabelPadding, LabelPadding);
+            }
+
+            bool hasValue = (kind == DesignBlockKind.Command || kind == DesignBlockKind.If) && !string.IsNullOrEmpty(value);
             valueBody.gameObject.SetActive(hasValue);
             if (hasValue)
             {
@@ -111,6 +138,25 @@ namespace DGAIZone.Game.UI
                 SetLabelArea(valueLabel, ValueNotchWidth + LabelPadding, LabelPadding, LabelPadding, LabelPadding);
                 valueLabel.text = value;
             }
+        }
+
+        /// <summary>
+        /// 만약 블록의 안쪽 높이(px)를 정함. 이미지는 9-slice라 머리·아래 막대는 그대로 두고 왼쪽 팔만 늘어나며, 라벨은 머리 부분에 다시 맞춤.
+        /// 블록 위쪽을 기준으로 놓여 있어 아래로만 늘어남.
+        /// </summary>
+        public void SetIfInnerHeight(float innerHeight)
+        {
+            RectTransform bodyRect = (RectTransform)body.transform;
+            float imageHeight = IfBodyHeight(innerHeight) + BottomTabHeight;
+            bodyRect.sizeDelta = new Vector2(bodyRect.sizeDelta.x, imageHeight);
+            ((RectTransform)transform).sizeDelta = bodyRect.sizeDelta;
+            SetLabelArea(bodyLabel, LabelPadding, LabelPadding + CommandSocketWidth, imageHeight - IfHeaderBodyHeight + LabelPadding, LabelPadding);
+        }
+
+        /// <summary> 안쪽 높이가 innerHeight인 만약 블록의 몸통 높이(px, 아래 돌기 제외). 다음 블록은 만약 블록 위치에서 이만큼 아래에 놓임. </summary>
+        public static float IfBodyHeight(float innerHeight)
+        {
+            return IfHeaderBodyHeight + innerHeight + IfFooterBodyHeight;
         }
 
         /// <summary> 라벨이 부모 이미지 안쪽(테두리·돌기를 뺀 영역)을 채우도록 여백을 설정함. </summary>
@@ -131,17 +177,20 @@ namespace DGAIZone.Game.UI
                 case DesignBlockKind.Start: return startSprite;
                 case DesignBlockKind.Command: return commandSprite;
                 case DesignBlockKind.CommandNoValue: return commandNoValueSprite;
+                case DesignBlockKind.If: return ifSprite;
+                case DesignBlockKind.Logic: return logicSprite;
                 default: return endSprite;
             }
         }
 
-        /// <summary> 종류별 몸통 높이(px). 다음 블록은 이 블록 위치에서 이만큼 아래에 놓임. </summary>
+        /// <summary> 종류별 몸통 높이(px). 다음 블록은 이 블록 위치에서 이만큼 아래에 놓임. 만약 블록은 안쪽이 비었을 때(최소) 높이이며, 안쪽이 차면 IfBodyHeight를 씀. </summary>
         public static float BodyHeightOf(DesignBlockKind kind)
         {
             switch (kind)
             {
                 case DesignBlockKind.Start: return StartBodyHeight;
                 case DesignBlockKind.End: return EndBodyHeight;
+                case DesignBlockKind.If: return IfBodyHeight(MinIfInnerHeight);
                 default: return CommandBodyHeight;
             }
         }
@@ -149,13 +198,23 @@ namespace DGAIZone.Game.UI
         /// <summary> 종류별 아래 돌기의 가로 중심(px). 완성하기 블록은 아래 돌기가 없어 쓰지 않음. </summary>
         public static float TabCenterXOf(DesignBlockKind kind)
         {
-            return kind == DesignBlockKind.Start ? StartTabCenterX : CommandSocketCenterX;
+            switch (kind)
+            {
+                case DesignBlockKind.Start: return StartTabCenterX;
+                case DesignBlockKind.If: return IfSocketCenterX;
+                default: return CommandSocketCenterX;
+            }
         }
 
         /// <summary> 종류별 위 홈의 가로 중심(px). 시작하기 블록은 위 홈이 없어 쓰지 않음. </summary>
         public static float NotchCenterXOf(DesignBlockKind kind)
         {
-            return kind == DesignBlockKind.End ? EndNotchCenterX : CommandSocketCenterX;
+            switch (kind)
+            {
+                case DesignBlockKind.End: return EndNotchCenterX;
+                case DesignBlockKind.If: return IfSocketCenterX;
+                default: return CommandSocketCenterX;
+            }
         }
 
         /// <summary>

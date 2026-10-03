@@ -122,6 +122,12 @@ namespace DGAIZone.Game.UI.States
             return (matterLabel, null);
         }
 
+        /// <summary> 모든 단계를 명령 블록으로 쌓음. </summary>
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        {
+            return DesignStepShape.Command;
+        }
+
         /// <summary> 레벨 2는 값 블록을 쓰지 않음. </summary>
         public bool UsesValueBlocks => false;
 

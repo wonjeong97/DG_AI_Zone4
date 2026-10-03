@@ -111,6 +111,12 @@ namespace DGAIZone.Game.UI.States
             return string.IsNullOrEmpty(ingredientName) ? (matterLabel, null) : (ingredientName, matterLabel);
         }
 
+        /// <summary> 이동하기·반복하기 모두 명령 블록으로 쌓음. </summary>
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        {
+            return DesignStepShape.Command;
+        }
+
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
         public bool UsesValueBlocks => true;
 

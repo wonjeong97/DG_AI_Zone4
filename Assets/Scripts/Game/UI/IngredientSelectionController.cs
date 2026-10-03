@@ -120,6 +120,7 @@ namespace DGAIZone.Game.UI
         private string[] _confirmedIngredients; // 각 스탭에서 확정된 재료의 ingredientId
         private string _currentIngredientId; // 현재 대기 중인(아직 확정 안 된) 재료의 ingredientId. 화면 표시용 이름은 _currentIngredient
         private string[] _confirmedCategories; // 각 스탭을 확정시킨 카드의 category(동작/제어/논리/함수). 리더기별 스탭 라우팅에서 카드 변경 감지에 사용
+        private readonly List<DesignStepShape> _plannedDesignShapes = new List<DesignStepShape>(); // 이번 레벨 단계를 모두 쌓았을 때의 설계창 블록 모양(배율 계산용)
         private string _currentCategory; // 현재 대기 중인(아직 확정 안 된) 태그의 category. Confirm 시 _confirmedCategories에 기록됨
 
         // 리더기별 스탭 라우팅: readerId("Reader_N")가 N번째 스탭에 고정 배정됨. 설정된 리더기가 1대뿐이면(현재)
@@ -760,7 +761,7 @@ namespace DGAIZone.Game.UI
             }
 
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
-            AddDesignItem(ingredientName, chosenMatter.label);
+            AddDesignItem(ingredientId, ingredientName, chosenMatter.label);
 
             // 레벨별 상태 객체에 확정 처리 위임 (스텝 볼, 게이지, 불안정 깜빡임, 추진력 등)
             CurrentLevelState?.OnStepConfirmed(this, _currentStepIndex, ingredientId, chosenMatter);
@@ -874,10 +875,11 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 재료/물질을 설계창에 블록으로 쌓음. 문구는 레벨 상태가 정함(재료 이름은 명령 블록, 고른 블록 이름은 값 블록).
-        /// 레벨 2(모든 단계의 재료 이름이 같음)와 ingredientName이 빈 단계(예: 레벨 3의 논리 연결어)는 값 블록 없이 블록 이름만 명령 블록에 쌓임.
+        /// 확정된 재료/물질을 설계창에 블록으로 쌓음. 모양과 문구는 레벨 상태가 정함(재료 이름은 명령 블록, 고른 블록 이름은 값 블록,
+        /// 레벨 3은 조건이 만약 ㄷ자 블록·동작이 그 안쪽·논리 연결어가 논리 블록). 레벨 2(모든 단계의 재료 이름이 같음)와
+        /// ingredientName이 빈 단계(예: 레벨 3의 논리 연결어)는 값 블록 없이 블록 이름만 쌓임.
         /// </summary>
-        private void AddDesignItem(string ingredientName, string matterLabel)
+        private void AddDesignItem(string ingredientId, string ingredientName, string matterLabel)
         {
             if (!_designPanel)
             {
@@ -888,7 +890,8 @@ namespace DGAIZone.Game.UI
             (string command, string value) = CurrentLevelState != null
                 ? CurrentLevelState.GetDesignBlockTexts(this, ingredientName, matterLabel)
                 : (ingredientName, matterLabel);
-            _designPanel.AddItem(command, value);
+            DesignStepShape shape = CurrentLevelState != null ? CurrentLevelState.GetDesignStepShape(this, ingredientId) : DesignStepShape.Command;
+            _designPanel.AddItem(shape, command, value);
         }
 
         /// <summary> 설계창에 마지막으로 추가된 확정 항목을 지우고 코딩완료 버튼 상태를 갱신함. </summary>
@@ -900,10 +903,22 @@ namespace DGAIZone.Game.UI
             UpdateCodingCompleteButton();
         }
 
-        /// <summary> 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(이번 레벨 단계 수로 블록 크기를 정함) 코딩완료 버튼 상태를 갱신함. </summary>
+        /// <summary>
+        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(이번 레벨 단계를 모두 쌓았을 때의 블록 모양으로 블록 크기를 정함) 코딩완료 버튼 상태를 갱신함.
+        /// 단계 정의가 없는 단계(stageReadCounts 폴백, 정의가 빈 칸)는 명령 블록으로 셈.
+        /// </summary>
         private void ResetDesignPanel()
         {
-            if (_designPanel) _designPanel.Initialize(_totalSteps, CurrentLevelState == null || CurrentLevelState.UsesValueBlocks);
+            _plannedDesignShapes.Clear();
+            for (int i = 0; i < _totalSteps; i++)
+            {
+                RfidStepDefinition step = _stepDefinitions != null && i < _stepDefinitions.Length ? _stepDefinitions[i] : null;
+                _plannedDesignShapes.Add(CurrentLevelState != null && step != null
+                    ? CurrentLevelState.GetDesignStepShape(this, step.ingredientId)
+                    : DesignStepShape.Command);
+            }
+
+            if (_designPanel) _designPanel.Initialize(_plannedDesignShapes, CurrentLevelState == null || CurrentLevelState.UsesValueBlocks);
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창을 초기화할 수 없음.");
 
             UpdateCodingCompleteButton();

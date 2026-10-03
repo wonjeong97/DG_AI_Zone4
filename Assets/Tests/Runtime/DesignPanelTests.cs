@@ -1,10 +1,12 @@
 using System.Collections;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.Game.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 using VContainer;
 
 namespace DGAIZone.Tests
@@ -25,6 +27,17 @@ namespace DGAIZone.Tests
         private const float EndNotchCenterX = 60f;
         private const float StartBodyHeight = 100f;
         private const float CommandBodyHeight = 101f;
+        private const float IfSocketCenterX = 61f;     // 만약 블록 위 홈·아래 돌기
+        private const float IfInnerTabCenterX = 60.5f; // 만약 블록 머리 아래 안쪽 돌기
+        private const float IfHeaderBodyHeight = 101f;
+        private const float IfFooterBodyHeight = 101f;
+        private const float BottomTabHeight = 20f;
+
+        // 레벨 3 단계 모양: 만약 전기량이 → (안쪽) 전기량 → 그리고 → 만약 산소량이 → (안쪽) 산소량
+        private static readonly DesignStepShape[] Level3Shapes =
+        {
+            DesignStepShape.If, DesignStepShape.InsideIf, DesignStepShape.Logic, DesignStepShape.If, DesignStepShape.InsideIf
+        };
 
         private GameObject _root;
         private RectTransform _content;
@@ -66,6 +79,17 @@ namespace DGAIZone.Tests
             if (_root) Object.DestroyImmediate(_root);
         }
 
+        /// <summary> 모두 명령 블록인 단계 모양 count개. </summary>
+        private static List<DesignStepShape> Commands(int count)
+        {
+            List<DesignStepShape> shapes = new List<DesignStepShape>();
+            for (int i = 0; i < count; i++) shapes.Add(DesignStepShape.Command);
+            return shapes;
+        }
+
+        /// <summary> content의 index번째 자식 블록. </summary>
+        private DesignBlockView BlockAt(int index) => _content.GetChild(index).GetComponent<DesignBlockView>();
+
         /// <summary> content의 index번째 자식 블록 위치(왼쪽 위 기준). </summary>
         private Vector2 BlockPosition(int index) => ((RectTransform)_content.GetChild(index)).anchoredPosition;
 
@@ -76,9 +100,9 @@ namespace DGAIZone.Tests
         public IEnumerator 블록은_앞_블록의_아래_돌기에_위_홈이_맞물리게_놓인다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(5, true);
-            _panel.AddItem("추진체 종류", "고체 로켓");
-            _panel.AddItem("엔진 점화하기", null);
+            _panel.Initialize(Commands(5), true);
+            _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
+            _panel.AddItem(DesignStepShape.Command, "엔진 점화하기", null);
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f); // 앞 블록들의 쌓기 연출도 이 사이에 끝남
 
             Assert.AreEqual(4, _content.childCount, "시작하기 + 단계 2 + 완성하기 블록이 있어야 함");
@@ -133,8 +157,8 @@ namespace DGAIZone.Tests
         public IEnumerator 줄여서_한_화면에_방식은_최대_단계와_완성하기까지_보이는_영역에_들어간다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(5, true);
-            for (int i = 0; i < 5; i++) _panel.AddItem("이동하기", "위쪽 한 칸");
+            _panel.Initialize(Commands(5), true);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
 
             Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "블록 7개가 스크롤 없이 보이는 영역 높이 안에 들어가야 함");
@@ -145,8 +169,8 @@ namespace DGAIZone.Tests
         public IEnumerator 크게_두고_자동_스크롤_방식은_정해진_배율을_쓰고_넘치면_영역보다_길어진다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.ScrollLarge);
-            _panel.Initialize(5, true);
-            for (int i = 0; i < 5; i++) _panel.AddItem("이동하기", "위쪽 한 칸");
+            _panel.Initialize(Commands(5), true);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
 
             Assert.AreEqual(0.7f, _panel.Scale, Tolerance, "scrollScale(0.7) 배율을 그대로 써야 함");
@@ -157,31 +181,97 @@ namespace DGAIZone.Tests
         public void 블록_묶음은_단계_수나_값_블록_유무가_달라도_레벨_1과_같은_왼쪽에_놓인다()
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(3, true); // 레벨 1: 값 블록 있음, 3단계
+            _panel.Initialize(Commands(3), true); // 레벨 1: 값 블록 있음, 3단계
             float level1X = LastBlockPosition().x;
             float level1Width = (StartTabCenterX - CommandSocketCenterX + 360f + 361f) * _panel.Scale; // 단계 블록 위치 + 명령 몸통 + 값 블록 폭
             Assert.AreEqual((ViewportWidth - level1Width) / 2f, level1X, Tolerance, "레벨 1은 블록 묶음이 보이는 영역 가운데에 놓여야 함(기준 위치)");
 
-            _panel.Initialize(5, false); // 레벨 2: 값 블록 없음, 5단계
+            _panel.Initialize(Commands(5), false); // 레벨 2: 값 블록 없음, 5단계
             Assert.AreEqual(level1X, LastBlockPosition().x, Tolerance, "값 블록이 없는 레벨도 레벨 1과 같은 왼쪽에 놓여야 함");
 
-            _panel.Initialize(5, true); // 레벨 3·4: 값 블록 있음, 5단계라 배율이 더 작음
+            _panel.Initialize(Commands(5), true); // 레벨 4: 값 블록 있음, 5단계라 배율이 더 작음
             Assert.AreEqual(level1X, LastBlockPosition().x, Tolerance, "단계가 많아 작아진 레벨도 레벨 1과 같은 왼쪽에 놓여야 함");
+
+            _panel.Initialize(Level3Shapes, true); // 레벨 3: 만약 블록이 있어 더 길고 배율이 더 작음
+            Assert.AreEqual(level1X, LastBlockPosition().x, Tolerance, "만약 블록이 있는 레벨도 레벨 1과 같은 왼쪽에 놓여야 함");
         }
 
         [UnityTest]
         public IEnumerator 취소하면_마지막_블록이_빠지고_연출이_끝나면_파괴된다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(3, true);
-            _panel.AddItem("추진체 종류", "고체 로켓");
-            _panel.AddItem("탑재 종류", "인공위성");
+            _panel.Initialize(Commands(3), true);
+            _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
+            _panel.AddItem(DesignStepShape.Command, "탑재 종류", "인공위성");
 
             _panel.RemoveLastItem();
             Assert.AreEqual(1, _panel.Count, "취소하면 단계 블록 수가 바로 줄어야 함");
 
             await UniTask.Delay(500, DelayType.UnscaledDeltaTime); // 빼기 연출(기본 0.2초) 뒤 파괴됨
             Assert.AreEqual(2, _content.childCount, "빼기 연출이 끝나면 시작하기 + 단계 1개만 남아야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 레벨_3은_만약_블록_안쪽에_동작_블록이_맞물리고_논리_블록과_완성하기는_만약_블록_아래_돌기에_맞물린다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(Level3Shapes, true);
+            _panel.AddItem(DesignStepShape.If, "만약 전기량이", "3 넘으면");
+            _panel.AddItem(DesignStepShape.InsideIf, "전기량", "낮추기");
+            _panel.AddItem(DesignStepShape.Logic, "그리고", null);
+            _panel.AddItem(DesignStepShape.If, "만약 산소량이", "3 낮으면");
+            _panel.AddItem(DesignStepShape.InsideIf, "산소량", "올리기");
+            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
+
+            Assert.AreEqual(7, _content.childCount, "시작하기 + 단계 5 + 완성하기 블록이 있어야 함");
+            Assert.AreEqual(DesignBlockKind.If, BlockAt(1).Kind, "조건 단계는 만약 블록이어야 함");
+            Assert.AreEqual(DesignBlockKind.Command, BlockAt(2).Kind, "만약 안쪽 동작 단계는 명령 블록이어야 함");
+            Assert.AreEqual(DesignBlockKind.Logic, BlockAt(3).Kind, "논리 연결어 단계는 논리 블록이어야 함");
+
+            float s = _panel.Scale;
+            float ifBodyHeight = IfHeaderBodyHeight + CommandBodyHeight + IfFooterBodyHeight; // 안쪽에 명령 블록 하나
+            Vector2 start = BlockPosition(0), if1 = BlockPosition(1), inner1 = BlockPosition(2), logic = BlockPosition(3);
+            Vector2 if2 = BlockPosition(4), inner2 = BlockPosition(5), end = BlockPosition(6);
+
+            Assert.AreEqual(start.x + (StartTabCenterX - IfSocketCenterX) * s, if1.x, Tolerance, "만약 블록의 위 홈이 시작하기 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(StartBodyHeight * s, start.y - if1.y, Tolerance, "만약 블록은 시작하기 몸통 바로 아래에 놓여야 함");
+            Assert.AreEqual(if1.x + (IfInnerTabCenterX - CommandSocketCenterX) * s, inner1.x, Tolerance, "안쪽 블록의 위 홈이 만약 블록 머리 아래 안쪽 돌기에 맞아야 함");
+            Assert.AreEqual(IfHeaderBodyHeight * s, if1.y - inner1.y, Tolerance, "안쪽 블록은 만약 블록 머리 바로 아래에 놓여야 함");
+            Assert.AreEqual(if1.x + (IfSocketCenterX - CommandSocketCenterX) * s, logic.x, Tolerance, "논리 블록의 위 홈이 만약 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(ifBodyHeight * s, if1.y - logic.y, Tolerance, "논리 블록은 만약 블록 아래 막대 바로 아래에 놓여야 함");
+            Assert.AreEqual(logic.x + (CommandSocketCenterX - IfSocketCenterX) * s, if2.x, Tolerance, "두 번째 만약 블록의 위 홈이 논리 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(CommandBodyHeight * s, logic.y - if2.y, Tolerance, "두 번째 만약 블록은 논리 블록 몸통 바로 아래에 놓여야 함");
+            Assert.AreEqual(inner1.x - if1.x, inner2.x - if2.x, Tolerance, "두 만약 블록의 안쪽 블록은 같은 자리에 놓여야 함");
+            Assert.AreEqual(if2.x + (IfSocketCenterX - EndNotchCenterX) * s, end.x, Tolerance, "완성하기 블록의 위 홈이 만약 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(ifBodyHeight * s, if2.y - end.y, Tolerance, "완성하기 블록은 만약 블록 아래 막대 바로 아래에 놓여야 함");
+
+            Assert.AreEqual(ifBodyHeight + BottomTabHeight, ((RectTransform)BlockAt(1).transform).sizeDelta.y, Tolerance, "만약 블록 이미지는 안쪽 블록 하나 높이로 늘어나야 함");
+            Image ifBody = BlockAt(1).GetComponentInChildren<Image>();
+            Assert.AreEqual(Image.Type.Sliced, ifBody.type, "만약 블록 이미지는 팔만 늘어나도록 9-slice여야 함");
+            Assert.AreNotEqual(Vector4.zero, ifBody.sprite.border, "만약 블록 스프라이트에 9-slice 경계가 있어야 함");
+            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "레벨 3 블록 묶음 전체가 스크롤 없이 보이는 영역 높이 안에 들어가야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 만약_블록은_안쪽_블록이_늘면_늘어나고_빼면_줄어든다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(new[] { DesignStepShape.If, DesignStepShape.InsideIf, DesignStepShape.InsideIf }, true);
+            _panel.AddItem(DesignStepShape.If, "만약 전기량이", "3 넘으면");
+            RectTransform ifRect = (RectTransform)BlockAt(1).transform;
+            float oneSlot = IfHeaderBodyHeight + CommandBodyHeight + IfFooterBodyHeight + BottomTabHeight;
+            Assert.AreEqual(oneSlot, ifRect.sizeDelta.y, Tolerance, "안쪽이 비어도 블록 하나 들어갈 자리를 비워 둬야 함");
+
+            _panel.AddItem(DesignStepShape.InsideIf, "전기량", "낮추기");
+            _panel.AddItem(DesignStepShape.InsideIf, "산소량", "올리기");
+            Assert.AreEqual(oneSlot + CommandBodyHeight, ifRect.sizeDelta.y, Tolerance, "안쪽 블록이 둘이면 블록 하나 높이만큼 늘어나야 함");
+
+            _panel.RemoveLastItem();
+            Assert.AreEqual(oneSlot, ifRect.sizeDelta.y, Tolerance, "안쪽 블록을 빼면 다시 줄어들어야 함");
+
+            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
+            float s = _panel.Scale;
+            Assert.AreEqual((oneSlot - BottomTabHeight) * s, BlockPosition(1).y - LastBlockPosition().y, Tolerance, "완성하기 블록은 줄어든 만약 블록 바로 아래에 놓여야 함");
         });
     }
 }

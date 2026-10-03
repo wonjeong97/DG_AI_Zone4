@@ -19,11 +19,20 @@ namespace DGAIZone.Game.UI
         [InspectorName("크게 두고 자동 스크롤")] ScrollLarge // 정해진 배율로 두고, 넘치면 새로 쌓인 블록이 보이게 아래로 스크롤
     }
 
+    /// <summary> 설계창 단계 블록의 모양. 레벨 상태가 단계(재료)마다 정함. </summary>
+    public enum DesignStepShape
+    {
+        Command,  // 명령 블록(값이 없으면 값 소켓 없는 명령 블록)
+        If,       // 만약 ㄷ자 블록(값 블록은 머리 오른쪽). 바로 뒤따르는 InsideIf 단계를 안쪽에 품음
+        InsideIf, // 앞 만약 블록 안쪽에 쌓이는 명령 블록(앞에 만약 블록이 없으면 Command처럼 바깥에 쌓임)
+        Logic     // 그리고·또는 논리 블록(초록, 값 블록 없음)
+    }
+
     /// <summary>
-    /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 명령 블록이
+    /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 단계 블록이
     /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
-    /// 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
-    /// 블록 문구는 호출하는 쪽(레벨 상태)이 정함.
+    /// 만약 블록 뒤의 InsideIf 단계는 만약 블록 안쪽에 쌓임. 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
+    /// 블록 모양과 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
     public class DesignPanel : MonoBehaviour
     {
@@ -51,9 +60,13 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float completeHoldDuration = 0.5f; // 완성하기 블록이 붙은 뒤 다음 연출까지 보여 주는 시간
 
         private readonly List<DesignBlockView> _steps = new List<DesignBlockView>();
+        private readonly List<DesignStepShape> _stepShapes = new List<DesignStepShape>(); // _steps와 같은 순서의 단계 모양
+        private readonly List<Vector2> _positions = new List<Vector2>(); // 블록별 위치(px, 0 = 시작하기). Layout이 채움
+        private readonly List<float> _ifInnerHeights = new List<float>(); // 단계별 만약 블록 안쪽 높이(px, 만약이 아니면 0). Layout이 채움
         private DesignBlockView _startBlock;
         private DesignBlockView _endBlock;
-        private int _maxSteps;
+        private float _plannedHeight; // 이 레벨의 단계를 모두 쌓고 완성하기까지 붙였을 때의 높이(px)
+        private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함)
         private bool _withValueBlocks = true;
         private float _scale = 1f;
         private float _offsetX;
@@ -87,23 +100,27 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. maxSteps(이 레벨에서 쌓일 수 있는 최대 단계 수)로 '줄여서 한 화면에' 방식의 배율을 정하고,
-        /// withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함. 묶음 왼쪽 끝은 레벨과 관계없이 같음.
+        /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. plannedShapes(이 레벨의 단계를 모두 쌓았을 때의 단계 모양)로 '줄여서 한 화면에' 방식의
+        /// 배율을 정하고, withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함. 묶음 왼쪽 끝은 레벨과 관계없이 같음.
         /// </summary>
-        public void Initialize(int maxSteps, bool withValueBlocks)
+        public void Initialize(IReadOnlyList<DesignStepShape> plannedShapes, bool withValueBlocks)
         {
             DestroyAll();
-            _maxSteps = Mathf.Max(0, maxSteps);
             _withValueBlocks = withValueBlocks;
+            _plannedHeight = Layout(plannedShapes, true, _positions, _ifInnerHeights); // 높이만 쓰고, 위치는 아래 Relayout이 지금 상태로 다시 채움
             UpdateScale();
 
             _startBlock = CreateBlock(DesignBlockKind.Start, StartLabel, null);
+            Relayout();
             if (_startBlock) _startBlock.SnapTo(PositionOf(0));
             UpdateContentHeight();
         }
 
-        /// <summary> 단계 블록 하나를 맨 아래에 쌓음(아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 붙는 연출). value가 비어 있으면 값 블록 없는 명령 블록을 씀. </summary>
-        public void AddItem(string command, string value)
+        /// <summary>
+        /// 단계 블록 하나를 맨 아래(InsideIf면 앞 만약 블록 안쪽 맨 아래)에 쌓음(아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 붙는 연출).
+        /// 명령·만약 블록은 value가 있으면 값 블록을 붙이며, 명령 블록은 value가 비어 있으면 값 소켓 없는 모양을 씀.
+        /// </summary>
+        public void AddItem(DesignStepShape shape, string command, string value)
         {
             if (!_startBlock)
             {
@@ -111,11 +128,17 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            DesignBlockKind kind = string.IsNullOrEmpty(value) ? DesignBlockKind.CommandNoValue : DesignBlockKind.Command;
-            DesignBlockView block = CreateBlock(kind, command, value);
+            if (shape == DesignStepShape.InsideIf && !HasOpenIf() && _logger != null)
+            {
+                _logger.ZLogWarning($"[DesignPanel] '{command}' 블록은 만약 블록 안쪽에 들어가야 하는데 앞에 만약 블록이 없어 바깥에 쌓음.");
+            }
+
+            DesignBlockView block = CreateBlock(KindOf(shape, value), command, value);
             if (!block) return;
 
             _steps.Add(block);
+            _stepShapes.Add(shape);
+            Relayout();
             PlayAttach(block, _steps.Count);
             UpdateContentHeight();
             ScrollToBottom();
@@ -129,7 +152,9 @@ namespace DGAIZone.Game.UI
             int lastIndex = _steps.Count - 1;
             DesignBlockView last = _steps[lastIndex];
             _steps.RemoveAt(lastIndex);
+            _stepShapes.RemoveAt(lastIndex);
             if (last) last.PlayDetachAndDestroy(riseHeight * _scale, removeDuration);
+            Relayout();
             UpdateContentHeight();
         }
 
@@ -146,6 +171,7 @@ namespace DGAIZone.Game.UI
             _endBlock = CreateBlock(DesignBlockKind.End, EndLabel, null);
             if (!_endBlock) return;
 
+            Relayout();
             Sequence attach = PlayAttach(_endBlock, _steps.Count + 1);
             UpdateContentHeight();
             ScrollToBottom();
@@ -190,63 +216,125 @@ namespace DGAIZone.Game.UI
             return block;
         }
 
-        /// <summary>
-        /// 위에서 index번째 블록(0 = 시작하기)의 content 안 위치(왼쪽 위 기준)를 계산함. 블록은 앞 블록의 몸통 높이만큼 아래에 놓이고,
-        /// 가로는 위 홈 중심이 앞 블록의 아래 돌기 중심과 맞도록 옮김. 단계 블록은 모두 명령 블록 계열이라 위치 규칙이 같음.
-        /// </summary>
+        /// <summary> 위에서 index번째 블록(0 = 시작하기)의 content 안 위치(왼쪽 위 기준). Layout이 계산한 위치에 배율과 여백을 적용함. </summary>
         private Vector2 PositionOf(int index)
         {
-            float x = XOf(KindAt(index));
-            float y = StackHeightAbove(index);
-            return new Vector2(_offsetX + x * _scale, -(edgePadding + y * _scale));
+            Vector2 position = _positions[index];
+            return new Vector2(_offsetX + position.x * _scale, -(edgePadding + position.y * _scale));
         }
 
-        /// <summary> 종류별 가로 위치(px). 시작하기는 0, 단계 블록은 시작하기 돌기에 맞춘 위치, 완성하기는 단계 블록 돌기에 맞춘 위치. </summary>
-        private static float XOf(DesignBlockKind kind)
+        /// <summary> 단계 모양과 값으로 블록 종류를 정함. 명령 블록은 값이 비어 있으면 값 소켓 없는 모양을 씀. </summary>
+        private static DesignBlockKind KindOf(DesignStepShape shape, string value)
         {
-            switch (kind)
+            switch (shape)
             {
-                case DesignBlockKind.Start:
-                    return 0f;
-                case DesignBlockKind.End:
-                    return CommandStackX() + DesignBlockView.TabCenterXOf(DesignBlockKind.Command) - DesignBlockView.NotchCenterXOf(DesignBlockKind.End);
-                default:
-                    return CommandStackX();
+                case DesignStepShape.If: return DesignBlockKind.If;
+                case DesignStepShape.Logic: return DesignBlockKind.Logic;
+                default: return string.IsNullOrEmpty(value) ? DesignBlockKind.CommandNoValue : DesignBlockKind.Command;
             }
         }
 
-        /// <summary> 위에서 index번째 블록의 종류(0 = 시작하기, 단계 수 다음 = 완성하기, 그 사이 = 단계 블록). </summary>
-        private DesignBlockKind KindAt(int index)
+        /// <summary> 다음 InsideIf 단계가 들어갈 만약 블록이 있는지(맨 아래 바깥 블록이 만약 블록인지) 여부. </summary>
+        private bool HasOpenIf()
         {
-            if (index == 0) return DesignBlockKind.Start;
-            if (index > _steps.Count) return DesignBlockKind.End;
-            DesignBlockView step = _steps[index - 1];
-            return step ? step.Kind : DesignBlockKind.Command;
+            for (int i = _stepShapes.Count - 1; i >= 0; i--)
+            {
+                if (_stepShapes[i] != DesignStepShape.InsideIf) return _stepShapes[i] == DesignStepShape.If;
+            }
+            return false;
         }
 
-        /// <summary> 단계 블록의 가로 위치(px): 위 홈 중심을 시작하기 블록의 아래 돌기 중심에 맞춘 값. </summary>
+        /// <summary> 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, 만약 블록 높이를 안쪽 블록에 맞춤. </summary>
+        private void Relayout()
+        {
+            bool withEnd = _endBlock;
+            _stackHeight = Layout(_stepShapes, withEnd, _positions, _ifInnerHeights);
+            for (int i = 0; i < _steps.Count; i++)
+            {
+                if (_steps[i] && _steps[i].Kind == DesignBlockKind.If) _steps[i].SetIfInnerHeight(_ifInnerHeights[i]);
+            }
+        }
+
+        /// <summary>
+        /// 블록 묶음을 위에서부터 따라가며 블록마다 위치(px, 블록 원본 크기·시작하기 왼쪽 위 기준)를 positions에 채우고, 묶음 높이(마지막 블록의
+        /// 아래 돌기 포함)를 반환함. positions[0]은 시작하기, [1..n]은 단계 블록, withEnd면 [n+1]은 완성하기.
+        /// 블록은 위 홈 중심을 앞 블록의 아래 돌기 중심에 맞춰 앞 블록 몸통 바로 아래에 놓임. InsideIf 단계는 앞 만약 블록의 머리 아래 안쪽 돌기부터
+        /// 쌓이고, 만약 블록은 안쪽 블록 높이만큼(최소 블록 하나) 늘어나며 그 안쪽 높이를 ifInnerHeights[단계 번호]에 채움(만약이 아니면 0).
+        /// 명령·논리 블록은 홈·돌기 위치와 몸통 높이가 같아 같은 규칙으로 놓음.
+        /// </summary>
+        private static float Layout(IReadOnlyList<DesignStepShape> shapes, bool withEnd, List<Vector2> positions, List<float> ifInnerHeights)
+        {
+            positions.Clear();
+            ifInnerHeights.Clear();
+            positions.Add(Vector2.zero);
+
+            float y = DesignBlockView.BodyHeightOf(DesignBlockKind.Start);    // 다음 바깥 블록이 놓일 높이
+            float tabX = DesignBlockView.TabCenterXOf(DesignBlockKind.Start); // 다음 바깥 블록이 맞물릴 아래 돌기 중심
+            int openIf = -1;                                                  // 안쪽을 채우는 중인 만약 블록의 단계 번호
+            float innerY = 0f, innerTabX = 0f;                                // 그 만약 블록 안쪽에서 다음 블록이 놓일 높이와 맞물릴 돌기 중심
+
+            for (int i = 0; i <= shapes.Count; i++) // i == shapes.Count는 마지막 만약 블록을 닫기 위한 한 바퀴
+            {
+                bool inside = i < shapes.Count && shapes[i] == DesignStepShape.InsideIf && openIf >= 0;
+                if (inside)
+                {
+                    float innerX = innerTabX - DesignBlockView.NotchCenterXOf(DesignBlockKind.Command);
+                    positions.Add(new Vector2(innerX, innerY));
+                    ifInnerHeights.Add(0f);
+                    innerY += DesignBlockView.BodyHeightOf(DesignBlockKind.Command);
+                    innerTabX = innerX + DesignBlockView.TabCenterXOf(DesignBlockKind.Command);
+                    continue;
+                }
+
+                if (openIf >= 0) // 바깥 블록이 오거나 끝났으니 만약 블록을 닫고, 다음 바깥 블록은 만약 블록 아래 돌기에 맞물림
+                {
+                    Vector2 ifPosition = positions[openIf + 1];
+                    float innerHeight = Mathf.Max(DesignBlockView.MinIfInnerHeight, innerY - (ifPosition.y + DesignBlockView.IfHeaderBodyHeight));
+                    ifInnerHeights[openIf] = innerHeight;
+                    y = ifPosition.y + DesignBlockView.IfBodyHeight(innerHeight);
+                    tabX = ifPosition.x + DesignBlockView.TabCenterXOf(DesignBlockKind.If);
+                    openIf = -1;
+                }
+
+                if (i == shapes.Count) break;
+
+                DesignBlockKind kind = shapes[i] == DesignStepShape.If ? DesignBlockKind.If : DesignBlockKind.Command;
+                float x = tabX - DesignBlockView.NotchCenterXOf(kind);
+                positions.Add(new Vector2(x, y));
+                ifInnerHeights.Add(0f);
+
+                if (kind == DesignBlockKind.If)
+                {
+                    openIf = i;
+                    innerY = y + DesignBlockView.IfHeaderBodyHeight;
+                    innerTabX = x + DesignBlockView.IfInnerTabCenterX;
+                }
+                else
+                {
+                    y += DesignBlockView.BodyHeightOf(kind);
+                    tabX = x + DesignBlockView.TabCenterXOf(kind);
+                }
+            }
+
+            if (!withEnd) return y + DesignBlockView.BottomTabHeight;
+
+            positions.Add(new Vector2(tabX - DesignBlockView.NotchCenterXOf(DesignBlockKind.End), y));
+            return y + DesignBlockView.BodyHeightOf(DesignBlockKind.End); // 완성하기는 아래 돌기가 없어 몸통 높이가 곧 이미지 높이임
+        }
+
+        /// <summary> 바깥 명령 블록의 가로 위치(px): 위 홈 중심을 시작하기 블록의 아래 돌기 중심에 맞춘 값. </summary>
         private static float CommandStackX()
         {
             return DesignBlockView.TabCenterXOf(DesignBlockKind.Start) - DesignBlockView.NotchCenterXOf(DesignBlockKind.Command);
         }
 
-        /// <summary> index번째 블록 위쪽에 놓인 블록들의 몸통 높이 합(px). </summary>
-        private static float StackHeightAbove(int index)
-        {
-            if (index <= 0) return 0f;
-            return DesignBlockView.BodyHeightOf(DesignBlockKind.Start) + (index - 1) * DesignBlockView.BodyHeightOf(DesignBlockKind.Command);
-        }
-
-        /// <summary> 블록 묶음 전체 폭(px): 단계 블록 위치 + 명령 블록 폭(값 블록을 쓰는 레벨이면 값 블록까지 합친 폭). </summary>
+        /// <summary>
+        /// 블록 묶음 전체 폭(px): 바깥 명령 블록 위치 + 명령 블록 폭(값 블록을 쓰는 레벨이면 값 블록까지 합친 폭). 만약 블록 안쪽 명령 블록은
+        /// 바깥 명령 블록과 거의 같은 x(0.5px 왼쪽)에 놓이고 만약 블록은 그보다 좁아 이 폭을 넘지 않음.
+        /// </summary>
         private static float StackWidth(bool withValueBlocks)
         {
             return CommandStackX() + (withValueBlocks ? DesignBlockView.CommandWithValueWidth : DesignBlockView.CommandNoValueWidth);
-        }
-
-        /// <summary> 시작하기 + stepCount개 단계 + 완성하기가 모두 놓였을 때의 높이(px). 완성하기는 아래 돌기가 없어 몸통 높이가 곧 이미지 높이임. </summary>
-        private static float StackHeight(int stepCount)
-        {
-            return StackHeightAbove(stepCount + 1) + DesignBlockView.BodyHeightOf(DesignBlockKind.End);
         }
 
         /// <summary> 배치 방식에 맞춰 블록 배율과 가로 시작 위치를 정함. 화면 폭을 넘지 않도록 두 방식 모두 폭으로도 제한함. </summary>
@@ -257,7 +345,7 @@ namespace DGAIZone.Game.UI
 
             if (layoutMode == DesignLayoutMode.FitAll)
             {
-                float heightScale = (viewport.height - edgePadding * 2f) / StackHeight(_maxSteps);
+                float heightScale = (viewport.height - edgePadding * 2f) / _plannedHeight;
                 _scale = Mathf.Min(maxFitScale, heightScale, widthScale);
             }
             else
@@ -288,7 +376,7 @@ namespace DGAIZone.Game.UI
             if (content && content.parent is RectTransform parent) return parent.rect;
 
             if (_logger != null) _logger.ZLogWarning($"[DesignPanel] scrollRect·content가 없어 설계창 크기를 알 수 없음. 블록을 원본 크기로 둠.");
-            return new Rect(0f, 0f, StackWidth(_withValueBlocks), StackHeight(_maxSteps));
+            return new Rect(0f, 0f, StackWidth(_withValueBlocks), _plannedHeight);
         }
 
         /// <summary> 지금 놓인 블록이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). </summary>
@@ -296,10 +384,7 @@ namespace DGAIZone.Game.UI
         {
             if (!content) return;
 
-            int lastIndex = _steps.Count + (_endBlock ? 1 : 0);
-            DesignBlockKind lastKind = KindAt(lastIndex);
-            float lastHeight = DesignBlockView.BodyHeightOf(lastKind) + (lastKind == DesignBlockKind.End ? 0f : DesignBlockView.BottomTabHeight); // 아래 돌기까지 포함
-            float height = edgePadding * 2f + (StackHeightAbove(lastIndex) + lastHeight) * _scale;
+            float height = edgePadding * 2f + _stackHeight * _scale;
             content.sizeDelta = new Vector2(content.sizeDelta.x, height);
         }
 
@@ -330,6 +415,7 @@ namespace DGAIZone.Game.UI
             _startBlock = null;
             _endBlock = null;
             _steps.Clear();
+            _stepShapes.Clear();
         }
 
         /// <summary>
@@ -350,6 +436,7 @@ namespace DGAIZone.Game.UI
             if (!this || !_startBlock) return; // 그사이 파괴됐거나 아직 시작하기 블록이 없음
 
             UpdateScale();
+            Relayout(); // 위치 목록도 다시 계산함(Play 중 스크립트가 다시 로드되면 목록이 비어 있음)
             _startBlock.transform.localScale = new Vector3(_scale, _scale, 1f);
             _startBlock.SnapTo(PositionOf(0));
             for (int i = 0; i < _steps.Count; i++)

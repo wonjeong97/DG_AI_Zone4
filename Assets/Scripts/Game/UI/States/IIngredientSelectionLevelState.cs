@@ -40,6 +40,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 설계창 블록에 쓸 문구(명령 블록 문구, 값 블록 문구)를 반환. 값 문구가 null이면 값 블록 없는 명령 블록으로 쌓임. </summary>
         (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel);
 
+        /// <summary> 재료(ingredientId)를 설계창에 쌓을 블록 모양(명령, 만약 ㄷ자, 만약 안쪽, 논리)을 반환. 설계창 배율 계산에도 쓰여 카드 없이 재료 id만으로 정함. </summary>
+        DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId);
+
         /// <summary> 코딩완료 버튼의 활성화 가능 여부를 반환. </summary>
         bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps);
 

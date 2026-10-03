@@ -104,10 +104,29 @@ namespace DGAIZone.Game.UI.States
                 : $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
         }
 
-        /// <summary> 재료 이름은 명령 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계는 값 블록 없이 블록 이름만 씀. </summary>
+        /// <summary> 재료 이름은 명령(만약) 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계(논리 연결어)는 값 블록 없이 블록 이름만 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
             return string.IsNullOrEmpty(ingredientName) ? (matterLabel, null) : (ingredientName, matterLabel);
+        }
+
+        /// <summary> 조건(만약 전기량이/산소량이)은 만약 ㄷ자 블록, 뒤따르는 동작(전기량/산소량)은 그 안쪽, 논리 연결어는 논리 블록으로 쌓음. </summary>
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        {
+            switch (ingredientId)
+            {
+                case Constants.RfidIds.Level3.ElectricityCondition:
+                case Constants.RfidIds.Level3.OxygenCondition:
+                    return DesignStepShape.If;
+                case Constants.RfidIds.Level3.Electricity:
+                case Constants.RfidIds.Level3.Oxygen:
+                    return DesignStepShape.InsideIf;
+                case Constants.RfidIds.Level3.Logic:
+                    return DesignStepShape.Logic;
+                default:
+                    if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3에서 알 수 없는 재료 id '{ingredientId}'라 설계창에 명령 블록으로 쌓음.");
+                    return DesignStepShape.Command;
+            }
         }
 
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>

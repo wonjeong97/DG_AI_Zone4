@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-04 00:00] Claude → Antigravity · T25
+- 요청(사용자): 레벨 3 설계창이 만약·그리고까지 모두 명령 블록이라, DG_AI_Zone1처럼 만약은 ㄷ자 블록으로. Zone1은 '그리고'를 만약 머리 오른쪽에 조건과 가로로 잇지만 이 프로젝트 레벨 3은 '만약 전기량이 → 전기량 → 그리고 → 만약 산소량이 → 산소량' 순서라, 시안 3가지(초록 세로 블록/명령 블록 유지/Zone1 Logic 그대로) 중 사용자가 '초록 세로 블록'을 고름.
+- 변경 파일: 신규 `UI/3_Game/Blocks/If.png`(Zone1 원본, 9-slice 왼20·아래121·위121)·`Logic.png`(CommandNoValue 모양을 Zone1 Logic 색으로 HSV 변환), `Game/UI/DesignBlockView.cs`(If·Logic 종류, 만약 치수 상수, `SetIfInnerHeight`·`IfBodyHeight`, If는 Sliced), `Game/UI/DesignPanel.cs`(`DesignStepShape` Command/If/InsideIf/Logic, `Initialize(plannedShapes)`·`AddItem(shape, …)`, 위치를 `Layout`이 한 번에 계산 — InsideIf는 앞 만약 블록 안쪽, 만약 블록은 안쪽 높이만큼(최소 블록 하나) 늘어남), `IIngredientSelectionLevelState`·레벨 1~4 상태(`GetDesignStepShape`, 레벨 3만 재료 id로 구분), `IngredientSelectionController`(단계 정의로 계획 모양을 만들어 Initialize, 확정 시 모양 전달), `Prefabs/DesignBlock.prefab`(ifSprite·logicSprite), `Tests/Runtime/DesignPanelTests.cs`(API 변경 반영, 레벨 3 맞물림·만약 블록 늘고 줄어듦 2개 추가)
+- If.png 측정: 위 홈 x52~70(중심 61), 머리 0~100행, 머리 오른쪽 값 소켓 x361~380, 안쪽 돌기 x51~70(60.5), 왼팔 x1~20, 아래 막대 200~300행, 아래 돌기 x51~71(61). 레벨 3 묶음 높이 908px(이전 706) → '줄여서 한 화면에' 배율 0.57 → 0.44.
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(측정값·배치 좌표, 9-slice·라벨 고정, 추가·취소·되돌리기·완성하기·흐림·OnValidate 경로, 레벨 1·2·4 높이 공식 동일, 스킬 규칙, 테스트 검증력, 콘솔 0). 제안 ① OnValidate delayCall 중복 등록 방지(기존 코드라 이번 범위 밖) ② 빈 만약 블록 테스트(늘고 줄어듦 테스트에서 이미 확인) — 둘 다 반영하지 않음.
+- 결과(Claude): 컴파일 경고·오류 0, PlayMode 66/66(T26 테스트 포함 실행), Play 모드에서 레벨 3 블록 5개를 쌓아 묶음 높이(자동 스크롤 0.7배 594.9) 확인. 화면 캡처는 하지 않음.
+- 보완: Play 중 스크립트가 다시 로드되면 `OnValidate`→`RelayoutAll`이 빈 위치 목록으로 `PositionOf`를 불러 예외가 남(T26 작업 중 사용자 Play 세션에서 발생, 위 T26 참고) → `RelayoutAll`이 위치를 다시 계산(`Relayout`)한 뒤 놓도록 고침.
+
 ### [2026-10-03 23:35] Claude → Antigravity · T24
 - 요청(사용자): 설계창 블록 코딩 위치를 레벨 1처럼 왼쪽에. 원인: 블록 묶음을 레벨별 묶음 폭으로 가로 가운데에 놓아, 3단계라 배율 0.8로 폭을 채우는 레벨 1(왼쪽 여백 49.3)과 달리 5단계 레벨 3·4(배율 0.57, 여백 133.7)·값 블록 없는 레벨 2(여백 236.6)가 가운데로 몰림(표시 영역 691 기준).
 - 변경 파일: `Game/UI/DesignPanel.cs`(`_offsetX`를 `LeftInset`으로 — 가장 넓은 묶음(값 블록까지)을 배치 방식의 최대 배율(폭 제한 포함)로 가운데 놓았을 때의 왼쪽 끝, `StackWidth(bool)` static화), `Tests/Runtime/DesignPanelTests.cs`('값 블록 없는 레벨 가운데' → '레벨 1·2·3/4 왼쪽 끝이 같음', 다시 Initialize한 뒤 새 시작하기 블록은 마지막 자식으로 읽음)

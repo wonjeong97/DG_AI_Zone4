@@ -342,6 +342,8 @@ MonoBehaviour:
   commandSprite: {fileID: 21300000, guid: 14a13125f6ad94d41b5ddc8361d185e9, type: 3}
   commandNoValueSprite: {fileID: 21300000, guid: 6de810d4af175ca4b91f295563b2fd96,
     type: 3}
+  ifSprite: {fileID: 21300000, guid: 4a98d33512884b65a6b09a4277437f89, type: 3}
+  logicSprite: {fileID: 21300000, guid: 69f6a6e9e29d4328b607318c986eb504, type: 3}
   endSprite: {fileID: 21300000, guid: bd0fe08d01ba30a48a8223da1e9e883c, type: 3}
   valueSprite: {fileID: 21300000, guid: aa8300e68132f364aa0178f819d6a84b, type: 3}
 --- !u!1 &6161902025136606685
