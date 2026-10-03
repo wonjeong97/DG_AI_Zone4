@@ -89,17 +89,17 @@
         {
           "id": "ElectricityCondition",
           "matters": [
-            { "id": "Over3", "label": "3 넘으면", "value": 3 },
-            { "id": "Over4", "label": "4 넘으면", "value": 4 },
-            { "id": "Over5", "label": "5 넘으면", "value": 5 }
+            { "id": "Over3", "label": "3 보다 높으면", "value": 3 },
+            { "id": "Over4", "label": "4 보다 높으면", "value": 4 },
+            { "id": "Over5", "label": "5 보다 높으면", "value": 5 }
           ]
         },
         {
           "id": "OxygenCondition",
           "matters": [
-            { "id": "Under3", "label": "3 낮으면", "value": 3 },
-            { "id": "Under4", "label": "4 낮으면", "value": 4 },
-            { "id": "Under5", "label": "5 낮으면", "value": 5 }
+            { "id": "Under3", "label": "3 보다 낮으면", "value": 3 },
+            { "id": "Under4", "label": "4 보다 낮으면", "value": 4 },
+            { "id": "Under5", "label": "5 보다 낮으면", "value": 5 }
           ]
         },
         {
@@ -131,10 +131,10 @@
         {
           "id": "Move",
           "matters": [
-            { "id": "MoveUp", "label": "위쪽 한 칸" },
-            { "id": "MoveDown", "label": "아래쪽 한 칸" },
-            { "id": "MoveRight", "label": "오른쪽 한 칸" },
-            { "id": "MoveLeft", "label": "왼쪽 한 칸" }
+            { "id": "MoveUp", "label": "윗쪽" },
+            { "id": "MoveDown", "label": "아랫쪽" },
+            { "id": "MoveRight", "label": "오른쪽" },
+            { "id": "MoveLeft", "label": "왼쪽" }
           ]
         },
         {
