@@ -20,6 +20,7 @@ namespace DGAIZone.Tests
         private const float ViewportWidth = 691f;  // 3_Game 설계창 표시 영역과 같은 크기
         private const float ViewportHeight = 420f;
         private const float Tolerance = 0.01f;
+        private const float StackShiftLeft = 30f; // DesignPanel.stackShiftLeft 기본값(블록 묶음을 기준 위치에서 왼쪽으로 옮기는 거리)
 
         // 블록 이미지(Zone1 블록 아트)에서 잰 값(px). 코드의 상수를 그대로 쓰지 않고 따로 적어, 값이 바뀌면 테스트가 알려 주게 함
         private const float StartTabCenterX = 60f;
@@ -195,7 +196,7 @@ namespace DGAIZone.Tests
             _panel.Initialize(Commands(3), true); // 레벨 1: 값 블록 있음, 3단계
             float level1X = LastBlockPosition().x;
             float level1Width = (StartTabCenterX - CommandSocketCenterX + 360f + 361f) * _panel.Scale; // 단계 블록 위치 + 명령 몸통 + 값 블록 폭
-            Assert.AreEqual((ViewportWidth - level1Width) / 2f, level1X, Tolerance, "레벨 1은 블록 묶음이 보이는 영역 가운데에 놓여야 함(기준 위치)");
+            Assert.AreEqual((ViewportWidth - level1Width) / 2f - StackShiftLeft, level1X, Tolerance, "레벨 1은 블록 묶음이 보이는 영역 가운데에서 stackShiftLeft만큼 왼쪽에 놓여야 함(기준 위치)");
 
             _panel.Initialize(Commands(5), false); // 레벨 2: 값 블록 없음, 5단계
             Assert.AreEqual(level1X, LastBlockPosition().x, Tolerance, "값 블록이 없는 레벨도 레벨 1과 같은 왼쪽에 놓여야 함");
@@ -356,7 +357,7 @@ namespace DGAIZone.Tests
             Vector2 start = BlockPosition(0), call = BlockPosition(1), def = BlockPosition(2);
             Assert.AreEqual(start.x + (StartTabCenterX - CommandSocketCenterX) * s, call.x, Tolerance, "함수 사용 블록의 위 홈이 시작하기 블록의 아래 돌기에 맞아야 함");
             Assert.AreEqual(StartBodyHeight * s, start.y - call.y, Tolerance, "함수 사용 블록은 시작하기 몸통 바로 아래에 놓여야 함");
-            Assert.AreEqual(ViewportWidth - EdgePadding - FunctionDefWidth * s, def.x, Tolerance, "함수 정의 블록은 보이는 영역 오른쪽 끝에 붙어야 함");
+            Assert.AreEqual(ViewportWidth - EdgePadding - StackShiftLeft - FunctionDefWidth * s, def.x, Tolerance, "함수 정의 블록은 보이는 영역 오른쪽 끝에서 블록 묶음을 옮긴 만큼 왼쪽에 놓여야 함");
             Assert.AreEqual(start.y, def.y, Tolerance, "함수 정의 블록 위쪽은 시작하기 블록과 맞아야 함");
             Assert.LessOrEqual(call.x + 361f * s + DefinitionGap, def.x + Tolerance, "블록 줄과 함수 정의 블록이 겹치지 않아야 함");
 

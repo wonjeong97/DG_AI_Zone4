@@ -53,6 +53,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float maxFitScale = 0.8f; // 줄여서 한 화면에: 블록이 적은 레벨에서도 이 배율보다 크게 키우지 않음
         [SerializeField] private float scrollScale = 0.7f; // 크게 두고 자동 스크롤: 블록 배율
         [SerializeField] private float edgePadding = 8f;   // 블록 묶음 위아래·좌우 최소 여백(UI 단위)
+        [SerializeField] private float stackShiftLeft = 30f; // 블록 묶음(레벨 5는 함수 정의 블록도)을 기준 위치에서 왼쪽으로 옮기는 거리(UI 단위). 왼쪽 여백(edgePadding)을 넘어가지는 않음
 
         [Header("Animation")]
         [SerializeField] private float riseDuration = 0.5f;         // 블록이 아래에서 올라와 맞물리는 시간(스토리 라인 연출과 같은 곡선)
@@ -77,6 +78,7 @@ namespace DGAIZone.Game.UI
         private bool _withValueBlocks = true;
         private float _scale = 1f;
         private float _offsetX;
+        private float _shiftX; // 기준 위치에서 실제로 왼쪽으로 옮긴 거리(stackShiftLeft를 왼쪽 여백에 맞춰 줄인 값)
         private Tween _scrollTween;
         private IObjectResolver _resolver;
         private ILogger<DesignPanel> _logger;
@@ -175,10 +177,13 @@ namespace DGAIZone.Game.UI
             _functionDef.PlayAttach(FunctionDefinitionPosition(), riseHeight * _scale, riseDuration, valueSlideDistance, valueSlideDuration);
         }
 
-        /// <summary> 함수 정의 블록의 content 안 위치(왼쪽 위 기준): 보이는 영역 오른쪽 끝에 붙이고 위쪽은 시작하기 블록과 맞춤. </summary>
+        /// <summary>
+        /// 함수 정의 블록의 content 안 위치(왼쪽 위 기준): 보이는 영역 오른쪽 끝에 붙인 자리에서 블록 묶음을 옮긴 만큼 왼쪽으로 옮기고,
+        /// 위쪽은 시작하기 블록과 맞춤.
+        /// </summary>
         private Vector2 FunctionDefinitionPosition()
         {
-            return new Vector2(ViewportRect().width - edgePadding - DesignBlockView.FunctionDefWidth * _scale, -edgePadding);
+            return new Vector2(ViewportRect().width - edgePadding - _shiftX - DesignBlockView.FunctionDefWidth * _scale, -edgePadding);
         }
 
         /// <summary> 마지막으로 쌓은 단계 블록을 뺌(가라앉으며 사라지는 연출 뒤 파괴). </summary>
@@ -398,11 +403,13 @@ namespace DGAIZone.Game.UI
         private void UpdateScale()
         {
             Rect viewport = ViewportRect();
-            _offsetX = LeftInset(viewport.width);
+            float inset = LeftInset(viewport.width);
+            _offsetX = Mathf.Max(edgePadding, inset - stackShiftLeft);
+            _shiftX = Mathf.Max(0f, inset - _offsetX);
             float widthScale = (viewport.width - edgePadding * 2f) / StackWidth(_withValueBlocks);
-            if (_plansFunctionDef) // 보이는 영역 오른쪽 끝에 붙는 함수 정의 블록과 블록 묶음이 겹치지 않게 함
+            if (_plansFunctionDef) // 오른쪽에 놓이는 함수 정의 블록과 블록 묶음이 겹치지 않게 함
             {
-                float available = viewport.width - edgePadding - _offsetX - DefinitionGap;
+                float available = viewport.width - edgePadding - _shiftX - _offsetX - DefinitionGap; // 함수 정의 블록도 _shiftX만큼 왼쪽에 있음
                 widthScale = Mathf.Min(widthScale, available / (StackWidth(_withValueBlocks) + DesignBlockView.FunctionDefWidth));
             }
 
@@ -420,8 +427,9 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 블록 묶음의 왼쪽 여백. 레벨마다 묶음 폭·배율이 달라도 왼쪽 끝이 같도록, 가장 넓은 묶음(값 블록까지 있는 묶음)을 이 배치 방식의
+        /// 블록 묶음의 기준 왼쪽 여백. 레벨마다 묶음 폭·배율이 달라도 왼쪽 끝이 같도록, 가장 넓은 묶음(값 블록까지 있는 묶음)을 이 배치 방식의
         /// 최대 배율로 가운데 놓았을 때의 왼쪽 끝을 씀(블록이 적어 최대 배율을 쓰는 레벨 1의 위치와 같음). 어느 레벨이든 오른쪽으로 넘치지 않음.
+        /// 실제 왼쪽 끝은 여기서 stackShiftLeft만큼 왼쪽(UpdateScale).
         /// </summary>
         private float LeftInset(float viewportWidth)
         {
