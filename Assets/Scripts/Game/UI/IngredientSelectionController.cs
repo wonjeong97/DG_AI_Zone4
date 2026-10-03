@@ -876,7 +876,8 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 확정된 재료/물질을 설계창에 블록으로 쌓음. 모양과 문구는 레벨 상태가 정함(재료 이름은 명령 블록, 고른 블록 이름은 값 블록,
-        /// 레벨 3은 조건이 만약 ㄷ자 블록·동작이 그 안쪽·논리 연결어가 논리 블록). 레벨 2(모든 단계의 재료 이름이 같음)와
+        /// 레벨 3은 조건이 만약 ㄷ자 블록·동작이 그 안쪽·논리 연결어가 논리 블록, 레벨 4는 반복하기가 ㄷ자 블록·바로 뒤 이동하기가 그 안쪽).
+        /// 레벨 2(모든 단계의 재료 이름이 같음)와
         /// ingredientName이 빈 단계(예: 레벨 3의 논리 연결어)는 값 블록 없이 블록 이름만 쌓임.
         /// </summary>
         private void AddDesignItem(string ingredientId, string ingredientName, string matterLabel)
@@ -904,18 +905,17 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(이번 레벨 단계를 모두 쌓았을 때의 블록 모양으로 블록 크기를 정함) 코딩완료 버튼 상태를 갱신함.
-        /// 단계 정의가 없는 단계(stageReadCounts 폴백, 정의가 빈 칸)는 명령 블록으로 셈.
+        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(레벨 상태가 정한, 이번 레벨 단계를 가장 길게 쌓았을 때의 블록 모양으로 블록 크기를 정함)
+        /// 코딩완료 버튼 상태를 갱신함.
         /// </summary>
         private void ResetDesignPanel()
         {
             _plannedDesignShapes.Clear();
-            for (int i = 0; i < _totalSteps; i++)
+            if (CurrentLevelState != null) CurrentLevelState.FillPlannedDesignShapes(this, _plannedDesignShapes);
+            else
             {
-                RfidStepDefinition step = _stepDefinitions != null && i < _stepDefinitions.Length ? _stepDefinitions[i] : null;
-                _plannedDesignShapes.Add(CurrentLevelState != null && step != null
-                    ? CurrentLevelState.GetDesignStepShape(this, step.ingredientId)
-                    : DesignStepShape.Command);
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 설계창 단계를 모두 명령 블록으로 셈.");
+                for (int i = 0; i < _totalSteps; i++) _plannedDesignShapes.Add(DesignStepShape.Command);
             }
 
             if (_designPanel) _designPanel.Initialize(_plannedDesignShapes, CurrentLevelState == null || CurrentLevelState.UsesValueBlocks);

@@ -27,16 +27,16 @@ namespace DGAIZone.Tests
         private const float EndNotchCenterX = 60f;
         private const float StartBodyHeight = 100f;
         private const float CommandBodyHeight = 101f;
-        private const float IfSocketCenterX = 61f;     // 만약 블록 위 홈·아래 돌기
-        private const float IfInnerTabCenterX = 60.5f; // 만약 블록 머리 아래 안쪽 돌기
-        private const float IfHeaderBodyHeight = 101f;
-        private const float IfFooterBodyHeight = 101f;
+        private const float FlowSocketCenterX = 61f;     // ㄷ자 블록(If.png) 위 홈·아래 돌기
+        private const float FlowInnerTabCenterX = 60.5f; // ㄷ자 블록 머리 아래 안쪽 돌기
+        private const float FlowHeaderBodyHeight = 101f;
+        private const float FlowFooterBodyHeight = 101f;
         private const float BottomTabHeight = 20f;
 
         // 레벨 3 단계 모양: 만약 전기량이 → (안쪽) 전기량 → 그리고 → 만약 산소량이 → (안쪽) 산소량
         private static readonly DesignStepShape[] Level3Shapes =
         {
-            DesignStepShape.If, DesignStepShape.InsideIf, DesignStepShape.Logic, DesignStepShape.If, DesignStepShape.InsideIf
+            DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl, DesignStepShape.Logic, DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl
         };
 
         private GameObject _root;
@@ -227,33 +227,33 @@ namespace DGAIZone.Tests
         {
             CreatePanel(DesignLayoutMode.FitAll);
             _panel.Initialize(Level3Shapes, true);
-            _panel.AddItem(DesignStepShape.If, "만약 전기량이", "3 넘으면");
-            _panel.AddItem(DesignStepShape.InsideIf, "전기량", "낮추기");
+            _panel.AddItem(DesignStepShape.FlowControl, "만약 전기량이", "3 넘으면");
+            _panel.AddItem(DesignStepShape.InsideFlowControl, "전기량", "낮추기");
             _panel.AddItem(DesignStepShape.Logic, "그리고", null);
-            _panel.AddItem(DesignStepShape.If, "만약 산소량이", "3 낮으면");
-            _panel.AddItem(DesignStepShape.InsideIf, "산소량", "올리기");
+            _panel.AddItem(DesignStepShape.FlowControl, "만약 산소량이", "3 낮으면");
+            _panel.AddItem(DesignStepShape.InsideFlowControl, "산소량", "올리기");
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
 
             Assert.AreEqual(7, _content.childCount, "시작하기 + 단계 5 + 완성하기 블록이 있어야 함");
-            Assert.AreEqual(DesignBlockKind.If, BlockAt(1).Kind, "조건 단계는 만약 블록이어야 함");
+            Assert.AreEqual(DesignBlockKind.FlowControl, BlockAt(1).Kind, "조건 단계는 만약 블록이어야 함");
             Assert.AreEqual(DesignBlockKind.Command, BlockAt(2).Kind, "만약 안쪽 동작 단계는 명령 블록이어야 함");
             Assert.AreEqual(DesignBlockKind.Logic, BlockAt(3).Kind, "논리 연결어 단계는 논리 블록이어야 함");
 
             float s = _panel.Scale;
-            float ifBodyHeight = IfHeaderBodyHeight + CommandBodyHeight + IfFooterBodyHeight; // 안쪽에 명령 블록 하나
+            float ifBodyHeight = FlowHeaderBodyHeight + CommandBodyHeight + FlowFooterBodyHeight; // 안쪽에 명령 블록 하나
             Vector2 start = BlockPosition(0), if1 = BlockPosition(1), inner1 = BlockPosition(2), logic = BlockPosition(3);
             Vector2 if2 = BlockPosition(4), inner2 = BlockPosition(5), end = BlockPosition(6);
 
-            Assert.AreEqual(start.x + (StartTabCenterX - IfSocketCenterX) * s, if1.x, Tolerance, "만약 블록의 위 홈이 시작하기 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(start.x + (StartTabCenterX - FlowSocketCenterX) * s, if1.x, Tolerance, "만약 블록의 위 홈이 시작하기 블록의 아래 돌기에 맞아야 함");
             Assert.AreEqual(StartBodyHeight * s, start.y - if1.y, Tolerance, "만약 블록은 시작하기 몸통 바로 아래에 놓여야 함");
-            Assert.AreEqual(if1.x + (IfInnerTabCenterX - CommandSocketCenterX) * s, inner1.x, Tolerance, "안쪽 블록의 위 홈이 만약 블록 머리 아래 안쪽 돌기에 맞아야 함");
-            Assert.AreEqual(IfHeaderBodyHeight * s, if1.y - inner1.y, Tolerance, "안쪽 블록은 만약 블록 머리 바로 아래에 놓여야 함");
-            Assert.AreEqual(if1.x + (IfSocketCenterX - CommandSocketCenterX) * s, logic.x, Tolerance, "논리 블록의 위 홈이 만약 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(if1.x + (FlowInnerTabCenterX - CommandSocketCenterX) * s, inner1.x, Tolerance, "안쪽 블록의 위 홈이 만약 블록 머리 아래 안쪽 돌기에 맞아야 함");
+            Assert.AreEqual(FlowHeaderBodyHeight * s, if1.y - inner1.y, Tolerance, "안쪽 블록은 만약 블록 머리 바로 아래에 놓여야 함");
+            Assert.AreEqual(if1.x + (FlowSocketCenterX - CommandSocketCenterX) * s, logic.x, Tolerance, "논리 블록의 위 홈이 만약 블록의 아래 돌기에 맞아야 함");
             Assert.AreEqual(ifBodyHeight * s, if1.y - logic.y, Tolerance, "논리 블록은 만약 블록 아래 막대 바로 아래에 놓여야 함");
-            Assert.AreEqual(logic.x + (CommandSocketCenterX - IfSocketCenterX) * s, if2.x, Tolerance, "두 번째 만약 블록의 위 홈이 논리 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(logic.x + (CommandSocketCenterX - FlowSocketCenterX) * s, if2.x, Tolerance, "두 번째 만약 블록의 위 홈이 논리 블록의 아래 돌기에 맞아야 함");
             Assert.AreEqual(CommandBodyHeight * s, logic.y - if2.y, Tolerance, "두 번째 만약 블록은 논리 블록 몸통 바로 아래에 놓여야 함");
             Assert.AreEqual(inner1.x - if1.x, inner2.x - if2.x, Tolerance, "두 만약 블록의 안쪽 블록은 같은 자리에 놓여야 함");
-            Assert.AreEqual(if2.x + (IfSocketCenterX - EndNotchCenterX) * s, end.x, Tolerance, "완성하기 블록의 위 홈이 만약 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(if2.x + (FlowSocketCenterX - EndNotchCenterX) * s, end.x, Tolerance, "완성하기 블록의 위 홈이 만약 블록의 아래 돌기에 맞아야 함");
             Assert.AreEqual(ifBodyHeight * s, if2.y - end.y, Tolerance, "완성하기 블록은 만약 블록 아래 막대 바로 아래에 놓여야 함");
 
             Assert.AreEqual(ifBodyHeight + BottomTabHeight, ((RectTransform)BlockAt(1).transform).sizeDelta.y, Tolerance, "만약 블록 이미지는 안쪽 블록 하나 높이로 늘어나야 함");
@@ -267,14 +267,14 @@ namespace DGAIZone.Tests
         public IEnumerator 만약_블록은_안쪽_블록이_늘면_늘어나고_빼면_줄어든다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(new[] { DesignStepShape.If, DesignStepShape.InsideIf, DesignStepShape.InsideIf }, true);
-            _panel.AddItem(DesignStepShape.If, "만약 전기량이", "3 넘으면");
+            _panel.Initialize(new[] { DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl, DesignStepShape.InsideFlowControl }, true);
+            _panel.AddItem(DesignStepShape.FlowControl, "만약 전기량이", "3 넘으면");
             RectTransform ifRect = (RectTransform)BlockAt(1).transform;
-            float oneSlot = IfHeaderBodyHeight + CommandBodyHeight + IfFooterBodyHeight + BottomTabHeight;
+            float oneSlot = FlowHeaderBodyHeight + CommandBodyHeight + FlowFooterBodyHeight + BottomTabHeight;
             Assert.AreEqual(oneSlot, ifRect.sizeDelta.y, Tolerance, "안쪽이 비어도 블록 하나 들어갈 자리를 비워 둬야 함");
 
-            _panel.AddItem(DesignStepShape.InsideIf, "전기량", "낮추기");
-            _panel.AddItem(DesignStepShape.InsideIf, "산소량", "올리기");
+            _panel.AddItem(DesignStepShape.InsideFlowControl, "전기량", "낮추기");
+            _panel.AddItem(DesignStepShape.InsideFlowControl, "산소량", "올리기");
             Assert.AreEqual(oneSlot + CommandBodyHeight, ifRect.sizeDelta.y, Tolerance, "안쪽 블록이 둘이면 블록 하나 높이만큼 늘어나야 함");
 
             _panel.RemoveLastItem();
@@ -314,6 +314,29 @@ namespace DGAIZone.Tests
             UniTask attach = _panel.AttachEndBlockAsync(default);
             Assert.IsTrue(_panel.IsCompleted, "이미 맨 아래면 스크롤을 기다리지 않고 바로 완성하기 블록이 붙어야 함");
             await attach.AwaitWithRealtimeTimeout(5f);
+        });
+
+        [UnityTest]
+        public IEnumerator 레벨_4는_반복하기_ㄷ자_안쪽에_바로_뒤_이동하기가_들어가고_그다음_이동하기는_ㄷ자_아래에_붙는다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(new[] { DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl, DesignStepShape.Command }, true);
+            _panel.AddItem(DesignStepShape.FlowControl, "반복하기", "3회");
+            _panel.AddItem(DesignStepShape.InsideFlowControl, "이동하기", "오른쪽 한 칸");
+            _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
+
+            Assert.AreEqual(DesignBlockKind.FlowControl, BlockAt(1).Kind, "반복하기는 ㄷ자 블록이어야 함");
+            Assert.AreEqual(1f, BlockAt(1).ValueAlpha, Tolerance, "반복 횟수 값 블록이 ㄷ자 블록 머리에 붙어 있어야 함");
+
+            float s = _panel.Scale;
+            float flowBodyHeight = FlowHeaderBodyHeight + CommandBodyHeight + FlowFooterBodyHeight; // 안쪽에 이동하기 하나
+            Vector2 repeat = BlockPosition(1), inner = BlockPosition(2), after = BlockPosition(3), end = BlockPosition(4);
+            Assert.AreEqual(repeat.x + (FlowInnerTabCenterX - CommandSocketCenterX) * s, inner.x, Tolerance, "반복할 이동하기는 ㄷ자 블록 안쪽 돌기에 맞물려야 함");
+            Assert.AreEqual(FlowHeaderBodyHeight * s, repeat.y - inner.y, Tolerance, "반복할 이동하기는 ㄷ자 블록 머리 바로 아래에 놓여야 함");
+            Assert.AreEqual(repeat.x + (FlowSocketCenterX - CommandSocketCenterX) * s, after.x, Tolerance, "그다음 이동하기는 ㄷ자 블록 아래 돌기에 맞물려야 함");
+            Assert.AreEqual(flowBodyHeight * s, repeat.y - after.y, Tolerance, "그다음 이동하기는 ㄷ자 블록 아래 막대 바로 아래에 놓여야 함");
+            Assert.AreEqual(CommandBodyHeight * s, after.y - end.y, Tolerance, "완성하기는 마지막 이동하기 바로 아래에 놓여야 함");
         });
     }
 }

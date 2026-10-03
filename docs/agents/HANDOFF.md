@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-04 01:00] Claude → Antigravity · T27
+- 요청(사용자): 반복하기도 ㄷ자 블록으로.
+- 규칙 확인: 반복하기는 바로 다음 이동하기 하나에만 적용(`Level4BoardController`), 반복 뒤에는 동작 카드만, 5단계는 동작만(`RfidMappings.json`) → 반복+안쪽 이동이 한 묶음, 그다음 이동은 ㄷ자 아래, 마지막 반복은 안쪽이 빈 ㄷ자. 가장 길게 쌓여도 반복 2개(묶음 908px, 레벨 3과 같음).
+- 이미지: Zone1 반복하기(`while.png`, 폭 361)는 값 소켓이 없어 횟수(1~3회) 값 블록을 붙일 수 없음 → 만약과 같은 `If.png` 사용.
+- 변경 파일: `Game/UI/DesignBlockView.cs`·`DesignPanel.cs`·`Tests/Runtime/DesignPanelTests.cs`·`States/IngredientLevel3State.cs`·`Prefabs/DesignBlock.prefab`(만약 전용 이름 If/InsideIf/If*/ifSprite → 공용 FlowControl/InsideFlowControl/Flow*/flowControlSprite, 프리팹 YAML 키 포함), `IIngredientSelectionLevelState`(`FillPlannedDesignShapes` 추가 — 배율 계산용 '가장 길게 쌓인 모양'을 레벨 상태가 정함, 컨트롤러 `ResetDesignPanel`의 반복문을 옮김), 레벨 1·2(모두 명령)·3(단계 순서)·4(`GetDesignStepShape`=`DesignShapeOf(id, IsRepeatFollowUpRequired)`, `FillPlannedShapes`=제어 카드를 받는 단계마다 반복+안쪽 이동), 신규 `Tests/Runtime/Level4DesignShapeTests.cs`(모양 판정, 실제 JSON으로 가장 긴 모양), DesignPanelTests 레벨 4 배치 테스트.
+- 결과(Antigravity, `gemini-3.8-flash-high`): 첫 호출은 5분 제한에 걸려 결과 없음 → 범위를 좁히고 Unity MCP 없이 다시 호출, **전 항목 통과**(확정 시점 직전 단계 판정·게임 해석 일치, 가장 긴 모양·경계 안전, 이름 변경 누락 없음, 규칙).
+- 결과(Claude): 컴파일 오류 0, PlayMode 69/69, 씬·프리팹에 옛 이름 참조 없음. 실제 프리팹을 미리보기 씬(저장 안 되는 오브젝트)에서 렌더링해 반복 ㄷ자·횟수 값 블록·안쪽 이동 확인. 레벨 4를 Play 모드에서 카드로 쌓아 보는 확인은 하지 않음.
+- 사고: PlayMode 테스트가 두 번 멈춤 — `refresh_unity(scope=scripts)`가 컴파일만 하고 편집한 .cs를 임포트하지 않아, 테스트가 Play 모드로 들어갈 때 다시 임포트·재컴파일되며 도메인 재로드(`PlayModeRunTask` NullReference, 0/N에서 멈춤, InitTestScene이 활성 씬으로 남음). 3_Game 다시 열기·임시 씬 삭제·멈춘 작업 정리 후 `scope=all` 새로고침으로 재실행해 통과. 두 번째는 사용자가 Editor를 쓰는 중이라 사용자 확인 뒤 복구.
+
 ### [2026-10-04 00:25] Claude → Antigravity · T26
 - 요청(사용자): 블록이 쌓여 아래로 스크롤된 설계창을 터치·마우스 드래그로 올릴 수 있게, 올린 상태에서 코딩 완료를 누르면 아래로 자연스럽게 내린 뒤 완성하기 블록 연결.
 - 원인: DesignScrollView(ScrollRect 세로·Clamped·관성)는 중첩 Canvas인데 GraphicRaycaster가 없어 입력이 닿지 않았고, Viewport·블록에 Raycast Target이 하나도 없었음.

@@ -117,15 +117,26 @@ namespace DGAIZone.Game.UI.States
             {
                 case Constants.RfidIds.Level3.ElectricityCondition:
                 case Constants.RfidIds.Level3.OxygenCondition:
-                    return DesignStepShape.If;
+                    return DesignStepShape.FlowControl;
                 case Constants.RfidIds.Level3.Electricity:
                 case Constants.RfidIds.Level3.Oxygen:
-                    return DesignStepShape.InsideIf;
+                    return DesignStepShape.InsideFlowControl;
                 case Constants.RfidIds.Level3.Logic:
                     return DesignStepShape.Logic;
                 default:
                     if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3에서 알 수 없는 재료 id '{ingredientId}'라 설계창에 명령 블록으로 쌓음.");
                     return DesignStepShape.Command;
+            }
+        }
+
+        /// <summary> 단계 정의 순서대로 블록 모양을 셈(레벨 3은 단계 순서가 정해져 있음). 정의가 없는 단계는 명령 블록으로 셈. </summary>
+        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
+        {
+            RfidStepDefinition[] steps = controller.StepDefinitions;
+            for (int i = 0; i < controller.TotalSteps; i++)
+            {
+                RfidStepDefinition step = steps != null && i < steps.Length ? steps[i] : null;
+                shapes.Add(step != null ? GetDesignStepShape(controller, step.ingredientId) : DesignStepShape.Command);
             }
         }
 
