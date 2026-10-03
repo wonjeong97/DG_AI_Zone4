@@ -170,11 +170,11 @@ namespace DGAIZone.Tests
         [Test]
         public void 모든_배치는_반복하기_없이는_못_풀고_반복하기로는_풀린다()
         {
-            List<Level4BoardController.Level4Layout> pool = Level4BoardController.BuildPlacementPool();
+            IReadOnlyList<Level4Layout> pool = Level4Rules.PlacementPool;
             Assert.IsNotEmpty(pool, "반복하기를 써야만 풀리는 배치가 하나도 없음");
 
             int maxCards = Constants.Level4Board.MaxCards;
-            foreach (Level4BoardController.Level4Layout layout in pool)
+            foreach (Level4Layout layout in pool)
             {
                 _board.SetPlacementForTest(layout.RobotRow, layout.ResourceRow, layout.TrapRow, layout.HqRow);
                 Assert.IsFalse(CanClear(new List<(string, RfidMatter)>(), maxCards, allowRepeat: false), $"{layout}: 이동하기만으로 {maxCards}장 안에 풀림");

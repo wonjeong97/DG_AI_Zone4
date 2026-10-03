@@ -6,7 +6,7 @@
 
 ## 진행 중
 
-- [ ] T18 T16 반영 2: Level4BoardController 규칙/연출 분리, 이동 방향·판정 규칙 중복 제거, 배치 풀 캐시, 그리기 순서 할당 제거(완료 기준: 판정·배치 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity
+- [ ] T18 T16 반영 2: Level4BoardController 규칙/연출 분리, 이동 방향·판정 규칙 중복 제거, 배치 풀 캐시, 그리기 순서 할당 제거(완료 기준: 판정·배치 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity — 코드 리뷰 통과·main 머지됨, PlayMode 테스트 실행 남음
 
 ## 할 일
 
