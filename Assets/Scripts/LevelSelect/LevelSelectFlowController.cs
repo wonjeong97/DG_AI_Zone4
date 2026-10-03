@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using TMPro;
 using Unity.Profiling;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
@@ -263,10 +262,15 @@ namespace DGAIZone.LevelSelect
 
                 // selectedLevelButtonParent가 인스펙터에 할당되지 않았으면 씬 루트(부모 없음)로 빠져 캔버스 밖으로
                 // 이탈할 수 있으므로, storyPanel의 부모를 폴백으로 사용함.
-                Transform targetParent = selectedLevelButtonParent ? (Transform)selectedLevelButtonParent : storyPanel.transform.parent;
-                if (!selectedLevelButtonParent && _logger != null)
+                // 둘 다 없으면 현재 부모에 그대로 둠(패널과 함께 흐려지지만 화면 밖으로 빠지지는 않음).
+                Transform targetParent = selectedLevelButtonParent;
+                if (!targetParent)
                 {
-                    _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelButtonParent가 null이라 storyPanel의 부모로 대체함.");
+                    targetParent = storyPanel ? storyPanel.transform.parent : selectedButtonRect.parent;
+                    if (_logger != null)
+                    {
+                        _logger.ZLogWarning($"[LevelSelectFlowController] selectedLevelButtonParent가 null이라 {(storyPanel ? "storyPanel의 부모" : "버튼의 현재 부모")}로 대체함.");
+                    }
                 }
 
                 selectedButtonRect.SetParent(targetParent, worldPositionStays: true);
@@ -382,7 +386,7 @@ namespace DGAIZone.LevelSelect
                     _commonSettings.storyLineMoveDuration,
                     _commonSettings.storyLineInterval,
                     _commonSettings.storyLineYOffset,
-                    IsSkipRequested, token, _inactivityTimer);
+                    StoryLineAnimator.IsPointerPressedThisFrame, token, _inactivityTimer);
 
                 if (startButton) startButton.interactable = true;
             }
@@ -397,13 +401,6 @@ namespace DGAIZone.LevelSelect
 
             if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] visitorInfoProvider가 null이라 스토리 텍스트에 기본 이름 '{Constants.DefaultVisitorName}'을 사용함.");
             return UniTask.FromResult(Constants.DefaultVisitorName);
-        }
-
-        /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함(연출 스킵용). </summary>
-        private bool IsSkipRequested()
-        {
-            Pointer pointer = Pointer.current;
-            return pointer != null && pointer.press.wasPressedThisFrame;
         }
 
         /// <summary>

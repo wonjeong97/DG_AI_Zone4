@@ -48,6 +48,18 @@ namespace DGAIZone.Game.Data
         public string ingredientName; // 화면에 보이는 재료 이름
         public string matterSetId;    // 좌우 버튼으로 고를 블록 목록(같은 레벨 matterSets의 id)
         public string[] categories; // 이 단계를 진행시킬 수 있는 카드 분류 목록(동작/제어/논리/함수). 여럿이면 그중 아무 카드나 인식됨.
+
+        /// <summary> 이 단계(또는 분류별 재료)가 주어진 카드 분류를 받는지 반환함. </summary>
+        public bool AllowsCategory(string category)
+        {
+            if (categories == null) return false;
+
+            for (int i = 0; i < categories.Length; i++)
+            {
+                if (string.Equals(categories[i], category, StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
     }
 
     /// <summary>

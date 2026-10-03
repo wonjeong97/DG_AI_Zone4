@@ -28,6 +28,9 @@ namespace DGAIZone.Game
             builder.RegisterComponentInHierarchy<RfidReaderService>();
             builder.RegisterComponentInHierarchy<KeyboardRfidSimulator>();
             builder.RegisterComponentInHierarchy<IngredientSelectionController>();
+            builder.RegisterComponentInHierarchy<RightArrowHint>();
+            builder.RegisterComponentInHierarchy<InvalidCardWarning>();
+            builder.RegisterComponentInHierarchy<DesignPanel>();
             builder.RegisterComponentInHierarchy<MissionBoardController>();
             builder.RegisterComponentInHierarchy<CodingCategoryIndicatorController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();

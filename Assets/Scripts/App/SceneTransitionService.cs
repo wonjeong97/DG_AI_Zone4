@@ -26,6 +26,9 @@ namespace DGAIZone.App
         /// <summary> 현재 씬 전환 진행 중 여부. </summary>
         public bool IsTransitioning => _isTransitioning;
 
+        /// <summary> 테스트 전용: 실제 씬을 로드하지 않고 전환 중 상태를 만듦. </summary>
+        internal void SetTransitioningForTest(bool transitioning) => _isTransitioning = transitioning;
+
         /// <summary> VContainer 생성자 주입. 페이드 매니저와 로거를 할당함. </summary>
         [Inject]
         public SceneTransitionService(FadeManager fadeManager, ILogger<SceneTransitionService> logger)

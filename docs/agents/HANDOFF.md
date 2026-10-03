@@ -13,6 +13,33 @@
 
 ---
 
+### [2026-10-03 19:50] Claude → Antigravity · T21
+- 변경 파일: `Game/UI/MissionBoardController.cs`(레벨별 미션 문구 메서드 5개 → `ApplyMissionText(level, 기본 문구)` + `PickLevel1Destination`·`PickLevel3Limits`, 레벨 2·4 기본 문구 const), `Game/UI/IngredientSelectionController.cs`(`InitializeWorkflowAsync`에서 `JsonLoader.LoadAsync` 직후 취소 확인)
+- 발견 경위(버그): Play 모드에서 3_Game을 바로 다시 불러오자 파괴되는 이전 컨트롤러가 "워크플로우용 RfidMappings.json 로드 실패: Cannot access a disposed object" 오류와 null 경고 10여 줄을 남김. 템플릿 `JsonLoader.LoadAsync`가 취소를 삼키고 `new T()`를 돌려줘 초기화가 계속되고, 이미 해제된 상태 머신에 `ChangeState`하다 `ObjectDisposedException`이 `catch (Exception)`에 잡힘. 템플릿 쪽 근본 수정은 Template 저장소 `TODO.md`에 기록(커밋 4e2c86d, 이 프로젝트에서 발견).
+- 확인 요청: 레벨 1~5 문구·순서·로그 동등성, 취소 확인이 정상 경로에 영향 없는지, 같은 문제가 남은 호출부와 위험도, 스킬 규칙, `validate_script`·`read_console`. 모델 `gemini-3.8-flash-high`.
+- 결과(Antigravity): **전 항목 통과**. 다른 호출부: 타이틀 '중간'(로드 중 파괴되면 파괴된 CanvasGroup에 트윈), 레벨 선택 '낮음', 인트로 '매우 낮음', 결과 '없음'.
+  - Claude 판단: 타이틀은 QR 인식과 시작 버튼을 거쳐야 떠날 수 있어 로컬 JSON 로드(1~2프레임) 중에 파괴될 수 없음 → 고치지 않음. 템플릿이 취소를 다시 던지게 고치면 모두 해결됨.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과. Play 모드에서 레벨 1~4 미션 문구가 LevelData 문구대로 자리표시자 치환(레벨 1 화성/10, 레벨 3 전기 4·산소 5). 프레임 간격을 바꿔 3_Game을 8번 연달아 다시 불러온 재현에서 인스턴스 9개 중 2개가 초기화 도중 파괴됐고 오류·경고 0건(어느 await에서 취소됐는지는 로그로 확정하지 못함).
+
+### [2026-10-03 19:20] Claude → Antigravity · T19
+- 변경 파일: `Game/UI/IngredientSelectionController.cs`(1487→1238줄), 신규 `Game/UI/RightArrowHint.cs`·`InvalidCardWarning.cs`·`DesignPanel.cs`, `Game/GameSceneLifetimeScope.cs`(세 컴포넌트 등록), `Game/UI/States/*`(레벨 1 확정 값·미리보기를 레벨 1 상태로, 레벨 4 반복 후속 규칙·분류별 재료 찾기를 레벨 4 상태로, 인터페이스에 `CalculateConfirmedThrust`), `Game/Data/RfidMappingData.cs`(`RfidStepDefinition.AllowsCategory`), `Result/ResultFlowController.cs`·`App/SceneTransitionService.cs`(테스트 전용 setter), `Scenes/3_Game.unity`, 테스트 5개 파일
+- 씬: `GamePanel/Arrows`에 RightArrowHint, `GamePanel/Image_Warning`에 InvalidCardWarning(자기 CanvasGroup, shakeTarget=GamePanel), `GamePanel/Image_DesignWindow`에 DesignPanel을 붙이고 컨트롤러의 `rightArrowImages`·`designContent`·`designItemPrefab`·`warningPanel` 값을 그대로 옮긴 뒤 옛 필드 제거·재저장(diff는 컴포넌트 3개 추가와 옮긴 필드 4개 삭제뿐).
+- 테스트: 리플렉션을 모두 없앰(`Construct`, `ApplyLevelMapping`, `ChangeLevelState`, `...ForTest` setter). `_warningCts` 필드 타입만 보던 테스트는 실제 InvalidCardWarning을 연달아 띄워 CTS 정리·경고 숨김을 확인하는 테스트로 바꿈.
+- 확인 요청: 동작 동등성(화살표·경고·설계창·코딩완료 조건·레벨 1 추진력·레벨 4 규칙), 버튼 갱신 시점, 씬 참조, 스킬 규칙, 테스트, `validate_script`·`read_console`. 셸·run_tests·Play 모드 금지. 모델 `gemini-3.1-pro-high`(설계 판단).
+- 결과(Antigravity): **전 항목 통과**. 확정 수를 설계창 줄 수 대신 `_currentStepIndex`로 세도 정상 경로에서 같음, 씬 참조가 옛 필드와 같은 오브젝트를 가리킴, 변경 파일 에러 0.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과. 3_Game Play 모드에서 직접 확인: 세 컴포넌트·로거·리졸버 주입 정상, 레벨 1(카드 인식→화살표 재생→설정하기→설계창 1줄·화살표 정지, '논리' 카드 경고, 3단계 확정 시 코딩완료 활성·취소 시 비활성, 진행도 4/5=0.8), 레벨 4(반복하기 확정 후 '제어' 거부·경고·안내 '동작'만, '동작' 수락, 1단계부터 코딩완료 가능, 코딩완료→판정·정답 설계 5줄 기록→4_Result 전환). 콘솔 오류 0(기존 영상 색 공간 경고 1건).
+  - 참고: 확정 수를 `_currentStepIndex`로 바꿔, 설계창 프리팹 연결이 빠진 경우에도 코딩완료 버튼과 판정이 단계 진행을 따라감(이전에는 줄이 안 생겨 버튼이 영영 꺼져 있었음).
+
+### [2026-10-03 18:40] Claude → Antigravity · T20
+- 변경 파일: `Game/Hardware/RfidReaderService.cs`, `App/VideoReadyGate.cs`, `Result/ResultVideoPanel.cs`·`ResultAiPanel.cs`, `Game/UI/States/IngredientLevel1State.cs`·`IngredientLevel3State.cs`, `LevelSelect/LevelSelectFlowController.cs`, `Intro/IntroFlowController.cs`·`TutorialImageSlider.cs`, `Game/GameFlowController.cs`, `Tests/Runtime/TutorialSliderTests.cs`
+- 점검(읽기 전용, 두 묶음 병렬, `gemini-3.8-flash-high`): ① Game 폴더 ② 그 외 + 테스트. 검증 후 수용/기각:
+  - 수용: 카드 떨어짐 이벤트를 수신 스레드에서 바로 발행(구독자가 설계창 알파를 바꿈, 리더기 2대 이상에서만 드러남), 결과 영상 종료 대기(`WaitUntil`/`WaitWhile isPlaying`)에 상한 없음(결과 씬은 완료 패널 전까지 비활동 타이머가 멈춰 있음), `MissionBoard?.` 두 곳(0번), 인트로 페이드 null 조용한 반환(6번), 레벨 선택 폴백에서 `storyPanel` null이면 NRE, 터치 판정 3벌 중복, `TutorialImageSlider`의 C# `event`(22번).
+  - 기각: `SetDelay`+무한 Yoyo 루프 타이밍(지연은 첫 회만 적용), `OnApplicationQuit`·`OnDestroy` 이중 정리(두 번째 호출은 스레드가 이미 끝나 Join을 건너뛰는 no-op), 씬 전환 `_isBusy` finally 복원(전환 서비스가 자체 가드하고 비활동 타이머로 복구됨), 오른쪽 화살표 시퀀스 매번 생성(재생 중이면 건너뜀), 런타임 `AddComponent`(씬 진입 때 한 번), 레벨 2 `Clone`(필터가 원본 배열을 그대로 돌려줄 수 있어 필요), 스토리 화면 터치의 UI 레이캐스트 검사(아무 곳이나 눌러 넘어가는 것이 의도).
+- 확인 요청(코드 리뷰): 위 수정 7가지의 동작 동등성·해제 누락·규칙 준수, `validate_script`, `read_console`. 셸·run_tests·Play 모드 금지.
+- 결과(Antigravity): **전 항목 통과**. 변경 11개 파일 `validate_script` 에러 0, 콘솔 컴파일 에러 0.
+  - 참고: 첫 호출은 요청에 적은 스킬 경로(`C:/Users/licle/.claude/skills/...`)가 허용 목록 밖이라 `read_file`이 자동 거부되어 결과 없이 끝남. 허용된 원본 경로(`G:/내 드라이브/AgentSync/ClaudeSync/skills/...`)로 바꿔 다시 호출함.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과(작업 전 기준선도 56/56, T18 PlayMode 미실행분 해소). MCP PlayMode 테스트 실행 뒤 `EditorSettings.asset`의 Enter Play Mode Options가 켜져 있어 에디터 API로 다시 끔.
+
 ### [2026-10-03 17:33] Claude → Antigravity · 미병합 PR 정리(#35·#36·T18)
 - 변경 파일: PR #36 머지 충돌 해결분 `CHANGELOG.md`, `docs/agents/HANDOFF.md`, `TODO.md`, `docs/agents/TASKS.md`(삭제, T16~T19를 TODO.md로 이전)
 - 확인 요청: (1) CHANGELOG 양쪽 항목 누락·중복 없이 [2026-10-03]에 분류, [Unreleased] 비움 (2) HANDOFF 양쪽 항목 보존·최신순 (3) TASKS.md의 T16~T19가 TODO.md로 빠짐없이 이전. 셸 금지, 파일 읽기만. 모델 `gemini-3.8-flash-high`.

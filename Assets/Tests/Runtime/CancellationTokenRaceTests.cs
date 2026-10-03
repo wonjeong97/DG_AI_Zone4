@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.Game.UI;
@@ -97,12 +96,33 @@ namespace DGAIZone.Tests
             Assert.IsNull(harness.ActiveCts, "완료 후에는 CTS가 정리되어 null이어야 함.");
         });
 
-        [Test]
-        public void IngredientSelectionController_경고_CTS_필드가_올바른_타입으로_정의되어있다()
+        /// <summary>
+        /// 잘못된 카드 경고를 연달아 띄우면 앞 연출은 취소되고, 마지막 연출이 끝나면 경고가 다시 숨겨지고 취소 토큰도 정리되어야 함
+        /// (앞 연출의 finally가 새 연출의 CTS를 정리해 버리면 다음 경고를 취소할 수 없게 됨).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator 잘못된_카드_경고를_연달아_띄워도_마지막_연출이_끝나면_정리된다() => UniTask.ToCoroutine(async () =>
         {
-            FieldInfo field = typeof(IngredientSelectionController).GetField("_warningCts", BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.IsNotNull(field, "IngredientSelectionController에 _warningCts 필드가 존재해야 함.");
-            Assert.AreEqual(typeof(CancellationTokenSource), field.FieldType, "필드 타입이 CancellationTokenSource여야 함.");
-        }
+            GameObject go = new GameObject("TestInvalidCardWarning", typeof(RectTransform));
+            try
+            {
+                InvalidCardWarning warning = go.AddComponent<InvalidCardWarning>();
+                Assert.IsTrue(go.TryGetComponent(out CanvasGroup panel), "InvalidCardWarning은 CanvasGroup을 함께 붙여야 함.");
+
+                UniTask first = warning.ShowAsync();
+                await UniTask.Delay(50, DelayType.UnscaledDeltaTime);
+                UniTask second = warning.ShowAsync();
+                Assert.IsTrue(warning.IsShowing, "두 번째 경고가 진행 중이어야 함.");
+
+                await UniTask.WhenAll(first, second).AwaitWithRealtimeTimeout(5f);
+
+                Assert.IsFalse(warning.IsShowing, "마지막 경고가 끝나면 취소 토큰이 정리되어야 함.");
+                Assert.AreEqual(0f, panel.alpha, 0.001f, "마지막 경고가 끝나면 경고가 다시 숨겨져야 함.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        });
     }
 }

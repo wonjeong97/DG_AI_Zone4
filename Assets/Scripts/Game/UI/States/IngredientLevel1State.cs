@@ -15,9 +15,17 @@ namespace DGAIZone.Game.UI.States
     /// </summary>
     public class IngredientLevel1State : IIngredientSelectionLevelState
     {
-        /// <summary> 상태 진입 시 초기화. </summary>
+        // 추진력 계산식(엔진 출력량 + 연료량 - 탑재 중량)에 쓰이는 역할별 확정 값. 미확정 상태는 0.
+        private int _engineValue;
+        private int _fuelValue;
+        private int _payloadValue;
+
+        /// <summary> 상태 진입 시 역할별 확정 값을 0으로 초기화. </summary>
         public void Enter(IngredientSelectionController context)
         {
+            _engineValue = 0;
+            _fuelValue = 0;
+            _payloadValue = 0;
         }
 
         /// <summary> 매 프레임 업데이트. </summary>
@@ -57,13 +65,25 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 선택된 물질의 value를 재료 역할(엔진/탑재/연료)에 맞춰 추진력 계산식에 반영함. </summary>
         public void OnStepConfirmed(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter chosenMatter)
         {
-            controller.ApplyConfirmedValue(ingredientId, chosenMatter.value);
+            ApplyConfirmedValue(controller, ingredientId, chosenMatter.value);
         }
 
         /// <summary> 되돌려진 재료의 확정값을 0으로 리셋함. </summary>
         public void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter)
         {
-            controller.ApplyConfirmedValue(ingredientId, 0);
+            ApplyConfirmedValue(controller, ingredientId, 0);
+        }
+
+        /// <summary>
+        /// 확정된 값을 재료 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌림.
+        /// 값은 RfidMappings.json 블록의 value(항상 양수 크기)이며, 탑재 중량의 빼기는 계산식이 담당함.
+        /// </summary>
+        private void ApplyConfirmedValue(IngredientSelectionController controller, string ingredientId, int value)
+        {
+            if (string.Equals(ingredientId, Constants.RfidIds.Level1.Engine, StringComparison.Ordinal)) _engineValue = value;
+            else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Fuel, StringComparison.Ordinal)) _fuelValue = value;
+            else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Payload, StringComparison.Ordinal)) _payloadValue = value;
+            else if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 알 수 없는 재료 역할 '{ingredientId}'. 추진력 계산식에 값이 반영되지 않음.");
         }
 
         /// <summary> "· 재료 [물질]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
@@ -83,11 +103,12 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 총 추진력을 계산하고 미션보드의 유효 구간과 대조해 성공 여부를 판정함. </summary>
         public bool EvaluateMission(IngredientSelectionController controller)
         {
-            int totalThrust = controller.CalculateTotalThrust();
+            int totalThrust = CalculateConfirmedThrust(controller);
             bool valid = controller.MissionBoard && controller.MissionBoard.IsThrustValid(totalThrust);
             if (controller.Logger != null)
             {
-                controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={controller.ConfirmedEngineValue} + 연료={controller.ConfirmedFuelValue} - 탑재={controller.ConfirmedPayloadValue}) vs 목적지 '{controller.MissionBoard?.Destination}' -> {(valid ? "성공" : "실패")}");
+                string destination = controller.MissionBoard ? controller.MissionBoard.Destination : "(미션 보드 없음)";
+                controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={_engineValue} + 연료={_fuelValue} - 탑재={_payloadValue}) vs 목적지 '{destination}' -> {(valid ? "성공" : "실패")}");
             }
             return valid;
         }
@@ -127,7 +148,7 @@ namespace DGAIZone.Game.UI.States
                 {
                     foreach (RfidMatter fuel in fuels)
                     {
-                        if (IngredientSelectionController.CalculateThrust(engine.value, fuel.value, payload.value) == target) candidates.Add((engine, payload, fuel));
+                        if (CalculateThrust(engine.value, fuel.value, payload.value) == target) candidates.Add((engine, payload, fuel));
                     }
                 }
             }
@@ -148,10 +169,32 @@ namespace DGAIZone.Game.UI.States
             return solution;
         }
 
-        /// <summary> 임시 선택값을 포함한 추진력을 계산함. </summary>
+        /// <summary> 엔진 출력량 + 연료량 - 탑재 중량 공식을 그대로 계산함. </summary>
+        internal static int CalculateThrust(int engine, int fuel, int payload) => engine + fuel - payload;
+
+        /// <summary> 확정된 엔진 출력량 + 연료량 - 탑재 중량으로 총 추진력을 계산함. </summary>
+        public int CalculateConfirmedThrust(IngredientSelectionController controller)
+        {
+            return CalculateThrust(_engineValue, _fuelValue, _payloadValue);
+        }
+
+        /// <summary> 확정된 값에 지금 좌우 버튼으로 고르고 있는 블록 값을 대입해 미리보기 추진력을 계산함. </summary>
         public int CalculatePreviewThrust(IngredientSelectionController controller)
         {
-            return controller.CalculateLevel1PreviewThrust();
+            int engine = _engineValue;
+            int fuel = _fuelValue;
+            int payload = _payloadValue;
+
+            string ingredientId = controller.CurrentIngredientId;
+            RfidMatter selected = controller.CurrentSelectedMatter();
+            if (!string.IsNullOrEmpty(ingredientId) && selected != null)
+            {
+                if (string.Equals(ingredientId, Constants.RfidIds.Level1.Engine, StringComparison.Ordinal)) engine = selected.value;
+                else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Fuel, StringComparison.Ordinal)) fuel = selected.value;
+                else if (string.Equals(ingredientId, Constants.RfidIds.Level1.Payload, StringComparison.Ordinal)) payload = selected.value;
+            }
+
+            return CalculateThrust(engine, fuel, payload);
         }
 
         /// <summary> 레벨 1은 추가 시뮬레이션 연출이 없음. </summary>

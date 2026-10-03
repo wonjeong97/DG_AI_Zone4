@@ -14,6 +14,7 @@ namespace DGAIZone.App
     {
         public const float DefaultProgressThreshold = 0.01f;
         public const float DefaultPrepareTimeoutSeconds = 5f; // 로컬 파일은 보통 1초 안에 준비됨. SceneTransitionService의 영상 준비 대기와 같은 값
+        public const float PlaybackEndMarginSeconds = 5f; // 재생 종료 대기 상한 = 영상 길이 + 이 값
 
         /// <summary>
         /// videoPlayer.Prepare()를 호출하고 준비가 끝날 때까지 대기함. 준비되면 true, 오류(errorReceived)가 오거나
@@ -58,6 +59,28 @@ namespace DGAIZone.App
             }, cancellationToken: token);
 
             await UniTask.Yield(PlayerLoopTiming.PostLateUpdate, token);
+        }
+
+        /// <summary>
+        /// videoPlayer.Play() 이후 재생이 끝날 때까지 대기함. loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않아
+        /// isPlaying 상태 전이를 폴링함. 디코더가 멈춰 isPlaying이 바뀌지 않아도 연출이 영구히 멈추지 않도록, 영상 길이(준비 후 알 수 있음)에
+        /// PlaybackEndMarginSeconds를 더한 시간이 지나면 false를 반환함. 정상 종료면 true. token 취소 시에는 OperationCanceledException을 그대로 전파함.
+        /// </summary>
+        public static async UniTask<bool> WaitUntilPlaybackEndsAsync(VideoPlayer videoPlayer, CancellationToken token)
+        {
+            using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            // PrepareAsync와 같은 이유로 타이머 등록을 CTS보다 먼저 해제함
+            using IDisposable timeoutTimer = timeoutCts.CancelAfterSlim(TimeSpan.FromSeconds(videoPlayer.length + PlaybackEndMarginSeconds));
+            try
+            {
+                await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: timeoutCts.Token);
+                await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: timeoutCts.Token);
+                return true;
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                return false; // 상한 초과
+            }
         }
     }
 }

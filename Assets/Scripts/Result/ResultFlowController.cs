@@ -100,6 +100,9 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton의 직계 자식에 TMP_Text가 없어 문구를 바꾸지 못함.");
         }
 
+        /// <summary> 테스트 전용: 인스펙터로 연결하는 컴플리트 패널 제목 텍스트를 넣음. </summary>
+        internal void SetMissionResultTextForTest(TMP_Text text) => missionResultText = text;
+
         /// <summary> 컴플리트 패널 제목(Text_MissionComplete)을 미션 결과에 맞춰 "미션 완료!" 또는 "미션 실패!"로 바꿈. </summary>
         internal void ApplyMissionResultText()
         {
