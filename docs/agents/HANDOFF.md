@@ -13,6 +13,13 @@
 
 ---
 
+### [2026-10-01 18:20] Claude → Antigravity · T18
+- 변경 파일: `Game/UI/Level4Rules.cs`(신규), `Game/UI/Level4BoardController.cs`, `Tests/Runtime/Level4OutcomeEvaluationTests.cs`, `Tests/Runtime/SolutionDesignTests.cs`
+- 확인 요청: 코드 리뷰만(사용자가 Play 모드로 테스트 중이라 read_console·run_tests·Play 모드 금지). (1) 옛 판정 세 벌과 새 `Level4Rules.Step`의 동작 동등성 (2) 이동 방향 id↔변화량 매핑·순서 (3) 그리기 순서 (4) 배치 풀 정적 캐시 위험 (5) ref/in 전달 문법·IL2CPP (6) 스킬 규칙 (7) validate_script. 모델 `gemini-3.1-pro-high`.
+- 결과(Antigravity): **전 항목 통과**. 그리드 밖·자원 최초/재방문·함정·기지·스텝 소진에서 결과와 연출 순서가 같음, 방향 순서(위·아래·오른쪽·왼쪽) 유지로 정답 탐색 결과 동일, 배치 풀은 상수에만 의존해 도메인 리로드를 꺼도 문제없음, 4개 파일 에러 0.
+  - 참고: "옛 List.Sort가 불안정 정렬이라 함정·기지 순서가 바뀔 수 있었다"는 지적은 원소 4개라 삽입 정렬로 동작해 실제로는 같은 순서였음. 새 코드는 순서를 명시해 같은 결과.
+- 결과(Claude): 컴파일 에러 0, 배치 풀 66가지(이전과 같음). PlayMode 테스트는 사용자 Play 모드 종료 후 실행 예정.
+
 ### [2026-10-01 18:05] Claude → Antigravity · T17
 - 변경 파일: `App/RobotVideoPanel.cs`, `Game/Hardware/KeyboardRfidSimulator.cs`, `Game/UI/Level4BoardController.cs`, `App/Constants.cs`(LastLevel 추가, StoryLine 삭제), `App/UnlockedLevelStore.cs`, `Result/ResultFlowController.cs`·`ResultVideoPanel.cs`·`ResultAiPanel.cs`, `Intro/IntroFlowController.cs`·`TutorialImageSlider.cs`, `Network/APIManager.cs`, 설정 폴백을 쓰던 컨트롤러 11개, `UI/1_Intro/Tutorial/Tutorial5~7.png.meta`, `CHANGELOG.md`
 - 확인 요청: (a) 콘솔 컴파일 에러·경고 (b) 변경 .cs `validate_script` (c) 지운 폴백 값이 설정 클래스 기본값과 모두 같은지 (d) 설정 필드가 null이 될 경로 (e) 영상 준비 실패·취소 경로, `enabled = false`의 부작용. run_tests·Play 모드 금지. 모델 `gemini-3.8-flash-medium`.
