@@ -6,7 +6,6 @@
 
 ## 진행 중
 
-- [ ] T28 설계창 값 블록 글자를 Zone1처럼 블록 가운데에(왼쪽 홈 폭만큼 오른쪽으로 치우치던 것) — 담당: Claude / 검증: Antigravity
 
 ## 할 일
 
@@ -14,6 +13,7 @@
 
 ## 완료
 
+- [x] T28 설계창 값 블록 글자를 Zone1처럼 블록 폭 가운데에(왼쪽 홈 폭만큼 10px 오른쪽으로 치우치던 것)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T27 레벨 4 설계창: '반복하기'를 ㄷ자 블록(만약과 같은 If.png, 횟수 값 블록 포함)으로, 바로 뒤 '이동하기'를 그 안쪽에 표시. ㄷ자 관련 이름을 만약·반복하기 공용(FlowControl)으로 바꾸고 배율 계산용 모양을 레벨 상태가 정함(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T26 설계창 스크롤: 터치·마우스 드래그로 위로 올려 볼 수 있게(DesignScrollView에 GraphicRaycaster, Viewport에 투명 입력 영역), 올린 상태에서 코딩 완료 시 맨 아래로 부드럽게 내린 뒤 완성하기 블록 연결(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T25 레벨 3 설계창: '만약' 단계를 Zone1 ㄷ자 블록(If)으로, 뒤따르는 동작 블록을 그 안쪽에, '그리고'·'또는'을 초록 논리 블록(Logic.png 새로 만듦)으로 표시(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)

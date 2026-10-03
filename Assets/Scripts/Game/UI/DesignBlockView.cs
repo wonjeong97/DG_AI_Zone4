@@ -50,7 +50,6 @@ namespace DGAIZone.Game.UI
         public const float BottomTabHeight = 20f;
 
         private const float CommandSocketWidth = 20f; // 명령 블록 오른쪽 값 소켓 돌기 폭(이미지 폭 381 = 몸통 361 + 20)
-        private const float ValueNotchWidth = 20f;    // 값 블록 왼쪽 홈 깊이
         private const float LabelPadding = 12f;       // 라벨과 블록 테두리 사이 여백
 
         [SerializeField] private Image body;
@@ -135,7 +134,7 @@ namespace DGAIZone.Game.UI
                 RectTransform valueRect = (RectTransform)valueBody.transform;
                 valueRect.anchoredPosition = ValueAttachedPosition;
                 valueGroup.alpha = 1f;
-                SetLabelArea(valueLabel, ValueNotchWidth + LabelPadding, LabelPadding, LabelPadding, LabelPadding);
+                SetLabelArea(valueLabel, LabelPadding, LabelPadding, LabelPadding, LabelPadding); // Zone1처럼 왼쪽 홈까지 포함한 블록 폭의 가운데
                 valueLabel.text = value;
             }
         }
