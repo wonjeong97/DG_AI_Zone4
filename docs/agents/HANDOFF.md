@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-04 01:40] Claude → Antigravity · T29
+- 요청(사용자): `UI/3_Game/Level5`에 화면 레퍼런스(`level5_ref.png`)와 Image_CurrentSituation용 이미지 4장을 넣음 → 범위는 사용자 선택으로 '현재 상황 화면만'(레벨 5 게임 진행·함수 블록은 기획 확정 뒤).
+- 현황: 레벨 5는 `RfidMappings.json` 정의가 없고 레벨 상태가 레벨 1로 대체되며, `GameFlowController.situationPanels`가 Panel_Level1~4(길이 4)뿐이라 레벨 5에서는 현재 상황 창이 비어 있었음.
+- 배치: 현재 상황 창 이미지(`Window_Situation.png` 742×234)의 테두리가 레퍼런스 프레임(x589·y235부터)과 1:1이라, 레퍼런스에서 잰 그림 영역을 리소스의 알파 영역과 맞대어 원본 크기·왼쪽 위 기준 위치를 구함: Image_Rover(image 80, 37,-138), Image_Tower(image 78, 107,-53), Image_Corridor(image 79, 468,-116 — 왼쪽이 돔 뒤에 가려져 돔보다 먼저 둠), Image_Dome(돔 기지, 233,-29). Raycast Target 끔, Cull Transparent Mesh 켬, 패널은 다른 레벨 패널과 같이 부모 전체·비활성.
+- 변경 파일: `Scenes/3_Game.unity`(Panel_Level5와 이미지 4장, situationPanels 5번째 연결 — 이 hunk들만 커밋, 사용자 쪽 debugStartLevel·TMP 머티리얼·기타 변경은 작업 트리에 둠), `UI/3_Game/Level5/`의 이미지 4장(사용자가 넣은 것, `level5_ref.png`는 씬에서 쓰지 않아 커밋하지 않음)
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): **전 항목 통과**(fileID 부모·자식·컴포넌트·스프라이트 GUID 일치, 레벨 5에서만 켜지고 길이 가정 코드 없음, 다른 패널과 설정 일관, 레퍼런스 위치 일치).
+- 결과(Claude): 실제 씬 오브젝트를 미리보기 씬에 복제해 렌더링한 결과가 레퍼런스와 일치. Play 모드에서 레벨 5로 들어가 보는 확인은 하지 않음(사용자 씬의 debugStartLevel이 다른 레벨이고 Editor를 사용자가 쓰는 중).
+
 ### [2026-10-04 01:10] Claude → Antigravity · T28
 - 요청(사용자): 블록 안 글자를 Zone1처럼 블록 가운데에.
 - 확인: Zone4 라벨은 이미 Zone1과 같은 가운데 정렬(Center/Middle)이었고, 사용자에게 보낸 합성 시안·미리보기를 글자 왼쪽 정렬로 그려 달라 보였음. 실제 프리팹 렌더링과 Zone1 프리팹 라벨 영역을 비교하니 값 블록만 글자 영역에서 왼쪽 홈(20px)을 빼 Zone1(블록 폭 가운데 180.5)보다 10px 오른쪽(190.5)에 있었음.
