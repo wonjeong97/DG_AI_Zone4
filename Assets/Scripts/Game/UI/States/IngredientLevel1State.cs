@@ -86,14 +86,6 @@ namespace DGAIZone.Game.UI.States
             else if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 알 수 없는 재료 역할 '{ingredientId}'. 추진력 계산식에 값이 반영되지 않음.");
         }
 
-        /// <summary> "· 재료 [물질]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
-        {
-            return string.IsNullOrEmpty(ingredientName)
-                ? $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]"
-                : $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
-        }
-
         /// <summary> 재료 이름은 명령 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계는 값 블록 없이 블록 이름만 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
@@ -101,7 +93,7 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> 모든 단계를 명령 블록으로 쌓음. </summary>
-        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
         {
             return DesignStepShape.Command;
         }
@@ -132,6 +124,12 @@ namespace DGAIZone.Game.UI.States
                 controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={_engineValue} + 연료={_fuelValue} - 탑재={_payloadValue}) vs 목적지 '{destination}' -> {(valid ? "성공" : "실패")}");
             }
             return valid;
+        }
+
+        /// <summary> 실패 원인별 결과 영상이 없어 기본 실패 영상을 씀. </summary>
+        public string GetFailVideoSuffix(IngredientSelectionController controller)
+        {
+            return null;
         }
 
         /// <summary>

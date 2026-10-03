@@ -13,6 +13,13 @@
 
 ---
 
+### [2026-10-04 02:00] Claude → Antigravity · T32
+- 요청(사용자): 4_Result 왼쪽 아래 '나의 코딩 결과'(레퍼런스 4-9.png, PlayerPanel.png), 플레이어·AI 설계창도 3_Game 블록 이미지로, 레벨 3 실패 원인별 영상(전기만 부족 4-3-Fail-Electricity, 산소만 부족 4-3-Fail-O2, 논리 '또는'·둘 다 부족은 4-3-Fail), 4-5 영상 추가. 이어서 결과 패널도 3_Game 배치 방식을 따르고 블록 붙는 속도를 늦춤. 마지막 레벨은 사용자 선택으로 4→5.
+- 변경 파일: `GameResultStore.cs`(SolutionDesignItems 문구 → DesignStep 단위 SolutionDesign·PlayerDesign·PlayerDesignCompleted·DesignLayoutMode·FailVideoSuffix), `DesignPanel.cs`(DesignStep 구조체, LayoutMode 공개 속성), `IngredientSelectionController.cs`(플레이어 블록 기록·StoreResultDesigns·FailVideoSuffix), 레벨 상태 인터페이스·레벨 1~5(GetDesignStepShape에 직전 재료 인자, FormatDesignItemText 삭제, GetFailVideoSuffix — 레벨 3 FailVideoSuffixOf), `Constants.cs`(LastLevel 5, 실패 영상 접미사), `ResultVideoPanel.cs`(원인 영상·없으면 기본 실패 영상), 신규 `ResultDesignPlayback.cs`·`ResultPlayerPanel.cs`, `ResultAiPanel.cs`(글자 줄 → 블록), `ResultFlowController.cs`(설정 로드 뒤 플레이어 패널 쌓기, AI 패널에 블록 간격), `ResultLifetimeScope.cs`, `ResultSceneSettings.cs`·`4_Result.json`(designBlockInterval 1.0), `Scenes/4_Result.unity`(PlayerPanel 3,2·610×419·블록 영역 562×339, AI 패널 Text_Design → DesignArea, 두 영역에 ScrollRect·RectMask2D·투명 Image, 패널 Canvas에 GraphicRaycaster, 결과 설계창 rise 0.7·slide 0.4), 영상 4개·PlayerPanel.png, 테스트(SolutionDesignTests·IngredientFsmStateTests 갱신, 신규 ResultVideoTests, DesignPanelTests 배치 방식 테스트).
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): 1차 **전 항목 통과**(기록 동기화·정답 모양, 실패 영상 규칙·대체·잔존 없음, LastLevel 5 부작용 없음, 패널 주입·순서·취소, 규칙, 테스트). 제안(확정 흐름을 거친 플레이어 설계 테스트, 레벨 4 정답 모양 테스트)은 컨트롤러 확정 흐름·보드 배치가 필요해 반영하지 않음. 추가 변경(배치 방식·속도·스크롤 구성) 리뷰: **전 항목 통과**(자동 스크롤 마스킹·스크롤·드래그 구성과 화면 맞추기 회귀 없음, 설정 로드 뒤 시작·로드 실패 기본값·취소·null 경고, 결과 패널 GraphicRaycaster·투명 Image가 다음 버튼을 가리지 않음, 실패 로그·MonoBehaviour `?.` 금지).
+- 결과(Claude): PlayMode 78/78, 콘솔 오류 0. Play 모드에서 결과 저장소에 예시 데이터를 넣고 4_Result를 다시 띄워 캡처: 레벨 5(화면 맞추기) 두 패널 블록·함수 정의 표시, 레벨 3(자동 스크롤·Fail-O2) 4-3-Fail-O2.mp4 재생·0.7배 블록·잘림·맨 아래 스크롤, 사용자가 같은 세션에서 결과 패널 드래그 스크롤 확인. 4-9.png(레퍼런스)와 TMP 글꼴 에셋(GamtanRoadTantan SDF, 실행 중 자동 추가된 글자)은 사용자 요청으로 버림.
+- 도구 참고: 테스트가 끝나 MCP가 Interaction Mode를 되돌린 뒤 Editor가 백그라운드면 컴파일 요청이 실행되지 않고 대기함 → 사용자가 Editor를 한 번 클릭해 진행.
+
 ### [2026-10-04 01:25] Claude → Antigravity · T31
 - 요청(사용자): 모든 레벨에서 시작하기를 더 왼쪽으로, 레벨 5는 시작하기가 옮긴 만큼 함수 정의 블록도 왼쪽으로. 거리는 정해지지 않아 인스펙터 값(기본 30)으로 둠.
 - 변경 파일: `DesignPanel.cs`(stackShiftLeft — 왼쪽 여백 edgePadding까지만, 실제로 옮긴 거리 _shiftX만큼 함수 정의 블록도 왼쪽, 폭 제한 식에 반영), `DesignPanelTests.cs`(기대 위치 반영). 3_Game 왼쪽 여백: 자동 스크롤 86→56, 화면 맞추기 49→19.

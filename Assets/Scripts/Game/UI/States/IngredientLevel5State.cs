@@ -91,12 +91,6 @@ namespace DGAIZone.Game.UI.States
         {
         }
 
-        /// <summary> "· [블록 이름]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
-        {
-            return $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
-        }
-
         /// <summary> 함수·동작·논리 모두 고른 블록 이름만 값 블록 없이 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
@@ -104,7 +98,7 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> 함수 카드는 함수 사용 블록(오른쪽에 함수 정의 블록도 놓임), 논리 카드는 논리 블록, 동작 카드는 명령 블록으로 쌓음. </summary>
-        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
         {
             bool known = string.Equals(ingredientId, Constants.RfidIds.Level5.Function, StringComparison.Ordinal)
                 || string.Equals(ingredientId, Constants.RfidIds.Level5.Action, StringComparison.Ordinal)
@@ -150,6 +144,12 @@ namespace DGAIZone.Game.UI.States
             }
 
             return success;
+        }
+
+        /// <summary> 실패 원인별 결과 영상이 없어 기본 실패 영상을 씀. </summary>
+        public string GetFailVideoSuffix(IngredientSelectionController controller)
+        {
+            return null;
         }
 
         /// <summary> 확정된 앞쪽 count개 단계 중 함수·동작·논리 카드가 각각 정해진 장수만큼 있는지 여부. </summary>

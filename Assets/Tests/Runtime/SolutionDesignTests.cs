@@ -205,19 +205,43 @@ namespace DGAIZone.Tests
         }
 
         [Test]
-        public void 정답_설계는_설계창_형식의_문구로_결과_저장소에_기록된다()
+        public void 정답_설계는_설계창과_같은_블록으로_결과_저장소에_기록된다()
         {
             UseLevelMapping(2);
             GameResultStore store = new GameResultStore();
             InjectDependencies(null, store);
             _controller.ChangeLevelState(2);
-            IngredientLevel2State level2State = (IngredientLevel2State)_controller.CurrentLevelState;
 
-            _controller.StoreSolutionDesign();
+            _controller.StoreResultDesigns(true);
 
-            Assert.AreEqual(5, store.SolutionDesignItems.Count, "레벨 2 정답 5줄이 기록돼야 함");
+            Assert.AreEqual(5, store.SolutionDesign.Count, "레벨 2 정답 블록 5개가 기록돼야 함");
             RfidMatter first = _settings.FindLevelMapping(2).FindMatters("LaunchSequence").First(m => m.id == Constants.RfidIds.Level2.Ignite);
-            Assert.AreEqual(level2State.FormatDesignItemText(_controller, "발사 코딩 순서", first.label), store.SolutionDesignItems[0], "첫 줄은 게임 설계창과 같은 형식의 '엔진 점화' 블록이어야 함");
+            Assert.AreEqual(DesignStepShape.Command, store.SolutionDesign[0].Shape, "레벨 2 정답은 명령 블록이어야 함");
+            Assert.AreEqual(first.label, store.SolutionDesign[0].Command, "첫 블록은 게임 설계창과 같은 '엔진 점화' 블록이어야 함");
+            Assert.IsNull(store.SolutionDesign[0].Value, "레벨 2는 값 블록이 없어야 함");
+            Assert.AreEqual(0, store.PlayerDesign.Count, "확정한 단계가 없으면 플레이어 설계는 비어 있어야 함");
+            Assert.IsTrue(store.PlayerDesignCompleted, "코딩완료로 기록하면 완료로 표시돼야 함");
+        }
+
+        [Test]
+        public void 레벨3_정답_설계는_만약_블록_안쪽에_동작이_들어간_모양으로_기록된다()
+        {
+            UseLevelMapping(3);
+            MissionBoardController board = UseMissionBoard();
+            GameResultStore store = new GameResultStore();
+            InjectDependencies(board, store);
+            LevelData level3 = LoadLevelData(3);
+            board.SetLevel3LimitsForTest(level3.maxElectricityRange.x, level3.minOxygenRange.x);
+            _controller.ChangeLevelState(3);
+
+            _controller.StoreResultDesigns(false);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl, DesignStepShape.Logic,
+                DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl
+            }, store.SolutionDesign.Select(d => d.Shape), "레벨 3 정답은 3_Game 설계창과 같은 모양이어야 함");
+            Assert.IsFalse(store.PlayerDesignCompleted, "스킵으로 기록하면 완료가 아니어야 함");
         }
     }
 }

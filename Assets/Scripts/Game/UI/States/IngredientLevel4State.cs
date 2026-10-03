@@ -99,20 +99,14 @@ namespace DGAIZone.Game.UI.States
         {
         }
 
-        /// <summary> "· 재료 [물질]" 형식으로 디자인 항목 텍스트를 구성함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
-        {
-            return $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
-        }
-
         /// <summary> 재료 이름은 명령 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계는 값 블록 없이 블록 이름만 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
             return string.IsNullOrEmpty(ingredientName) ? (matterLabel, null) : (ingredientName, matterLabel);
         }
 
-        /// <summary> 반복하기는 ㄷ자 블록(횟수는 값 블록), 바로 뒤 이동하기는 그 안쪽, 그 밖의 이동하기는 명령 블록으로 쌓음. </summary>
-        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        /// <summary> 반복하기는 ㄷ자 블록(횟수는 값 블록), 반복하기 바로 뒤(previousIngredientId가 반복하기) 이동하기는 그 안쪽, 그 밖의 이동하기는 명령 블록으로 쌓음. </summary>
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
         {
             bool known = string.Equals(ingredientId, Constants.RfidIds.Level4.Move, StringComparison.Ordinal)
                 || string.Equals(ingredientId, Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal);
@@ -121,7 +115,7 @@ namespace DGAIZone.Game.UI.States
                 controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 4에서 알 수 없는 재료 id '{ingredientId}'라 설계창에 명령 블록으로 쌓음.");
             }
 
-            return DesignShapeOf(ingredientId, IsRepeatFollowUpRequired(controller));
+            return DesignShapeOf(ingredientId, string.Equals(previousIngredientId, Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal));
         }
 
         /// <summary> 반복하기면 ㄷ자 블록, 직전 단계가 반복하기(afterRepeat)면 그 안쪽, 그 밖에는 명령 블록. </summary>
@@ -180,6 +174,12 @@ namespace DGAIZone.Game.UI.States
             }
 
             return controller.Level4Board.EvaluateOutcome(controller.GetConfirmedCommands());
+        }
+
+        /// <summary> 실패 원인별 결과 영상이 없어 기본 실패 영상을 씀. </summary>
+        public string GetFailVideoSuffix(IngredientSelectionController controller)
+        {
+            return null;
         }
 
         /// <summary>

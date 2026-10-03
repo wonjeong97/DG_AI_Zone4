@@ -29,6 +29,21 @@ namespace DGAIZone.Game.UI
         FunctionCall // 함수 사용 블록(자주, 값 블록 없음). 붙일 때 설계창 오른쪽에 같은 이름의 함수 정의 ㄷ자 블록도 함께 놓음
     }
 
+    /// <summary> 설계창에 쌓는 단계 블록 하나(모양·명령 블록 문구·값 블록 문구, 값이 없으면 null). 결과 씬에서 플레이어·정답 설계를 다시 그릴 때도 씀. </summary>
+    public readonly struct DesignStep
+    {
+        public readonly DesignStepShape Shape;
+        public readonly string Command;
+        public readonly string Value;
+
+        public DesignStep(DesignStepShape shape, string command, string value)
+        {
+            Shape = shape;
+            Command = command;
+            Value = value;
+        }
+    }
+
     /// <summary>
     /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 단계 블록이
     /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
@@ -91,6 +106,13 @@ namespace DGAIZone.Game.UI
 
         /// <summary> 블록 배율(레이아웃 검증용). </summary>
         internal float Scale => _scale;
+
+        /// <summary> 배치 방식(줄여서 한 화면에/크게 두고 자동 스크롤). 결과 씬이 3_Game 설계창과 같은 방식으로 그릴 때 Initialize 전에 바꿈. </summary>
+        public DesignLayoutMode LayoutMode
+        {
+            get => layoutMode;
+            set => layoutMode = value;
+        }
 
         /// <summary> 테스트 전용: 인스펙터로 연결하는 블록 content·프리팹·배치 방식과 ScrollRect를 넣음(scroll이 없으면 content의 부모를 보이는 영역으로 쓰고 자동 스크롤은 하지 않음). </summary>
         internal void SetUpForTest(RectTransform contentRoot, DesignBlockView prefab, DesignLayoutMode mode, ScrollRect scroll = null)

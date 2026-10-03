@@ -96,14 +96,6 @@ namespace DGAIZone.Game.UI.States
             RevertLevel3Effects(controller, ingredientId, matter);
         }
 
-        /// <summary> 재료명이 비어있는 경우(논리 연결어) 물질만 표시하고, 그 외에는 재료와 물질을 함께 표시함. </summary>
-        public string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel)
-        {
-            return string.IsNullOrEmpty(ingredientName)
-                ? $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]"
-                : $" · {ingredientName} [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
-        }
-
         /// <summary> 재료 이름은 명령(만약) 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계(논리 연결어)는 값 블록 없이 블록 이름만 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {
@@ -111,7 +103,7 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> 조건(만약 전기량이/산소량이)은 만약 ㄷ자 블록, 뒤따르는 동작(전기량/산소량)은 그 안쪽, 논리 연결어는 논리 블록으로 쌓음. </summary>
-        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId)
+        public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
         {
             switch (ingredientId)
             {
@@ -136,7 +128,7 @@ namespace DGAIZone.Game.UI.States
             for (int i = 0; i < controller.TotalSteps; i++)
             {
                 RfidStepDefinition step = steps != null && i < steps.Length ? steps[i] : null;
-                shapes.Add(step != null ? GetDesignStepShape(controller, step.ingredientId) : DesignStepShape.Command);
+                shapes.Add(step != null ? GetDesignStepShape(controller, step.ingredientId, null) : DesignStepShape.Command);
             }
         }
 
@@ -163,6 +155,26 @@ namespace DGAIZone.Game.UI.States
             }
 
             return success;
+        }
+
+        /// <summary>
+        /// 실패 원인별 결과 영상 접미사: 논리 블록을 '또는'으로 놓았거나 전기·산소 게이지가 둘 다 모자라면 null(기본 실패 영상),
+        /// 전기 게이지만 모자라면 Electricity, 산소 게이지만 모자라면 O2.
+        /// </summary>
+        public string GetFailVideoSuffix(IngredientSelectionController controller)
+        {
+            return FailVideoSuffixOf(_level3InstabilityPending, _level3ElectricFill, _level3OxygenFill);
+        }
+
+        /// <summary> 논리 오류 여부와 전기·산소 게이지 충전량으로 실패 영상 접미사를 정함(GetFailVideoSuffix 참고). 게이지가 둘 다 찼으면(성공) null. </summary>
+        internal static string FailVideoSuffixOf(bool logicWrong, float electricFill, float oxygenFill)
+        {
+            if (logicWrong) return null;
+
+            bool electricShort = electricFill < 1f;
+            bool oxygenShort = oxygenFill < 1f;
+            if (electricShort == oxygenShort) return null; // 둘 다 모자라면 기본 실패 영상, 둘 다 찼으면 실패가 아님
+            return electricShort ? Constants.Files.ResultVideoFailElectricity : Constants.Files.ResultVideoFailO2;
         }
 
         /// <summary> 단계마다 이번 판 기준값에 맞는 정답 블록(IsCorrectBlock)을 골라 단계 순서대로 반환함. </summary>

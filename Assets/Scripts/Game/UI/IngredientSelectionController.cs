@@ -122,6 +122,7 @@ namespace DGAIZone.Game.UI
         private string _currentIngredientId; // 현재 대기 중인(아직 확정 안 된) 재료의 ingredientId. 화면 표시용 이름은 _currentIngredient
         private string[] _confirmedCategories; // 각 스탭을 확정시킨 카드의 category(동작/제어/논리/함수). 리더기별 스탭 라우팅에서 카드 변경 감지에 사용
         private readonly List<DesignStepShape> _plannedDesignShapes = new List<DesignStepShape>(); // 이번 레벨 단계를 모두 쌓았을 때의 설계창 블록 모양(배율 계산용)
+        private readonly List<DesignStep> _designSteps = new List<DesignStep>(); // 플레이어가 설계창에 쌓은 블록(결과 씬 '나의 코딩 결과'용)
         private string _currentCategory; // 현재 대기 중인(아직 확정 안 된) 태그의 category. Confirm 시 _confirmedCategories에 기록됨
 
         // 리더기별 스탭 라우팅: readerId("Reader_N")가 N번째 스탭에 고정 배정됨. 설정된 리더기가 1대뿐이면(현재)
@@ -885,22 +886,36 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void AddDesignItem(string ingredientId, string ingredientName, string matterLabel)
         {
+            string previousIngredientId = _currentStepIndex > 0 && _confirmedIngredients != null && _currentStepIndex - 1 < _confirmedIngredients.Length
+                ? _confirmedIngredients[_currentStepIndex - 1]
+                : null;
+            DesignStep step = ToDesignStep(ingredientId, ingredientName, matterLabel, previousIngredientId);
+            _designSteps.Add(step);
+
             if (!_designPanel)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 확정 항목을 추가할 수 없음.");
                 return;
             }
 
-            (string command, string value) = CurrentLevelState != null
-                ? CurrentLevelState.GetDesignBlockTexts(this, ingredientName, matterLabel)
-                : (ingredientName, matterLabel);
-            DesignStepShape shape = CurrentLevelState != null ? CurrentLevelState.GetDesignStepShape(this, ingredientId) : DesignStepShape.Command;
-            _designPanel.AddItem(shape, command, value);
+            _designPanel.AddItem(step.Shape, step.Command, step.Value);
+        }
+
+        /// <summary> 재료·고른 블록을 레벨 상태가 정한 설계창 블록(모양·명령 문구·값 문구)으로 바꿈. 레벨 상태가 없으면 명령+값 블록. </summary>
+        private DesignStep ToDesignStep(string ingredientId, string ingredientName, string matterLabel, string previousIngredientId)
+        {
+            IIngredientSelectionLevelState state = CurrentLevelState;
+            if (state == null) return new DesignStep(DesignStepShape.Command, ingredientName, matterLabel);
+
+            (string command, string value) = state.GetDesignBlockTexts(this, ingredientName, matterLabel);
+            return new DesignStep(state.GetDesignStepShape(this, ingredientId, previousIngredientId), command, value);
         }
 
         /// <summary> 설계창에 마지막으로 추가된 확정 항목을 지우고 코딩완료 버튼 상태를 갱신함. </summary>
         private void RemoveLastDesignItem()
         {
+            if (_designSteps.Count > 0) _designSteps.RemoveAt(_designSteps.Count - 1);
+
             if (_designPanel) _designPanel.RemoveLastItem();
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 마지막 확정 항목을 지울 수 없음.");
 
@@ -913,6 +928,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void ResetDesignPanel()
         {
+            _designSteps.Clear();
             _plannedDesignShapes.Clear();
             if (CurrentLevelState != null) CurrentLevelState.FillPlannedDesignShapes(this, _plannedDesignShapes);
             else
@@ -983,9 +999,16 @@ namespace DGAIZone.Game.UI
             }
 
             bool success = EvaluateMission();
-            if (_resultStore != null) _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 미션 결과를 기록할 수 없음.");
-            StoreSolutionDesign();
+            if (_resultStore != null)
+            {
+                _resultStore.Result = success ? MissionResult.Success : MissionResult.Fail;
+                _resultStore.FailVideoSuffix = !success && CurrentLevelState != null ? CurrentLevelState.GetFailVideoSuffix(this) : null;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 미션 결과를 기록할 수 없음.");
+            }
+            StoreResultDesigns(true);
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}.");
 
@@ -1014,9 +1037,16 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            if (_resultStore != null) _resultStore.Result = MissionResult.Fail;
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 스킵 결과를 기록할 수 없음.");
-            StoreSolutionDesign();
+            if (_resultStore != null)
+            {
+                _resultStore.Result = MissionResult.Fail;
+                _resultStore.FailVideoSuffix = null;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 스킵 결과를 기록할 수 없음.");
+            }
+            StoreResultDesigns(false);
 
             _isBusy = true;
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
@@ -1024,34 +1054,40 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 이번 판 문제의 정답 블록(레벨 상태의 BuildSolution)을 설계창과 같은 형식의 문구로 만들어 결과 저장소에 기록함.
-        /// 결과 씬의 AI 설계창이 이 문구를 그대로 보여줌. 정답을 만들지 못하면 빈 목록이 기록됨.
+        /// 결과 씬에서 보여 줄 설계를 결과 저장소에 기록함: 플레이어가 설계창에 쌓은 블록과 completed(코딩완료로 마쳤는지, 스킵이면 false),
+        /// 설계창 배치 방식, 이번 판 문제의 정답(레벨 상태의 BuildSolution)을 설계창과 같은 블록으로 바꾼 것. 정답을 만들지 못하면 정답은 빈 목록이 기록됨.
         /// </summary>
-        internal void StoreSolutionDesign()
+        internal void StoreResultDesigns(bool completed)
         {
             if (_resultStore == null)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 정답 설계를 기록할 수 없음.");
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] resultStore가 null이라 플레이어·정답 설계를 기록할 수 없음.");
                 return;
             }
+
+            _resultStore.PlayerDesign = _designSteps.ToArray();
+            _resultStore.PlayerDesignCompleted = completed;
+            if (_designPanel) _resultStore.DesignLayoutMode = _designPanel.LayoutMode;
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 결과 설계창 배치 방식을 기본값({_resultStore.DesignLayoutMode})으로 둠.");
 
             IIngredientSelectionLevelState state = CurrentLevelState;
             if (state == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 정답 설계를 만들 수 없음. 빈 설계를 기록함.");
-                _resultStore.SolutionDesignItems = Array.Empty<string>();
+                _resultStore.SolutionDesign = Array.Empty<DesignStep>();
                 return;
             }
 
             List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = state.BuildSolution(this);
-            string[] items = new string[solution.Count];
+            DesignStep[] steps = new DesignStep[solution.Count];
             for (int i = 0; i < solution.Count; i++)
             {
-                items[i] = state.FormatDesignItemText(this, solution[i].ingredient.ingredientName, solution[i].matter.label);
+                string previousIngredientId = i > 0 ? solution[i - 1].ingredient.ingredientId : null;
+                steps[i] = ToDesignStep(solution[i].ingredient.ingredientId, solution[i].ingredient.ingredientName, solution[i].matter.label, previousIngredientId);
             }
 
-            _resultStore.SolutionDesignItems = items;
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 정답 설계 {items.Length}줄을 기록함.");
+            _resultStore.SolutionDesign = steps;
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 플레이어 설계 {_designSteps.Count}개(완료={completed}), 정답 설계 {steps.Length}개를 기록함.");
         }
 
         /// <summary>

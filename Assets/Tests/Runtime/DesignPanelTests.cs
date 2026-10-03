@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.Game.UI;
+using DGAIZone.Result;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -371,5 +372,24 @@ namespace DGAIZone.Tests
             await UniTask.Delay(500, DelayType.UnscaledDeltaTime); // 빼기 연출(기본 0.2초) 뒤 파괴됨
             Assert.AreEqual(1, _content.childCount, "함수 단계를 취소하면 함수 사용·정의 블록이 함께 빠져 시작하기만 남아야 함");
         });
+
+        [Test]
+        public void 결과_설계창은_게임_설계창의_배치_방식으로_그린다()
+        {
+            DesignStep[] steps =
+            {
+                new DesignStep(DesignStepShape.Command, "이동하기", "위쪽 한 칸"),
+                new DesignStep(DesignStepShape.Command, "이동하기", "오른쪽 한 칸")
+            };
+
+            CreatePanel(DesignLayoutMode.FitAll);
+            ResultDesignPlayback.Prepare(_panel, steps, DesignLayoutMode.ScrollLarge);
+            Assert.AreEqual(DesignLayoutMode.ScrollLarge, _panel.LayoutMode, "게임 설계창이 자동 스크롤이면 결과 설계창도 자동 스크롤이어야 함");
+            Assert.AreEqual(0.7f, _panel.Scale, Tolerance, "자동 스크롤 방식의 배율(scrollScale 0.7)을 써야 함");
+
+            ResultDesignPlayback.Prepare(_panel, steps, DesignLayoutMode.FitAll);
+            Assert.AreEqual(DesignLayoutMode.FitAll, _panel.LayoutMode, "게임 설계창이 화면 맞추기면 결과 설계창도 화면 맞추기여야 함");
+            Assert.AreEqual(0.8f, _panel.Scale, Tolerance, "블록이 적으면 화면 맞추기 최대 배율(maxFitScale 0.8)을 써야 함");
+        }
     }
 }
