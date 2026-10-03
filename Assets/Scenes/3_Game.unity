@@ -7359,8 +7359,10 @@ MonoBehaviour:
   maxFitScale: 0.8
   scrollScale: 0.7
   edgePadding: 8
-  dropDuration: 0.35
-  dropHeight: 60
+  riseDuration: 0.5
+  riseHeight: 40
+  valueSlideDuration: 0.3
+  valueSlideDistance: 120
   removeDuration: 0.2
   scrollDuration: 0.3
   completeHoldDuration: 0.5

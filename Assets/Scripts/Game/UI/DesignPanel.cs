@@ -20,8 +20,9 @@ namespace DGAIZone.Game.UI
     }
 
     /// <summary>
-    /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 명령(+값) 블록이
-    /// 위에서 내려와 맞물리며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음. 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
+    /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 명령 블록이
+    /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
+    /// 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
     /// 블록 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
     public class DesignPanel : MonoBehaviour
@@ -41,9 +42,11 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float edgePadding = 8f;   // 블록 묶음 위아래·좌우 최소 여백(UI 단위)
 
         [Header("Animation")]
-        [SerializeField] private float dropDuration = 0.35f;        // 블록이 내려와 맞물리는 시간
-        [SerializeField] private float dropHeight = 60f;            // 블록이 내려오기 시작하는 높이(블록 원본 크기 기준)
-        [SerializeField] private float removeDuration = 0.2f;       // 취소 시 블록이 떠오르며 사라지는 시간
+        [SerializeField] private float riseDuration = 0.5f;         // 블록이 아래에서 올라와 맞물리는 시간(스토리 라인 연출과 같은 곡선)
+        [SerializeField] private float riseHeight = 40f;            // 블록이 올라오기 시작하는 깊이(블록 원본 크기 기준, 배율을 곱해 화면상 약 20px)
+        [SerializeField] private float valueSlideDuration = 0.3f;   // 명령 블록이 붙은 뒤 값 블록이 오른쪽에서 미끄러져 와 붙는 시간
+        [SerializeField] private float valueSlideDistance = 120f;   // 값 블록이 미끄러지기 시작하는 오른쪽 거리(블록 원본 크기 기준)
+        [SerializeField] private float removeDuration = 0.2f;       // 취소 시 블록이 가라앉으며 사라지는 시간
         [SerializeField] private float scrollDuration = 0.3f;       // 자동 스크롤 시간
         [SerializeField] private float completeHoldDuration = 0.5f; // 완성하기 블록이 붙은 뒤 다음 연출까지 보여 주는 시간
 
@@ -99,7 +102,7 @@ namespace DGAIZone.Game.UI
             UpdateContentHeight();
         }
 
-        /// <summary> 단계 블록 하나를 맨 아래에 쌓음(위에서 내려와 맞물리는 연출). value가 비어 있으면 값 블록 없는 명령 블록을 씀. </summary>
+        /// <summary> 단계 블록 하나를 맨 아래에 쌓음(아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 붙는 연출). value가 비어 있으면 값 블록 없는 명령 블록을 씀. </summary>
         public void AddItem(string command, string value)
         {
             if (!_startBlock)
@@ -113,12 +116,12 @@ namespace DGAIZone.Game.UI
             if (!block) return;
 
             _steps.Add(block);
-            block.PlayDropIn(PositionOf(_steps.Count), dropHeight * _scale, dropDuration);
+            PlayAttach(block, _steps.Count);
             UpdateContentHeight();
             ScrollToBottom();
         }
 
-        /// <summary> 마지막으로 쌓은 단계 블록을 뺌(떠오르며 사라지는 연출 뒤 파괴). </summary>
+        /// <summary> 마지막으로 쌓은 단계 블록을 뺌(가라앉으며 사라지는 연출 뒤 파괴). </summary>
         public void RemoveLastItem()
         {
             if (_steps.Count == 0) return;
@@ -126,7 +129,7 @@ namespace DGAIZone.Game.UI
             int lastIndex = _steps.Count - 1;
             DesignBlockView last = _steps[lastIndex];
             _steps.RemoveAt(lastIndex);
-            if (last) last.PlayRemoveAndDestroy(dropHeight * _scale, removeDuration);
+            if (last) last.PlayDetachAndDestroy(riseHeight * _scale, removeDuration);
             UpdateContentHeight();
         }
 
@@ -143,11 +146,11 @@ namespace DGAIZone.Game.UI
             _endBlock = CreateBlock(DesignBlockKind.End, EndLabel, null);
             if (!_endBlock) return;
 
-            Sequence drop = _endBlock.PlayDropIn(PositionOf(_steps.Count + 1), dropHeight * _scale, dropDuration);
+            Sequence attach = PlayAttach(_endBlock, _steps.Count + 1);
             UpdateContentHeight();
             ScrollToBottom();
 
-            await drop.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
+            await attach.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
             await UniTask.Delay(TimeSpan.FromSeconds(completeHoldDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
         }
 
@@ -158,6 +161,12 @@ namespace DGAIZone.Game.UI
             {
                 if (_steps[i]) _steps[i].SetDimmed(i >= fromIndex, DeactivatedAlpha);
             }
+        }
+
+        /// <summary> index번째 자리(0 = 시작하기)에 블록이 붙는 연출을 시작함. 올라오는 깊이는 content 좌표라 배율을 곱하고, 값 블록 거리는 블록 안 좌표라 그대로 넘김. </summary>
+        private Sequence PlayAttach(DesignBlockView block, int index)
+        {
+            return block.PlayAttach(PositionOf(index), riseHeight * _scale, riseDuration, valueSlideDistance, valueSlideDuration);
         }
 
         /// <summary> 블록 프리팹을 content 아래에 만들고 종류·문구를 적용함. 만들 수 없으면 원인을 로그로 남기고 null을 반환함. </summary>

@@ -43,6 +43,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private TMP_Text bodyLabel;
         [SerializeField] private Image valueBody; // 명령 블록 오른쪽 소켓에 끼우는 값 블록
         [SerializeField] private TMP_Text valueLabel;
+        [SerializeField] private CanvasGroup valueGroup; // 값 블록만 따로 나타나게 하는 CanvasGroup
 
         [Header("Block Sprites")]
         [SerializeField] private Sprite startSprite;
@@ -57,6 +58,15 @@ namespace DGAIZone.Game.UI
 
         /// <summary> 이 블록의 종류. </summary>
         public DesignBlockKind Kind => _kind;
+
+        /// <summary> 값 블록 위치(검증용). </summary>
+        internal Vector2 ValuePosition => ((RectTransform)valueBody.transform).anchoredPosition;
+
+        /// <summary> 값 블록 알파(검증용). </summary>
+        internal float ValueAlpha => valueGroup.alpha;
+
+        /// <summary> 값 블록이 명령 블록 소켓에 붙은 위치(블록 왼쪽 위 기준, px). </summary>
+        private static Vector2 ValueAttachedPosition => new Vector2(CommandWidthWithoutSocket, 0f);
 
         /// <summary> 명령 블록과 오른쪽 값 블록을 합친 폭(px). 블록 묶음의 폭 계산에 쓰임. </summary>
         public static float CommandWithValueWidth => CommandWidthWithoutSocket + ValueWidth;
@@ -96,7 +106,8 @@ namespace DGAIZone.Game.UI
                 valueBody.sprite = valueSprite;
                 valueBody.SetNativeSize();
                 RectTransform valueRect = (RectTransform)valueBody.transform;
-                valueRect.anchoredPosition = new Vector2(CommandWidthWithoutSocket, 0f);
+                valueRect.anchoredPosition = ValueAttachedPosition;
+                valueGroup.alpha = 1f;
                 SetLabelArea(valueLabel, ValueNotchWidth + LabelPadding, LabelPadding, LabelPadding, LabelPadding);
                 valueLabel.text = value;
             }
@@ -147,29 +158,43 @@ namespace DGAIZone.Game.UI
             return kind == DesignBlockKind.End ? EndNotchCenterX : CommandSocketCenterX;
         }
 
-        /// <summary> 목표 위치 위쪽에서 투명하게 시작해 목표 위치로 내려와 맞물리는 쌓기 연출을 시작함. 진행 중이던 연출은 끝 상태로 건너뜀. </summary>
-        public Sequence PlayDropIn(Vector2 targetPosition, float dropHeight, float duration)
+        /// <summary>
+        /// 붙는 연출을 시작함. 블록은 목표 위치 아래에서 투명하게 시작해 스토리 라인 연출처럼 부드럽게(SmoothStep에 가까운 InOutSine) 올라오며
+        /// 나타나 앞 블록에 맞물리고, 값 블록이 있으면 그다음에 오른쪽에서 왼쪽으로 미끄러져 와 소켓에 붙음. 진행 중이던 연출은 끝 상태로 건너뜀.
+        /// </summary>
+        public Sequence PlayAttach(Vector2 targetPosition, float riseHeight, float riseDuration, float valueSlideDistance, float valueSlideDuration)
         {
             CompleteMotion();
             RectTransform rect = (RectTransform)transform;
-            rect.anchoredPosition = targetPosition + new Vector2(0f, dropHeight);
+            rect.anchoredPosition = targetPosition - new Vector2(0f, riseHeight);
             _group.alpha = 0f;
 
             _motion = DOTween.Sequence().SetUpdate(true).SetLink(gameObject)
-                .Join(rect.DOAnchorPos(targetPosition, duration).SetEase(Ease.OutBack))
-                .Join(_group.DOFade(1f, duration * 0.6f));
+                .Append(rect.DOAnchorPos(targetPosition, riseDuration).SetEase(Ease.InOutSine))
+                .Join(_group.DOFade(1f, riseDuration).SetEase(Ease.InOutSine));
+
+            if (valueBody.gameObject.activeSelf)
+            {
+                RectTransform valueRect = (RectTransform)valueBody.transform;
+                valueRect.anchoredPosition = ValueAttachedPosition + new Vector2(valueSlideDistance, 0f);
+                valueGroup.alpha = 0f;
+
+                _motion.Append(valueRect.DOAnchorPos(ValueAttachedPosition, valueSlideDuration).SetEase(Ease.OutCubic))
+                    .Join(valueGroup.DOFade(1f, valueSlideDuration).SetEase(Ease.OutCubic));
+            }
+
             return _motion;
         }
 
-        /// <summary> 위로 떠오르며 사라지는 빼기 연출을 재생한 뒤 블록을 파괴함. </summary>
-        public void PlayRemoveAndDestroy(float riseHeight, float duration)
+        /// <summary> 붙을 때와 반대로 아래로 가라앉으며 사라지는 빼기 연출을 재생한 뒤 블록을 파괴함. </summary>
+        public void PlayDetachAndDestroy(float sinkHeight, float duration)
         {
             CompleteMotion();
             RectTransform rect = (RectTransform)transform;
 
             _motion = DOTween.Sequence().SetUpdate(true).SetLink(gameObject)
-                .Join(rect.DOAnchorPos(rect.anchoredPosition + new Vector2(0f, riseHeight), duration).SetEase(Ease.InQuad))
-                .Join(_group.DOFade(0f, duration))
+                .Join(rect.DOAnchorPos(rect.anchoredPosition - new Vector2(0f, sinkHeight), duration).SetEase(Ease.InOutSine))
+                .Join(_group.DOFade(0f, duration).SetEase(Ease.InOutSine))
                 .OnComplete(() => Destroy(gameObject));
         }
 

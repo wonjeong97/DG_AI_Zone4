@@ -1,5 +1,6 @@
 using System.Collections;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using DGAIZone.Game.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -28,6 +29,7 @@ namespace DGAIZone.Tests
         private GameObject _root;
         private RectTransform _content;
         private DesignPanel _panel;
+        private DesignBlockView _prefab;
 
         /// <summary> 보이는 영역(Viewport)과 content, DesignPanel을 만들고 실제 블록 프리팹과 빈 리졸버를 넣음. </summary>
         private void CreatePanel(DesignLayoutMode mode)
@@ -39,6 +41,7 @@ namespace DGAIZone.Tests
             DesignBlockView prefab = null;
             Assert.Ignore("DesignBlock 프리팹은 에디터에서만 경로로 읽을 수 있음");
 #endif
+            _prefab = prefab;
             _root = new GameObject("TestDesignPanel", typeof(RectTransform));
 
             RectTransform viewport = (RectTransform)new GameObject("Viewport", typeof(RectTransform)).transform;
@@ -88,6 +91,40 @@ namespace DGAIZone.Tests
             Assert.AreEqual(CommandBodyHeight * s, step2.y - end.y, Tolerance, "완성하기 블록은 마지막 단계 몸통 바로 아래에 놓여야 함");
             Assert.IsTrue(_panel.IsCompleted, "완성하기 블록이 붙은 상태여야 함");
         });
+
+        /// <summary>
+        /// 붙는 연출을 시점별로 확인함. 실시간으로 기다리면 프레임이 한 번 길게 걸릴 때 연출이 통째로 끝나 버려 결과가 흔들리므로,
+        /// 연출 시퀀스를 멈추고 원하는 시점으로 옮겨(Goto) 확인함.
+        /// </summary>
+        [Test]
+        public void 명령_블록이_아래에서_올라와_붙은_뒤_값_블록이_오른쪽에서_미끄러져_와_소켓에_붙는다()
+        {
+            const float RiseHeight = 40f, RiseDuration = 0.5f, SlideDistance = 120f, SlideDuration = 0.3f;
+            const float ValueAttachedX = 360f; // 명령 블록 몸통 오른쪽 끝(값 소켓 시작) 위치
+            Vector2 target = new Vector2(10f, -20f);
+
+            CreatePanel(DesignLayoutMode.FitAll);
+            DesignBlockView block = Object.Instantiate(_prefab, _content);
+            block.Setup(DesignBlockKind.Command, "추진체 종류", "고체 로켓");
+            Sequence attach = block.PlayAttach(target, RiseHeight, RiseDuration, SlideDistance, SlideDuration);
+            attach.Pause();
+            RectTransform rect = (RectTransform)block.transform;
+
+            attach.Goto(RiseDuration * 0.5f);
+            Assert.Less(rect.anchoredPosition.y, target.y, "명령 블록은 목표보다 아래에서 올라오는 중이어야 함");
+            Assert.AreEqual(0f, block.ValueAlpha, Tolerance, "명령 블록이 올라오는 동안 값 블록은 보이지 않아야 함");
+            Assert.Greater(block.ValuePosition.x, ValueAttachedX, "값 블록은 소켓보다 오른쪽에서 기다려야 함");
+
+            attach.Goto(RiseDuration + SlideDuration * 0.5f);
+            Assert.AreEqual(target.y, rect.anchoredPosition.y, Tolerance, "값 블록이 움직일 때는 명령 블록이 이미 붙어 있어야 함");
+            Assert.Greater(block.ValuePosition.x, ValueAttachedX, "값 블록은 오른쪽에서 왼쪽으로 오는 중이어야 함");
+            Assert.Less(block.ValuePosition.x, ValueAttachedX + SlideDistance, "값 블록은 출발 위치보다 왼쪽으로 와 있어야 함");
+
+            attach.Goto(RiseDuration + SlideDuration);
+            Assert.AreEqual(ValueAttachedX, block.ValuePosition.x, Tolerance, "값 블록이 명령 블록 소켓에 붙어야 함");
+            Assert.AreEqual(0f, block.ValuePosition.y, Tolerance, "값 블록 위쪽이 명령 블록 위쪽과 맞아야 함");
+            Assert.AreEqual(1f, block.ValueAlpha, Tolerance, "붙은 뒤에는 값 블록이 보여야 함");
+        }
 
         [UnityTest]
         public IEnumerator 줄여서_한_화면에_방식은_최대_단계와_완성하기까지_보이는_영역에_들어간다() => UniTask.ToCoroutine(async () =>

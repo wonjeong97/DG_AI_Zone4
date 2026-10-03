@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-03 22:10] Claude → Antigravity · T22 후속(붙는 연출 변경)
+- 요청(사용자): 블록이 위에서 내려오지 말고 스토리 라인 연출처럼 아래에서 올라오며 붙을 것, 값 블록은 명령 블록이 붙은 뒤 오른쪽에서 왼쪽으로 움직여 붙을 것.
+- 변경 파일: `Game/UI/DesignBlockView.cs`(PlayDropIn→PlayAttach: 목표 아래에서 InOutSine으로 올라오며 페이드인 → 값 블록이 오른쪽 120에서 OutCubic으로 소켓까지 미끄러지며 페이드인 / PlayRemoveAndDestroy→PlayDetachAndDestroy: 가라앉으며 사라짐), `Game/UI/DesignPanel.cs`(riseDuration 0.5·riseHeight 40·valueSlideDuration 0.3·valueSlideDistance 120), `Prefabs/DesignBlock.prefab`(Value에 CanvasGroup), `Scenes/3_Game.unity`(DesignPanel 필드 이름만), `Tests/Runtime/DesignPanelTests.cs`·`DGAIZone.Tests.asmdef`(DOTween.dll 참조)
+- 테스트 참고: 처음엔 실시간 대기(250ms)로 연출 중간을 확인했다가, 테스트 시작 직후 한 프레임이 길게 걸려 연출이 통째로 끝나 버리는 바람에 한 번 실패함 → 시퀀스를 Pause 후 Goto로 시점별(올라오는 중/값 블록 미끄러지는 중/붙은 뒤) 확인하는 결정적 [Test]로 바꿈.
+- 씬 참고: 3_Game을 다시 저장하자 `CodingCategories/Image_Action/Text_Action`(TMP '동작')의 머티리얼이 인스턴스 2개("TextMeshPro/Mobile/Distance Field (Instance)")로 바뀐 내용이 함께 저장됨. 프로젝트 스크립트 중 에디터에서 TMP 머티리얼을 건드리는 것은 없고 당시 에디터 포커스가 사용자에게 있어 사용자 편집으로 보고, 되돌리지 않고 작업 트리에 둔 채 커밋에서는 DesignPanel 필드 hunk만 넣음(저장 전에 씬 dirty를 확인하지 않은 것이 원인 — 앞으로 저장 전 확인).
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과**(연출 순서·Join/Append, 값 블록 초기 상태(부모 CanvasGroup과 곱연산으로 투명), Complete 시 끝 상태, 좌표계(riseHeight만 배율), 씬 hunk 1개·프리팹 diff, Goto 테스트 결정성, asmdef 영향, 스킬 규칙, validate_script 0).
+- 결과(Claude): 컴파일 에러 0, PlayMode 62/62. 에디터 포커스가 사용자에게 있어 Play 모드 화면 캡처는 하지 않음.
+
 ### [2026-10-03 21:10] Claude → Antigravity · T22
 - 요청: 클라이언트 의견으로 설계창을 DG_AI_Zone1 블록 코딩 이미지로 바꿈. 맨 위 '시작하기', 설정하기마다 블록이 쌓이는 연출, 코딩 완료 시 맨 아래 '완성하기' 연결. 블록 모양은 사용자 선택으로 '명령(재료 이름, 살몬)+값(고른 블록, 파랑)'. 블록이 최대 7개라 배치 방식 두 가지('줄여서 한 화면에'/'크게 두고 자동 스크롤')를 DesignPanel 인스펙터 드롭다운으로 비교하게 하고 기획 확인 뒤 하나만 남김(T23).
 - 변경 파일: 신규 `Game/UI/DesignBlockView.cs`·`Prefabs/DesignBlock.prefab`·`UI/3_Game/Blocks/*.png`(Zone1 Start·Command·CommandNoValue·End·Value를 .meta째 복사, GUID 충돌 없음 확인)·`Tests/Runtime/DesignPanelTests.cs`, `Game/UI/DesignPanel.cs`(블록 쌓기로 다시 작성), 레벨 상태(`GetDesignBlockTexts`·`UsesValueBlocks`), `IngredientSelectionController`(`ResetDesignPanel`·`AttachEndBlockAsync`), `Scenes/3_Game.unity`(DesignContainer 레이아웃 그룹 제거, DesignScrollView 중첩 Canvas·표시 영역 651×364→691×420), 삭제 `Prefabs/DesignItem.prefab`(참조 없음 확인)

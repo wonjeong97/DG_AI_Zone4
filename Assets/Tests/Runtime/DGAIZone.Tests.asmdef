@@ -28,7 +28,8 @@
         "Microsoft.Extensions.Logging.Abstractions.dll",
         "Microsoft.Extensions.Logging.dll",
         "ZLogger.dll",
-        "R3.dll"
+        "R3.dll",
+        "DOTween.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [
