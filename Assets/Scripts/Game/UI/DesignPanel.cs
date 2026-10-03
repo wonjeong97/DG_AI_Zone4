@@ -25,13 +25,15 @@ namespace DGAIZone.Game.UI
         Command,  // 명령 블록(값이 없으면 값 소켓 없는 명령 블록)
         FlowControl,       // 만약·반복하기 ㄷ자 블록(값 블록은 머리 오른쪽). 바로 뒤따르는 InsideFlowControl 단계를 안쪽에 품음
         InsideFlowControl, // 앞 ㄷ자 블록 안쪽에 쌓이는 명령 블록(앞에 ㄷ자 블록이 없으면 Command처럼 바깥에 쌓임)
-        Logic     // 그리고·또는 논리 블록(초록, 값 블록 없음)
+        Logic,    // 그리고·또는 논리 블록(초록, 값 블록 없음)
+        FunctionCall // 함수 사용 블록(자주, 값 블록 없음). 붙일 때 설계창 오른쪽에 같은 이름의 함수 정의 ㄷ자 블록도 함께 놓음
     }
 
     /// <summary>
     /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 단계 블록이
     /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
-    /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓임. 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
+    /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓이고, 함수 사용 단계는 설계창 오른쪽 위에 함수 정의 블록을 함께 놓음.
+    /// 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
     /// 블록 모양과 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
     public class DesignPanel : MonoBehaviour
@@ -40,6 +42,7 @@ namespace DGAIZone.Game.UI
         private const float ScrolledUpEpsilon = 0.5f; // 맨 아래에서 이만큼(UI 단위) 넘게 올라가 있으면 사용자가 올려 둔 것으로 봄
         private const string StartLabel = "시작하기";
         private const string EndLabel = "완성하기";
+        private const float DefinitionGap = 16f; // 블록 묶음 오른쪽 끝과 함수 정의 블록 사이 최소 간격(UI 단위)
 
         [SerializeField] private ScrollRect scrollRect;      // DesignScrollView
         [SerializeField] private RectTransform content;      // DesignScrollView/Viewport/DesignContainer(ScrollRect의 content)
@@ -66,6 +69,9 @@ namespace DGAIZone.Game.UI
         private readonly List<float> _flowInnerHeights = new List<float>(); // 단계별 ㄷ자 블록 안쪽 높이(px, ㄷ자가 아니면 0). Layout이 채움
         private DesignBlockView _startBlock;
         private DesignBlockView _endBlock;
+        private DesignBlockView _functionDef; // 설계창 오른쪽에 놓인 함수 정의 블록(함수 사용 단계를 붙였을 때만)
+        private int _functionDefStep = -1;    // 함수 정의 블록을 함께 놓은 함수 사용 단계 번호
+        private bool _plansFunctionDef;       // 이 레벨에 함수 사용 단계가 있어 오른쪽에 함수 정의 블록 자리를 남겨야 하는지
         private float _plannedHeight; // 이 레벨의 단계를 모두 쌓고 완성하기까지 붙였을 때의 높이(px)
         private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함)
         private bool _withValueBlocks = true;
@@ -104,11 +110,17 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. plannedShapes(이 레벨의 단계를 모두 쌓았을 때의 단계 모양)로 '줄여서 한 화면에' 방식의
         /// 배율을 정하고, withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함. 묶음 왼쪽 끝은 레벨과 관계없이 같음.
+        /// 함수 사용 단계가 있으면 오른쪽에 함수 정의 블록이 들어갈 폭도 남김.
         /// </summary>
         public void Initialize(IReadOnlyList<DesignStepShape> plannedShapes, bool withValueBlocks)
         {
             DestroyAll();
             _withValueBlocks = withValueBlocks;
+            _plansFunctionDef = false;
+            for (int i = 0; i < plannedShapes.Count; i++)
+            {
+                if (plannedShapes[i] == DesignStepShape.FunctionCall) _plansFunctionDef = true;
+            }
             _plannedHeight = Layout(plannedShapes, true, _positions, _flowInnerHeights); // 높이만 쓰고, 위치는 아래 Relayout이 지금 상태로 다시 채움
             UpdateScale();
 
@@ -142,8 +154,31 @@ namespace DGAIZone.Game.UI
             _stepShapes.Add(shape);
             Relayout();
             PlayAttach(block, _steps.Count);
+            if (shape == DesignStepShape.FunctionCall) AttachFunctionDefinition(command, _steps.Count - 1);
             UpdateContentHeight();
             ScrollToBottom();
+        }
+
+        /// <summary> 설계창 오른쪽 위에 함수 정의 블록(이름은 함수 사용 블록과 같음)을 붙임. 이미 놓여 있으면 경고만 남기고 하나만 둠. </summary>
+        private void AttachFunctionDefinition(string label, int stepIndex)
+        {
+            if (_functionDef)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[DesignPanel] 함수 정의 블록이 이미 있어 '{label}' 함수 정의 블록을 더 놓지 않음.");
+                return;
+            }
+
+            _functionDef = CreateBlock(DesignBlockKind.FunctionDef, label, null);
+            if (!_functionDef) return;
+
+            _functionDefStep = stepIndex;
+            _functionDef.PlayAttach(FunctionDefinitionPosition(), riseHeight * _scale, riseDuration, valueSlideDistance, valueSlideDuration);
+        }
+
+        /// <summary> 함수 정의 블록의 content 안 위치(왼쪽 위 기준): 보이는 영역 오른쪽 끝에 붙이고 위쪽은 시작하기 블록과 맞춤. </summary>
+        private Vector2 FunctionDefinitionPosition()
+        {
+            return new Vector2(ViewportRect().width - edgePadding - DesignBlockView.FunctionDefWidth * _scale, -edgePadding);
         }
 
         /// <summary> 마지막으로 쌓은 단계 블록을 뺌(가라앉으며 사라지는 연출 뒤 파괴). </summary>
@@ -156,6 +191,12 @@ namespace DGAIZone.Game.UI
             _steps.RemoveAt(lastIndex);
             _stepShapes.RemoveAt(lastIndex);
             if (last) last.PlayDetachAndDestroy(riseHeight * _scale, removeDuration);
+            if (lastIndex == _functionDefStep)
+            {
+                if (_functionDef) _functionDef.PlayDetachAndDestroy(riseHeight * _scale, removeDuration);
+                _functionDef = null;
+                _functionDefStep = -1;
+            }
             Relayout();
             UpdateContentHeight();
         }
@@ -191,13 +232,17 @@ namespace DGAIZone.Game.UI
             await UniTask.Delay(TimeSpan.FromSeconds(completeHoldDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
         }
 
-        /// <summary> fromIndex번째 단계 블록부터 끝까지 흐리게, 그 앞은 원래대로 표시함. fromIndex가 블록 수 이상이면 모두 원래대로 표시함. </summary>
+        /// <summary>
+        /// fromIndex번째 단계 블록부터 끝까지 흐리게, 그 앞은 원래대로 표시함. fromIndex가 블록 수 이상이면 모두 원래대로 표시함.
+        /// 함수 정의 블록은 함께 놓인 함수 사용 단계를 따름.
+        /// </summary>
         public void DimFrom(int fromIndex)
         {
             for (int i = 0; i < _steps.Count; i++)
             {
                 if (_steps[i]) _steps[i].SetDimmed(i >= fromIndex, DeactivatedAlpha);
             }
+            if (_functionDef) _functionDef.SetDimmed(_functionDefStep >= fromIndex, DeactivatedAlpha);
         }
 
         /// <summary> index번째 자리(0 = 시작하기)에 블록이 붙는 연출을 시작함. 올라오는 깊이는 content 좌표라 배율을 곱하고, 값 블록 거리는 블록 안 좌표라 그대로 넘김. </summary>
@@ -241,6 +286,7 @@ namespace DGAIZone.Game.UI
             {
                 case DesignStepShape.FlowControl: return DesignBlockKind.FlowControl;
                 case DesignStepShape.Logic: return DesignBlockKind.Logic;
+                case DesignStepShape.FunctionCall: return DesignBlockKind.Function;
                 default: return string.IsNullOrEmpty(value) ? DesignBlockKind.CommandNoValue : DesignBlockKind.Command;
             }
         }
@@ -352,7 +398,13 @@ namespace DGAIZone.Game.UI
         private void UpdateScale()
         {
             Rect viewport = ViewportRect();
+            _offsetX = LeftInset(viewport.width);
             float widthScale = (viewport.width - edgePadding * 2f) / StackWidth(_withValueBlocks);
+            if (_plansFunctionDef) // 보이는 영역 오른쪽 끝에 붙는 함수 정의 블록과 블록 묶음이 겹치지 않게 함
+            {
+                float available = viewport.width - edgePadding - _offsetX - DefinitionGap;
+                widthScale = Mathf.Min(widthScale, available / (StackWidth(_withValueBlocks) + DesignBlockView.FunctionDefWidth));
+            }
 
             if (layoutMode == DesignLayoutMode.FitAll)
             {
@@ -365,7 +417,6 @@ namespace DGAIZone.Game.UI
             }
 
             _scale = Mathf.Max(0.01f, _scale);
-            _offsetX = LeftInset(viewport.width);
         }
 
         /// <summary>
@@ -395,7 +446,9 @@ namespace DGAIZone.Game.UI
         {
             if (!content) return;
 
-            float height = edgePadding * 2f + _stackHeight * _scale;
+            float stackHeight = _stackHeight;
+            if (_functionDef) stackHeight = Mathf.Max(stackHeight, DesignBlockView.BodyHeightOf(DesignBlockKind.FunctionDef)); // 위쪽에 맞춘 함수 정의 블록이 더 길면 그만큼
+            float height = edgePadding * 2f + stackHeight * _scale;
             content.sizeDelta = new Vector2(content.sizeDelta.x, height);
         }
 
@@ -439,9 +492,12 @@ namespace DGAIZone.Game.UI
                 if (_steps[i]) Destroy(_steps[i].gameObject);
             }
             if (_endBlock) Destroy(_endBlock.gameObject);
+            if (_functionDef) Destroy(_functionDef.gameObject);
 
             _startBlock = null;
             _endBlock = null;
+            _functionDef = null;
+            _functionDefStep = -1;
             _steps.Clear();
             _stepShapes.Clear();
         }
@@ -477,6 +533,11 @@ namespace DGAIZone.Game.UI
             {
                 _endBlock.transform.localScale = new Vector3(_scale, _scale, 1f);
                 _endBlock.SnapTo(PositionOf(_steps.Count + 1));
+            }
+            if (_functionDef)
+            {
+                _functionDef.transform.localScale = new Vector3(_scale, _scale, 1f);
+                _functionDef.SnapTo(FunctionDefinitionPosition());
             }
             UpdateContentHeight();
         }

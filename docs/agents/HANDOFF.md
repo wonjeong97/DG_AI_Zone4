@@ -13,6 +13,12 @@
 
 ---
 
+### [2026-10-04 01:15] Claude → Antigravity · T30
+- 요청(사용자): 기획의 함수 블록을 DG_AI_Zone1에서 가져오기(함수 사용·함수 정의 ㄷ자). 레벨 5는 함수 1(우주 도시 만들기)·동작 3(우주 정거장 코드·탐사 로봇 코드·통신 시스템 코드)·논리 1(그리고/또는), 순서 자유. 우선 함수 카드를 설정하면 함수 사용 블록은 시작하기 아래, 함수 정의 블록은 설계창 오른쪽 빈 곳. 동작·논리 위치와 판정은 기획 확인 중(판정은 사용자 선택으로 임시 '5장 다 놓으면 성공').
+- 변경 파일: 신규 `UI/3_Game/Blocks/Func.png`·`FuncBody.png`(Zone1 meta째, FuncBody 9-slice 왼20·아래101·위121), `DesignBlockView.cs`(Function·FunctionDef 종류, 함수 정의는 아래 돌기·값 소켓 없음), `DesignPanel.cs`(DesignStepShape.FunctionCall — 붙일 때 보이는 영역 오른쪽 끝·시작하기 높이에 함수 정의 블록, 취소·흐림·재배치·전체 삭제·content 높이 함께 처리, 함수 정의가 있는 레벨은 겹치지 않게 폭 제한), `Prefabs/DesignBlock.prefab`, 신규 `States/IngredientLevel5State.cs`(분류별 장수 제한 Constants.Level5Cards, 다 쓴 분류 카드 경고·무시, 동작은 놓은 것 제외, 모두 놓으면 성공, 정답 함수→동작 전부→그리고), `Constants.cs`(RfidIds.Level5·Level5Cards), `IngredientSelectionController.cs`(레벨 5 상태 연결 — 전엔 레벨 1 상태로 대체), `RfidMappingValidator.cs`(ValidateLevel5, GetCategoryIngredientMatters에 level 인자), `RfidMappings.json`(level 5 — 이 hunk만 커밋, 사용자 쪽 레벨 3·4 문구 변경은 작업 트리에 둠), 신규 `Tests/Runtime/Level5RuleTests.cs`, DesignPanelTests 함수 블록 테스트.
+- 결과(Antigravity, `gemini-3.8-flash-high`, Unity MCP 미사용): **전 항목 통과**(카드 처리 흐름·장수·롤백, 함수 정의 블록 수명주기·폭 계산, 9-slice·라벨, 검사기 실제 JSON 통과·레벨 4 메시지 회귀 없음, 규칙, 테스트). 제안(자동 스크롤 겹침 테스트, 카드 거부 단위 테스트)은 같은 폭 제한 식·장수 세기 테스트로 덮여 반영하지 않음.
+- 결과(Claude): 컴파일 오류 0, 미리보기 씬 렌더링으로 함수 사용·함수 정의 배치 확인, PlayMode는 T31·T32와 함께 78/78.
+
 ### [2026-10-04 01:40] Claude → Antigravity · T29
 - 요청(사용자): `UI/3_Game/Level5`에 화면 레퍼런스(`level5_ref.png`)와 Image_CurrentSituation용 이미지 4장을 넣음 → 범위는 사용자 선택으로 '현재 상황 화면만'(레벨 5 게임 진행·함수 블록은 기획 확정 뒤).
 - 현황: 레벨 5는 `RfidMappings.json` 정의가 없고 레벨 상태가 레벨 1로 대체되며, `GameFlowController.situationPanels`가 Panel_Level1~4(길이 4)뿐이라 레벨 5에서는 현재 상황 창이 비어 있었음.

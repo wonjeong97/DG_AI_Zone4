@@ -344,6 +344,8 @@ MonoBehaviour:
     type: 3}
   flowControlSprite: {fileID: 21300000, guid: 4a98d33512884b65a6b09a4277437f89, type: 3}
   logicSprite: {fileID: 21300000, guid: 69f6a6e9e29d4328b607318c986eb504, type: 3}
+  functionSprite: {fileID: 21300000, guid: bf1d73a7ac896ec4b87747fbd032e172, type: 3}
+  functionDefSprite: {fileID: 21300000, guid: 8fd07075abe4cb94da6af349c8c60e40, type: 3}
   endSprite: {fileID: 21300000, guid: bd0fe08d01ba30a48a8223da1e9e883c, type: 3}
   valueSprite: {fileID: 21300000, guid: aa8300e68132f364aa0178f819d6a84b, type: 3}
 --- !u!1 &6161902025136606685

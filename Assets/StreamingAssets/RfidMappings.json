@@ -157,6 +157,44 @@
         { "ingredientId": "Move", "ingredientName": "이동하기", "matterSetId": "Move", "categories": [ "동작" ] },
         { "ingredientId": "Repeat", "ingredientName": "반복하기", "matterSetId": "Repeat", "categories": [ "제어" ] }
       ]
+    },
+    {
+      "level": 5,
+      "matterSets": [
+        {
+          "id": "Function",
+          "matters": [
+            { "id": "BuildSpaceCity", "label": "우주 도시 만들기" }
+          ]
+        },
+        {
+          "id": "Action",
+          "matters": [
+            { "id": "SpaceStationCode", "label": "우주 정거장 코드" },
+            { "id": "ExplorerRobotCode", "label": "탐사 로봇 코드" },
+            { "id": "CommunicationCode", "label": "통신 시스템 코드" }
+          ]
+        },
+        {
+          "id": "Logic",
+          "matters": [
+            { "id": "And", "label": "그리고" },
+            { "id": "Or", "label": "또는" }
+          ]
+        }
+      ],
+      "steps": [
+        { "categories": [ "함수", "동작", "논리" ] },
+        { "categories": [ "함수", "동작", "논리" ] },
+        { "categories": [ "함수", "동작", "논리" ] },
+        { "categories": [ "함수", "동작", "논리" ] },
+        { "categories": [ "함수", "동작", "논리" ] }
+      ],
+      "categoryIngredients": [
+        { "ingredientId": "Function", "ingredientName": "함수 사용하기", "matterSetId": "Function", "categories": [ "함수" ] },
+        { "ingredientId": "Action", "ingredientName": "사용하기", "matterSetId": "Action", "categories": [ "동작" ] },
+        { "ingredientId": "Logic", "ingredientName": "", "matterSetId": "Logic", "categories": [ "논리" ] }
+      ]
     }
   ]
 }

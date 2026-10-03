@@ -13,6 +13,8 @@ namespace DGAIZone.Game.UI
         CommandNoValue, // 재료 이름 없이 값만 있는 단계(살몬, 값 소켓 없음)
         FlowControl,    // 만약·반복하기(주황 ㄷ자 — Zone1 만약 If.png, 위 홈·머리 오른쪽 값 소켓·머리 아래 안쪽 돌기·아래 돌기). 안쪽 높이에 맞춰 팔 부분만 늘어남(9-slice)
         Logic,          // 그리고·또는(초록, 값 소켓 없는 명령 블록과 같은 모양)
+        Function,       // 함수 사용(자주 — Zone1 Func.png, 값 소켓 없는 명령 블록과 같은 모양)
+        FunctionDef,    // 함수 정의(자주 ㄷ자 — Zone1 FuncBody.png). 다른 블록과 잇지 않는 독립 블록이라 위 홈·아래 돌기·값 소켓이 없음(9-slice)
         End             // 완성하기(진회색, 위 홈)
     }
 
@@ -39,7 +41,10 @@ namespace DGAIZone.Game.UI
         /// <summary> ㄷ자 블록 안쪽의 최소 높이(px). 안쪽 블록이 아직 없어도 명령 블록 하나가 들어갈 자리를 비워 둠. </summary>
         public const float MinFlowInnerHeight = CommandBodyHeight;
 
-        private const float FlowFooterBodyHeight = 101f; // ㄷ자 블록 아래 막대 높이(아래 돌기 제외)
+        private const float FlowFooterBodyHeight = 101f; // ㄷ자 블록 아래 막대 높이(아래 돌기 제외). 함수 정의 블록도 같음
+
+        /// <summary> 함수 정의 블록 폭(px). 설계창 오른쪽에 놓을 때 쓰임. </summary>
+        public const float FunctionDefWidth = 361f;
 
         // 몸통 높이(px). 이미지 높이에서 아래 돌기를 뺀 값으로, 다음 블록이 놓이는 위치가 됨
         private const float StartBodyHeight = 100f;
@@ -64,6 +69,8 @@ namespace DGAIZone.Game.UI
         [SerializeField] private Sprite commandNoValueSprite;
         [SerializeField] private Sprite flowControlSprite; // Zone1 만약(If.png). 9-slice 경계(왼 20, 위·아래 121)가 있어야 안쪽 높이만큼 팔이 늘어남
         [SerializeField] private Sprite logicSprite;
+        [SerializeField] private Sprite functionSprite;
+        [SerializeField] private Sprite functionDefSprite; // 9-slice 경계(왼 20, 아래 101, 위 121)가 있어야 안쪽 높이만큼 팔이 늘어남
         [SerializeField] private Sprite endSprite;
         [SerializeField] private Sprite valueSprite;
 
@@ -100,7 +107,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 종류에 맞는 이미지와 라벨을 적용하고 이미지 원본 크기로 맞춤(ㄷ자 블록은 안쪽 최소 높이로). 값 블록은 값 소켓이 있는 종류(명령·ㄷ자)에
+        /// 종류에 맞는 이미지와 라벨을 적용하고 이미지 원본 크기로 맞춤(ㄷ자 블록은 안쪽 최소 높이로). 값 블록은 값 소켓이 있는 종류(명령·만약·반복하기)에
         /// 값이 있을 때만 보임.
         /// </summary>
         public void Setup(DesignBlockKind kind, string label, string value)
@@ -108,12 +115,12 @@ namespace DGAIZone.Game.UI
             _kind = kind;
 
             body.sprite = SpriteOf(kind);
-            body.type = kind == DesignBlockKind.FlowControl ? Image.Type.Sliced : Image.Type.Simple;
+            body.type = IsContainer(kind) ? Image.Type.Sliced : Image.Type.Simple;
             body.SetNativeSize();
             ((RectTransform)transform).sizeDelta = ((RectTransform)body.transform).sizeDelta;
             bodyLabel.text = label;
 
-            if (kind == DesignBlockKind.FlowControl)
+            if (IsContainer(kind))
             {
                 SetFlowInnerHeight(MinFlowInnerHeight); // 이미지 높이와 머리 라벨 영역을 함께 정함
             }
@@ -140,16 +147,24 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// ㄷ자 블록의 안쪽 높이(px)를 정함. 이미지는 9-slice라 머리·아래 막대는 그대로 두고 왼쪽 팔만 늘어나며, 라벨은 머리 부분에 다시 맞춤.
-        /// 블록 위쪽을 기준으로 놓여 있어 아래로만 늘어남.
+        /// ㄷ자 블록(만약·반복하기·함수 정의)의 안쪽 높이(px)를 정함. 이미지는 9-slice라 머리·아래 막대는 그대로 두고 왼쪽 팔만 늘어나며,
+        /// 라벨은 머리 부분에 다시 맞춤. 블록 위쪽을 기준으로 놓여 있어 아래로만 늘어남. 함수 정의 블록은 아래 돌기와 머리 오른쪽 값 소켓이 없음.
         /// </summary>
         public void SetFlowInnerHeight(float innerHeight)
         {
+            bool isFunctionDef = _kind == DesignBlockKind.FunctionDef;
             RectTransform bodyRect = (RectTransform)body.transform;
-            float imageHeight = FlowBodyHeight(innerHeight) + BottomTabHeight;
+            float imageHeight = FlowBodyHeight(innerHeight) + (isFunctionDef ? 0f : BottomTabHeight);
             bodyRect.sizeDelta = new Vector2(bodyRect.sizeDelta.x, imageHeight);
             ((RectTransform)transform).sizeDelta = bodyRect.sizeDelta;
-            SetLabelArea(bodyLabel, LabelPadding, LabelPadding + CommandSocketWidth, imageHeight - FlowHeaderBodyHeight + LabelPadding, LabelPadding);
+            float rightInset = LabelPadding + (isFunctionDef ? 0f : CommandSocketWidth);
+            SetLabelArea(bodyLabel, LabelPadding, rightInset, imageHeight - FlowHeaderBodyHeight + LabelPadding, LabelPadding);
+        }
+
+        /// <summary> 안쪽 높이가 늘어나는 ㄷ자 이미지(9-slice)를 쓰는 종류인지 여부. </summary>
+        private static bool IsContainer(DesignBlockKind kind)
+        {
+            return kind == DesignBlockKind.FlowControl || kind == DesignBlockKind.FunctionDef;
         }
 
         /// <summary> 안쪽 높이가 innerHeight인 ㄷ자 블록의 몸통 높이(px, 아래 돌기 제외). 다음 블록은 ㄷ자 블록 위치에서 이만큼 아래에 놓임. </summary>
@@ -178,18 +193,21 @@ namespace DGAIZone.Game.UI
                 case DesignBlockKind.CommandNoValue: return commandNoValueSprite;
                 case DesignBlockKind.FlowControl: return flowControlSprite;
                 case DesignBlockKind.Logic: return logicSprite;
+                case DesignBlockKind.Function: return functionSprite;
+                case DesignBlockKind.FunctionDef: return functionDefSprite;
                 default: return endSprite;
             }
         }
 
-        /// <summary> 종류별 몸통 높이(px). 다음 블록은 이 블록 위치에서 이만큼 아래에 놓임. ㄷ자 블록은 안쪽이 비었을 때(최소) 높이이며, 안쪽이 차면 FlowBodyHeight를 씀. </summary>
+        /// <summary> 종류별 몸통 높이(px). 다음 블록은 이 블록 위치에서 이만큼 아래에 놓임. ㄷ자 블록은 안쪽이 비었을 때(최소) 높이이며(함수 정의 블록은 아래 돌기가 없어 이미지 높이와 같음), 안쪽이 차면 FlowBodyHeight를 씀. </summary>
         public static float BodyHeightOf(DesignBlockKind kind)
         {
             switch (kind)
             {
                 case DesignBlockKind.Start: return StartBodyHeight;
                 case DesignBlockKind.End: return EndBodyHeight;
-                case DesignBlockKind.FlowControl: return FlowBodyHeight(MinFlowInnerHeight);
+                case DesignBlockKind.FlowControl:
+                case DesignBlockKind.FunctionDef: return FlowBodyHeight(MinFlowInnerHeight);
                 default: return CommandBodyHeight;
             }
         }

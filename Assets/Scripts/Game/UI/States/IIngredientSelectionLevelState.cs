@@ -9,7 +9,7 @@ using HuliacDev.Core;
 namespace DGAIZone.Game.UI.States
 {
     /// <summary>
-    /// IngredientSelectionController의 레벨별(1~4) 동작 및 판정 상태를 추상화하는 인터페이스.
+    /// IngredientSelectionController의 레벨별(1~5) 동작 및 판정 상태를 추상화하는 인터페이스.
     /// </summary>
     public interface IIngredientSelectionLevelState : IState<IngredientSelectionController>
     {

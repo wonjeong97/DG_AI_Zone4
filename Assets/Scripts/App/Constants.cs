@@ -142,6 +142,15 @@ namespace DGAIZone.App
                 public const string MoveRight = "MoveRight";
                 public const string MoveLeft = "MoveLeft";
             }
+
+            /// <summary> 레벨 5 재료(함수 사용·동작·논리)와 판정·정답에 쓰는 블록 id. 카드 분류로 재료가 정해지며 순서는 자유(기획 검토 중, 임시). </summary>
+            public static class Level5
+            {
+                public const string Function = "Function";
+                public const string Action = "Action";
+                public const string Logic = "Logic";
+                public const string And = "And";
+            }
         }
 
         /// <summary> 레벨 4(탐사 로봇) 보드 규칙. 보드 배치(Level4BoardController)와 RfidMappings.json 검증(RfidMappingValidator)이 함께 씀. </summary>
@@ -155,6 +164,18 @@ namespace DGAIZone.App
             /// RfidMappings.json 반복하기 블록에 이 value가 꼭 있어야 함.
             /// </summary>
             public const int RequiredRepeatCount = 3;
+        }
+
+        /// <summary>
+        /// 레벨 5에서 분류별로 놓을 수 있는 카드 수. 합이 RfidMappings.json 레벨 5 단계 수와 같아야 하며, 다 쓴 분류의 카드는 받지 않음.
+        /// 판정(임시)은 모두 놓으면 성공(기획 확정 뒤 수정).
+        /// </summary>
+        public static class Level5Cards
+        {
+            public const int Function = 1;
+            public const int Action = 3;
+            public const int Logic = 1;
+            public const int Total = Function + Action + Logic;
         }
     }
 }

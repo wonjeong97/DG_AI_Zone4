@@ -338,5 +338,37 @@ namespace DGAIZone.Tests
             Assert.AreEqual(flowBodyHeight * s, repeat.y - after.y, Tolerance, "그다음 이동하기는 ㄷ자 블록 아래 막대 바로 아래에 놓여야 함");
             Assert.AreEqual(CommandBodyHeight * s, after.y - end.y, Tolerance, "완성하기는 마지막 이동하기 바로 아래에 놓여야 함");
         });
+
+        [UnityTest]
+        public IEnumerator 함수_사용_블록은_시작하기_아래에_붙고_함수_정의_블록은_오른쪽_위에_함께_놓이며_취소하면_함께_빠진다() => UniTask.ToCoroutine(async () =>
+        {
+            const float EdgePadding = 8f, FunctionDefWidth = 361f, DefinitionGap = 16f;
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
+            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
+            await UniTask.Delay(800, DelayType.UnscaledDeltaTime); // 붙는 연출(0.5초)이 끝나길 기다림
+
+            Assert.AreEqual(3, _content.childCount, "시작하기 + 함수 사용 + 함수 정의 블록이 있어야 함");
+            Assert.AreEqual(DesignBlockKind.Function, BlockAt(1).Kind, "시작하기 아래 줄에는 함수 사용 블록이 붙어야 함");
+            Assert.AreEqual(DesignBlockKind.FunctionDef, BlockAt(2).Kind, "함수 정의 블록이 함께 놓여야 함");
+
+            float s = _panel.Scale;
+            Vector2 start = BlockPosition(0), call = BlockPosition(1), def = BlockPosition(2);
+            Assert.AreEqual(start.x + (StartTabCenterX - CommandSocketCenterX) * s, call.x, Tolerance, "함수 사용 블록의 위 홈이 시작하기 블록의 아래 돌기에 맞아야 함");
+            Assert.AreEqual(StartBodyHeight * s, start.y - call.y, Tolerance, "함수 사용 블록은 시작하기 몸통 바로 아래에 놓여야 함");
+            Assert.AreEqual(ViewportWidth - EdgePadding - FunctionDefWidth * s, def.x, Tolerance, "함수 정의 블록은 보이는 영역 오른쪽 끝에 붙어야 함");
+            Assert.AreEqual(start.y, def.y, Tolerance, "함수 정의 블록 위쪽은 시작하기 블록과 맞아야 함");
+            Assert.LessOrEqual(call.x + 361f * s + DefinitionGap, def.x + Tolerance, "블록 줄과 함수 정의 블록이 겹치지 않아야 함");
+
+            RectTransform defRect = (RectTransform)BlockAt(2).transform;
+            Assert.AreEqual(FlowHeaderBodyHeight + CommandBodyHeight + FlowFooterBodyHeight, defRect.sizeDelta.y, Tolerance, "함수 정의 블록은 아래 돌기 없이 안쪽 블록 하나 자리만큼의 높이여야 함");
+            Image defBody = BlockAt(2).GetComponentInChildren<Image>();
+            Assert.AreEqual(Image.Type.Sliced, defBody.type, "함수 정의 블록 이미지는 팔만 늘어나도록 9-slice여야 함");
+            Assert.AreNotEqual(Vector4.zero, defBody.sprite.border, "함수 정의 블록 스프라이트에 9-slice 경계가 있어야 함");
+
+            _panel.RemoveLastItem();
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime); // 빼기 연출(기본 0.2초) 뒤 파괴됨
+            Assert.AreEqual(1, _content.childCount, "함수 단계를 취소하면 함수 사용·정의 블록이 함께 빠져 시작하기만 남아야 함");
+        });
     }
 }

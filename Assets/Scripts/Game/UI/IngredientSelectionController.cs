@@ -63,6 +63,7 @@ namespace DGAIZone.Game.UI
         private IngredientLevel2State _level2State;
         private IngredientLevel3State _level3State;
         private IngredientLevel4State _level4State;
+        private IngredientLevel5State _level5State;
 
         /// <summary> 현재 활성화된 레벨 상태 객체. </summary>
         public IIngredientSelectionLevelState CurrentLevelState => _stateMachine?.CurrentState as IIngredientSelectionLevelState;
@@ -153,6 +154,7 @@ namespace DGAIZone.Game.UI
             _level2State = new IngredientLevel2State();
             _level3State = new IngredientLevel3State();
             _level4State = new IngredientLevel4State();
+            _level5State = new IngredientLevel5State();
             _stateMachine = new StateMachine<IngredientSelectionController>(this);
 
             InitSubCanvases();
@@ -320,7 +322,7 @@ namespace DGAIZone.Game.UI
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
         }
 
-        /// <summary> 선택된 레벨(1~4)에 맞는 레벨 상태로 전환함. 범위를 벗어나면 레벨 1 상태를 씀. </summary>
+        /// <summary> 선택된 레벨(1~5)에 맞는 레벨 상태로 전환함. 범위를 벗어나면 레벨 1 상태를 씀. </summary>
         internal void ChangeLevelState(int level)
         {
             _selectedLevel = level;
@@ -330,6 +332,7 @@ namespace DGAIZone.Game.UI
                 2 => _level2State,
                 3 => _level3State,
                 4 => _level4State,
+                5 => _level5State,
                 _ => _level1State
             };
             _stateMachine.ChangeState(targetState);
@@ -344,7 +347,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// RfidMappings.json의 레벨 1~4 블록 정의를 검사해 문제마다 오류 로그를 남김. 블록 목록이 비었거나 값이 빠지면 게임 중에는
+        /// RfidMappings.json의 레벨 1~5 블록 정의를 검사해 문제마다 오류 로그를 남김. 블록 목록이 비었거나 값이 빠지면 게임 중에는
         /// 선택지가 비거나 미션을 깰 수 없을 뿐 다른 오류가 나지 않으므로, 로드 직후 원인을 바로 알 수 있게 함.
         /// 레벨 1 목적지 거리와 레벨 3 기준값 범위(LevelData)도 블록으로 만들 수 있는지 함께 검사함.
         /// </summary>
