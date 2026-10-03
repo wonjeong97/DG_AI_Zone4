@@ -13,6 +13,13 @@
 
 ---
 
+### [2026-10-03 23:35] Claude → Antigravity · T24
+- 요청(사용자): 설계창 블록 코딩 위치를 레벨 1처럼 왼쪽에. 원인: 블록 묶음을 레벨별 묶음 폭으로 가로 가운데에 놓아, 3단계라 배율 0.8로 폭을 채우는 레벨 1(왼쪽 여백 49.3)과 달리 5단계 레벨 3·4(배율 0.57, 여백 133.7)·값 블록 없는 레벨 2(여백 236.6)가 가운데로 몰림(표시 영역 691 기준).
+- 변경 파일: `Game/UI/DesignPanel.cs`(`_offsetX`를 `LeftInset`으로 — 가장 넓은 묶음(값 블록까지)을 배치 방식의 최대 배율(폭 제한 포함)로 가운데 놓았을 때의 왼쪽 끝, `StackWidth(bool)` static화), `Tests/Runtime/DesignPanelTests.cs`('값 블록 없는 레벨 가운데' → '레벨 1·2·3/4 왼쪽 끝이 같음', 다시 Initialize한 뒤 새 시작하기 블록은 마지막 자식으로 읽음)
+- 결과(Antigravity, `gemini-3.8-flash-high`): **전 항목 통과** — 레벨 1 `_offsetX` 변경 전후 동일(한 화면 49.3, 자동 스크롤 86.325), 레벨 2·3·4 왼쪽 끝 일치·오른쪽 끝 최대 641.7 ≤ 683, `RelayoutAll`·`ViewportRect` 폴백 회귀 없음, 마지막 자식 가정 결정적, 스킬 규칙 위반 없음. 제안(테스트에서 시작하기 블록 직접 노출)은 기각 — 테스트 전용 노출을 늘리지 않고 주석으로 이유를 남김. Antigravity가 리뷰 중 `run_tests`(PlayMode)를 돌려 DesignPanelTests 6개 통과를 보고했고, 그 여파로 `EditorSettings.enterPlayModeOptionsEnabled`가 1로 바뀜.
+- 결과(Claude): Rider 정적 분석 오류 0, Editor.log `error CS` 0, PlayMode 62/62 통과, 콘솔 오류 0, `EditorSettings.enterPlayModeOptionsEnabled` 꺼짐 확인(diff 없음). Play 모드 화면 캡처는 하지 않음(위치는 테스트로 확인).
+- 도구 참고: 이 세션의 `unityMCP` 도구가 Claude 데스크톱 앱 설정(`claude_desktop_config.json`)의 같은 이름 stdio 서버로 가서 "인스턴스 없음"으로 실패함. Unity는 프로젝트의 HTTP 서버(127.0.0.1:8080)에 붙어 있어, 테스트 실행·설정 확인은 8080 서버에 직접 MCP 요청을 보내 진행함.
+
 ### [2026-10-03 22:10] Claude → Antigravity · T22 후속(붙는 연출 변경)
 - 요청(사용자): 블록이 위에서 내려오지 말고 스토리 라인 연출처럼 아래에서 올라오며 붙을 것, 값 블록은 명령 블록이 붙은 뒤 오른쪽에서 왼쪽으로 움직여 붙을 것.
 - 변경 파일: `Game/UI/DesignBlockView.cs`(PlayDropIn→PlayAttach: 목표 아래에서 InOutSine으로 올라오며 페이드인 → 값 블록이 오른쪽 120에서 OutCubic으로 소켓까지 미끄러지며 페이드인 / PlayRemoveAndDestroy→PlayDetachAndDestroy: 가라앉으며 사라짐), `Game/UI/DesignPanel.cs`(riseDuration 0.5·riseHeight 40·valueSlideDuration 0.3·valueSlideDistance 120), `Prefabs/DesignBlock.prefab`(Value에 CanvasGroup), `Scenes/3_Game.unity`(DesignPanel 필드 이름만), `Tests/Runtime/DesignPanelTests.cs`·`DGAIZone.Tests.asmdef`(DOTween.dll 참조)

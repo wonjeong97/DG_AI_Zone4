@@ -88,7 +88,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. maxSteps(이 레벨에서 쌓일 수 있는 최대 단계 수)로 '줄여서 한 화면에' 방식의 배율을 정하고,
-        /// withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음을 가운데 놓을 폭을 정함.
+        /// withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함. 묶음 왼쪽 끝은 레벨과 관계없이 같음.
         /// </summary>
         public void Initialize(int maxSteps, bool withValueBlocks)
         {
@@ -238,9 +238,9 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary> 블록 묶음 전체 폭(px): 단계 블록 위치 + 명령 블록 폭(값 블록을 쓰는 레벨이면 값 블록까지 합친 폭). </summary>
-        private float StackWidth()
+        private static float StackWidth(bool withValueBlocks)
         {
-            return CommandStackX() + (_withValueBlocks ? DesignBlockView.CommandWithValueWidth : DesignBlockView.CommandNoValueWidth);
+            return CommandStackX() + (withValueBlocks ? DesignBlockView.CommandWithValueWidth : DesignBlockView.CommandNoValueWidth);
         }
 
         /// <summary> 시작하기 + stepCount개 단계 + 완성하기가 모두 놓였을 때의 높이(px). 완성하기는 아래 돌기가 없어 몸통 높이가 곧 이미지 높이임. </summary>
@@ -253,7 +253,7 @@ namespace DGAIZone.Game.UI
         private void UpdateScale()
         {
             Rect viewport = ViewportRect();
-            float widthScale = (viewport.width - edgePadding * 2f) / StackWidth();
+            float widthScale = (viewport.width - edgePadding * 2f) / StackWidth(_withValueBlocks);
 
             if (layoutMode == DesignLayoutMode.FitAll)
             {
@@ -266,7 +266,19 @@ namespace DGAIZone.Game.UI
             }
 
             _scale = Mathf.Max(0.01f, _scale);
-            _offsetX = (viewport.width - StackWidth() * _scale) / 2f;
+            _offsetX = LeftInset(viewport.width);
+        }
+
+        /// <summary>
+        /// 블록 묶음의 왼쪽 여백. 레벨마다 묶음 폭·배율이 달라도 왼쪽 끝이 같도록, 가장 넓은 묶음(값 블록까지 있는 묶음)을 이 배치 방식의
+        /// 최대 배율로 가운데 놓았을 때의 왼쪽 끝을 씀(블록이 적어 최대 배율을 쓰는 레벨 1의 위치와 같음). 어느 레벨이든 오른쪽으로 넘치지 않음.
+        /// </summary>
+        private float LeftInset(float viewportWidth)
+        {
+            float widest = StackWidth(true);
+            float maxScale = layoutMode == DesignLayoutMode.FitAll ? maxFitScale : scrollScale;
+            float scale = Mathf.Min(maxScale, (viewportWidth - edgePadding * 2f) / widest);
+            return (viewportWidth - widest * scale) / 2f;
         }
 
         /// <summary> 블록을 담는 보이는 영역의 크기. ScrollRect의 viewport가 없으면 content의 부모를 씀. </summary>
@@ -276,7 +288,7 @@ namespace DGAIZone.Game.UI
             if (content && content.parent is RectTransform parent) return parent.rect;
 
             if (_logger != null) _logger.ZLogWarning($"[DesignPanel] scrollRect·content가 없어 설계창 크기를 알 수 없음. 블록을 원본 크기로 둠.");
-            return new Rect(0f, 0f, StackWidth(), StackHeight(_maxSteps));
+            return new Rect(0f, 0f, StackWidth(_withValueBlocks), StackHeight(_maxSteps));
         }
 
         /// <summary> 지금 놓인 블록이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). </summary>

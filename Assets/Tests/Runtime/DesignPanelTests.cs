@@ -69,6 +69,9 @@ namespace DGAIZone.Tests
         /// <summary> content의 index번째 자식 블록 위치(왼쪽 위 기준). </summary>
         private Vector2 BlockPosition(int index) => ((RectTransform)_content.GetChild(index)).anchoredPosition;
 
+        /// <summary> content의 마지막 자식 블록 위치. 다시 Initialize하면 이전 블록은 프레임 끝에 파괴되므로 새 시작하기 블록은 마지막 자식임. </summary>
+        private Vector2 LastBlockPosition() => BlockPosition(_content.childCount - 1);
+
         [UnityTest]
         public IEnumerator 블록은_앞_블록의_아래_돌기에_위_홈이_맞물리게_놓인다() => UniTask.ToCoroutine(async () =>
         {
@@ -151,14 +154,19 @@ namespace DGAIZone.Tests
         });
 
         [Test]
-        public void 값_블록을_쓰지_않는_레벨은_명령_블록_폭으로_가운데에_놓인다()
+        public void 블록_묶음은_단계_수나_값_블록_유무가_달라도_레벨_1과_같은_왼쪽에_놓인다()
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(5, false);
+            _panel.Initialize(3, true); // 레벨 1: 값 블록 있음, 3단계
+            float level1X = LastBlockPosition().x;
+            float level1Width = (StartTabCenterX - CommandSocketCenterX + 360f + 361f) * _panel.Scale; // 단계 블록 위치 + 명령 몸통 + 값 블록 폭
+            Assert.AreEqual((ViewportWidth - level1Width) / 2f, level1X, Tolerance, "레벨 1은 블록 묶음이 보이는 영역 가운데에 놓여야 함(기준 위치)");
 
-            float s = _panel.Scale;
-            float stackWidth = (StartTabCenterX - CommandSocketCenterX + 361f) * s; // 단계 블록 위치 + 값 소켓 없는 명령 블록 폭
-            Assert.AreEqual((ViewportWidth - stackWidth) / 2f, BlockPosition(0).x, Tolerance, "블록 묶음이 보이는 영역 가운데에 놓여야 함");
+            _panel.Initialize(5, false); // 레벨 2: 값 블록 없음, 5단계
+            Assert.AreEqual(level1X, LastBlockPosition().x, Tolerance, "값 블록이 없는 레벨도 레벨 1과 같은 왼쪽에 놓여야 함");
+
+            _panel.Initialize(5, true); // 레벨 3·4: 값 블록 있음, 5단계라 배율이 더 작음
+            Assert.AreEqual(level1X, LastBlockPosition().x, Tolerance, "단계가 많아 작아진 레벨도 레벨 1과 같은 왼쪽에 놓여야 함");
         }
 
         [UnityTest]

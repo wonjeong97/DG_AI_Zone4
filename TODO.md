@@ -6,12 +6,14 @@
 
 ## 진행 중
 
+
 ## 할 일
 
 - [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
 
 ## 완료
 
+- [x] T24 설계창 블록 묶음을 모든 레벨에서 레벨 1처럼 왼쪽에 배치(단계가 많거나 값 블록이 없는 레벨이 가운데로 몰리던 것, 레벨 1 위치는 그대로)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] T22 설계창 블록 코딩 연출: Zone1 블록 이미지로 상단 '시작하기', 설정하기 시 명령+값 블록이 내려와 맞물리며 쌓임, 취소 시 빠짐, 코딩 완료 시 하단 '완성하기' 연결. 배치 방식 두 가지를 인스펙터 드롭다운으로 비교 가능(T23에서 하나로 정리)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] T21 MissionBoardController 레벨별 미션 문구 메서드 5개를 공용 ApplyMissionText로 통합, 씬을 떠날 때 재료 선택 초기화가 파괴된 오브젝트에서 계속되던 문제 수정(템플릿 JsonLoader 취소 처리는 Template TODO로)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] T19 T16 반영 3: IngredientSelectionController 분할(화살표 안내·잘못된 카드 경고·설계창을 컴포넌트로 분리, 레벨 1 값·레벨 4 규칙을 상태로 이동), 테스트 리플렉션 제거 — 씬 참조 재연결, PlayMode 56/56, Play 모드 레벨 1·4 확인(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
