@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-01 23:00] Claude → Antigravity · 프로젝트 설정 정리
+- 변경 파일: ProjectSettings/ProjectSettings.asset
+- 확인 요청: bundleVersion 이 26.10.1 인지, m_EnterPlayModeOptionsEnabled 가 0 인지
+- 결과: 통과(파일 기준 검증).
+
+### [2026-10-01 22:15] Claude → Antigravity · UI 전용 렌더링 경량화
+- 변경 파일: ProjectSettings/QualitySettings.asset, ProjectSettings/GraphicsSettings.asset
+- 확인 요청: 첫 품질 레벨 Performant, m_CurrentQuality·Standalone 기본 0, Graphics RP guid = URP-Performant, 빌드 씬에 m_RenderPostProcessing: 1 없음, 빌드 씬 3D 렌더러 유무
+- 결과: 통과(파일 기준 검증). 1차 검증에서 Standalone 기본값이 2로 남은 것을 찾아 수정한 뒤 재검증 통과. 빌드 씬에 3D 렌더러 없음(UI 전용 확인).
+
 ### [2026-10-01 18:05] Claude → Antigravity · T17
 - 변경 파일: `App/RobotVideoPanel.cs`, `Game/Hardware/KeyboardRfidSimulator.cs`, `Game/UI/Level4BoardController.cs`, `App/Constants.cs`(LastLevel 추가, StoryLine 삭제), `App/UnlockedLevelStore.cs`, `Result/ResultFlowController.cs`·`ResultVideoPanel.cs`·`ResultAiPanel.cs`, `Intro/IntroFlowController.cs`·`TutorialImageSlider.cs`, `Network/APIManager.cs`, 설정 폴백을 쓰던 컨트롤러 11개, `UI/1_Intro/Tutorial/Tutorial5~7.png.meta`, `CHANGELOG.md`
 - 확인 요청: (a) 콘솔 컴파일 에러·경고 (b) 변경 .cs `validate_script` (c) 지운 폴백 값이 설정 클래스 기본값과 모두 같은지 (d) 설정 필드가 null이 될 경로 (e) 영상 준비 실패·취소 경로, `enabled = false`의 부작용. run_tests·Play 모드 금지. 모델 `gemini-3.8-flash-medium`.

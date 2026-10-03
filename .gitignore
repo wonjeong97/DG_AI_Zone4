@@ -108,8 +108,10 @@ InitTestScene*.unity*
 
 # IDE and tool directories
 .idea/
-.claude/*
-!.claude/skills/
+.claude/
+
+# Agent rules and skills are shared from Google Drive (AgentSync), not versioned per project
+.agents/
 
 # Editor screenshots
 /Assets/Screenshots/
@@ -119,12 +121,14 @@ InitTestScene*.unity*
 /Assets/StreamingAssets/build_info
 /Assets/StreamingAssets/build_info.meta
 
+# ShutdownScheduleEditor build output (exceeds GitHub's 100MB file limit; rebuild via Tools menu)
+/Assets/StreamingAssets/ShutdownScheduleEditor.exe
+/Assets/StreamingAssets/ShutdownScheduleEditor.exe.meta
+
 # Unity directory monitor sync temp files
 ~UnityDirMonSyncFile~*
 
-# Locally-published exe (~150MB, com.wonjeong.template's Tools/Build Shutdown Scheduler Exe) - not committed per template convention
-/[Aa]ssets/StreamingAssets/ShutdownScheduleEditor.exe
-/[Aa]ssets/StreamingAssets/ShutdownScheduleEditor.exe.meta
+# ---- Project-specific ----
 
 # Documents (review PDFs etc.) - already tracked files such as the TextMesh Pro guide stay tracked
 *.pdf
