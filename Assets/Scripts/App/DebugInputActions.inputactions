@@ -1,0 +1,135 @@
+{
+    "version": 1,
+    "name": "DebugInputActions",
+    "maps": [
+        {
+            "name": "Debug",
+            "id": "29baba13-1f29-4315-8fef-23810bd829bb",
+            "actions": [
+                {
+                    "name": "SimulateActionCard",
+                    "type": "Button",
+                    "id": "6300a8ee-c74b-47be-8245-5f68fcb2235b",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "SimulateControlCard",
+                    "type": "Button",
+                    "id": "d75493f4-7bd0-4330-849a-146fc48856e2",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "SimulateLogicCard",
+                    "type": "Button",
+                    "id": "ecaeca86-73cf-458c-aa5f-bb9eeb7f8639",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "SimulateFunctionCard",
+                    "type": "Button",
+                    "id": "e70de4ff-9c8e-42fb-81a9-0b0e788020d5",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "PlayLevel4Simulation",
+                    "type": "Button",
+                    "id": "82944c52-d016-4dcc-8609-0f3a3bd3236d",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "UnlockAllLevels",
+                    "type": "Button",
+                    "id": "1c7e67be-b142-45b5-b7b8-1ce7bf593ab8",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "5466a830-03de-49d2-8fe6-92d5aa6f6c51",
+                    "path": "<Keyboard>/1",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SimulateActionCard",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f82b472a-5a09-464b-a2ac-6fb6d0da5d61",
+                    "path": "<Keyboard>/2",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SimulateControlCard",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2797ece3-f112-4e38-a382-c66b931ca87a",
+                    "path": "<Keyboard>/3",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SimulateLogicCard",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "1c9d2407-eff0-4600-bb9a-2cd0d9ebffa0",
+                    "path": "<Keyboard>/4",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SimulateFunctionCard",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "4ba9893c-029d-4e71-a214-204fb15d48e3",
+                    "path": "<Keyboard>/space",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PlayLevel4Simulation",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "26dfeb7e-de54-48f2-94ae-f3e7716ea124",
+                    "path": "<Keyboard>/space",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "UnlockAllLevels",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

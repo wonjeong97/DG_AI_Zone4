@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T33 디버그 입력을 InputAction으로: LevelSelect 스페이스바 전체 해금 추가(에디터·개발 빌드, 레벨을 고르기 전까지), 숫자키 카드 시뮬레이션·레벨 4 스페이스바도 DebugInputActions 에셋(Debug 맵)으로 전환(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T32 결과 화면: 왼쪽 아래 '나의 코딩 결과' 패널 추가, 플레이어·AI 설계창을 3_Game 블록 이미지로(배치 방식은 3_Game 설계창을 따름, 블록 1초 간격), 레벨 3 실패 원인별 영상(4-3-Fail-Electricity/O2, 논리 오류·둘 다 부족은 4-3-Fail), 마지막 레벨 5(4-5 영상)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T31 설계창 블록 묶음(시작하기)을 모든 레벨에서 더 왼쪽으로, 레벨 5 함수 정의 블록도 같은 거리만큼 왼쪽으로(DesignPanel 인스펙터 stackShiftLeft, 기본 30)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T30 레벨 5 함수 블록(Zone1 함수 사용·함수 정의 ㄷ자) + 임시 레벨 5 진행(함수1·동작3·논리1, 순서 자유, 다 쓴 분류 카드는 경고, 5장 다 놓으면 성공): 함수 사용은 시작하기 아래 줄, 함수 정의는 설계창 오른쪽. 동작·논리 위치는 기획 확인 중이라 우선 시작하기 아래 줄에 순서대로(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)

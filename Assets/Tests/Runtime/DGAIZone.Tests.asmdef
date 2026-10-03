@@ -13,6 +13,7 @@
         "R3.Unity",
         "Unity.TextMeshPro",
         "Unity.InputSystem",
+        "Unity.InputSystem.TestFramework",
         "UnityEngine.UI",
         "DOTween.Modules"
     ],
