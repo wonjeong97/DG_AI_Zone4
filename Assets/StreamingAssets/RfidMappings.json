@@ -131,8 +131,8 @@
         {
           "id": "Move",
           "matters": [
-            { "id": "MoveUp", "label": "윗쪽" },
-            { "id": "MoveDown", "label": "아랫쪽" },
+            { "id": "MoveUp", "label": "위쪽" },
+            { "id": "MoveDown", "label": "아래쪽" },
             { "id": "MoveRight", "label": "오른쪽" },
             { "id": "MoveLeft", "label": "왼쪽" }
           ]
