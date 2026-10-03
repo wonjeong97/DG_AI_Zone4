@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-03 18:40] Claude → Antigravity · T20
+- 변경 파일: `Game/Hardware/RfidReaderService.cs`, `App/VideoReadyGate.cs`, `Result/ResultVideoPanel.cs`·`ResultAiPanel.cs`, `Game/UI/States/IngredientLevel1State.cs`·`IngredientLevel3State.cs`, `LevelSelect/LevelSelectFlowController.cs`, `Intro/IntroFlowController.cs`·`TutorialImageSlider.cs`, `Game/GameFlowController.cs`, `Tests/Runtime/TutorialSliderTests.cs`
+- 점검(읽기 전용, 두 묶음 병렬, `gemini-3.8-flash-high`): ① Game 폴더 ② 그 외 + 테스트. 검증 후 수용/기각:
+  - 수용: 카드 떨어짐 이벤트를 수신 스레드에서 바로 발행(구독자가 설계창 알파를 바꿈, 리더기 2대 이상에서만 드러남), 결과 영상 종료 대기(`WaitUntil`/`WaitWhile isPlaying`)에 상한 없음(결과 씬은 완료 패널 전까지 비활동 타이머가 멈춰 있음), `MissionBoard?.` 두 곳(0번), 인트로 페이드 null 조용한 반환(6번), 레벨 선택 폴백에서 `storyPanel` null이면 NRE, 터치 판정 3벌 중복, `TutorialImageSlider`의 C# `event`(22번).
+  - 기각: `SetDelay`+무한 Yoyo 루프 타이밍(지연은 첫 회만 적용), `OnApplicationQuit`·`OnDestroy` 이중 정리(두 번째 호출은 스레드가 이미 끝나 Join을 건너뛰는 no-op), 씬 전환 `_isBusy` finally 복원(전환 서비스가 자체 가드하고 비활동 타이머로 복구됨), 오른쪽 화살표 시퀀스 매번 생성(재생 중이면 건너뜀), 런타임 `AddComponent`(씬 진입 때 한 번), 레벨 2 `Clone`(필터가 원본 배열을 그대로 돌려줄 수 있어 필요), 스토리 화면 터치의 UI 레이캐스트 검사(아무 곳이나 눌러 넘어가는 것이 의도).
+- 확인 요청(코드 리뷰): 위 수정 7가지의 동작 동등성·해제 누락·규칙 준수, `validate_script`, `read_console`. 셸·run_tests·Play 모드 금지.
+- 결과(Antigravity): **전 항목 통과**. 변경 11개 파일 `validate_script` 에러 0, 콘솔 컴파일 에러 0.
+  - 참고: 첫 호출은 요청에 적은 스킬 경로(`C:/Users/licle/.claude/skills/...`)가 허용 목록 밖이라 `read_file`이 자동 거부되어 결과 없이 끝남. 허용된 원본 경로(`G:/내 드라이브/AgentSync/ClaudeSync/skills/...`)로 바꿔 다시 호출함.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과(작업 전 기준선도 56/56, T18 PlayMode 미실행분 해소). MCP PlayMode 테스트 실행 뒤 `EditorSettings.asset`의 Enter Play Mode Options가 켜져 있어 에디터 API로 다시 끔.
+
 ### [2026-10-03 17:33] Claude → Antigravity · 미병합 PR 정리(#35·#36·T18)
 - 변경 파일: PR #36 머지 충돌 해결분 `CHANGELOG.md`, `docs/agents/HANDOFF.md`, `TODO.md`, `docs/agents/TASKS.md`(삭제, T16~T19를 TODO.md로 이전)
 - 확인 요청: (1) CHANGELOG 양쪽 항목 누락·중복 없이 [2026-10-03]에 분류, [Unreleased] 비움 (2) HANDOFF 양쪽 항목 보존·최신순 (3) TASKS.md의 T16~T19가 TODO.md로 빠짐없이 이전. 셸 금지, 파일 읽기만. 모델 `gemini-3.8-flash-high`.

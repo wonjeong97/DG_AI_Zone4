@@ -5,9 +5,9 @@ using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
+using R3;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
@@ -37,6 +37,7 @@ namespace DGAIZone.Intro
         public bool IsBusy => _isBusy;
         private bool _isIntroActive;
         private bool _isTextAnimating;
+        private IDisposable _tutorialCompletedSubscription;
         private bool _skipStoryRequested;
         private Color _originalStoryColor;
 
@@ -77,7 +78,7 @@ namespace DGAIZone.Intro
 
             if (tutorialSlider)
             {
-                tutorialSlider.OnTutorialCompleted += OnTutorialCompleted;
+                _tutorialCompletedSubscription = tutorialSlider.TutorialCompleted.Subscribe(_ => OnTutorialCompleted());
             }
             else if (_logger != null)
             {
@@ -134,7 +135,7 @@ namespace DGAIZone.Intro
         {
             if (!_isIntroActive || _isBusy) return;
 
-            if (IsClickRequested())
+            if (StoryLineAnimator.IsPointerPressedThisFrame())
             {
                 if (_isTextAnimating)
                 {
@@ -147,17 +148,10 @@ namespace DGAIZone.Intro
             }
         }
 
-        /// <summary> 이번 프레임에 마우스 또는 터치 클릭이 발생했는지 확인함. </summary>
-        private bool IsClickRequested()
-        {
-            Pointer pointer = Pointer.current;
-            return pointer != null && pointer.press.wasPressedThisFrame;
-        }
-
-        /// <summary> 이벤트 리스너 해제. </summary>
+        /// <summary> 튜토리얼 완료 구독 해제. </summary>
         private void OnDestroy()
         {
-            if (tutorialSlider) tutorialSlider.OnTutorialCompleted -= OnTutorialCompleted;
+            _tutorialCompletedSubscription?.Dispose();
         }
 
         /// <summary> 튜토리얼(체험 방법) 마지막 페이지에서 다음 터치 시 레벨 선택 씬으로 전환함. </summary>
@@ -275,7 +269,11 @@ namespace DGAIZone.Intro
         /// <summary> DOTween으로 CanvasGroup 알파를 보간하는 페이드 핵심 로직. </summary>
         private async UniTask FadeCanvasGroupAsync(CanvasGroup group, float startAlpha, float endAlpha, float duration, CancellationToken token)
         {
-            if (!group) return;
+            if (!group)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 CanvasGroup이 null이라 페이드를 건너뜀.");
+                return;
+            }
             if (duration <= 0f) duration = 0.4f;
 
             group.alpha = startAlpha;

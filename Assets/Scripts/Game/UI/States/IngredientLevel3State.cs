@@ -144,7 +144,13 @@ namespace DGAIZone.Game.UI.States
                 RfidMatter matter = matters != null ? Array.Find(matters, m => IsCorrectBlock(controller, step.ingredientId, m)) : null;
                 if (matter == null)
                 {
-                    if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3 '{step?.ingredientId}' 단계에 이번 기준값(전기량 상한={controller.MissionBoard?.MaxElectricity}, 산소량 하한={controller.MissionBoard?.MinOxygen})에 맞는 블록이 없어 정답 설계를 만들 수 없음.");
+                    if (controller.Logger != null)
+                    {
+                        string limits = controller.MissionBoard
+                            ? $"전기량 상한={controller.MissionBoard.MaxElectricity}, 산소량 하한={controller.MissionBoard.MinOxygen}"
+                            : "미션 보드 없음";
+                        controller.Logger.ZLogWarning($"[IngredientSelectionController] 레벨 3 '{step?.ingredientId}' 단계에 이번 기준값({limits})에 맞는 블록이 없어 정답 설계를 만들 수 없음.");
+                    }
                     solution.Clear();
                     return solution;
                 }

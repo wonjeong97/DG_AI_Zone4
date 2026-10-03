@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using VContainer;
@@ -116,17 +115,10 @@ namespace DGAIZone.Game
             if (_isBusy) return;
             if (!storyPanel || !storyPanel.interactable) return;
 
-            if (IsPointerPressed())
+            if (StoryLineAnimator.IsPointerPressedThisFrame())
             {
                 SwitchToGameAsync().Forget();
             }
-        }
-
-        /// <summary> 이번 프레임에 마우스 또는 터치 눌림이 있었는지 반환함. </summary>
-        private bool IsPointerPressed()
-        {
-            Pointer pointer = Pointer.current;
-            return pointer != null && pointer.press.wasPressedThisFrame;
         }
 
         /// <summary> 활성화된 레벨에 맞춰 스토리 이미지와 스토리 텍스트 오브젝트를 설정함. </summary>

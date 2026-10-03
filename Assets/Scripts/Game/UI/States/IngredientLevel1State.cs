@@ -87,7 +87,8 @@ namespace DGAIZone.Game.UI.States
             bool valid = controller.MissionBoard && controller.MissionBoard.IsThrustValid(totalThrust);
             if (controller.Logger != null)
             {
-                controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={controller.ConfirmedEngineValue} + 연료={controller.ConfirmedFuelValue} - 탑재={controller.ConfirmedPayloadValue}) vs 목적지 '{controller.MissionBoard?.Destination}' -> {(valid ? "성공" : "실패")}");
+                string destination = controller.MissionBoard ? controller.MissionBoard.Destination : "(미션 보드 없음)";
+                controller.Logger.ZLogInformation($"[IngredientSelectionController] 총 추진력 {totalThrust} (엔진={controller.ConfirmedEngineValue} + 연료={controller.ConfirmedFuelValue} - 탑재={controller.ConfirmedPayloadValue}) vs 목적지 '{destination}' -> {(valid ? "성공" : "실패")}");
             }
             return valid;
         }

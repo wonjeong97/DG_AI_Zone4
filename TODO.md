@@ -6,14 +6,14 @@
 
 ## 진행 중
 
-- [ ] T18 T16 반영 2: Level4BoardController 규칙/연출 분리, 이동 방향·판정 규칙 중복 제거, 배치 풀 캐시, 그리기 순서 할당 제거(완료 기준: 판정·배치 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity — 코드 리뷰 통과·main 머지됨, PlayMode 테스트 실행 남음
+- [ ] T19 T16 반영 3: IngredientSelectionController 분할(화살표 힌트·경고 연출·설계창 분리, 레벨 1 값·레벨 4 분기 상태로 이동), 테스트 리플렉션 정리(완료 기준: 씬 참조 재연결, PlayMode 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity
 
 ## 할 일
 
-- [ ] T19 T16 반영 3: IngredientSelectionController 분할(화살표 힌트·경고 연출·설계창 분리, 레벨 1 값·레벨 4 분기 상태로 이동), 테스트 리플렉션 정리(완료 기준: 씬 참조 재연결, PlayMode 테스트 통과, 동작 변화 없음) — 담당: Claude / 검증: Antigravity
-
 ## 완료
 
+- [x] T20 프로젝트 재점검(T16 이후): 스킬 준수·버그·최적화·리팩터링 재확인 후 확인된 버그와 규칙 위반 수정(RFID 카드 떨어짐 이벤트 메인 스레드 전환, 결과 영상 종료 대기 상한, MonoBehaviour `?.`, 조용한 반환, 터치 판정 중복, 튜토리얼 완료 이벤트 R3 전환)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
+- [x] T18 T16 반영 2: Level4BoardController 규칙/연출 분리, 이동 방향·판정 규칙 중복 제거, 배치 풀 캐시, 그리기 순서 할당 제거 — PlayMode 56/56 통과 — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] 프로젝트 설정 정리: Player Settings Version을 수정일 26.10.1로 — 담당: Claude / 검증: Antigravity (2026-10-01)
 - [x] UI 전용 프로젝트 렌더링 경량화: Quality 기본을 Performant로, Graphics 기본 RP를 URP-Performant로, 빌드 씬 카메라 후처리 끔 — 담당: Claude / 검증: Antigravity (2026-10-01)
 - [x] T17 T16 반영 1: 로봇 영상 준비 실패 처리, 디버그 입력 에디터·개발 빌드 한정, 마지막 레벨 상수 통합, 작은 규칙 위반, 설정 폴백 이중 정의 제거(HANDOFF.md 참고) — 담당: Claude, Antigravity (2026-10-01)

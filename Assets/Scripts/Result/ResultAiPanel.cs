@@ -104,9 +104,10 @@ namespace DGAIZone.Result
             PanelFader.ApplyState(designGroup, false, _logger);
             PanelFader.ApplyState(videoGroup, true, _logger);
 
-            // ResultVideoPanel과 같은 이유(일부 인코딩에서 loopPointReached 누락)로 isPlaying 상태 전이를 폴링해 재생 종료를 감지함
-            await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
-            await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
+            if (!await VideoReadyGate.WaitUntilPlaybackEndsAsync(videoPlayer, token) && _logger != null)
+            {
+                _logger.ZLogWarning($"[ResultAiPanel] 성공 영상이 영상 길이({videoPlayer.length:F1}초)보다 {VideoReadyGate.PlaybackEndMarginSeconds}초 넘게 끝나지 않아 완료 패널로 넘어감.");
+            }
         }
 
         /// <summary> 선택된 레벨의 성공 영상을 준비함. 준비되면 true, videoPlayer가 없거나 준비에 실패하면 로그를 남기고 false. </summary>

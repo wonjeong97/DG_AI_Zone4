@@ -137,10 +137,10 @@ namespace DGAIZone.Result
             await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
             _readySignal.TrySetResult();
 
-            // loopPointReached는 일부 인코딩(비표준 타임스탬프)에서 발생하지 않는 경우가 있어
-            // isPlaying 상태 전이를 직접 폴링해 재생 종료를 감지함.
-            await UniTask.WaitUntil(() => videoPlayer.isPlaying, cancellationToken: token);
-            await UniTask.WaitWhile(() => videoPlayer.isPlaying, cancellationToken: token);
+            if (!await VideoReadyGate.WaitUntilPlaybackEndsAsync(videoPlayer, token) && _logger != null)
+            {
+                _logger.ZLogWarning($"[ResultVideoPanel] {fileName}이(가) 영상 길이({videoPlayer.length:F1}초)보다 {VideoReadyGate.PlaybackEndMarginSeconds}초 넘게 끝나지 않아 AI 연출로 넘어감.");
+            }
         }
     }
 }

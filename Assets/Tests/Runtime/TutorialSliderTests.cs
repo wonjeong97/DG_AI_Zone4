@@ -1,6 +1,6 @@
-using System.Reflection;
 using DGAIZone.Intro;
 using NUnit.Framework;
+using R3;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -68,13 +68,13 @@ namespace DGAIZone.Tests
             Assert.AreEqual(6, _slider.CurrentIndex, "6번 ShowNext 호출 후 인덱스는 6(7/7)이어야 함.");
 
             bool completedFired = false;
-            _slider.OnTutorialCompleted += () => completedFired = true;
+            using System.IDisposable subscription = _slider.TutorialCompleted.Subscribe(_ => completedFired = true);
 
             // Act: 7/7 페이지에서 다음 호출
             _slider.ShowNext();
 
             // Assert: 완료 이벤트가 발생하고 인덱스는 6을 유지해야 함(0으로 순환되지 않음)
-            Assert.IsTrue(completedFired, "마지막 페이지에서 ShowNext 호출 시 OnTutorialCompleted 이벤트가 발생해야 함.");
+            Assert.IsTrue(completedFired, "마지막 페이지에서 ShowNext 호출 시 TutorialCompleted가 값을 내보내야 함.");
             Assert.AreEqual(6, _slider.CurrentIndex, "완료 이벤트 발생 후에도 인덱스는 6을 유지해야 함.");
         }
 

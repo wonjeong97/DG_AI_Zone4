@@ -47,6 +47,8 @@ namespace DGAIZone.Game.Hardware
         private RfidMappingItem[] _mappings;
         private readonly Subject<(string readerId, string rawData)> _messageSubject = new Subject<(string readerId, string rawData)>();
         private IDisposable _subscription;
+        private readonly Subject<string> _idleSubject = new Subject<string>(); // 카드가 떨어진 리더기 id. 수신 스레드에서 받아 메인 스레드에서 발행함
+        private IDisposable _idleSubscription;
 
         private TcpListener _listener;
         private Thread _acceptThread;
@@ -69,6 +71,7 @@ namespace DGAIZone.Game.Hardware
         private void Start()
         {
             _subscription = _messageSubject.ObserveOnMainThread().Subscribe(OnNetworkDataReceived);
+            _idleSubscription = _idleSubject.ObserveOnMainThread().Subscribe(PublishReaderIdle);
             InitializeAsync().Forget();
         }
 
@@ -422,7 +425,7 @@ namespace DGAIZone.Game.Hardware
                             {
                                 // 직전까지 인식되어 있던 카드가 방금 떨어짐(짧은 응답으로 전환된 순간) -> 1회만 알림
                                 if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드가 떨어짐.");
-                                _idlePublisher?.Publish(new RfidReaderIdleEvent(session.ReaderId));
+                                _idleSubject.OnNext(session.ReaderId); // 구독자가 UI를 바꾸므로 이 수신 스레드에서 바로 발행하지 않음
                             }
                             lastPublishedDecoded = null; // 카드가 떨어짐(짧은 응답) -> 다음 태그 때 다시 발행 가능하도록 리셋
                         }
@@ -558,6 +561,19 @@ namespace DGAIZone.Game.Hardware
             }
         }
 
+        /// <summary> 메인 스레드로 넘어온 카드 떨어짐 알림을 RfidReaderIdleEvent로 발행함. </summary>
+        private void PublishReaderIdle(string readerId)
+        {
+            if (_idlePublisher != null)
+            {
+                _idlePublisher.Publish(new RfidReaderIdleEvent(readerId));
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[RfidReaderService] idlePublisher가 null이라 {readerId} 카드 떨어짐을 알릴 수 없음.");
+            }
+        }
+
         /// <summary> 수신 uid를 매핑 목록에서 찾아 category를 RfidTagEvent로 발행함. </summary>
         private void DispatchTag((string readerId, string rawData) data)
         {
@@ -643,6 +659,8 @@ namespace DGAIZone.Game.Hardware
             lock (_sessionsLock) _sessions.Clear();
             _subscription?.Dispose();
             _messageSubject?.Dispose();
+            _idleSubscription?.Dispose();
+            _idleSubject?.Dispose();
         }
 
         /// <summary>

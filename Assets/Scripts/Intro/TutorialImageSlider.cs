@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using R3;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -26,8 +27,10 @@ namespace DGAIZone.Intro
 
         [SerializeField] private TMP_Text pageText;
 
-        /// <summary> 마지막 페이지(7/7)에서 우측 영역을 터치했을 때 발생하는 완료 이벤트. </summary>
-        public event Action OnTutorialCompleted;
+        private readonly Subject<Unit> _tutorialCompleted = new Subject<Unit>();
+
+        /// <summary> 마지막 페이지(7/7)에서 우측 영역을 터치했을 때 값을 내보내는 완료 스트림. </summary>
+        public Observable<Unit> TutorialCompleted => _tutorialCompleted;
 
         // 페이지별로 1회만 Addressables에서 로드하고 이후에는 캐시된 핸들에서 반환. OnDestroy에서 모두 Release함.
         private readonly Dictionary<int, AsyncOperationHandle<Sprite>> _spriteHandles = new();
@@ -65,9 +68,11 @@ namespace DGAIZone.Intro
             ShowPageAsync().Forget();
         }
 
-        /// <summary> 로드해 둔 Addressables 핸들을 모두 해제함. </summary>
+        /// <summary> 완료 스트림과 로드해 둔 Addressables 핸들을 모두 해제함. </summary>
         private void OnDestroy()
         {
+            _tutorialCompleted.Dispose();
+
             foreach (AsyncOperationHandle<Sprite> handle in _spriteHandles.Values)
             {
                 if (handle.IsValid()) Addressables.Release(handle);
@@ -87,12 +92,12 @@ namespace DGAIZone.Intro
             else ShowPrevious();
         }
 
-        /// <summary> 다음 페이지로 이동함. 마지막 페이지(7/7)에서 호출 시 OnTutorialCompleted 이벤트를 발생시킴. </summary>
+        /// <summary> 다음 페이지로 이동함. 마지막 페이지(7/7)에서 호출 시 TutorialCompleted로 완료를 알림. </summary>
         public void ShowNext()
         {
             if (_currentIndex >= TotalPages - 1)
             {
-                OnTutorialCompleted?.Invoke();
+                _tutorialCompleted.OnNext(Unit.Default);
                 return;
             }
 
