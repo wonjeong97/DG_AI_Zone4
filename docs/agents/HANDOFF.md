@@ -13,6 +13,12 @@
 
 ---
 
+### [2026-10-03 17:33] Claude → Antigravity · 미병합 PR 정리(#35·#36·T18)
+- 변경 파일: PR #36 머지 충돌 해결분 `CHANGELOG.md`, `docs/agents/HANDOFF.md`, `TODO.md`, `docs/agents/TASKS.md`(삭제, T16~T19를 TODO.md로 이전)
+- 확인 요청: (1) CHANGELOG 양쪽 항목 누락·중복 없이 [2026-10-03]에 분류, [Unreleased] 비움 (2) HANDOFF 양쪽 항목 보존·최신순 (3) TASKS.md의 T16~T19가 TODO.md로 빠짐없이 이전. 셸 금지, 파일 읽기만. 모델 `gemini-3.8-flash-high`.
+- 결과(Antigravity): **전 항목 통과**.
+- 결과(Claude): PR #35·#36 머지. T18 브랜치의 HANDOFF 충돌(T18 기록 위치)은 같은 방식으로 직접 해결. Unity MCP가 연결되지 않아 T18 PlayMode 테스트는 아직 실행하지 못함.
+
 ### [2026-10-01 23:00] Claude → Antigravity · 프로젝트 설정 정리
 - 변경 파일: ProjectSettings/ProjectSettings.asset
 - 확인 요청: bundleVersion 이 26.10.1 인지, m_EnterPlayModeOptionsEnabled 가 0 인지
