@@ -11,10 +11,9 @@ namespace DGAIZone.LevelSelect
     public class LevelSelectLifetimeScope : LifetimeScope
     {
         /// <summary>
-        /// 루트 스코프인 GameLifetimeScope를 부모로 찾음. Find&lt;GameLifetimeScope&gt;() 대신 정적
-        /// GameLifetimeScope.Instance만 사용하는 ResolveAndEnsureBuilt()를 통해야, 0_Title 재로드로
-        /// 생긴(곧 자멸할) 중복 인스턴스를 잘못 부모로 삼는 레이스를 피할 수 있음(자세한 배경은
-        /// GameLifetimeScope 클래스 주석 참고).
+        /// 루트 스코프인 GameLifetimeScope를 부모로 찾음. 앱 시작 직후에는 이 Awake가 VContainerSettings의
+        /// 루트 자동 생성(첫 씬 sceneLoaded 콜백)보다 먼저 실행되므로, ResolveAndEnsureBuilt()로 루트의
+        /// 생성·빌드를 보장받음(자세한 배경은 GameLifetimeScope 클래스 주석 참고).
         /// </summary>
         protected override LifetimeScope FindParent() => GameLifetimeScope.ResolveAndEnsureBuilt();
 
