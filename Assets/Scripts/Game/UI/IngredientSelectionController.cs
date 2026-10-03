@@ -276,6 +276,11 @@ namespace DGAIZone.Game.UI
             try
             {
                 RfidSettings settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
+
+                // 로드 중에 씬을 떠나 이 오브젝트가 파괴됨. JsonLoader는 취소돼도 예외 없이 기본값을 돌려주므로 여기서 멈춤
+                // (계속하면 이미 해제된 상태 머신·참조를 건드려 ObjectDisposedException과 null 경고가 이어짐)
+                if (token.IsCancellationRequested) return;
+
                 if (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0)
                 {
                     _stageReadCounts = settings.stageReadCounts;

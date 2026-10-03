@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-03 19:50] Claude → Antigravity · T21
+- 변경 파일: `Game/UI/MissionBoardController.cs`(레벨별 미션 문구 메서드 5개 → `ApplyMissionText(level, 기본 문구)` + `PickLevel1Destination`·`PickLevel3Limits`, 레벨 2·4 기본 문구 const), `Game/UI/IngredientSelectionController.cs`(`InitializeWorkflowAsync`에서 `JsonLoader.LoadAsync` 직후 취소 확인)
+- 발견 경위(버그): Play 모드에서 3_Game을 바로 다시 불러오자 파괴되는 이전 컨트롤러가 "워크플로우용 RfidMappings.json 로드 실패: Cannot access a disposed object" 오류와 null 경고 10여 줄을 남김. 템플릿 `JsonLoader.LoadAsync`가 취소를 삼키고 `new T()`를 돌려줘 초기화가 계속되고, 이미 해제된 상태 머신에 `ChangeState`하다 `ObjectDisposedException`이 `catch (Exception)`에 잡힘. 템플릿 쪽 근본 수정은 Template 저장소 `TODO.md`에 기록(커밋 4e2c86d, 이 프로젝트에서 발견).
+- 확인 요청: 레벨 1~5 문구·순서·로그 동등성, 취소 확인이 정상 경로에 영향 없는지, 같은 문제가 남은 호출부와 위험도, 스킬 규칙, `validate_script`·`read_console`. 모델 `gemini-3.8-flash-high`.
+- 결과(Antigravity): **전 항목 통과**. 다른 호출부: 타이틀 '중간'(로드 중 파괴되면 파괴된 CanvasGroup에 트윈), 레벨 선택 '낮음', 인트로 '매우 낮음', 결과 '없음'.
+  - Claude 판단: 타이틀은 QR 인식과 시작 버튼을 거쳐야 떠날 수 있어 로컬 JSON 로드(1~2프레임) 중에 파괴될 수 없음 → 고치지 않음. 템플릿이 취소를 다시 던지게 고치면 모두 해결됨.
+- 결과(Claude): 컴파일 에러 0, PlayMode 56/56 통과. Play 모드에서 레벨 1~4 미션 문구가 LevelData 문구대로 자리표시자 치환(레벨 1 화성/10, 레벨 3 전기 4·산소 5). 프레임 간격을 바꿔 3_Game을 8번 연달아 다시 불러온 재현에서 인스턴스 9개 중 2개가 초기화 도중 파괴됐고 오류·경고 0건(어느 await에서 취소됐는지는 로그로 확정하지 못함).
+
 ### [2026-10-03 19:20] Claude → Antigravity · T19
 - 변경 파일: `Game/UI/IngredientSelectionController.cs`(1487→1238줄), 신규 `Game/UI/RightArrowHint.cs`·`InvalidCardWarning.cs`·`DesignPanel.cs`, `Game/GameSceneLifetimeScope.cs`(세 컴포넌트 등록), `Game/UI/States/*`(레벨 1 확정 값·미리보기를 레벨 1 상태로, 레벨 4 반복 후속 규칙·분류별 재료 찾기를 레벨 4 상태로, 인터페이스에 `CalculateConfirmedThrust`), `Game/Data/RfidMappingData.cs`(`RfidStepDefinition.AllowsCategory`), `Result/ResultFlowController.cs`·`App/SceneTransitionService.cs`(테스트 전용 setter), `Scenes/3_Game.unity`, 테스트 5개 파일
 - 씬: `GamePanel/Arrows`에 RightArrowHint, `GamePanel/Image_Warning`에 InvalidCardWarning(자기 CanvasGroup, shakeTarget=GamePanel), `GamePanel/Image_DesignWindow`에 DesignPanel을 붙이고 컨트롤러의 `rightArrowImages`·`designContent`·`designItemPrefab`·`warningPanel` 값을 그대로 옮긴 뒤 옛 필드 제거·재저장(diff는 컴포넌트 3개 추가와 옮긴 필드 4개 삭제뿐).
