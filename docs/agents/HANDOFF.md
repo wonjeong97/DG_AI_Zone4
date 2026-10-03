@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-01 23:00] Claude → Antigravity · 프로젝트 설정 정리
+- 변경 파일: ProjectSettings/ProjectSettings.asset
+- 확인 요청: bundleVersion 이 26.10.1 인지, m_EnterPlayModeOptionsEnabled 가 0 인지
+- 결과: 통과(파일 기준 검증).
+
+### [2026-10-01 22:15] Claude → Antigravity · UI 전용 렌더링 경량화
+- 변경 파일: ProjectSettings/QualitySettings.asset, ProjectSettings/GraphicsSettings.asset
+- 확인 요청: 첫 품질 레벨 Performant, m_CurrentQuality·Standalone 기본 0, Graphics RP guid = URP-Performant, 빌드 씬에 m_RenderPostProcessing: 1 없음, 빌드 씬 3D 렌더러 유무
+- 결과: 통과(파일 기준 검증). 1차 검증에서 Standalone 기본값이 2로 남은 것을 찾아 수정한 뒤 재검증 통과. 빌드 씬에 3D 렌더러 없음(UI 전용 확인).
+
 ### [2026-10-01 18:20] Claude → Antigravity · T18
 - 변경 파일: `Game/UI/Level4Rules.cs`(신규), `Game/UI/Level4BoardController.cs`, `Tests/Runtime/Level4OutcomeEvaluationTests.cs`, `Tests/Runtime/SolutionDesignTests.cs`
 - 확인 요청: 코드 리뷰만(사용자가 Play 모드로 테스트 중이라 read_console·run_tests·Play 모드 금지). (1) 옛 판정 세 벌과 새 `Level4Rules.Step`의 동작 동등성 (2) 이동 방향 id↔변화량 매핑·순서 (3) 그리기 순서 (4) 배치 풀 정적 캐시 위험 (5) ref/in 전달 문법·IL2CPP (6) 스킬 규칙 (7) validate_script. 모델 `gemini-3.1-pro-high`.
