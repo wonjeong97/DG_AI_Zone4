@@ -312,7 +312,7 @@ namespace DGAIZone.Game.UI
             _confirmedIngredients = new string[_totalSteps];
             _confirmedCategories = new string[_totalSteps];
             _idleReaderStepIndices.Clear();
-            ClearDesignItems();
+            ResetDesignPanel();
             InitializeStepBalls();
             UpdateCategoryHint();
 
@@ -874,9 +874,8 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 재료/물질을 레벨 상태가 정한 형식("· 재료 [물질]" 등)의 문구로 만들어 설계창에 한 줄 추가함. 물질은 노란색으로 표시함.
-        /// 레벨 2는 모든 단계의 ingredientName이 "발사 코딩 순서"로 동일해 매번 반복 표시할 필요가 없고,
-        /// ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 재료 이름 없이 "· [물질]" 형태로만 표시함.
+        /// 확정된 재료/물질을 설계창에 블록으로 쌓음. 문구는 레벨 상태가 정함(재료 이름은 명령 블록, 고른 블록 이름은 값 블록).
+        /// 레벨 2(모든 단계의 재료 이름이 같음)와 ingredientName이 빈 단계(예: 레벨 3의 논리 연결어)는 값 블록 없이 블록 이름만 명령 블록에 쌓임.
         /// </summary>
         private void AddDesignItem(string ingredientName, string matterLabel)
         {
@@ -886,10 +885,10 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            string text = CurrentLevelState != null
-                ? CurrentLevelState.FormatDesignItemText(this, ingredientName, matterLabel)
-                : $" · {ingredientName} [<color=yellow>{ApplyNumberSizeTag(matterLabel)}</color>]";
-            _designPanel.AddItem(text);
+            (string command, string value) = CurrentLevelState != null
+                ? CurrentLevelState.GetDesignBlockTexts(this, ingredientName, matterLabel)
+                : (ingredientName, matterLabel);
+            _designPanel.AddItem(command, value);
         }
 
         /// <summary> 설계창에 마지막으로 추가된 확정 항목을 지우고 코딩완료 버튼 상태를 갱신함. </summary>
@@ -901,13 +900,22 @@ namespace DGAIZone.Game.UI
             UpdateCodingCompleteButton();
         }
 
-        /// <summary> 설계창의 확정 항목을 모두 지우고 코딩완료 버튼 상태를 갱신함. </summary>
-        private void ClearDesignItems()
+        /// <summary> 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(이번 레벨 단계 수로 블록 크기를 정함) 코딩완료 버튼 상태를 갱신함. </summary>
+        private void ResetDesignPanel()
         {
-            if (_designPanel) _designPanel.Clear();
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창을 비울 수 없음.");
+            if (_designPanel) _designPanel.Initialize(_totalSteps, CurrentLevelState == null || CurrentLevelState.UsesValueBlocks);
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창을 초기화할 수 없음.");
 
             UpdateCodingCompleteButton();
+        }
+
+        /// <summary> 설계창 맨 아래에 완성하기 블록을 붙이고 연출이 끝날 때까지 기다림. </summary>
+        private UniTask AttachEndBlockAsync(CancellationToken token)
+        {
+            if (_designPanel) return _designPanel.AttachEndBlockAsync(token);
+
+            if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 완성하기 블록 없이 진행함.");
+            return UniTask.CompletedTask;
         }
 
         /// <summary>
@@ -963,9 +971,12 @@ namespace DGAIZone.Game.UI
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}.");
 
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
+            await AttachEndBlockAsync(token);
+
             if (CurrentLevelState != null)
             {
-                await CurrentLevelState.PlayCompletionSimulationAsync(this, this.GetCancellationTokenOnDestroy());
+                await CurrentLevelState.PlayCompletionSimulationAsync(this, token);
             }
 
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {Constants.Scenes.Result} 씬으로 이동.");

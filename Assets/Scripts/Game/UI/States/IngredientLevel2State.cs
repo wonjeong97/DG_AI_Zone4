@@ -116,6 +116,15 @@ namespace DGAIZone.Game.UI.States
             return $" · [<color=yellow>{controller.ApplyNumberSizeTag(matterLabel)}</color>]";
         }
 
+        /// <summary> 레벨 2는 모든 단계의 재료 이름이 같으므로 값 블록 없이 고른 블록 이름만 명령 블록에 씀. </summary>
+        public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
+        {
+            return (matterLabel, null);
+        }
+
+        /// <summary> 레벨 2는 값 블록을 쓰지 않음. </summary>
+        public bool UsesValueBlocks => false;
+
         /// <summary> 모든 단계가 완료되었을 때만 코딩완료 버튼을 활성화함. </summary>
         public bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps)
         {

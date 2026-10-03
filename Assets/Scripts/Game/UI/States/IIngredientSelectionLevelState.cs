@@ -34,6 +34,12 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 확정된 디자인 항목의 텍스트 표기 형식을 결정(재료 이름과 물질 이름은 화면 표시용 문자열). </summary>
         string FormatDesignItemText(IngredientSelectionController controller, string ingredientName, string matterLabel);
 
+        /// <summary> 설계창에 값 블록(명령 블록 오른쪽에 끼우는 블록)이 쌓일 수 있는 레벨인지 여부. 설계창이 블록 묶음을 가운데 놓는 폭 계산에 쓰임. </summary>
+        bool UsesValueBlocks { get; }
+
+        /// <summary> 설계창 블록에 쓸 문구(명령 블록 문구, 값 블록 문구)를 반환. 값 문구가 null이면 값 블록 없는 명령 블록으로 쌓임. </summary>
+        (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel);
+
         /// <summary> 코딩완료 버튼의 활성화 가능 여부를 반환. </summary>
         bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps);
 

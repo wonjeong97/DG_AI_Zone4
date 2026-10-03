@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-03 21:10] Claude → Antigravity · T22
+- 요청: 클라이언트 의견으로 설계창을 DG_AI_Zone1 블록 코딩 이미지로 바꿈. 맨 위 '시작하기', 설정하기마다 블록이 쌓이는 연출, 코딩 완료 시 맨 아래 '완성하기' 연결. 블록 모양은 사용자 선택으로 '명령(재료 이름, 살몬)+값(고른 블록, 파랑)'. 블록이 최대 7개라 배치 방식 두 가지('줄여서 한 화면에'/'크게 두고 자동 스크롤')를 DesignPanel 인스펙터 드롭다운으로 비교하게 하고 기획 확인 뒤 하나만 남김(T23).
+- 변경 파일: 신규 `Game/UI/DesignBlockView.cs`·`Prefabs/DesignBlock.prefab`·`UI/3_Game/Blocks/*.png`(Zone1 Start·Command·CommandNoValue·End·Value를 .meta째 복사, GUID 충돌 없음 확인)·`Tests/Runtime/DesignPanelTests.cs`, `Game/UI/DesignPanel.cs`(블록 쌓기로 다시 작성), 레벨 상태(`GetDesignBlockTexts`·`UsesValueBlocks`), `IngredientSelectionController`(`ResetDesignPanel`·`AttachEndBlockAsync`), `Scenes/3_Game.unity`(DesignContainer 레이아웃 그룹 제거, DesignScrollView 중첩 Canvas·표시 영역 651×364→691×420), 삭제 `Prefabs/DesignItem.prefab`(참조 없음 확인)
+- 블록 맞물림: Zone1 이미지를 PIL로 재서 홈·돌기 중심(시작 돌기 x=60, 명령 홈·돌기 x=40.5, 완성 홈 x=60), 몸통 높이(시작 100, 명령·완성 101), 값 소켓(명령 x=360) 값을 상수로 둠. Zone1·Zone4는 같은 폰트 에셋(GamtanRoadTantan, 같은 GUID).
+- 확인 요청: 위치·배율·content 높이 계산, 트윈 수명·취소, 기존 동작 회귀(흐림 표시·코딩완료 조건·결과 씬 정답 문구), 씬·프리팹 참조·Raycast Target·밉맵, 스킬 규칙, `validate_script`·`read_console`. 셸·run_tests·Play 모드 금지.
+- 결과(Antigravity): `gemini-3.1-pro-high` 첫 호출은 셸 명령을 쓰려다 자동 거부되어 결과 없음 → `gemini-3.8-flash-high`로 다시 호출, **전 항목 통과**. 제안: ① Initialize에서 스크롤 트윈 정리(기각 — Initialize는 씬 시작 때 한 번만 불림) ② `BottomTabHeight` 주석 수치(수용, 주석 수정) ③ 배치 방식 확정 뒤 정리(T23).
+- 결과(Claude): 컴파일 에러 0, PlayMode 61/61(설계창 테스트 5개 추가: 맞물림 위치, 한 화면 방식 7개 수용, 자동 스크롤 배율·스크롤 범위, 값 블록 없는 레벨 가운데 맞춤, 취소 후 파괴). Play 모드 캡처(Overlay Canvas는 카메라 캡처에 안 잡혀 Play 중에만 Screen Space - Camera로 바꿔 찍음): 레벨 1 3단계(배율 0.80)·완성하기, 레벨 4 5단계 두 방식(한 화면 0.57 / 스크롤 0.7, 시작하기는 위로 가려짐), 레벨 2(값 블록 없음, 가운데 정렬, 긴 문구 자동 축소), 코딩 완료→완성하기→판정→결과 씬 전환, 취소 시 블록 빠짐·코딩완료 버튼 비활성. 콘솔 오류 0(기존 영상 색 공간 경고만). 인스펙터 값 변경 시 `OnValidate`에서 바로 재배치하면 SendMessage 경고가 나서 `EditorApplication.delayCall`로 미룸.
+
 ### [2026-10-03 19:50] Claude → Antigravity · T21
 - 변경 파일: `Game/UI/MissionBoardController.cs`(레벨별 미션 문구 메서드 5개 → `ApplyMissionText(level, 기본 문구)` + `PickLevel1Destination`·`PickLevel3Limits`, 레벨 2·4 기본 문구 const), `Game/UI/IngredientSelectionController.cs`(`InitializeWorkflowAsync`에서 `JsonLoader.LoadAsync` 직후 취소 확인)
 - 발견 경위(버그): Play 모드에서 3_Game을 바로 다시 불러오자 파괴되는 이전 컨트롤러가 "워크플로우용 RfidMappings.json 로드 실패: Cannot access a disposed object" 오류와 null 경고 10여 줄을 남김. 템플릿 `JsonLoader.LoadAsync`가 취소를 삼키고 `new T()`를 돌려줘 초기화가 계속되고, 이미 해제된 상태 머신에 `ChangeState`하다 `ObjectDisposedException`이 `catch (Exception)`에 잡힘. 템플릿 쪽 근본 수정은 Template 저장소 `TODO.md`에 기록(커밋 4e2c86d, 이 프로젝트에서 발견).

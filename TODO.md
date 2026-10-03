@@ -8,8 +8,11 @@
 
 ## 할 일
 
+- [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
+
 ## 완료
 
+- [x] T22 설계창 블록 코딩 연출: Zone1 블록 이미지로 상단 '시작하기', 설정하기 시 명령+값 블록이 내려와 맞물리며 쌓임, 취소 시 빠짐, 코딩 완료 시 하단 '완성하기' 연결. 배치 방식 두 가지를 인스펙터 드롭다운으로 비교 가능(T23에서 하나로 정리)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] T21 MissionBoardController 레벨별 미션 문구 메서드 5개를 공용 ApplyMissionText로 통합, 씬을 떠날 때 재료 선택 초기화가 파괴된 오브젝트에서 계속되던 문제 수정(템플릿 JsonLoader 취소 처리는 Template TODO로)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] T19 T16 반영 3: IngredientSelectionController 분할(화살표 안내·잘못된 카드 경고·설계창을 컴포넌트로 분리, 레벨 1 값·레벨 4 규칙을 상태로 이동), 테스트 리플렉션 제거 — 씬 참조 재연결, PlayMode 56/56, Play 모드 레벨 1·4 확인(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
 - [x] T20 프로젝트 재점검(T16 이후): 스킬 준수·버그·최적화·리팩터링 재확인 후 확인된 버그와 규칙 위반 수정(RFID 카드 떨어짐 이벤트 메인 스레드 전환, 결과 영상 종료 대기 상한, MonoBehaviour `?.`, 조용한 반환, 터치 판정 중복, 튜토리얼 완료 이벤트 R3 전환)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-03)
