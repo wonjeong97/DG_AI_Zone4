@@ -7,7 +7,7 @@ using UnityEngine;
 namespace DGAIZone.Game.Data
 {
     /// <summary>
-    /// RfidMappings.json의 레벨 1~4 블록 정의를 레벨별 규칙으로 검사해 문제 목록을 돌려주는 검증기. 블록 목록이 비었거나 값이 빠지면
+    /// RfidMappings.json의 레벨 1~5 블록 정의를 레벨별 규칙으로 검사해 문제 목록을 돌려주는 검증기. 블록 목록이 비었거나 값이 빠지면
     /// 게임 중에는 아무 오류 없이 선택지가 비거나 미션을 깰 수 없게 되므로, 로드 직후 호출해 원인을 오류 로그로 남기는 데 씀.
     /// </summary>
     public static class RfidMappingValidator

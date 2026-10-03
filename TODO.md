@@ -9,10 +9,12 @@
 
 ## 할 일
 
+- [ ] T35 디버그용 인스펙터 값(GameFlowController.debugStartLevel, LevelSelectFlowController.debugUnlockedLevelCount)도 에디터·개발 빌드에서만 적용되게 막기 — 테스트 값이 씬에 저장된 채 현장 빌드가 만들어지면 시작 레벨·해금이 고정됨(PR #39 리뷰에서 발견, PR 이전부터 있던 코드) — 담당: Claude / 검증: Antigravity
 - [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
 
 ## 완료
 
+- [x] T34 PR #39 머지 전 리뷰(Antigravity 6묶음 + 다중 에이전트 탐색·반박 검증)와 수정: 결과 화면 AI 패널 설계창 드래그 스크롤(GraphicRaycaster를 중첩 Canvas인 DesignWindow로), '나의 코딩 결과' 블록 쌓기를 씬 전환 페이드인 뒤로, CHANGELOG 정리(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T33 디버그 입력을 InputAction으로: LevelSelect 스페이스바 전체 해금 추가(에디터·개발 빌드, 레벨을 고르기 전까지), 숫자키 카드 시뮬레이션·레벨 4 스페이스바도 DebugInputActions 에셋(Debug 맵)으로 전환(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T32 결과 화면: 왼쪽 아래 '나의 코딩 결과' 패널 추가, 플레이어·AI 설계창을 3_Game 블록 이미지로(배치 방식은 3_Game 설계창을 따름, 블록 1초 간격), 레벨 3 실패 원인별 영상(4-3-Fail-Electricity/O2, 논리 오류·둘 다 부족은 4-3-Fail), 마지막 레벨 5(4-5 영상)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T31 설계창 블록 묶음(시작하기)을 모든 레벨에서 더 왼쪽으로, 레벨 5 함수 정의 블록도 같은 거리만큼 왼쪽으로(DesignPanel 인스펙터 stackShiftLeft, 기본 30)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)

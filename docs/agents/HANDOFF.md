@@ -13,6 +13,27 @@
 
 ---
 
+### [2026-10-04 03:10] Claude → Antigravity · T34 (PR #39 머지 전 리뷰)
+- 요청(사용자): 3_Game debugStartLevel·StoryPanel 되돌리기(f784a54), PR 생성 후 Antigravity와 리뷰, 수정할 것이 없으면 머지 후 main 체크아웃·브랜치 삭제.
+- 리뷰 방식: Antigravity가 PR diff를 6묶음(설계창, 게임 진행·입력, 결과 화면, 3_Game 씬, 설정·문서)으로 나눠 읽기 전용 리뷰. 동시에 Claude 다중 에이전트 워크플로가 영역 5개를 탐색하고, 문제마다 코드 추적·실제 재현 가능성 두 관점으로 반박 검증.
+- 결과(Antigravity, `gemini-3.8-flash-high`): 6묶음 모두 코드·에셋 **수정 필요 없음**. 문서 1건(CHANGELOG 13행 두 문장). PR 범위 밖 주의 1건: debugStartLevel·debugUnlockedLevelCount가 릴리스 빌드에서도 적용됨 → TODO T35.
+- 결과(워크플로, 검증 통과):
+  - (중간) AI 패널 설계창 드래그 스크롤 불가. T32에서 GraphicRaycaster를 AiPanel에 붙였으나 DesignArea는 중첩 Canvas인 DesignWindow에 등록됨. T26 3_Game과 같은 원인.
+  - (낮음) '나의 코딩 결과' 첫 블록이 씬 전환 페이드인 전에 붙음.
+  - (낮음) CHANGELOG에 내부 변경(디버그 InputAction) 항목, 사용자 카드 문구 변경 누락.
+  - 낡은 주석 2곳.
+- 수정 파일:
+  - `Scenes/4_Result.unity`: GraphicRaycaster를 AiPanel에서 DesignWindow로 이동.
+  - `ResultFlowController.cs`: 설정 로드 뒤 SceneTransitionService.IsTransitioning이 꺼질 때까지 기다린 다음 playerPanel.Play.
+  - `CHANGELOG.md`: 결과 화면 항목 분리, 디버그 InputAction 항목 삭제, 레벨 3·4 카드 문구 변경 추가.
+  - 주석: `RfidMappingValidator.cs` 레벨 1~5, `IngredientSelectionController.cs` UpdateCodingCompleteButton 레벨 4·5.
+- 결과(Antigravity 수정본 재검증): **수정 필요 없음**(YAML 일관성·버튼 가림 없음, 전환 대기의 직접 실행·finally·취소, CHANGELOG 사실 일치, 주석).
+- 결과(Claude):
+  - Play 모드에서 2_LevelSelect → 4_Result 전환. 전환 중(0.34~1.03초)에는 시작하기 블록만 있고, 전환 직후 1.06초부터 1초 간격으로 7개까지 쌓임.
+  - AI 연출 중 AI DesignArea 중심 RaycastAll이 DesignArea(드래그 핸들러)를 맞힘. PlayerPanel도 동일.
+  - PlayMode 80/80, 콘솔 오류 0, Enter Play Mode Options 꺼짐.
+- 사용자 확인 필요: RfidMappings.json 레벨 4 이동 문구 '윗쪽'·'아랫쪽'의 표준 표기는 '위쪽'·'아래쪽'(사용자 직접 변경이라 그대로 둠).
+
 ### [2026-10-04 02:15] Claude → Antigravity · T33
 - 요청(사용자): LevelSelect 씬에서 스페이스바를 누르면 모든 레벨이 해금되는 디버그 기능, 모든 디버그 입력은 InputAction으로.
 - 변경 파일: 신규 `App/DebugInputActions.inputactions`(Debug 맵 — SimulateActionCard~SimulateFunctionCard 숫자키 1~4, PlayLevel4Simulation·UnlockAllLevels 스페이스바)와 Input System이 생성한 래퍼 `DebugInputActions.cs`(네임스페이스 DGAIZone.App, Template의 TemplateInputActions와 같은 방식), `KeyboardRfidSimulator.cs`·`Level4BoardController.cs`(Keyboard.current 폴링 → 액션 구독, Awake 생성·OnEnable/OnDisable·OnDestroy Dispose, 레벨 4 판정은 주입 뒤인 Start에서), `LevelSelectFlowController.cs`(UnlockAllLevels → UnlockedLevelStore·버튼을 Constants.LastLevel까지, 에디터·개발 빌드만, 레벨을 고르면 끔, SetLevelButtonsForTest), 테스트(신규 DebugInputTests — InputTestFixture 가상 키보드, 테스트 asmdef에 Unity.InputSystem.TestFramework 참조). 실제 기능 입력(TitleFlowController QR 스캐너, StoryLineAnimator 포인터)은 그대로.

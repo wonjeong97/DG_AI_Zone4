@@ -126,8 +126,9 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// 4_Result.json(ResultSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드한 뒤, 좌측 하단 '나의 코딩 결과' 패널에
-        /// 블록 쌓기를 시작시킴(블록 간격이 4_Result.json 값이라 로드 뒤에 시작함).
+        /// 4_Result.json(ResultSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 씬 전환 페이드인이 끝나 화면이 다 보이면
+        /// 좌측 하단 '나의 코딩 결과' 패널에 블록 쌓기를 시작시킴(블록 간격이 4_Result.json 값이라 로드 뒤에, 첫 블록이 검은 화면 뒤에서
+        /// 붙어 버리지 않도록 전환이 끝난 뒤에 시작함).
         /// </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
@@ -136,6 +137,9 @@ namespace DGAIZone.Result
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
+
+            if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 나의 코딩 결과를 쌓음.");
 
             if (playerPanel) playerPanel.Play(_sceneSettings.designBlockInterval);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] playerPanel이 null이라 나의 코딩 결과를 쌓지 않음.");

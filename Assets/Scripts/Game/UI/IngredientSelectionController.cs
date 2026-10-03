@@ -953,7 +953,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 단계 수가 레벨 상태의 코딩 완료 조건(레벨 4는 1단계 이상, 나머지는 모든 단계)을 채웠을 때만 코딩완료 버튼을 활성화함.
+        /// 확정된 단계 수가 레벨 상태의 코딩 완료 조건(레벨 4·5는 1단계 이상, 나머지는 모든 단계)을 채웠을 때만 코딩완료 버튼을 활성화함.
         /// </summary>
         private void UpdateCodingCompleteButton()
         {
