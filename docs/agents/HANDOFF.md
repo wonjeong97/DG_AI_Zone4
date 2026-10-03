@@ -25,6 +25,7 @@
   - 에디터 컴파일 오류 0.
   - `PlayerBuildInterface.CompilePlayerScripts`(StandaloneWindows64, 개발 빌드 꺼짐)가 성공. 릴리스 DGAIZone.dll에는 무시 경고 문자열만 있고 오버라이드 적용 문자열은 없음. 에디터 DLL은 반대.
   - PlayMode 80/80, Enter Play Mode Options 꺼짐.
+- PR #40 리뷰: Antigravity 전체 diff 리뷰와 다중 에이전트 탐색(전처리기·빌드 경로, 릴리스 누수 전수 점검) 모두 **수정 필요 없음**. 다른 디버그 값·기능의 릴리스 누수도 없음.
 
 ### [2026-10-04 03:10] Claude → Antigravity · T34 (PR #39 머지 전 리뷰)
 - 요청(사용자): 3_Game debugStartLevel·StoryPanel 되돌리기(f784a54), PR 생성 후 Antigravity와 리뷰, 수정할 것이 없으면 머지 후 main 체크아웃·브랜치 삭제.
