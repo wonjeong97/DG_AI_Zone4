@@ -1846,7 +1846,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &266916970
 RectTransform:
   m_ObjectHideFlags: 0
@@ -12207,7 +12207,7 @@ MonoBehaviour:
   - {fileID: 1252271897}
   - {fileID: 107690803}
   - {fileID: 246094116}
-  debugStartLevel: 5
+  debugStartLevel: 0
 --- !u!4 &1968390942
 Transform:
   m_ObjectHideFlags: 0
