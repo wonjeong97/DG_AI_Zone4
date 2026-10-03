@@ -13,6 +13,19 @@
 
 ---
 
+### [2026-10-04 03:25] Claude → Antigravity · T35
+- 요청(사용자): T35(PR #39 리뷰에서 발견한 디버그 인스펙터 값 릴리스 적용 문제)를 전처리기로 에디터·개발 빌드에서만 동작하게.
+- 변경 파일:
+  - `GameFlowController.cs`: Construct의 debugStartLevel 적용을 `#if UNITY_EDITOR || DEVELOPMENT_BUILD`로 감쌈. `#else`는 값이 남아 있으면 ZLogWarning.
+  - `LevelSelectFlowController.cs`: ResolveUnlockedCount의 debugUnlockedLevelCount 반환을 같은 방식으로 감쌈.
+  - 두 필드 선언은 감싸지 않음. 에디터·플레이어 직렬화 구조 차이를 피하고, `#else`가 필드를 읽으므로 CS0414도 없음.
+  - 주석·CHANGELOG [Unreleased]도 갱신.
+- 결과(Antigravity, `gemini-3.8-flash-high`): **수정 필요 없음**(에디터·개발 동작 동일, 릴리스는 JSON·세션 진행도 흐름 유지, 필드 비감쌈 판단, 로그·주석. 릴리스 경고가 2회 찍히는 것은 초기화 시점뿐이라 문제없음).
+- 결과(Claude):
+  - 에디터 컴파일 오류 0.
+  - `PlayerBuildInterface.CompilePlayerScripts`(StandaloneWindows64, 개발 빌드 꺼짐)가 성공. 릴리스 DGAIZone.dll에는 무시 경고 문자열만 있고 오버라이드 적용 문자열은 없음. 에디터 DLL은 반대.
+  - PlayMode 80/80, Enter Play Mode Options 꺼짐.
+
 ### [2026-10-04 03:10] Claude → Antigravity · T34 (PR #39 머지 전 리뷰)
 - 요청(사용자): 3_Game debugStartLevel·StoryPanel 되돌리기(f784a54), PR 생성 후 Antigravity와 리뷰, 수정할 것이 없으면 머지 후 main 체크아웃·브랜치 삭제.
 - 리뷰 방식: Antigravity가 PR diff를 6묶음(설계창, 게임 진행·입력, 결과 화면, 3_Game 씬, 설정·문서)으로 나눠 읽기 전용 리뷰. 동시에 Claude 다중 에이전트 워크플로가 영역 5개를 탐색하고, 문제마다 코드 추적·실제 재현 가능성 두 관점으로 반박 검증.

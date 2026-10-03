@@ -38,7 +38,7 @@ namespace DGAIZone.Game
 
         [Header("Debug (Editor Testing)")]
         [Range(0, 5)]
-        [SerializeField] private int debugStartLevel = 0; // 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정. 에디터 테스트 전용이라 JSON으로 분리하지 않음.
+        [SerializeField] private int debugStartLevel = 0; // 0=사용 안 함(2_LevelSelect에서 넘어온 레벨 그대로 사용). 1~5면 이 씬을 바로 실행할 때 해당 레벨로 강제 설정. 에디터·개발 빌드에서만 적용되는 테스트 전용 값이라 JSON으로 분리하지 않음.
 
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<GameFlowController> _logger;
@@ -55,7 +55,8 @@ namespace DGAIZone.Game
         /// <summary>
         /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. debugStartLevel이 설정되어 있으면(1~5)
         /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
-        /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함.
+        /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함. 에디터·개발 빌드에서만 적용하고,
+        /// 현장용(릴리스) 빌드에서는 테스트 값이 씬에 남아 있어도 무시하고 경고만 남김.
         /// </summary>
         [Inject]
         public void Construct(
@@ -67,11 +68,15 @@ namespace DGAIZone.Game
             _logger = logger;
             _visitorInfoProvider = visitorInfoProvider;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (debugStartLevel > 0 && _selectedLevelStore != null)
             {
                 _selectedLevelStore.SelectedLevel = debugStartLevel;
                 if (_logger != null) _logger.ZLogInformation($"[GameFlowController] 디버그 시작 레벨 오버라이드 적용됨: {debugStartLevel}");
             }
+#else
+            if (debugStartLevel > 0 && _logger != null) _logger.ZLogWarning($"[GameFlowController] 릴리스 빌드라 씬에 남은 디버그 시작 레벨({debugStartLevel})을 무시함.");
+#endif
         }
 
         /// <summary> 초기 패널 상태(게임 표시, 스토리 숨김)를 적용하고 활성 레벨 스토리/상황 패널을 설정한 뒤 버튼 이벤트를 연결하고 00_Common.json을 비동기로 불러옴. </summary>
