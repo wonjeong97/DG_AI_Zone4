@@ -26,7 +26,7 @@ namespace DGAIZone.Game.UI
         FlowControl,       // 만약·반복하기 ㄷ자 블록(값 블록은 머리 오른쪽). 바로 뒤따르는 InsideFlowControl 단계를 안쪽에 품음
         InsideFlowControl, // 앞 ㄷ자 블록 안쪽에 쌓이는 명령 블록(앞에 ㄷ자 블록이 없으면 Command처럼 바깥에 쌓임)
         Logic,    // 그리고·또는 논리 블록(초록, 값 블록 없음)
-        FunctionCall // 함수 사용 블록(자주, 값 블록 없음). 붙일 때 설계창 오른쪽에 같은 이름의 함수 정의 ㄷ자 블록도 함께 놓음
+        FunctionCall // 함수 사용 블록(자주, 값 블록 없음). 붙일 때 설계창 오른쪽에 같은 이름의 함수 정의 ㄷ자 블록도 함께 놓고, 뒤따르는 단계는 모두 그 안쪽에 쌓임
     }
 
     /// <summary> 설계창에 쌓는 단계 블록 하나(모양·명령 블록 문구·값 블록 문구, 값이 없으면 null). 결과 씬에서 플레이어·정답 설계를 다시 그릴 때도 씀. </summary>
@@ -47,7 +47,8 @@ namespace DGAIZone.Game.UI
     /// <summary>
     /// 확정된 블록을 쌓아 보여 주는 설계창(Image_DesignWindow). 맨 위에 '시작하기' 블록을 두고, 설정하기로 확정할 때마다 단계 블록이
     /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
-    /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓이고, 함수 사용 단계는 설계창 오른쪽 위에 함수 정의 블록을 함께 놓음.
+    /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓이고, 함수 사용 단계는 설계창 오른쪽 위에 함수 정의 블록을 함께 놓으며
+    /// 그 뒤 단계는 모두 함수 정의 블록 안쪽에 쌓임(완성하기는 시작하기 줄 맨 아래).
     /// 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
     /// 블록 모양과 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
@@ -89,7 +90,7 @@ namespace DGAIZone.Game.UI
         private int _functionDefStep = -1;    // 함수 정의 블록을 함께 놓은 함수 사용 단계 번호
         private bool _plansFunctionDef;       // 이 레벨에 함수 사용 단계가 있어 오른쪽에 함수 정의 블록 자리를 남겨야 하는지
         private float _plannedHeight; // 이 레벨의 단계를 모두 쌓고 완성하기까지 붙였을 때의 높이(px)
-        private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함)
+        private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함, 함수 정의 블록이 더 길면 그 높이)
         private bool _withValueBlocks = true;
         private float _scale = 1f;
         private float _offsetX;
@@ -145,7 +146,7 @@ namespace DGAIZone.Game.UI
             {
                 if (plannedShapes[i] == DesignStepShape.FunctionCall) _plansFunctionDef = true;
             }
-            _plannedHeight = Layout(plannedShapes, true, _positions, _flowInnerHeights); // 높이만 쓰고, 위치는 아래 Relayout이 지금 상태로 다시 채움
+            _plannedHeight = Layout(plannedShapes, true, 0f, _positions, _flowInnerHeights, out _); // 높이만 쓰고, 위치는 아래 Relayout이 지금 상태로 다시 채움
             UpdateScale();
 
             _startBlock = CreateBlock(DesignBlockKind.Start, StartLabel, null);
@@ -155,7 +156,8 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 단계 블록 하나를 맨 아래(InsideFlowControl이면 앞 ㄷ자 블록 안쪽 맨 아래)에 쌓음(아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 붙는 연출).
+        /// 단계 블록 하나를 맨 아래(InsideFlowControl이면 앞 ㄷ자 블록 안쪽 맨 아래, 함수 사용 단계 뒤면 함수 정의 블록 안쪽 맨 아래)에 쌓음
+        /// (아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 붙는 연출).
         /// 명령·ㄷ자 블록은 value가 있으면 값 블록을 붙이며, 명령 블록은 value가 비어 있으면 값 소켓 없는 모양을 씀.
         /// </summary>
         public void AddItem(DesignStepShape shape, string command, string value)
@@ -200,12 +202,12 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 함수 정의 블록의 content 안 위치(왼쪽 위 기준): 보이는 영역 오른쪽 끝에 붙인 자리에서 블록 묶음을 옮긴 만큼 왼쪽으로 옮기고,
-        /// 위쪽은 시작하기 블록과 맞춤.
+        /// 함수 정의 블록의 content 안 위치(왼쪽 위 기준): 안쪽 블록까지 합친 폭을 보이는 영역 오른쪽 끝에 붙인 자리에서 블록 묶음을 옮긴 만큼
+        /// 왼쪽으로 옮기고, 위쪽은 시작하기 블록과 맞춤.
         /// </summary>
         private Vector2 FunctionDefinitionPosition()
         {
-            return new Vector2(ViewportRect().width - edgePadding - _shiftX - DesignBlockView.FunctionDefWidth * _scale, -edgePadding);
+            return new Vector2(ViewportRect().width - edgePadding - _shiftX - FunctionColumnWidth(_withValueBlocks) * _scale, -edgePadding);
         }
 
         /// <summary> 마지막으로 쌓은 단계 블록을 뺌(가라앉으며 사라지는 연출 뒤 파괴). </summary>
@@ -328,34 +330,41 @@ namespace DGAIZone.Game.UI
             return false;
         }
 
-        /// <summary> 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, ㄷ자 블록 높이를 안쪽 블록에 맞춤. </summary>
+        /// <summary> 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, ㄷ자 블록·함수 정의 블록 높이를 안쪽 블록에 맞춤. </summary>
         private void Relayout()
         {
             bool withEnd = _endBlock;
-            _stackHeight = Layout(_stepShapes, withEnd, _positions, _flowInnerHeights);
+            float functionDefX = (FunctionDefinitionPosition().x - _offsetX) / _scale; // 함수 정의 블록 왼쪽 끝(px, Layout 좌표)
+            _stackHeight = Layout(_stepShapes, withEnd, functionDefX, _positions, _flowInnerHeights, out float functionInnerHeight);
             for (int i = 0; i < _steps.Count; i++)
             {
                 if (_steps[i] && _steps[i].Kind == DesignBlockKind.FlowControl) _steps[i].SetFlowInnerHeight(_flowInnerHeights[i]);
             }
+            if (_functionDef) _functionDef.SetFlowInnerHeight(functionInnerHeight);
         }
 
         /// <summary>
         /// 블록 묶음을 위에서부터 따라가며 블록마다 위치(px, 블록 원본 크기·시작하기 왼쪽 위 기준)를 positions에 채우고, 묶음 높이(마지막 블록의
-        /// 아래 돌기 포함)를 반환함. positions[0]은 시작하기, [1..n]은 단계 블록, withEnd면 [n+1]은 완성하기.
+        /// 아래 돌기 포함, 함수 정의 블록이 더 길면 그 높이)를 반환함. positions[0]은 시작하기, [1..n]은 단계 블록, withEnd면 [n+1]은 완성하기.
         /// 블록은 위 홈 중심을 앞 블록의 아래 돌기 중심에 맞춰 앞 블록 몸통 바로 아래에 놓임. InsideFlowControl 단계는 앞 ㄷ자 블록의 머리 아래 안쪽 돌기부터
         /// 쌓이고, ㄷ자 블록은 안쪽 블록 높이만큼(최소 블록 하나) 늘어나며 그 안쪽 높이를 flowInnerHeights[단계 번호]에 채움(ㄷ자가 아니면 0).
-        /// 명령·논리 블록은 홈·돌기 위치와 몸통 높이가 같아 같은 규칙으로 놓음.
+        /// 첫 함수 사용 단계 뒤의 단계는 모두 함수 정의 블록(왼쪽 위가 (functionDefX, 0)) 머리 아래 안쪽 돌기부터 같은 규칙으로 쌓이고, 함수 정의 블록은
+        /// 안쪽 블록 높이만큼(최소 블록 하나) 늘어나며 그 안쪽 높이를 functionInnerHeight에 채움(함수 사용 단계가 없으면 0). 완성하기는 시작하기 줄에 붙음.
+        /// 명령·논리·함수 사용 블록은 홈·돌기 위치와 몸통 높이가 같아 같은 규칙으로 놓음.
         /// </summary>
-        private static float Layout(IReadOnlyList<DesignStepShape> shapes, bool withEnd, List<Vector2> positions, List<float> flowInnerHeights)
+        private static float Layout(IReadOnlyList<DesignStepShape> shapes, bool withEnd, float functionDefX, List<Vector2> positions, List<float> flowInnerHeights, out float functionInnerHeight)
         {
             positions.Clear();
             flowInnerHeights.Clear();
             positions.Add(Vector2.zero);
+            functionInnerHeight = 0f;
 
             float y = DesignBlockView.BodyHeightOf(DesignBlockKind.Start);    // 다음 바깥 블록이 놓일 높이
             float tabX = DesignBlockView.TabCenterXOf(DesignBlockKind.Start); // 다음 바깥 블록이 맞물릴 아래 돌기 중심
             int openFlow = -1;                                                  // 안쪽을 채우는 중인 ㄷ자 블록의 단계 번호
             float innerY = 0f, innerTabX = 0f;                                // 그 ㄷ자 블록 안쪽에서 다음 블록이 놓일 높이와 맞물릴 돌기 중심
+            bool inFunction = false;                                            // 함수 정의 블록 안쪽에 쌓는 중인지
+            float mainY = 0f, mainTabX = 0f;                                  // 그동안 맡겨 둔 시작하기 줄의 다음 바깥 블록 자리
 
             for (int i = 0; i <= shapes.Count; i++) // i == shapes.Count는 마지막 ㄷ자 블록을 닫기 위한 한 바퀴
             {
@@ -398,12 +407,30 @@ namespace DGAIZone.Game.UI
                     y += DesignBlockView.BodyHeightOf(kind);
                     tabX = x + DesignBlockView.TabCenterXOf(kind);
                 }
+
+                if (shapes[i] == DesignStepShape.FunctionCall && !inFunction) // 다음 단계부터 함수 정의 블록 안쪽에 쌓음
+                {
+                    inFunction = true;
+                    mainY = y;
+                    mainTabX = tabX;
+                    y = DesignBlockView.FlowHeaderBodyHeight;
+                    tabX = functionDefX + DesignBlockView.FlowInnerTabCenterX;
+                }
             }
 
-            if (!withEnd) return y + DesignBlockView.BottomTabHeight;
+            float functionHeight = 0f; // 함수 정의 블록 높이(아래 돌기가 없어 몸통 높이가 곧 이미지 높이임)
+            if (inFunction) // 함수 정의 블록을 안쪽 블록 높이만큼 늘이고, 완성하기는 시작하기 줄에 붙임
+            {
+                functionInnerHeight = Mathf.Max(DesignBlockView.MinFlowInnerHeight, y - DesignBlockView.FlowHeaderBodyHeight);
+                functionHeight = DesignBlockView.FlowBodyHeight(functionInnerHeight);
+                y = mainY;
+                tabX = mainTabX;
+            }
+
+            if (!withEnd) return Mathf.Max(y + DesignBlockView.BottomTabHeight, functionHeight);
 
             positions.Add(new Vector2(tabX - DesignBlockView.NotchCenterXOf(DesignBlockKind.End), y));
-            return y + DesignBlockView.BodyHeightOf(DesignBlockKind.End); // 완성하기는 아래 돌기가 없어 몸통 높이가 곧 이미지 높이임
+            return Mathf.Max(y + DesignBlockView.BodyHeightOf(DesignBlockKind.End), functionHeight); // 완성하기는 아래 돌기가 없어 몸통 높이가 곧 이미지 높이임
         }
 
         /// <summary> 바깥 명령 블록의 가로 위치(px): 위 홈 중심을 시작하기 블록의 아래 돌기 중심에 맞춘 값. </summary>
@@ -421,6 +448,17 @@ namespace DGAIZone.Game.UI
             return CommandStackX() + (withValueBlocks ? DesignBlockView.CommandWithValueWidth : DesignBlockView.CommandNoValueWidth);
         }
 
+        /// <summary>
+        /// 함수 정의 블록과 안쪽 블록을 합친 폭(px). 안쪽 명령 블록은 함수 정의 블록 안쪽 돌기에 맞춰 오른쪽으로 들어가 있어 함수 정의 블록
+        /// 오른쪽 끝보다 튀어나옴.
+        /// </summary>
+        private static float FunctionColumnWidth(bool withValueBlocks)
+        {
+            float innerX = DesignBlockView.FlowInnerTabCenterX - DesignBlockView.NotchCenterXOf(DesignBlockKind.Command);
+            float innerWidth = innerX + (withValueBlocks ? DesignBlockView.CommandWithValueWidth : DesignBlockView.CommandNoValueWidth);
+            return Mathf.Max(DesignBlockView.FunctionDefWidth, innerWidth);
+        }
+
         /// <summary> 배치 방식에 맞춰 블록 배율과 가로 시작 위치를 정함. 화면 폭을 넘지 않도록 두 방식 모두 폭으로도 제한함. </summary>
         private void UpdateScale()
         {
@@ -429,10 +467,10 @@ namespace DGAIZone.Game.UI
             _offsetX = Mathf.Max(edgePadding, inset - stackShiftLeft);
             _shiftX = Mathf.Max(0f, inset - _offsetX);
             float widthScale = (viewport.width - edgePadding * 2f) / StackWidth(_withValueBlocks);
-            if (_plansFunctionDef) // 오른쪽에 놓이는 함수 정의 블록과 블록 묶음이 겹치지 않게 함
+            if (_plansFunctionDef) // 오른쪽에 놓이는 함수 정의 블록(안쪽 블록 포함)과 블록 묶음이 겹치지 않게 함
             {
                 float available = viewport.width - edgePadding - _shiftX - _offsetX - DefinitionGap; // 함수 정의 블록도 _shiftX만큼 왼쪽에 있음
-                widthScale = Mathf.Min(widthScale, available / (StackWidth(_withValueBlocks) + DesignBlockView.FunctionDefWidth));
+                widthScale = Mathf.Min(widthScale, available / (StackWidth(_withValueBlocks) + FunctionColumnWidth(_withValueBlocks)));
             }
 
             if (layoutMode == DesignLayoutMode.FitAll)
@@ -471,14 +509,12 @@ namespace DGAIZone.Game.UI
             return new Rect(0f, 0f, StackWidth(_withValueBlocks), _plannedHeight);
         }
 
-        /// <summary> 지금 놓인 블록이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). </summary>
+        /// <summary> 지금 놓인 블록(함수 정의 블록 포함)이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). </summary>
         private void UpdateContentHeight()
         {
             if (!content) return;
 
-            float stackHeight = _stackHeight;
-            if (_functionDef) stackHeight = Mathf.Max(stackHeight, DesignBlockView.BodyHeightOf(DesignBlockKind.FunctionDef)); // 위쪽에 맞춘 함수 정의 블록이 더 길면 그만큼
-            float height = edgePadding * 2f + stackHeight * _scale;
+            float height = edgePadding * 2f + _stackHeight * _scale;
             content.sizeDelta = new Vector2(content.sizeDelta.x, height);
         }
 

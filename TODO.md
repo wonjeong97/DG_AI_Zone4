@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T36 레벨 5 설계창: 함수 카드 다음에 놓은 블록(동작·논리)을 모두 오른쪽 함수 정의(함수 바디) 블록 안쪽에 쌓고 함수 정의 블록이 안쪽 블록 수만큼 늘어나게(함수 카드보다 먼저 놓은 블록과 완성하기는 시작하기 아래 그대로, 결과 화면 두 설계창도 같음)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T35 디버그용 인스펙터 값(GameFlowController.debugStartLevel, LevelSelectFlowController.debugUnlockedLevelCount)을 전처리기(#if UNITY_EDITOR || DEVELOPMENT_BUILD)로 에디터·개발 빌드에서만 적용, 릴리스 빌드는 값이 남아 있으면 경고만(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T34 PR #39 머지 전 리뷰(Antigravity 6묶음 + 다중 에이전트 탐색·반박 검증)와 수정: 결과 화면 AI 패널 설계창 드래그 스크롤(GraphicRaycaster를 중첩 Canvas인 DesignWindow로), '나의 코딩 결과' 블록 쌓기를 씬 전환 페이드인 뒤로, CHANGELOG 정리(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T33 디버그 입력을 InputAction으로: LevelSelect 스페이스바 전체 해금 추가(에디터·개발 빌드, 레벨을 고르기 전까지), 숫자키 카드 시뮬레이션·레벨 4 스페이스바도 DebugInputActions 에셋(Debug 맵)으로 전환(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
