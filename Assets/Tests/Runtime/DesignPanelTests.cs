@@ -344,7 +344,8 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 함수_사용_블록은_시작하기_아래에_붙고_함수_정의_블록은_오른쪽_위에_함께_놓이며_취소하면_함께_빠진다() => UniTask.ToCoroutine(async () =>
         {
-            const float EdgePadding = 8f, FunctionDefWidth = 361f, DefinitionGap = 16f;
+            const float EdgePadding = 8f, DefinitionGap = 16f;
+            const float FunctionColumnWidth = FlowInnerTabCenterX - CommandSocketCenterX + 361f; // 안쪽 명령 블록이 함수 정의 블록(폭 361)보다 튀어나온 오른쪽 끝
             CreatePanel(DesignLayoutMode.FitAll);
             _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
@@ -358,7 +359,7 @@ namespace DGAIZone.Tests
             Vector2 start = BlockPosition(0), call = BlockPosition(1), def = BlockPosition(2);
             Assert.AreEqual(start.x + (StartTabCenterX - CommandSocketCenterX) * s, call.x, Tolerance, "함수 사용 블록의 위 홈이 시작하기 블록의 아래 돌기에 맞아야 함");
             Assert.AreEqual(StartBodyHeight * s, start.y - call.y, Tolerance, "함수 사용 블록은 시작하기 몸통 바로 아래에 놓여야 함");
-            Assert.AreEqual(ViewportWidth - EdgePadding - StackShiftLeft - FunctionDefWidth * s, def.x, Tolerance, "함수 정의 블록은 보이는 영역 오른쪽 끝에서 블록 묶음을 옮긴 만큼 왼쪽에 놓여야 함");
+            Assert.AreEqual(ViewportWidth - EdgePadding - StackShiftLeft - FunctionColumnWidth * s, def.x, Tolerance, "함수 정의 블록은 안쪽 블록까지 보이는 영역 오른쪽 끝에서 블록 묶음을 옮긴 만큼 왼쪽에 놓여야 함");
             Assert.AreEqual(start.y, def.y, Tolerance, "함수 정의 블록 위쪽은 시작하기 블록과 맞아야 함");
             Assert.LessOrEqual(call.x + 361f * s + DefinitionGap, def.x + Tolerance, "블록 줄과 함수 정의 블록이 겹치지 않아야 함");
 
@@ -371,6 +372,69 @@ namespace DGAIZone.Tests
             _panel.RemoveLastItem();
             await UniTask.Delay(500, DelayType.UnscaledDeltaTime); // 빼기 연출(기본 0.2초) 뒤 파괴됨
             Assert.AreEqual(1, _content.childCount, "함수 단계를 취소하면 함수 사용·정의 블록이 함께 빠져 시작하기만 남아야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 함수_사용_뒤에_놓은_블록은_함수_정의_블록_안쪽에_쌓이고_앞에_놓은_블록과_완성하기는_시작하기_줄에_붙는다() => UniTask.ToCoroutine(async () =>
+        {
+            const float EdgePadding = 8f;
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(new[] { DesignStepShape.Command, DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
+            _panel.AddItem(DesignStepShape.Command, "우주 정거장 코드", null); // 함수 카드 앞
+            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
+            _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);
+            _panel.AddItem(DesignStepShape.Command, "통신 시스템 코드", null);
+            _panel.AddItem(DesignStepShape.Logic, "그리고", null);
+
+            // 자식 순서: 시작하기, 우주 정거장, 함수 사용, 함수 정의(함수 사용과 함께 만들어짐), 탐사 로봇, 통신 시스템, 그리고
+            Assert.AreEqual(DesignBlockKind.FunctionDef, BlockAt(3).Kind, "함수 사용 블록과 함께 함수 정의 블록이 놓여야 함");
+            Assert.AreEqual(DesignBlockKind.Logic, BlockAt(6).Kind, "함수 사용 뒤 논리 블록도 논리 블록 모양이어야 함");
+            RectTransform defRect = (RectTransform)BlockAt(3).transform;
+            float threeInside = FlowHeaderBodyHeight + CommandBodyHeight * 3f + FlowFooterBodyHeight;
+            Assert.AreEqual(threeInside, defRect.sizeDelta.y, Tolerance, "함수 정의 블록은 안쪽 블록 셋 높이만큼 늘어나야 함");
+
+            _panel.RemoveLastItem();
+            Assert.AreEqual(threeInside - CommandBodyHeight, defRect.sizeDelta.y, Tolerance, "안쪽 블록을 빼면 함수 정의 블록이 줄어야 함");
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime); // 빼기 연출(기본 0.2초) 뒤 파괴됨
+
+            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
+            Assert.AreEqual(7, _content.childCount, "시작하기 + 앞 블록 + 함수 사용 + 함수 정의 + 안쪽 블록 2 + 완성하기가 있어야 함");
+
+            float s = _panel.Scale;
+            Vector2 start = BlockPosition(0), before = BlockPosition(1), call = BlockPosition(2), def = BlockPosition(3);
+            Vector2 inner1 = BlockPosition(4), inner2 = BlockPosition(5), end = BlockPosition(6);
+            Assert.AreEqual(start.x + (StartTabCenterX - CommandSocketCenterX) * s, before.x, Tolerance, "함수 카드 앞에 놓은 블록은 시작하기 아래 줄에 맞물려야 함");
+            Assert.AreEqual(before.x, call.x, Tolerance, "함수 사용 블록은 앞 블록과 같은 줄에 놓여야 함");
+            Assert.AreEqual(CommandBodyHeight * s, before.y - call.y, Tolerance, "함수 사용 블록은 앞 블록 몸통 바로 아래에 놓여야 함");
+
+            Assert.AreEqual(def.x + (FlowInnerTabCenterX - CommandSocketCenterX) * s, inner1.x, Tolerance, "안쪽 첫 블록의 위 홈이 함수 정의 블록 머리 아래 안쪽 돌기에 맞아야 함");
+            Assert.AreEqual(FlowHeaderBodyHeight * s, def.y - inner1.y, Tolerance, "안쪽 첫 블록은 함수 정의 블록 머리 바로 아래에 놓여야 함");
+            Assert.AreEqual(inner1.x, inner2.x, Tolerance, "안쪽 블록끼리는 같은 x에 놓여야 함");
+            Assert.AreEqual(CommandBodyHeight * s, inner1.y - inner2.y, Tolerance, "안쪽 블록은 앞 안쪽 블록 몸통 바로 아래에 놓여야 함");
+            Assert.LessOrEqual(inner1.x + 361f * s, ViewportWidth - EdgePadding + Tolerance, "안쪽 블록이 보이는 영역 오른쪽 밖으로 나가지 않아야 함");
+
+            Assert.AreEqual(call.x + (CommandSocketCenterX - EndNotchCenterX) * s, end.x, Tolerance, "완성하기 블록은 함수 사용 블록의 아래 돌기에 맞물려야 함");
+            Assert.AreEqual(CommandBodyHeight * s, call.y - end.y, Tolerance, "완성하기 블록은 함수 사용 블록 몸통 바로 아래에 놓여야 함");
+            Assert.AreEqual(EdgePadding * 2f + (threeInside - CommandBodyHeight) * s, _content.sizeDelta.y, Tolerance, "시작하기 줄보다 긴 함수 정의 블록까지 스크롤 범위에 들어가야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 레벨_5_설계창은_함수_카드를_처음에_놓든_마지막에_놓든_스크롤_없이_들어간다() => UniTask.ToCoroutine(async () =>
+        {
+            DesignStepShape[] plan = { DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.FunctionCall };
+
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(plan, false);
+            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
+            for (int i = 0; i < 4; i++) _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);
+            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
+            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "함수 카드를 처음에 놓아 안쪽 블록이 넷이어도 보이는 영역에 들어가야 함");
+
+            _panel.Initialize(plan, false);
+            for (int i = 0; i < 4; i++) _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);
+            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
+            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
+            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "함수 카드를 마지막에 놓아 시작하기 줄이 가장 길어도 보이는 영역에 들어가야 함");
         });
 
         [Test]

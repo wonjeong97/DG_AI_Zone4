@@ -14,7 +14,7 @@ namespace DGAIZone.Game.UI
         FlowControl,    // 만약·반복하기(주황 ㄷ자 — Zone1 만약 If.png, 위 홈·머리 오른쪽 값 소켓·머리 아래 안쪽 돌기·아래 돌기). 안쪽 높이에 맞춰 팔 부분만 늘어남(9-slice)
         Logic,          // 그리고·또는(초록, 값 소켓 없는 명령 블록과 같은 모양)
         Function,       // 함수 사용(자주 — Zone1 Func.png, 값 소켓 없는 명령 블록과 같은 모양)
-        FunctionDef,    // 함수 정의(자주 ㄷ자 — Zone1 FuncBody.png). 다른 블록과 잇지 않는 독립 블록이라 위 홈·아래 돌기·값 소켓이 없음(9-slice)
+        FunctionDef,    // 함수 정의(자주 ㄷ자 — Zone1 FuncBody.png). 시작하기 줄과 잇지 않는 독립 블록이라 위 홈·아래 돌기·값 소켓이 없고, 함수 사용 뒤 단계 블록을 안쪽에 품음(9-slice)
         End             // 완성하기(진회색, 위 홈)
     }
 
@@ -32,7 +32,7 @@ namespace DGAIZone.Game.UI
         private const float FlowSocketCenterX = 61f;        // ㄷ자 블록의 위 홈과 아래 돌기
         private const float EndNotchCenterX = 60f;
 
-        /// <summary> ㄷ자 블록 머리 아래 안쪽 돌기의 가로 중심(px). 안쪽 첫 블록의 위 홈 중심을 여기에 맞춤. </summary>
+        /// <summary> ㄷ자 블록 머리 아래 안쪽 돌기의 가로 중심(px). 안쪽 첫 블록의 위 홈 중심을 여기에 맞춤. 함수 정의 블록(FuncBody.png)도 같은 위치(차이 0.5px 미만). </summary>
         public const float FlowInnerTabCenterX = 60.5f;
 
         /// <summary> ㄷ자 블록 머리의 높이(px). 안쪽 첫 블록은 ㄷ자 블록 위쪽에서 이만큼 아래에 놓임. </summary>

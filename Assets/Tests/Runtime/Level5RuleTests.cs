@@ -11,7 +11,7 @@ using UnityEngine;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 레벨 5(임시 규칙) 검증 테스트. 카드 분류별 설계창 블록 모양, 분류별 장수 세기와 '모두 놓으면 성공' 판정,
+    /// 레벨 5(임시 규칙) 검증 테스트. 카드 분류별 설계창 블록 모양과 설계창 크기 계산용 모양, 분류별 장수 세기와 '모두 놓으면 성공' 판정,
     /// 실제 StreamingAssets/RfidMappings.json 레벨 5 정의로 만든 정답 설계와 데이터 검사를 확인함.
     /// </summary>
     public class Level5RuleTests
@@ -26,6 +26,26 @@ namespace DGAIZone.Tests
             Assert.AreEqual(DesignStepShape.FunctionCall, IngredientLevel5State.DesignShapeOf(F));
             Assert.AreEqual(DesignStepShape.Logic, IngredientLevel5State.DesignShapeOf(L));
             Assert.AreEqual(DesignStepShape.Command, IngredientLevel5State.DesignShapeOf(A));
+        }
+
+        [Test]
+        public void 설계창_크기는_함수_카드를_마지막에_놓아_시작하기_줄이_가장_길어지는_경우로_센다()
+        {
+            GameObject go = new GameObject("TestLevel5Plan");
+            try
+            {
+                IngredientSelectionController controller = go.AddComponent<IngredientSelectionController>();
+                List<DesignStepShape> shapes = new List<DesignStepShape>();
+                new IngredientLevel5State().FillPlannedDesignShapes(controller, shapes);
+
+                Assert.AreEqual(controller.TotalSteps, shapes.Count, "단계 수만큼 세야 함");
+                Assert.AreEqual(DesignStepShape.FunctionCall, shapes[shapes.Count - 1], "함수 사용을 마지막 단계로 세야 함(앞 블록이 모두 시작하기 줄에 쌓여 가장 길어짐)");
+                Assert.AreEqual(1, shapes.Count(s => s == DesignStepShape.FunctionCall), "함수 사용은 하나만 세야 함");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
         [Test]

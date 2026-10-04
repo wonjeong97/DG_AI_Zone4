@@ -13,8 +13,8 @@ namespace DGAIZone.Game.UI.States
     /// <summary>
     /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 기획 검토 중이라 임시 규칙으로 동작함:
     /// 함수·동작·논리 카드를 Constants.Level5Cards 장수만큼 순서 없이 놓고(다 쓴 분류의 카드는 받지 않음), 모두 놓으면 성공.
-    /// 함수 카드는 설계창에 함수 사용 블록(시작하기 아래 줄)과 함수 정의 블록(오른쪽)으로 쌓이고, 동작·논리 블록은 위치가 정해질 때까지
-    /// 시작하기 아래 줄에 놓은 순서대로 쌓임.
+    /// 함수 카드는 설계창에 함수 사용 블록(시작하기 아래 줄)과 함수 정의 블록(오른쪽)으로 쌓이고, 함수 카드 뒤에 놓은 동작·논리 블록은 함수 정의
+    /// 블록 안쪽에, 앞에 놓은 블록은 시작하기 아래 줄에 놓은 순서대로 쌓임.
     /// </summary>
     public class IngredientLevel5State : IIngredientSelectionLevelState
     {
@@ -97,7 +97,7 @@ namespace DGAIZone.Game.UI.States
             return (matterLabel, null);
         }
 
-        /// <summary> 함수 카드는 함수 사용 블록(오른쪽에 함수 정의 블록도 놓임), 논리 카드는 논리 블록, 동작 카드는 명령 블록으로 쌓음. </summary>
+        /// <summary> 함수 카드는 함수 사용 블록(오른쪽에 함수 정의 블록도 놓이고 뒤 블록은 그 안쪽에 쌓임), 논리 카드는 논리 블록, 동작 카드는 명령 블록으로 쌓음. </summary>
         public DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId)
         {
             bool known = string.Equals(ingredientId, Constants.RfidIds.Level5.Function, StringComparison.Ordinal)
@@ -119,10 +119,13 @@ namespace DGAIZone.Game.UI.States
             return DesignStepShape.Command;
         }
 
-        /// <summary> 줄의 블록은 모두 높이가 같으므로 함수 사용 하나(오른쪽 함수 정의 블록 자리를 남기도록)와 나머지 명령 블록으로 셈. </summary>
+        /// <summary>
+        /// 줄의 블록은 모두 높이가 같고 함수 사용 뒤 블록은 오른쪽 함수 정의 블록 안쪽에 쌓이므로, 설계창이 가장 길어지는 경우(함수 카드를 마지막에
+        /// 놓아 모든 블록이 시작하기 아래 줄에 쌓임)로 셈. 함수 사용 블록이 있어 오른쪽 함수 정의 블록 자리도 남음.
+        /// </summary>
         public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
         {
-            for (int i = 0; i < controller.TotalSteps; i++) shapes.Add(i == 0 ? DesignStepShape.FunctionCall : DesignStepShape.Command);
+            for (int i = 0; i < controller.TotalSteps; i++) shapes.Add(i == controller.TotalSteps - 1 ? DesignStepShape.FunctionCall : DesignStepShape.Command);
         }
 
         /// <summary> 함수·동작·논리 블록 모두 값 블록을 쓰지 않음. </summary>
