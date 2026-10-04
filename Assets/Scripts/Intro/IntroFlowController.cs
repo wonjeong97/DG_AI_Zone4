@@ -11,6 +11,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
+using HuliacDev.UI;
 using HuliacDev.Utils;
 using ZLogger;
 
@@ -32,6 +33,7 @@ namespace DGAIZone.Intro
         private VisitorInfoProvider _visitorInfoProvider;
         private ILogger<IntroFlowController> _logger;
         private InactivityTimer _inactivityTimer;
+        private SoundManager _soundManager;
         private bool _isBusy;
         /// <summary> 씬 전환 중 중복 입력 방지 플래그. </summary>
         public bool IsBusy => _isBusy;
@@ -45,14 +47,15 @@ namespace DGAIZone.Intro
         private IntroSceneSettings _sceneSettings = new IntroSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 이름 제공자, 로거, 비활동 타이머, 효과음 매니저를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, ILogger<IntroFlowController> logger, InactivityTimer inactivityTimer = null)
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, ILogger<IntroFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
             _logger = logger;
             _inactivityTimer = inactivityTimer;
+            _soundManager = soundManager;
         }
 
         /// <summary> 초기 패널 상태를 설정하고 스토리 연출 및 버튼 이벤트를 시작함. </summary>
@@ -130,7 +133,7 @@ namespace DGAIZone.Intro
             storyText.text = PlaceholderFormatter.ReplaceVisitorName(storyText.text, visitorName);
         }
 
-        /// <summary> 인트로 패널 활성화 상태에서 연출 중 터치 시 스킵, 연출 종료 또는 스킵 후 터치 시 튜토리얼 패널로 크로스페이드. </summary>
+        /// <summary> 인트로 패널 활성화 상태에서 연출 중 터치 시 스킵, 연출 종료 또는 스킵 후 터치 시 클릭음을 내고 튜토리얼 패널로 크로스페이드. </summary>
         private void Update()
         {
             if (!_isIntroActive || _isBusy) return;
@@ -143,6 +146,7 @@ namespace DGAIZone.Intro
                 }
                 else
                 {
+                    SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
                     SwitchToTutorialAsync().Forget();
                 }
             }

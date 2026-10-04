@@ -16,6 +16,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
+using HuliacDev.UI;
 using HuliacDev.Utils;
 using DGAIZone.Game.UI.States;
 using ZLogger;
@@ -107,6 +108,7 @@ namespace DGAIZone.Game.UI
         private InvalidCardWarning _invalidCardWarning;
         private DesignPanel _designPanel;
         private ILogger<IngredientSelectionController> _logger;
+        private SoundManager _soundManager;
         private bool _isBusy;
 
         private int _selectedLevel = 1;     // 현재 레벨 (디자인 항목 표시 형식 분기 등에 사용)
@@ -195,10 +197,10 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 미션 보드·카테고리 안내·결과 저장소,
-        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거를 할당함.
+        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거, 효과음 매니저를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger, SoundManager soundManager = null)
         {
             _subscriber = subscriber;
             _idleSubscriber = idleSubscriber;
@@ -211,6 +213,7 @@ namespace DGAIZone.Game.UI
             _invalidCardWarning = invalidCardWarning;
             _designPanel = designPanel;
             _logger = logger;
+            _soundManager = soundManager;
         }
 
         /// <summary>
@@ -680,9 +683,11 @@ namespace DGAIZone.Game.UI
             return commands;
         }
 
-        /// <summary> 현재 레벨·단계에서 받지 않는 카드가 인식됐을 때 경고 연출(경고 이미지 + 게임 패널 흔들기)을 보여 줌. </summary>
+        /// <summary> 현재 레벨·단계에서 받지 않는 카드가 인식됐을 때 경고음을 내고 경고 연출(경고 이미지 + 게임 패널 흔들기)을 보여 줌. </summary>
         internal void ShowInvalidCardWarning()
         {
+            SoundEffects.Play(_soundManager, Constants.Sounds.CodingAlert, _logger);
+
             if (_invalidCardWarning)
             {
                 _invalidCardWarning.Show();
@@ -724,7 +729,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설정하기(Confirm) 버튼 클릭 시 현재 선택한 물질을 확정하고 다음 단계로 진행함.
+        /// 설정하기(Confirm) 버튼 클릭 시 현재 선택한 물질을 확정해 설계창에 블록을 붙이고(블록 장착 효과음) 다음 단계로 진행함.
         /// </summary>
         private void OnConfirmButtonClicked()
         {
@@ -766,6 +771,7 @@ namespace DGAIZone.Game.UI
 
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
             AddDesignItem(ingredientId, ingredientName, chosenMatter.label);
+            SoundEffects.Play(_soundManager, Constants.Sounds.BlockAssembled, _logger);
 
             // 레벨별 상태 객체에 확정 처리 위임 (스텝 볼, 게이지, 불안정 깜빡임, 추진력 등)
             CurrentLevelState?.OnStepConfirmed(this, _currentStepIndex, ingredientId, chosenMatter);
@@ -790,7 +796,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 취소하기(Cancel) 버튼 클릭 시 현재 대기 상태를 비우고 이전 단계로 되돌아감.
+        /// 취소하기(Cancel) 버튼 클릭 시 클릭음을 내고 현재 대기 상태를 비우고 이전 단계로 되돌아감.
         /// </summary>
         private void OnCancelButtonClicked()
         {
@@ -799,6 +805,8 @@ namespace DGAIZone.Game.UI
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 워크플로우 초기화가 끝나지 않아 취소하기를 처리할 수 없음.");
                 return;
             }
+
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
 
             if (_currentStepIndex == 0)
             {
@@ -967,7 +975,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 코딩완료 버튼 클릭 시 확정된 추진력(엔진 출력량 + 연료량 - 탑재 중량)을 목적지 조건과 대조해 성공/실패를 기록하고, 화면 페이드와 함께 결과 씬으로 전환함.
+        /// 코딩완료 버튼 클릭 시 코딩 완료 효과음을 내고, 확정된 추진력(엔진 출력량 + 연료량 - 탑재 중량)을 목적지 조건과 대조해 성공/실패를 기록한 뒤 화면 페이드와 함께 결과 씬으로 전환함.
         /// </summary>
         private void OnCodingCompleteClicked()
         {
@@ -980,6 +988,7 @@ namespace DGAIZone.Game.UI
             }
 
             _isBusy = true;
+            SoundEffects.Play(_soundManager, Constants.Sounds.CodingComplete, _logger);
             CompleteCodingAsync().Forget();
         }
 
@@ -1025,7 +1034,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 스킵 버튼 클릭 시 결과를 실패로 기록하고 화면 페이드와 함께 결과 씬으로 전환함.
+        /// 스킵 버튼 클릭 시 클릭음을 내고 결과를 실패로 기록한 뒤 화면 페이드와 함께 결과 씬으로 전환함.
         /// </summary>
         private void OnSkipButtonClicked()
         {
@@ -1049,6 +1058,7 @@ namespace DGAIZone.Game.UI
             StoreResultDesigns(false);
 
             _isBusy = true;
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
@@ -1148,25 +1158,27 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 왼쪽 버튼 클릭 시 세부 물질 인덱스를 이전으로 변경함.
+        /// 왼쪽 버튼 클릭 시 클릭음을 내고 세부 물질 인덱스를 이전으로 변경함.
         /// </summary>
         private void OnLeftButtonClicked()
         {
             RfidMatter[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0) return;
 
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             int len = matters.Length;
             _currentMatterIndex.Value = (_currentMatterIndex.Value - 1 + len) % len;
         }
 
         /// <summary>
-        /// 오른쪽 버튼 클릭 시 세부 물질 인덱스를 다음으로 변경함.
+        /// 오른쪽 버튼 클릭 시 클릭음을 내고 세부 물질 인덱스를 다음으로 변경함.
         /// </summary>
         private void OnRightButtonClicked()
         {
             RfidMatter[] matters = _currentMatters.Value;
             if (matters == null || matters.Length == 0) return;
 
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             int len = matters.Length;
             _currentMatterIndex.Value = (_currentMatterIndex.Value + 1) % len;
         }

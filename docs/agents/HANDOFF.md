@@ -13,6 +13,43 @@
 
 ---
 
+### [2026-10-04 14:20] Claude → Antigravity · T38
+- 요청(사용자): 사운드를 1존 콘텐츠와 똑같이 넣기.
+  - 진행 중 추가 요청: 결과 씬 '나의 코딩 결과'·AI 패널에서 블록이 합쳐질 때도 소리.
+  - 사용자 확인: 1존 codingAlert(컴파일 실패 경고)는 4존의 잘못된 카드 경고에 씀.
+- 1존 구성: Template SoundManager(루트 GameLifetimeScope 프리팹 자식)가 Settings.json `sounds`를 읽어 StreamingAssets/Sounds의 mp3를 재생. 효과음 8종만 쓰고 BGM은 없음.
+- 변경 파일
+  - 데이터: `Assets/StreamingAssets/Sounds/*.mp3` 8개(1존에서 복사), `Settings.json`에 1존과 같은 `sounds` 추가.
+  - 프리팹: `GameLifetimeScope.prefab`에 자식 `SoundManager`(1존과 같은 스크립트) 추가. 루트 스코프가 `RegisterIfPresentInScene`으로 등록함.
+  - `Constants.Sounds`: 키는 1존과 같음.
+  - `SoundEffects.Play`: SoundManager가 없으면 경고를 남기는 공용 재생 함수.
+  - 컨트롤러: `SoundManager soundManager = null`을 마지막 선택 인자로 받음.
+    - Title 시작: gameStart.
+    - Intro 터치로 튜토리얼 전환, 튜토리얼 이전·다음, 레벨 버튼·시작, 스토리 화면 터치로 게임 복귀, 화살표·취소하기·건너뛰기, 결과 다음, 아웃트로 홈: buttonClick.
+    - 미션 다시 보기: hintEpisode.
+    - 설정하기로 블록이 붙음, 결과 씬 두 설계창에 블록(완성하기 포함)이 붙음: blockAssembled.
+    - 잘못된 카드 경고: codingAlert.
+    - 코딩 완료: codingComplete.
+    - 결과 컴플리트 패널이 뜰 때: missonSuccess/missonFailed.
+  - 소리는 가드를 통과해 실제로 동작할 때만 냄.
+  - 테스트: `SoundSettingsTests`(키·파일이 Settings.json과 맞는지, 루트 프리팹에 SoundManager가 있는지).
+  - 기록: CHANGELOG [Unreleased] Added.
+- 결과(Claude)
+  - 컴파일 오류 0, PlayMode 85/85.
+  - Play 모드에서 효과음 캐시로 재생을 확인함.
+    - 3_Game 레벨 1: 잘못된 카드 → codingAlert, 화살표 → buttonClick, 설정하기 → blockAssembled, 코딩 완료 → codingComplete.
+    - 4_Result: 컴플리트 패널 → missonFailed, AI 패널 블록 → blockAssembled.
+    - 0_Title 시작 → gameStart.
+    - 8개 파일 모두 로드됨, SoundManager 경고 없음.
+- 결과(Antigravity, `gemini-3.8-flash-high`, 테스트 실행 금지로 요청): 2묶음 모두 **수정 필요 없음**.
+  - 코드: 1존 규칙·4존 대응과 매핑 일치. 모든 Button.onClick·IsPointerPressedThisFrame 처리부를 대조해 빠진 곳·중복 없음. 가드 통과 뒤에만 재생. 선택 인자 주입·루트 등록, StackAsync 호출부·취소 처리, 로그 규칙 확인.
+  - 데이터·테스트·문서: Settings.json·파일·프리팹(스크립트 GUID)이 1존과 같음. 사운드 .meta는 DefaultImporter. 테스트가 키·파일·프리팹 누락을 잡음. CHANGELOG·TODO 형식 확인.
+- PR #44 리뷰: Antigravity 2묶음 모두 **수정 필요 없음**.
+  - 코드: SoundManager 생명주기(DontDestroyOnLoad 루트, SingletonGuard, 씬 스코프의 부모 해석), 설정 로드 전 입력(시작 버튼은 서버 확인 뒤 표시, 1존과 같음), 겹치는 재생(PlayOneShot), 기존 흐름 회귀, 테스트의 Construct 호출.
+  - 데이터·문서: .gitattributes는 Audio 9개만 변경, mp3가 바이너리로 들어감, Settings.json·프리팹, CHANGELOG 날짜 섹션 위치.
+  - 참고: SoundSettingsTests를 1존처럼 파일 전체 에디터 전용으로 감싸는 안은, Windows 전용이고 기존 Level5RuleTests도 같은 방식이라 반영하지 않음.
+- 저장 방식: 4존 `.gitattributes`(Unity 템플릿)는 오디오를 LFS로 보냈음. 사용자 요청으로 1존처럼 일반 파일로 저장하도록 Audio 항목(mp3·ogg·wav 등 9개)을 `lfs`에서 `binary`로 바꿈. 영상·폰트 등은 그대로 LFS이고, 효과음 8개의 git 객체는 1존과 같음.
+
 ### [2026-10-04 13:30] Claude → Antigravity · T37
 - 요청(사용자): MCP for Unity 패키지 업데이트.
 - 변경 파일: `Packages/packages-lock.json`의 `com.coplaydev.unity-mcp` hash만 바뀜(30d2207 → aa5fc63, 10.2.0 → 10.3.0). manifest는 그대로 `#main`이고, main HEAD가 v10.3.0 릴리스와 같은 커밋.

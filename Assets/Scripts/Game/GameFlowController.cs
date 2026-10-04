@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Data;
+using HuliacDev.UI;
 using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
@@ -46,6 +47,7 @@ namespace DGAIZone.Game
         private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
         private VisitorInfoProvider _visitorInfoProvider;
+        private SoundManager _soundManager;
         private string _visitorName = Constants.DefaultVisitorName;
         private string _sceneStoryTemplate; // levelDataList가 비었을 때 쓰는 씬 스토리 텍스트 원본({name} 치환 전)
 
@@ -53,7 +55,7 @@ namespace DGAIZone.Game
         private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary>
-        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자를 할당함. debugStartLevel이 설정되어 있으면(1~5)
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자, 효과음 매니저를 할당함. debugStartLevel이 설정되어 있으면(1~5)
         /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
         /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함. 에디터·개발 빌드에서만 적용하고,
         /// 현장용(릴리스) 빌드에서는 테스트 값이 씬에 남아 있어도 무시하고 경고만 남김.
@@ -62,11 +64,13 @@ namespace DGAIZone.Game
         public void Construct(
             SelectedLevelStore selectedLevelStore,
             ILogger<GameFlowController> logger,
-            VisitorInfoProvider visitorInfoProvider = null)
+            VisitorInfoProvider visitorInfoProvider = null,
+            SoundManager soundManager = null)
         {
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
             _visitorInfoProvider = visitorInfoProvider;
+            _soundManager = soundManager;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (debugStartLevel > 0 && _selectedLevelStore != null)
@@ -114,7 +118,7 @@ namespace DGAIZone.Game
             ApplyStoryText();
         }
 
-        /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 게임 패널로 전환함. </summary>
+        /// <summary> 스토리 패널이 표시된 상태에서 화면 아무 곳이나 마우스/터치로 누르면 클릭음을 내고 게임 패널로 전환함. </summary>
         private void Update()
         {
             if (_isBusy) return;
@@ -122,6 +126,7 @@ namespace DGAIZone.Game
 
             if (StoryLineAnimator.IsPointerPressedThisFrame())
             {
+                SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
                 SwitchToGameAsync().Forget();
             }
         }
@@ -281,10 +286,11 @@ namespace DGAIZone.Game
             finally { _isBusy = false; }
         }
 
-        /// <summary> 스토리 버튼 클릭 시 게임에서 스토리 패널로 되돌아감. </summary>
+        /// <summary> 스토리 버튼(미션 다시 보기) 클릭 시 미션 다시 보기 효과음을 내고 게임에서 스토리 패널로 되돌아감. </summary>
         private void OnStoryClicked()
         {
             if (_isBusy) return;
+            SoundEffects.Play(_soundManager, Constants.Sounds.HintEpisode, _logger);
             SwitchToStoryAsync().Forget();
         }
 

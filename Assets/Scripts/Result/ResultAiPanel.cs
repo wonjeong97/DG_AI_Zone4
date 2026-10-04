@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
 using DGAIZone.Game.UI;
+using HuliacDev.UI;
 using Microsoft.Extensions.Logging;
 using UnityEngine;
 using UnityEngine.Video;
@@ -32,14 +33,16 @@ namespace DGAIZone.Result
         private GameResultStore _resultStore;
         private SelectedLevelStore _selectedLevelStore;
         private ILogger<ResultAiPanel> _logger;
+        private SoundManager _soundManager;
 
-        /// <summary> VContainer 의존성 주입. 정답 설계를 담은 게임 결과 저장소, 선택된 레벨 저장소, 로거를 할당하고 설계창에 블록 생성용 리졸버를 주입함. </summary>
+        /// <summary> VContainer 의존성 주입. 정답 설계를 담은 게임 결과 저장소, 선택된 레벨 저장소, 로거, 효과음 매니저를 할당하고 설계창에 블록 생성용 리졸버를 주입함. </summary>
         [Inject]
-        public void Construct(GameResultStore resultStore, SelectedLevelStore selectedLevelStore, IObjectResolver resolver, ILogger<ResultAiPanel> logger)
+        public void Construct(GameResultStore resultStore, SelectedLevelStore selectedLevelStore, IObjectResolver resolver, ILogger<ResultAiPanel> logger, SoundManager soundManager = null)
         {
             _resultStore = resultStore;
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _soundManager = soundManager;
 
             if (designPanel) resolver.Inject(designPanel);
             else if (_logger != null) _logger.ZLogWarning($"[ResultAiPanel] designPanel이 null이라 정답 설계를 표시할 수 없음.");
@@ -77,7 +80,7 @@ namespace DGAIZone.Result
             await OpenPanelAsync(fadeDuration, token);
             PanelFader.ApplyState(panelGroup, true, _logger);
 
-            if (designPanel) await ResultDesignPlayback.StackAsync(designPanel, SolutionDesign(), true, blockInterval, token);
+            if (designPanel) await ResultDesignPlayback.StackAsync(designPanel, SolutionDesign(), true, blockInterval, _soundManager, _logger, token);
 
             await UniTask.Delay(TimeSpan.FromSeconds(designHoldDuration), cancellationToken: token);
             if (!await prepareTask) return;

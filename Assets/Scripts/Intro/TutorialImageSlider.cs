@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
+using DGAIZone.App;
+using HuliacDev.UI;
 using Microsoft.Extensions.Logging;
 using R3;
 using TMPro;
@@ -37,17 +39,19 @@ namespace DGAIZone.Intro
 
         private Image _image;
         private ILogger<TutorialImageSlider> _logger;
+        private SoundManager _soundManager;
         private RectTransform _rectTransform;
         private int _currentIndex;
 
         /// <summary> 현재 페이지 인덱스 (0: 1페이지 ~ 6: 7페이지). </summary>
         public int CurrentIndex => _currentIndex;
 
-        /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 로거와 효과음 매니저를 할당함. </summary>
         [Inject]
-        public void Construct(ILogger<TutorialImageSlider> logger)
+        public void Construct(ILogger<TutorialImageSlider> logger, SoundManager soundManager = null)
         {
             _logger = logger;
+            _soundManager = soundManager;
         }
 
         /// <summary> 표시 대상 Image와 클릭 좌표 계산용 RectTransform을 캐싱함. </summary>
@@ -92,9 +96,11 @@ namespace DGAIZone.Intro
             else ShowPrevious();
         }
 
-        /// <summary> 다음 페이지로 이동함. 마지막 페이지(7/7)에서 호출 시 TutorialCompleted로 완료를 알림. </summary>
+        /// <summary> 클릭음을 내고 다음 페이지로 이동함. 마지막 페이지(7/7)에서 호출 시 TutorialCompleted로 완료를 알림. </summary>
         public void ShowNext()
         {
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
+
             if (_currentIndex >= TotalPages - 1)
             {
                 _tutorialCompleted.OnNext(Unit.Default);
@@ -105,11 +111,12 @@ namespace DGAIZone.Intro
             ShowPageAsync().Forget();
         }
 
-        /// <summary> 이전 페이지로 이동함. 1페이지(1/7)에서는 더 이상 이전으로 가지 않고 머무름. </summary>
+        /// <summary> 클릭음을 내고 이전 페이지로 이동함. 1페이지(1/7)에서는 더 이상 이전으로 가지 않고 소리 없이 머무름. </summary>
         public void ShowPrevious()
         {
             if (_currentIndex <= 0) return;
 
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             _currentIndex--;
             ShowPageAsync().Forget();
         }

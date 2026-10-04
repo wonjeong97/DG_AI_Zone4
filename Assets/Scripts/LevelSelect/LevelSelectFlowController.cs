@@ -11,6 +11,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
+using HuliacDev.UI;
 using HuliacDev.Utils;
 using ZLogger;
 
@@ -48,6 +49,7 @@ namespace DGAIZone.LevelSelect
         private ILogger<LevelSelectFlowController> _logger;
         private InactivityTimer _inactivityTimer;
         private VisitorInfoProvider _visitorInfoProvider;
+        private SoundManager _soundManager;
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
@@ -57,7 +59,7 @@ namespace DGAIZone.LevelSelect
         private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머, 효과음 매니저를 할당함. </summary>
         [Inject]
         public void Construct(
             SceneTransitionService sceneTransition,
@@ -65,7 +67,8 @@ namespace DGAIZone.LevelSelect
             UnlockedLevelStore unlockedLevelStore,
             ILogger<LevelSelectFlowController> logger,
             VisitorInfoProvider visitorInfoProvider = null,
-            InactivityTimer inactivityTimer = null)
+            InactivityTimer inactivityTimer = null,
+            SoundManager soundManager = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
@@ -73,6 +76,7 @@ namespace DGAIZone.LevelSelect
             _logger = logger;
             _visitorInfoProvider = visitorInfoProvider;
             _inactivityTimer = inactivityTimer;
+            _soundManager = soundManager;
         }
 
         /// <summary>
@@ -236,7 +240,7 @@ namespace DGAIZone.LevelSelect
             }
         }
 
-        /// <summary> 시작 버튼 클릭 시 화면 페이드와 함께 게임 씬으로 전환함. </summary>
+        /// <summary> 시작 버튼 클릭 시 클릭음을 내고 화면 페이드와 함께 게임 씬으로 전환함. </summary>
         private void OnStartClicked()
         {
             if (_isBusy) return;
@@ -248,6 +252,7 @@ namespace DGAIZone.LevelSelect
             }
 
             _isBusy = true;
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
@@ -275,11 +280,13 @@ namespace DGAIZone.LevelSelect
             }
         }
 
-        /// <summary> 열린 레벨 버튼 클릭 시 선택한 버튼을 분리해 스토리 영역으로 트윈 이동시키고 패널을 전환함 (Zone1과 동일한 연출). </summary>
+        /// <summary> 열린 레벨 버튼 클릭 시 클릭음을 내고 선택한 버튼을 분리해 스토리 영역으로 트윈 이동시키고 패널을 전환함 (Zone1과 동일한 연출). </summary>
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
             if (index < 0 || index >= _currentUnlockedCount) return;
+
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
 
             // 레벨을 고른 뒤 전체 해금이 다시 적용되면 스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 되므로 디버그 입력을 끔
             _debugInput.Debug.UnlockAllLevels.Disable();
