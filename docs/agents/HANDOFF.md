@@ -13,6 +13,12 @@
 
 ---
 
+### [2026-10-04 13:20] Claude → Antigravity · MCP for Unity 10.3.0 업데이트 (chore/mcp-for-unity-10.3.0)
+- 변경 파일: `Packages/packages-lock.json`(com.coplaydev.unity-mcp 고정 커밋 30d2207 → aa5fc63, 10.2.0 → 10.3.0. manifest의 `#main`과 의존성 9개는 그대로), TODO.md. bundleVersion은 main이 이미 26.10.4라 그대로.
+- 확인 요청: diff 범위·hash, 새 버전 package.json 의존성과 lock 일치, TODO 형식, 업스트림 변경의 2022.3·Roslyn·HTTP 전송 호환성
+- 결과(Antigravity, `gemini-3.8-flash-high`): 4개 항목 통과, **수정 필요 없음**. 업스트림의 asmdef·의존성 변경 없음, Runtime 변경은 Unity 6.6 전용 분기와 Unity.Mathematics JSON 변환기뿐, Roslyn 변경(f8e58c6 Workspaces 서식 제거)은 컴파일러 DLL만으로 `USE_ROSLYN` 이 컴파일되게 하는 개선.
+- 결과(Claude): 이 프로젝트의 Editor는 다른 작업(feat/level5-function-body)에 열려 있어 직접 열지 않고, origin/main에서 만든 별도 작업 트리에서 수정함. 같은 Unity 버전(2022.3.62f3)·같은 패키지 커밋으로 0_Startup·DG_AI_Zone1을 배치 모드로 열어 컴파일 에러 없이 종료됨을 확인. 이 브랜치를 받은 Editor가 처음 열릴 때 새 버전을 받는다.
+
 ### [2026-10-04 13:04] Claude → Antigravity · T36
 - 요청(사용자): 레벨 5 설계창에서 함수 블록 다음에 놓는 블록을 모두 함수 바디(함수 정의) 블록 안쪽에.
 - 가정(사용자 확인): 함수 카드보다 먼저 놓은 블록은 시작하기 아래 줄에 그대로 두고, 논리 블록도 함수 카드 다음이면 안쪽에 넣음.
