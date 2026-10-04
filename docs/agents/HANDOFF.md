@@ -13,6 +13,22 @@
 
 ---
 
+### [2026-10-04 13:30] Claude → Antigravity · T37
+- 요청(사용자): MCP for Unity 패키지 업데이트.
+- 변경 파일: `Packages/packages-lock.json`의 `com.coplaydev.unity-mcp` hash만 바뀜(30d2207 → aa5fc63, 10.2.0 → 10.3.0). manifest는 그대로 `#main`이고, main HEAD가 v10.3.0 릴리스와 같은 커밋.
+- 릴리스 노트: 호환성이 깨지는 변경은 없음. read_console 필터, 테스트 작업의 리로드 뒤 복구, refresh_unity 컴파일 대기 같은 수정과 blender_bridge 도구 추가.
+- 로컬 MCP 서버(8080)
+  - 패키지가 띄우는 서버가 `mcpforunityserver==10.2.0`이라 `ServerManagementService.StartLocalHttpServer`로 10.3.0으로 다시 띄움.
+  - `EditorApplication.delayCall`은 Editor가 포커스를 잃은 상태에서 실행되지 않아 `EditorApplication.update`로 예약함.
+  - Unity 플러그인 재등록(도구 36개), 이 세션도 다시 연결됨.
+- 결과(Claude): 패키지 10.3.0 로드, 콘솔 오류 0(재시작 때 생긴 WebSocket 끊김 로그는 일시적), PlayMode 83/83, Enter Play Mode Options 꺼짐 유지.
+- 결과(Antigravity, `gemini-3.8-flash-high`, 테스트 실행 금지로 요청): **수정 필요 없음**.
+  - lock은 hash 한 줄만 바뀌었고 의존성은 새 package.json과 같음.
+  - 콘솔 오류·경고 0, 프로젝트 코드는 MCPForUnity 네임스페이스·어셈블리를 참조하지 않음, 서버에 플러그인 재등록(도구 36개).
+  - 참고: MCPForUnity.Runtime 어셈블리는 플랫폼 제한이 없어 빌드에도 포함됨(이전 버전도 같음).
+- PR #43 리뷰: Antigravity **수정 필요 없음**(lock·manifest·로드된 패키지 일치, Editor 오류 0·플러그인 등록 유지, 문서 형식, 다른 환경에서도 같은 커밋·같은 서버 버전으로 받음).
+  - 참고: 다른 세션이 같은 업데이트로 만든 PR #42는 이 작업 전에 머지 없이 닫혀 있었음(겹치는 열린 PR 없음).
+
 ### [2026-10-04 13:04] Claude → Antigravity · T36
 - 요청(사용자): 레벨 5 설계창에서 함수 블록 다음에 놓는 블록을 모두 함수 바디(함수 정의) 블록 안쪽에.
 - 가정(사용자 확인): 함수 카드보다 먼저 놓은 블록은 시작하기 아래 줄에 그대로 두고, 논리 블록도 함수 카드 다음이면 안쪽에 넣음.
