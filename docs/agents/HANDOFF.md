@@ -44,6 +44,10 @@
 - 결과(Antigravity, `gemini-3.8-flash-high`, 테스트 실행 금지로 요청): 2묶음 모두 **수정 필요 없음**.
   - 코드: 1존 규칙·4존 대응과 매핑 일치. 모든 Button.onClick·IsPointerPressedThisFrame 처리부를 대조해 빠진 곳·중복 없음. 가드 통과 뒤에만 재생. 선택 인자 주입·루트 등록, StackAsync 호출부·취소 처리, 로그 규칙 확인.
   - 데이터·테스트·문서: Settings.json·파일·프리팹(스크립트 GUID)이 1존과 같음. 사운드 .meta는 DefaultImporter. 테스트가 키·파일·프리팹 누락을 잡음. CHANGELOG·TODO 형식 확인.
+- PR #44 리뷰: Antigravity 2묶음 모두 **수정 필요 없음**.
+  - 코드: SoundManager 생명주기(DontDestroyOnLoad 루트, SingletonGuard, 씬 스코프의 부모 해석), 설정 로드 전 입력(시작 버튼은 서버 확인 뒤 표시, 1존과 같음), 겹치는 재생(PlayOneShot), 기존 흐름 회귀, 테스트의 Construct 호출.
+  - 데이터·문서: .gitattributes는 Audio 9개만 변경, mp3가 바이너리로 들어감, Settings.json·프리팹, CHANGELOG 날짜 섹션 위치.
+  - 참고: SoundSettingsTests를 1존처럼 파일 전체 에디터 전용으로 감싸는 안은, Windows 전용이고 기존 Level5RuleTests도 같은 방식이라 반영하지 않음.
 - 저장 방식: 4존 `.gitattributes`(Unity 템플릿)는 오디오를 LFS로 보냈음. 사용자 요청으로 1존처럼 일반 파일로 저장하도록 Audio 항목(mp3·ogg·wav 등 9개)을 `lfs`에서 `binary`로 바꿈. 영상·폰트 등은 그대로 LFS이고, 효과음 8개의 git 객체는 1존과 같음.
 
 ### [2026-10-04 13:30] Claude → Antigravity · T37
