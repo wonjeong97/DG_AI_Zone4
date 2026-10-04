@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T38 사운드: 1존과 같은 효과음 8종(파일·Settings.json sounds·루트 프리팹 SoundManager)을 넣고 1존 규칙대로 대응 지점에서 재생(전용 효과음이 없는 버튼·터치는 buttonClick, 잘못된 카드 경고는 codingAlert, 결과 씬 두 설계창 블록도 blockAssembled)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T37 MCP for Unity 패키지 업데이트(10.2.0 → 10.3.0, git #main 재해석, 로컬 MCP 서버도 10.3.0으로 재시작)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T36 레벨 5 설계창: 함수 카드 다음에 놓은 블록(동작·논리)을 모두 오른쪽 함수 정의(함수 바디) 블록 안쪽에 쌓고 함수 정의 블록이 안쪽 블록 수만큼 늘어나게(함수 카드보다 먼저 놓은 블록과 완성하기는 시작하기 아래 그대로, 결과 화면 두 설계창도 같음)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T35 디버그용 인스펙터 값(GameFlowController.debugStartLevel, LevelSelectFlowController.debugUnlockedLevelCount)을 전처리기(#if UNITY_EDITOR || DEVELOPMENT_BUILD)로 에디터·개발 빌드에서만 적용, 릴리스 빌드는 값이 남아 있으면 경고만(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)

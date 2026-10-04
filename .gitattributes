@@ -97,16 +97,16 @@ Packages/packages-lock.json linguist-generated
 *.stl                   lfs
 *.ztl                   lfs
 
-# Audio
-*.aif                   lfs
-*.aiff                  lfs
-*.it                    lfs
-*.mod                   lfs
-*.mp3                   lfs
-*.ogg                   lfs
-*.s3m                   lfs
-*.wav                   lfs
-*.xm                    lfs
+# Audio (1존과 같이 LFS 없이 일반 파일로 저장)
+*.aif                   binary
+*.aiff                  binary
+*.it                    binary
+*.mod                   binary
+*.mp3                   binary
+*.ogg                   binary
+*.s3m                   binary
+*.wav                   binary
+*.xm                    binary
 
 # Video
 *.asf                   lfs

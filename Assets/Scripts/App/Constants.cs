@@ -183,5 +183,18 @@ namespace DGAIZone.App
             public const int Logic = 1;
             public const int Total = Function + Action + Logic;
         }
+
+        /// <summary> 효과음 키. StreamingAssets/Settings.json의 sounds 키와 같아야 하며, 파일과 키는 1존과 같음. </summary>
+        public static class Sounds
+        {
+            public const string BlockAssembled = "blockAssembled"; // 설정하기로 블록이 설계창에 붙음, 결과 씬 설계창(나의 코딩 결과·AI 패널)에 블록이 붙음
+            public const string ButtonClick    = "buttonClick";    // 전용 효과음이 없는 버튼 클릭, 인트로→튜토리얼 터치, 튜토리얼 페이지 넘기기, 스토리 화면 터치
+            public const string CodingAlert    = "codingAlert";    // 잘못된 카드 경고
+            public const string CodingComplete = "codingComplete"; // 코딩 완료
+            public const string GameStart      = "gameStart";      // 타이틀 시작하기 버튼
+            public const string HintEpisode    = "hintEpisode";    // 미션 다시 보기 버튼
+            public const string MissionFailed  = "missonFailed";   // 결과 완료 화면 '미션 실패!'
+            public const string MissionSuccess = "missonSuccess";  // 결과 완료 화면 '미션 완료!'
+        }
     }
 }

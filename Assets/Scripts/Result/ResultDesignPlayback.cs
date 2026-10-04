@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DGAIZone.App;
 using DGAIZone.Game.UI;
+using HuliacDev.UI;
+using Microsoft.Extensions.Logging;
 
 namespace DGAIZone.Result
 {
     /// <summary>
     /// 결과 씬 설계창(나의 코딩 결과·AI 패널)에 3_Game에서 기록한 설계(DesignStep)를 같은 블록 이미지로 다시 쌓는 도우미.
-    /// 3_Game 설계창과 같은 배치 방식·설계 길이로 배율을 정해 두고(Prepare), 블록을 일정 간격으로 하나씩 붙임(StackAsync). 자동 스크롤 방식이면
-    /// 블록이 붙을 때마다 맨 아래로 스크롤함.
+    /// 3_Game 설계창과 같은 배치 방식·설계 길이로 배율을 정해 두고(Prepare), 블록을 일정 간격으로 하나씩 붙임(StackAsync). 블록(완성하기 포함)이
+    /// 붙을 때마다 3_Game 설정하기와 같은 블록 장착 효과음을 내며, 자동 스크롤 방식이면 맨 아래로 스크롤함.
     /// </summary>
     internal static class ResultDesignPlayback
     {
@@ -31,16 +34,23 @@ namespace DGAIZone.Result
             panel.Initialize(shapes, withValueBlocks);
         }
 
-        /// <summary> steps를 interval초 간격으로 하나씩 붙이고, withEnd면 마지막에 완성하기 블록까지 붙인 뒤 연출이 끝날 때까지 기다림. </summary>
-        public static async UniTask StackAsync(DesignPanel panel, IReadOnlyList<DesignStep> steps, bool withEnd, float interval, CancellationToken token)
+        /// <summary>
+        /// steps를 interval초 간격으로 하나씩 붙이고, withEnd면 마지막에 완성하기 블록까지 붙인 뒤 연출이 끝날 때까지 기다림. 블록을 붙일 때마다
+        /// 블록 장착 효과음을 냄(soundManager가 없으면 logger에 경고).
+        /// </summary>
+        public static async UniTask StackAsync<T>(DesignPanel panel, IReadOnlyList<DesignStep> steps, bool withEnd, float interval, SoundManager soundManager, ILogger<T> logger, CancellationToken token)
         {
             for (int i = 0; i < steps.Count; i++)
             {
                 panel.AddItem(steps[i].Shape, steps[i].Command, steps[i].Value);
+                SoundEffects.Play(soundManager, Constants.Sounds.BlockAssembled, logger);
                 await UniTask.Delay(TimeSpan.FromSeconds(interval), DelayType.UnscaledDeltaTime, cancellationToken: token);
             }
 
-            if (withEnd) await panel.AttachEndBlockAsync(token);
+            if (!withEnd) return;
+
+            SoundEffects.Play(soundManager, Constants.Sounds.BlockAssembled, logger);
+            await panel.AttachEndBlockAsync(token);
         }
     }
 }

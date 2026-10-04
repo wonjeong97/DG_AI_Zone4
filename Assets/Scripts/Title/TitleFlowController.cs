@@ -12,6 +12,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
+using HuliacDev.UI;
 using HuliacDev.Utils;
 using ZLogger;
 
@@ -36,6 +37,7 @@ namespace DGAIZone.Title
         private SelectedLevelStore _selectedLevelStore;
         private UnlockedLevelStore _unlockedLevelStore;
         private ILogger<TitleFlowController> _logger;
+        private SoundManager _soundManager;
         private bool _isBusy;
 
         // 무한 반복 깜빡임이라 씬을 떠날 때 직접 Kill함
@@ -52,15 +54,16 @@ namespace DGAIZone.Title
         // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 로거를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 로거, 효과음 매니저를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, ILogger<TitleFlowController> logger)
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, ILogger<TitleFlowController> logger, SoundManager soundManager = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
             _selectedLevelStore = selectedLevelStore;
             _unlockedLevelStore = unlockedLevelStore;
             _logger = logger;
+            _soundManager = soundManager;
         }
 
         /// <summary>
@@ -242,7 +245,7 @@ namespace DGAIZone.Title
             if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
         }
 
-        /// <summary> 시작 버튼 클릭 시 화면 페이드와 함께 인트로 씬으로 전환함. </summary>
+        /// <summary> 시작 버튼 클릭 시 게임 시작 효과음을 내고 화면 페이드와 함께 인트로 씬으로 전환함. </summary>
         private void OnStartClicked()
         {
             if (_isBusy) return;
@@ -254,6 +257,7 @@ namespace DGAIZone.Title
             }
 
             _isBusy = true;
+            SoundEffects.Play(_soundManager, Constants.Sounds.GameStart, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Intro, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
     }

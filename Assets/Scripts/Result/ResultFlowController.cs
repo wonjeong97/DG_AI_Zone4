@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
+using HuliacDev.UI;
 using HuliacDev.Utils;
 using ZLogger;
 
@@ -44,6 +45,7 @@ namespace DGAIZone.Result
         private GameResultStore _resultStore;
         private InactivityTimer _inactivityTimer;
         private ILogger<ResultFlowController> _logger;
+        private SoundManager _soundManager;
         private bool _isBusy;
         private bool _isTimerPaused; // 이 씬이 비활동 타이머를 멈춰 둔 상태인지(재개를 한 번만 하기 위함)
 
@@ -51,9 +53,9 @@ namespace DGAIZone.Result
         private ResultSceneSettings _sceneSettings = new ResultSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
@@ -61,6 +63,7 @@ namespace DGAIZone.Result
             _resultStore = resultStore;
             _logger = logger;
             _inactivityTimer = inactivityTimer;
+            _soundManager = soundManager;
         }
 
         /// <summary>
@@ -103,6 +106,19 @@ namespace DGAIZone.Result
 
         /// <summary> 테스트 전용: 인스펙터로 연결하는 컴플리트 패널 제목 텍스트를 넣음. </summary>
         internal void SetMissionResultTextForTest(TMP_Text text) => missionResultText = text;
+
+        /// <summary> 컴플리트 패널(미션 완료/실패 문구)이 나타날 때 미션 결과에 맞는 효과음을 냄. 결과 저장소가 없으면 결과를 알 수 없어 경고만 남김. </summary>
+        private void PlayMissionResultSound()
+        {
+            if (_resultStore == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] resultStore가 null이라 미션 결과 효과음을 낼 수 없음.");
+                return;
+            }
+
+            string key = _resultStore.Result == MissionResult.Success ? Constants.Sounds.MissionSuccess : Constants.Sounds.MissionFailed;
+            SoundEffects.Play(_soundManager, key, _logger);
+        }
 
         /// <summary> 컴플리트 패널 제목(Text_MissionComplete)을 미션 결과에 맞춰 "미션 완료!" 또는 "미션 실패!"로 바꿈. </summary>
         internal void ApplyMissionResultText()
@@ -182,7 +198,7 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// 컴플리트 패널의 다음 버튼 클릭 시 화면 페이드와 함께 전환함. 방금 플레이한 레벨이 마지막 레벨(Constants.LastLevel)이면
+        /// 컴플리트 패널의 다음 버튼 클릭 시 클릭음을 내고 화면 페이드와 함께 전환함. 방금 플레이한 레벨이 마지막 레벨(Constants.LastLevel)이면
         /// 아웃트로 씬으로, 아니면 다음 레벨을 고를 수 있도록 레벨 선택 씬으로 전환함.
         /// </summary>
         private void OnCompleteNextClicked()
@@ -199,10 +215,11 @@ namespace DGAIZone.Result
             string nextScene = playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
 
             _isBusy = true;
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
-        /// <summary> 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널 페이드인 순으로 진행함. </summary>
+        /// <summary> 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널 페이드인(미션 결과 효과음) 순으로 진행함. </summary>
         private async UniTaskVoid PlayAiSequenceAsync()
         {
             _isBusy = true;
@@ -217,6 +234,7 @@ namespace DGAIZone.Result
 
                 if (completePanel)
                 {
+                    PlayMissionResultSound();
                     await PanelFader.FadeAsync(completePanel, 0f, 1f, duration, _logger, token);
                     PanelFader.ApplyState(completePanel, true, _logger);
                 }
