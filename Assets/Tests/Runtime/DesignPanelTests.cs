@@ -279,6 +279,28 @@ namespace DGAIZone.Tests
         });
 
         [UnityTest]
+        public IEnumerator 스크롤된_상태에서_앞_카드가_떨어지면_남은_블록이_보이게_올라가고_돌아오면_다시_맨_아래로_내려간다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            _panel.Initialize(Commands(5), true);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나길 기다림
+            float fullHeight = _content.sizeDelta.y;
+            Assert.Greater(fullHeight, ViewportHeight, "단계 5개면 보이는 영역보다 길어 스크롤 범위가 있어야 함");
+            Assert.Greater(_content.anchoredPosition.y, 0f, "블록이 쌓이면 맨 아래로 내려가 있어야 함");
+
+            _panel.DropFrom(0); // 1번 카드가 떨어짐
+            await UniTask.Delay(800, DelayType.UnscaledDeltaTime); // 떨어뜨리기(0.2초)·올리기(0.3초) 연출이 끝나길 기다림
+            Assert.Less(_content.sizeDelta.y, ViewportHeight, "보이는 블록이 시작하기뿐이라 스크롤 범위가 보이는 영역보다 짧아져야 함");
+            Assert.AreEqual(0f, _content.anchoredPosition.y, Tolerance, "남은 시작하기 블록이 보이도록 맨 위로 올라가야 함");
+
+            _panel.DropFrom(int.MaxValue); // 1번 카드가 돌아옴
+            await UniTask.Delay(2000, DelayType.UnscaledDeltaTime); // 다시 붙기(1초 + 값 0.6초)·자동 스크롤 연출이 끝나길 기다림
+            Assert.AreEqual(fullHeight, _content.sizeDelta.y, Tolerance, "블록이 다시 붙으면 스크롤 범위가 원래대로 늘어나야 함");
+            Assert.AreEqual(0f, _scrollRect.verticalNormalizedPosition, Tolerance, "다시 붙은 블록이 보이도록 맨 아래로 내려가야 함");
+        });
+
+        [UnityTest]
         public IEnumerator 함수_정의_블록은_함수_사용_단계를_따라_빠지고_앞_카드만_돌아오면_그_앞까지만_다시_붙는다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.FitAll);

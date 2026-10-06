@@ -85,6 +85,9 @@ namespace DGAIZone.Game.UI
         private readonly List<DesignStepShape> _stepShapes = new List<DesignStepShape>(); // _steps와 같은 순서의 단계 모양
         private readonly List<Vector2> _positions = new List<Vector2>(); // 블록별 위치(px, 0 = 시작하기). Layout이 채움
         private readonly List<float> _flowInnerHeights = new List<float>(); // 단계별 ㄷ자 블록 안쪽 높이(px, ㄷ자가 아니면 0). Layout이 채움
+        private readonly List<DesignStepShape> _visibleShapes = new List<DesignStepShape>(); // 떨어뜨리지 않은 앞쪽 단계 모양(보이는 블록만으로 높이를 셀 때 씀)
+        private readonly List<Vector2> _visiblePositions = new List<Vector2>();
+        private readonly List<float> _visibleFlowInnerHeights = new List<float>();
         private DesignBlockView _startBlock;
         private DesignBlockView _endBlock;
         private DesignBlockView _functionDef; // 설계창 오른쪽에 놓인 함수 정의 블록(함수 사용 단계를 붙였을 때만)
@@ -273,11 +276,22 @@ namespace DGAIZone.Game.UI
             _droppedFrom = fromIndex;
             if (fromIndex == previous) return;
 
+            Relayout(); // 묶음 높이와 ㄷ자·함수 정의 블록 높이를 보이는 블록에 맞춤
             for (int i = 0; i < _steps.Count; i++)
             {
                 if (_steps[i]) SetDropped(_steps[i], i >= previous, i >= fromIndex, PositionOf(i + 1));
             }
             if (_functionDef) SetDropped(_functionDef, _functionDefStep >= previous, _functionDefStep >= fromIndex, FunctionDefinitionPosition());
+
+            if (fromIndex < previous)
+            {
+                ShrinkContentToStack(); // 더 앞에서부터 떨어뜨림: 남은 블록의 맨 아래가 보이게 올린 뒤 스크롤 범위를 줄임
+            }
+            else
+            {
+                UpdateContentHeight(); // 다시 붙음: 블록을 쌓을 때처럼 스크롤 범위를 늘리고 다시 붙는 블록이 보이게 내림
+                ScrollToBottom();
+            }
         }
 
         /// <summary> 블록의 떨어뜨림 상태가 바뀌었을 때만 떨어뜨리는 연출이나 천천히 다시 붙는 연출을 시작함. </summary>
@@ -345,12 +359,25 @@ namespace DGAIZone.Game.UI
             return false;
         }
 
-        /// <summary> 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, ㄷ자 블록·함수 정의 블록 높이를 안쪽 블록에 맞춤. </summary>
+        /// <summary>
+        /// 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, ㄷ자 블록·함수 정의 블록 높이를 안쪽 블록에 맞춤. 떨어뜨린 블록이 있으면 위치(다시 붙을 자리)는
+        /// 모든 블록 기준으로 두고, 묶음 높이(스크롤 범위)와 ㄷ자·함수 정의 블록 높이는 보이는 블록만으로 정함(떨어뜨린 블록이 잠시 빠진 것처럼 보이게).
+        /// </summary>
         private void Relayout()
         {
             bool withEnd = _endBlock;
             float functionDefX = (FunctionDefinitionPosition().x - _offsetX) / _scale; // 함수 정의 블록 왼쪽 끝(px, Layout 좌표)
             _stackHeight = Layout(_stepShapes, withEnd, functionDefX, _positions, _flowInnerHeights, out float functionInnerHeight);
+
+            if (_droppedFrom < _stepShapes.Count)
+            {
+                _visibleShapes.Clear();
+                for (int i = 0; i < _droppedFrom; i++) _visibleShapes.Add(_stepShapes[i]);
+                _stackHeight = Layout(_visibleShapes, withEnd, functionDefX, _visiblePositions, _visibleFlowInnerHeights, out float visibleFunctionInnerHeight);
+                for (int i = 0; i < _visibleFlowInnerHeights.Count; i++) _flowInnerHeights[i] = _visibleFlowInnerHeights[i];
+                if (_functionDefStep < _droppedFrom) functionInnerHeight = visibleFunctionInnerHeight;
+            }
+
             for (int i = 0; i < _steps.Count; i++)
             {
                 if (_steps[i] && _steps[i].Kind == DesignBlockKind.FlowControl) _steps[i].SetFlowInnerHeight(_flowInnerHeights[i]);
@@ -550,6 +577,32 @@ namespace DGAIZone.Game.UI
             _scrollTween?.Kill();
             _scrollTween = scrollRect.DOVerticalNormalizedPos(0f, scrollDuration).SetEase(Ease.OutQuad).SetUpdate(true).SetLink(gameObject);
             return _scrollTween;
+        }
+
+        /// <summary>
+        /// 블록 묶음이 짧아졌을 때(블록을 떨어뜨림) '크게 두고 자동 스크롤' 방식이면 줄어든 묶음의 맨 아래가 보이는 자리까지 부드럽게 올린 뒤 스크롤 범위(content 높이)를
+        /// 줄임. 범위를 먼저 줄이면 ScrollRect(Clamped)가 범위를 벗어난 위치를 한 번에 끌어올려 튐. 그 방식이 아니거나 이미 그 자리보다 위에 있으면 바로 줄임.
+        /// content는 위쪽 기준이라 anchoredPosition.y가 아래로 내린 거리임.
+        /// </summary>
+        private void ShrinkContentToStack()
+        {
+            if (layoutMode != DesignLayoutMode.ScrollLarge || !scrollRect || !content)
+            {
+                UpdateContentHeight();
+                return;
+            }
+
+            float maxScroll = Mathf.Max(0f, edgePadding * 2f + _stackHeight * _scale - ViewportRect().height); // 줄어든 묶음에서 내릴 수 있는 최대 거리
+            scrollRect.StopMovement();
+            _scrollTween?.Kill(); // 끊긴 연출의 OnComplete는 불리지 않지만, 아래에서 높이를 다시 맞춤
+            if (content.anchoredPosition.y <= maxScroll + ScrolledUpEpsilon)
+            {
+                UpdateContentHeight();
+                return;
+            }
+
+            _scrollTween = content.DOAnchorPosY(maxScroll, scrollDuration).SetEase(Ease.OutQuad).SetUpdate(true).SetLink(gameObject)
+                .OnComplete(UpdateContentHeight);
         }
 
         /// <summary>
