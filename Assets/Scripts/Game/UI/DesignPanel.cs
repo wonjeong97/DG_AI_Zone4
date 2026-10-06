@@ -49,12 +49,11 @@ namespace DGAIZone.Game.UI
     /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
     /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓이고, 함수 사용 단계는 설계창 오른쪽 위에 함수 정의 블록을 함께 놓으며
     /// 그 뒤 단계는 모두 함수 정의 블록 안쪽에 쌓임(완성하기는 시작하기 줄 맨 아래).
-    /// 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
+    /// 카드가 떨어진 단계부터 뒤쪽 블록을 임시로 떨어뜨렸다가 카드가 돌아오면 다시 붙이는 일도 맡음.
     /// 블록 모양과 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
     public class DesignPanel : MonoBehaviour
     {
-        private const float DeactivatedAlpha = 0.35f;
         private const float ScrolledUpEpsilon = 0.5f; // 맨 아래에서 이만큼(UI 단위) 넘게 올라가 있으면 사용자가 올려 둔 것으로 봄
         private const string StartLabel = "시작하기";
         private const string EndLabel = "완성하기";
@@ -76,7 +75,9 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float riseHeight = 40f;            // 블록이 올라오기 시작하는 깊이(블록 원본 크기 기준, 배율을 곱해 화면상 약 20px)
         [SerializeField] private float valueSlideDuration = 0.3f;   // 명령 블록이 붙은 뒤 값 블록이 오른쪽에서 미끄러져 와 붙는 시간
         [SerializeField] private float valueSlideDistance = 120f;   // 값 블록이 미끄러지기 시작하는 오른쪽 거리(블록 원본 크기 기준)
-        [SerializeField] private float removeDuration = 0.2f;       // 취소 시 블록이 가라앉으며 사라지는 시간
+        [SerializeField] private float removeDuration = 0.2f;       // 취소하거나 카드가 떨어졌을 때 블록이 가라앉으며 사라지는 시간
+        [SerializeField] private float restoreRiseDuration = 1f;          // 떨어졌던 카드가 돌아와 블록이 다시 올라와 맞물리는 시간(붙일 때보다 천천히)
+        [SerializeField] private float restoreValueSlideDuration = 0.6f;  // 다시 붙을 때 값 블록이 오른쪽에서 미끄러져 와 붙는 시간
         [SerializeField] private float scrollDuration = 0.3f;       // 자동 스크롤 시간
         [SerializeField] private float completeHoldDuration = 0.5f; // 완성하기 블록이 붙은 뒤 다음 연출까지 보여 주는 시간
 
@@ -89,6 +90,7 @@ namespace DGAIZone.Game.UI
         private DesignBlockView _functionDef; // 설계창 오른쪽에 놓인 함수 정의 블록(함수 사용 단계를 붙였을 때만)
         private int _functionDefStep = -1;    // 함수 정의 블록을 함께 놓은 함수 사용 단계 번호
         private bool _plansFunctionDef;       // 이 레벨에 함수 사용 단계가 있어 오른쪽에 함수 정의 블록 자리를 남겨야 하는지
+        private int _droppedFrom = int.MaxValue; // 이 번호의 단계 블록부터 끝까지 임시로 떨어뜨린 상태(int.MaxValue = 떨어뜨린 블록 없음)
         private float _plannedHeight; // 이 레벨의 단계를 모두 쌓고 완성하기까지 붙였을 때의 높이(px)
         private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함, 함수 정의 블록이 더 길면 그 높이)
         private bool _withValueBlocks = true;
@@ -262,16 +264,29 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// fromIndex번째 단계 블록부터 끝까지 흐리게, 그 앞은 원래대로 표시함. fromIndex가 블록 수 이상이면 모두 원래대로 표시함.
-        /// 함수 정의 블록은 함께 놓인 함수 사용 단계를 따름.
+        /// fromIndex번째 단계 블록부터 끝까지 임시로 떨어뜨리고(가라앉으며 사라지되 블록은 남겨 둠), 앞서 떨어뜨렸다가 이번에 fromIndex 앞이 된 블록은
+        /// 천천히 다시 붙임. fromIndex가 블록 수 이상이면 떨어뜨린 블록을 모두 다시 붙임. 함수 정의 블록은 함께 놓인 함수 사용 단계를 따름.
         /// </summary>
-        public void DimFrom(int fromIndex)
+        public void DropFrom(int fromIndex)
         {
+            int previous = _droppedFrom;
+            _droppedFrom = fromIndex;
+            if (fromIndex == previous) return;
+
             for (int i = 0; i < _steps.Count; i++)
             {
-                if (_steps[i]) _steps[i].SetDimmed(i >= fromIndex, DeactivatedAlpha);
+                if (_steps[i]) SetDropped(_steps[i], i >= previous, i >= fromIndex, PositionOf(i + 1));
             }
-            if (_functionDef) _functionDef.SetDimmed(_functionDefStep >= fromIndex, DeactivatedAlpha);
+            if (_functionDef) SetDropped(_functionDef, _functionDefStep >= previous, _functionDefStep >= fromIndex, FunctionDefinitionPosition());
+        }
+
+        /// <summary> 블록의 떨어뜨림 상태가 바뀌었을 때만 떨어뜨리는 연출이나 천천히 다시 붙는 연출을 시작함. </summary>
+        private void SetDropped(DesignBlockView block, bool wasDropped, bool dropped, Vector2 attachedPosition)
+        {
+            if (wasDropped == dropped) return;
+
+            if (dropped) block.PlayDrop(riseHeight * _scale, removeDuration);
+            else block.PlayAttach(attachedPosition, riseHeight * _scale, restoreRiseDuration, valueSlideDistance, restoreValueSlideDuration);
         }
 
         /// <summary> index번째 자리(0 = 시작하기)에 블록이 붙는 연출을 시작함. 올라오는 깊이는 content 좌표라 배율을 곱하고, 값 블록 거리는 블록 안 좌표라 그대로 넘김. </summary>
@@ -564,6 +579,7 @@ namespace DGAIZone.Game.UI
             _endBlock = null;
             _functionDef = null;
             _functionDefStep = -1;
+            _droppedFrom = int.MaxValue;
             _steps.Clear();
             _stepShapes.Clear();
         }
