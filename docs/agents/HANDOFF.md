@@ -13,6 +13,20 @@
 
 ---
 
+### [2026-10-06] Claude → Antigravity · T39
+- 요청(사용자): 2·3번째 RFID 리더기(KA-LAN-754) 등록. 리더기 값은 사용자가 LAN-UDP 프로그램으로 읽은 캡처 기준.
+- 변경 파일: `Assets/StreamingAssets/RfidMappings.json`(readers에 Reader_2 192.168.0.189 / 34-46-63-D4-38-92, Reader_3 192.168.0.190 / 34-46-63-D4-33-EA), `ProjectSettings/ProjectSettings.asset`(bundleVersion 26.10.6), `CHANGELOG.md`, `TODO.md`
+- 확인 요청: JSON 형식·중복, RfidReaderService 동시 접속 수와 IP→readerId 식별, IngredientSelectionController의 Reader_N→N단계 라우팅과 CHANGELOG 문장, readers 대수에 의존하는 코드·테스트, bundleVersion 형식. Unity Editor가 꺼져 있어 파일 읽기만 함.
+- 결과: 5/5 통과(agy `gemini-3.8-flash-high`). Claude가 코드로 다시 확인함.
+  - 리더기 2대 이상이면 Reader_N이 N단계에 고정되고, 이미 확정된 단계의 리더기에 카드를 대면 그 단계로 되돌아감(`HandleConfirmedStepCardChanged`). 그래서 3대일 때 레벨 1(3단계)은 끝까지 진행되지만 레벨 2~5(5단계)는 4단계부터 실제 카드로 진행할 수 없음. 키보드 시뮬레이터("Keyboard")는 라우팅 대상이 아님.
+  - 처음 2대 기준 요청은 3번째 리더기가 추가되어 중간에 멈추고 3대 기준으로 다시 맡김.
+- 사용자 확인 필요(리더기 설정, 코드 밖)
+  - 리더기는 TCP Client 모드로, Target IP:10123으로 PC에 접속함. Target IP는 Unity를 실행하는 PC의 IP여야 함(현재 노트북 192.168.0.19).
+  - 2번 리더기는 캡처에서 Target IP가 192.168.0.73이었음.
+  - 이동형 전시라 리더기와 PC만 쓰는 전용 연결(현장 Wi-Fi와 겹치지 않는 대역)은 나중에 검토하기로 함.
+
+---
+
 ### [2026-10-04 14:20] Claude → Antigravity · T38
 - 요청(사용자): 사운드를 1존 콘텐츠와 똑같이 넣기.
   - 진행 중 추가 요청: 결과 씬 '나의 코딩 결과'·AI 패널에서 블록이 합쳐질 때도 소리.
