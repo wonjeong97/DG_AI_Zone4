@@ -21,6 +21,11 @@
       "readerId": "Reader_3",
       "ipAddress": "192.168.0.182",
       "macAddress": "34-46-63-D4-33-EA"
+    },
+    {
+      "readerId": "Reader_4",
+      "ipAddress": "192.168.0.183",
+      "macAddress": "34-46-63-D4-33-8F"
     }
   ],
   "mappings": [
