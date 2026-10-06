@@ -13,7 +13,7 @@
 
 ## 완료
 
-- [x] T39 RFID 리더기 추가 등록: `RfidMappings.json` readers에 Reader_2(34-46-63-D4-38-92)·Reader_3(34-46-63-D4-33-EA)·Reader_4(192.168.0.183, 34-46-63-D4-33-8F) 추가, 1~3번 IP는 사용자가 192.168.0.180~182로 변경(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-06)
+- [x] T39 RFID 리더기 추가 등록: `RfidMappings.json` readers에 Reader_2(34-46-63-D4-38-92)·Reader_3(34-46-63-D4-33-EA)·Reader_4(192.168.0.183, 34-46-63-D4-33-8F)·Reader_5(192.168.0.184, 34-46-63-D4-35-35) 추가, 1~3번 IP는 사용자가 192.168.0.180~182로 변경(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-06)
 - [x] T38 사운드: 1존과 같은 효과음 8종(파일·Settings.json sounds·루트 프리팹 SoundManager)을 넣고 1존 규칙대로 대응 지점에서 재생(전용 효과음이 없는 버튼·터치는 buttonClick, 잘못된 카드 경고는 codingAlert, 결과 씬 두 설계창 블록도 blockAssembled)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T37 MCP for Unity 패키지 업데이트(10.2.0 → 10.3.0, git #main 재해석, 로컬 MCP 서버도 10.3.0으로 재시작)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T36 레벨 5 설계창: 함수 카드 다음에 놓은 블록(동작·논리)을 모두 오른쪽 함수 정의(함수 바디) 블록 안쪽에 쌓고 함수 정의 블록이 안쪽 블록 수만큼 늘어나게(함수 카드보다 먼저 놓은 블록과 완성하기는 시작하기 아래 그대로, 결과 화면 두 설계창도 같음)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
