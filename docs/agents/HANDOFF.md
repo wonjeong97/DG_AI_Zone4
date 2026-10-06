@@ -30,7 +30,8 @@
   - `DesignPanel.Relayout`: 떨어뜨린 블록이 있으면 위치(다시 붙을 자리)는 전체 기준으로 두고, 묶음 높이(스크롤 범위)와 ㄷ자·함수 정의 블록 높이는 보이는 블록만으로 정함.
   - `DesignPanel.DropFrom`: 떨어뜨리면 `ShrinkContentToStack`(남은 블록의 맨 아래까지 0.3초 동안 올린 뒤 content 높이를 줄임. 먼저 줄이면 Clamped ScrollRect가 한 번에 끌어올려 튐), 다시 붙으면 높이를 늘리고 `ScrollToBottom`.
   - 테스트 1개 추가(스크롤된 상태에서 떨어뜨리면 맨 위로, 돌아오면 맨 아래로).
-- 확인: `dotnet build`로 DGAIZone·DGAIZone.Tests 컴파일 오류 0. Unity를 새로고침(scope=all)한 뒤 콘솔 에러 0, PlayMode `DGAIZone.Tests` 88/88 통과(새 테스트 3개 포함), 스크롤 수정 뒤 89/89 통과. Unity MCP는 세션 연결이 안 돼 8080에 직접 호출함. 테스트 뒤 Enter Play Mode Options를 다시 끄고 저장함. 실제 리더기 확인은 사용자 몫으로 남음.
+- 확인: `dotnet build`로 DGAIZone·DGAIZone.Tests 컴파일 오류 0. Unity를 새로고침(scope=all)한 뒤 콘솔 에러 0, PlayMode `DGAIZone.Tests` 88/88 통과(새 테스트 3개 포함), 스크롤 수정 뒤 89/89 통과.
+- PR 머지 전 리뷰(Claude, main 대비 전체 diff — T40 카드 등록 포함): 떨어뜨림 상태와 블록 추가·제거·초기화의 정합, 줄이는 스크롤 연출이 끊겼을 때 다음 처리(다시 붙기·블록 추가·다시 줄이기)에서 범위가 맞춰지는지, 리더기 1대·키보드 시뮬레이터 동작 유지를 확인함. 수정·개선 사항 없음. 사용자가 테스트용으로 바꾼 `3_Game` `debugStartLevel: 4`와 TMP 글꼴 에셋 자동 변경은 커밋하지 않고 작업 트리에 둠. Unity MCP는 세션 연결이 안 돼 8080에 직접 호출함. 테스트 뒤 Enter Play Mode Options를 다시 끄고 저장함. 실제 리더기 확인은 사용자 몫으로 남음.
 
 ---
 
