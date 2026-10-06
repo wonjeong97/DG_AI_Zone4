@@ -5,6 +5,9 @@
 
 ## [Unreleased]
 
+### Added
+- `RfidMappings.json`에 동작 카드 4장, 제어·논리 카드 1장씩을 새로 등록해 각 분류 카드로 인식됨.
+
 ## [2026-10-06]
 
 ### Changed

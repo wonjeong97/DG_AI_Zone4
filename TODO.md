@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T40 RFID 카드 등록: 동작 카드 4장(A1G08061AF3BA7F20472, A1G0807369226313040D, A1G081736922B958047D, A1G0817369226642040D), 제어 카드 1장(A1G081736922C12B0409), 논리 카드 1장(A1G080736922BCA1047B)을 `RfidMappings.json` mappings에 추가(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-06)
 - [x] T39 RFID 리더기 추가 등록: `RfidMappings.json` readers에 Reader_2(34-46-63-D4-38-92)·Reader_3(34-46-63-D4-33-EA)·Reader_4(192.168.0.183, 34-46-63-D4-33-8F)·Reader_5(192.168.0.184, 34-46-63-D4-35-35) 추가, 1~3번 IP는 사용자가 192.168.0.180~182로 변경(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-06)
 - [x] T38 사운드: 1존과 같은 효과음 8종(파일·Settings.json sounds·루트 프리팹 SoundManager)을 넣고 1존 규칙대로 대응 지점에서 재생(전용 효과음이 없는 버튼·터치는 buttonClick, 잘못된 카드 경고는 codingAlert, 결과 씬 두 설계창 블록도 blockAssembled)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)
 - [x] T37 MCP for Unity 패키지 업데이트(10.2.0 → 10.3.0, git #main 재해석, 로컬 MCP 서버도 10.3.0으로 재시작)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-04)

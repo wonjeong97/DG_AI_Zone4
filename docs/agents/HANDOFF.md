@@ -13,6 +13,19 @@
 
 ---
 
+### [2026-10-06] Claude → Antigravity · T40
+- 요청(사용자): 실기에서 찍은 카드를 분류별로 등록. uid는 콘솔 로그 `[RfidReaderService] Reader_1에서 받은 원시 태그: <uid>` 그대로.
+  - 동작: A1G08061AF3BA7F20472, A1G0807369226313040D, A1G081736922B958047D, A1G0817369226642040D
+  - 제어: A1G081736922C12B0409
+  - 논리: A1G080736922BCA1047B
+- 변경 파일: `Assets/StreamingAssets/RfidMappings.json`(mappings 4장 → 10장: 동작 5·제어 2·논리 2·함수 1), `CHANGELOG.md`, `TODO.md`. 버전은 같은 날이라 26.10.6 그대로.
+- 확인 요청: JSON 형식·uid 중복·category 문자열, 원시 태그가 그대로 uid와 일치해 RfidTagEvent가 발행되는지, 같은 분류 카드가 여러 장일 때 문제가 되는 코드·테스트.
+- 결과: 3/3 통과(agy `gemini-3.8-flash-high`). 컨트롤러·레벨 상태는 uid가 아니라 category만 보고, 검증기·테스트는 mappings를 검사하지 않음.
+  - Claude 확인: 레벨별 필요 카드(레벨 2 동작 5, 레벨 3 제어 2·동작 2·논리 1, 레벨 4 제어 최대 2(반복 뒤에는 동작만), 레벨 5 함수 1·동작 3·논리 1)를 지금 카드로 모두 채울 수 있음.
+  - 진행 메모: Unity 재시작으로 `Temp/`가 비워져 첫 agy 호출은 diff 저장 실패로 실행되지 않았음(`mkdir -p Temp/review` 후 재실행). 4장 기준 요청은 제어·논리 카드가 추가되어 중간에 멈추고 6장 기준으로 다시 맡김.
+
+---
+
 ### [2026-10-06] Claude → Antigravity · T39
 - 요청(사용자): 2·3번째 RFID 리더기(KA-LAN-754) 등록. 리더기 값은 사용자가 LAN-UDP 프로그램으로 읽은 캡처 기준.
 - 변경 파일: `Assets/StreamingAssets/RfidMappings.json`(readers에 Reader_2 192.168.0.189 / 34-46-63-D4-38-92, Reader_3 192.168.0.190 / 34-46-63-D4-33-EA), `ProjectSettings/ProjectSettings.asset`(bundleVersion 26.10.6), `CHANGELOG.md`, `TODO.md`
