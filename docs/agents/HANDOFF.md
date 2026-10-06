@@ -13,6 +13,26 @@
 
 ---
 
+### [2026-10-06] Claude → Antigravity · T39
+- 요청(사용자): 2·3번째 RFID 리더기(KA-LAN-754) 등록. 리더기 값은 사용자가 LAN-UDP 프로그램으로 읽은 캡처 기준.
+- 변경 파일: `Assets/StreamingAssets/RfidMappings.json`(readers에 Reader_2 192.168.0.189 / 34-46-63-D4-38-92, Reader_3 192.168.0.190 / 34-46-63-D4-33-EA), `ProjectSettings/ProjectSettings.asset`(bundleVersion 26.10.6), `CHANGELOG.md`, `TODO.md`
+- 확인 요청: JSON 형식·중복, RfidReaderService 동시 접속 수와 IP→readerId 식별, IngredientSelectionController의 Reader_N→N단계 라우팅과 CHANGELOG 문장, readers 대수에 의존하는 코드·테스트, bundleVersion 형식. Unity Editor가 꺼져 있어 파일 읽기만 함.
+- 결과: 5/5 통과(agy `gemini-3.8-flash-high`). Claude가 코드로 다시 확인함.
+  - 리더기 2대 이상이면 Reader_N이 N단계에 고정되고, 이미 확정된 단계의 리더기에 카드를 대면 그 단계로 되돌아감(`HandleConfirmedStepCardChanged`). 그래서 3대일 때 레벨 1(3단계)은 끝까지 진행되지만 레벨 2~5(5단계)는 4단계부터 실제 카드로 진행할 수 없음. 키보드 시뮬레이터("Keyboard")는 라우팅 대상이 아님.
+  - 처음 2대 기준 요청은 3번째 리더기가 추가되어 중간에 멈추고 3대 기준으로 다시 맡김.
+- 추가(같은 날): 사용자가 리더기 1~3 IP를 192.168.0.180~182로 바꿈(`etc:` 커밋으로 분리). Claude가 Reader_4(192.168.0.183 / 34-46-63-D4-33-8F)를 추가하고 CHANGELOG·TODO 문장을 고침.
+  - 확인 요청: JSON 형식·중복, 4대 접속과 .183→Reader_4 식별, CHANGELOG 문장('5대 등록 전에는 5단계를 실제 카드로 진행할 수 없음').
+  - 결과: 3/3 통과(agy `gemini-3.8-flash-high`). 사용자가 Editor를 쓰는 중이라 MCP는 쓰지 않고 파일만 읽음.
+- 추가 2(같은 날): Reader_5(192.168.0.184 / 34-46-63-D4-35-35)를 추가해 리더기 5대 구성 완료. CHANGELOG 문장에서 '5대 전에는 진행 불가' 단서를 빼고 '레벨 1은 1~3번만 씀'으로 바꿈.
+  - 확인 요청(머지 전 PR 전체 리뷰, main 대비 diff): JSON 형식·중복, 5대 접속과 .184→Reader_5 식별, 레벨 2~5를 5단계까지 진행할 수 있는지, 레벨 1에서 Reader_4·5 태그가 무시되고 인덱스 범위 밖 접근이 없는지, CHANGELOG·TODO·HANDOFF 정합성, 다른 코드·테스트 영향.
+  - 결과: 5/5 통과(agy `gemini-3.8-flash-high`). Claude가 코드로 다시 확인함. 레벨 1에서 Reader_4는 진행 중에는 '아직 활성화되지 않음', 완료 뒤에는 '모든 단계 완료'로 무시되고, Reader_5는 늘 '아직 활성화되지 않음'으로 무시됨. 미등록 리더기 ID `Unknown_<IP>`는 `GetStepIndexForReader`에서 -1로 처리됨.
+- 사용자 확인 필요(리더기 설정, 코드 밖)
+  - 리더기는 TCP Client 모드로, Target IP:10123으로 PC에 접속함. Target IP는 Unity를 실행하는 PC의 IP여야 함(현재 노트북 192.168.0.19).
+  - 2번 리더기는 캡처에서 Target IP가 192.168.0.73이었음.
+  - 이동형 전시라 리더기와 PC만 쓰는 전용 연결(현장 Wi-Fi와 겹치지 않는 대역)은 나중에 검토하기로 함.
+
+---
+
 ### [2026-10-04 14:20] Claude → Antigravity · T38
 - 요청(사용자): 사운드를 1존 콘텐츠와 똑같이 넣기.
   - 진행 중 추가 요청: 결과 씬 '나의 코딩 결과'·AI 패널에서 블록이 합쳐질 때도 소리.
