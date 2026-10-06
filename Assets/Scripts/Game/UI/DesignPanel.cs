@@ -49,12 +49,11 @@ namespace DGAIZone.Game.UI
     /// 아래에서 올라와 맞물린 뒤 값 블록이 오른쪽에서 미끄러져 와 붙으며, 코딩 완료 시 맨 아래에 '완성하기' 블록이 붙음.
     /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓이고, 함수 사용 단계는 설계창 오른쪽 위에 함수 정의 블록을 함께 놓으며
     /// 그 뒤 단계는 모두 함수 정의 블록 안쪽에 쌓임(완성하기는 시작하기 줄 맨 아래).
-    /// 카드가 떨어진 단계부터 뒤쪽 블록을 흐리게 표시하는 일도 맡음.
+    /// 카드가 떨어진 단계부터 뒤쪽 블록을 임시로 떨어뜨렸다가 카드가 돌아오면 다시 붙이는 일도 맡음.
     /// 블록 모양과 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
     public class DesignPanel : MonoBehaviour
     {
-        private const float DeactivatedAlpha = 0.35f;
         private const float ScrolledUpEpsilon = 0.5f; // 맨 아래에서 이만큼(UI 단위) 넘게 올라가 있으면 사용자가 올려 둔 것으로 봄
         private const string StartLabel = "시작하기";
         private const string EndLabel = "완성하기";
@@ -76,7 +75,9 @@ namespace DGAIZone.Game.UI
         [SerializeField] private float riseHeight = 40f;            // 블록이 올라오기 시작하는 깊이(블록 원본 크기 기준, 배율을 곱해 화면상 약 20px)
         [SerializeField] private float valueSlideDuration = 0.3f;   // 명령 블록이 붙은 뒤 값 블록이 오른쪽에서 미끄러져 와 붙는 시간
         [SerializeField] private float valueSlideDistance = 120f;   // 값 블록이 미끄러지기 시작하는 오른쪽 거리(블록 원본 크기 기준)
-        [SerializeField] private float removeDuration = 0.2f;       // 취소 시 블록이 가라앉으며 사라지는 시간
+        [SerializeField] private float removeDuration = 0.2f;       // 취소하거나 카드가 떨어졌을 때 블록이 가라앉으며 사라지는 시간
+        [SerializeField] private float restoreRiseDuration = 1f;          // 떨어졌던 카드가 돌아와 블록이 다시 올라와 맞물리는 시간(붙일 때보다 천천히)
+        [SerializeField] private float restoreValueSlideDuration = 0.6f;  // 다시 붙을 때 값 블록이 오른쪽에서 미끄러져 와 붙는 시간
         [SerializeField] private float scrollDuration = 0.3f;       // 자동 스크롤 시간
         [SerializeField] private float completeHoldDuration = 0.5f; // 완성하기 블록이 붙은 뒤 다음 연출까지 보여 주는 시간
 
@@ -84,11 +85,15 @@ namespace DGAIZone.Game.UI
         private readonly List<DesignStepShape> _stepShapes = new List<DesignStepShape>(); // _steps와 같은 순서의 단계 모양
         private readonly List<Vector2> _positions = new List<Vector2>(); // 블록별 위치(px, 0 = 시작하기). Layout이 채움
         private readonly List<float> _flowInnerHeights = new List<float>(); // 단계별 ㄷ자 블록 안쪽 높이(px, ㄷ자가 아니면 0). Layout이 채움
+        private readonly List<DesignStepShape> _visibleShapes = new List<DesignStepShape>(); // 떨어뜨리지 않은 앞쪽 단계 모양(보이는 블록만으로 높이를 셀 때 씀)
+        private readonly List<Vector2> _visiblePositions = new List<Vector2>();
+        private readonly List<float> _visibleFlowInnerHeights = new List<float>();
         private DesignBlockView _startBlock;
         private DesignBlockView _endBlock;
         private DesignBlockView _functionDef; // 설계창 오른쪽에 놓인 함수 정의 블록(함수 사용 단계를 붙였을 때만)
         private int _functionDefStep = -1;    // 함수 정의 블록을 함께 놓은 함수 사용 단계 번호
         private bool _plansFunctionDef;       // 이 레벨에 함수 사용 단계가 있어 오른쪽에 함수 정의 블록 자리를 남겨야 하는지
+        private int _droppedFrom = int.MaxValue; // 이 번호의 단계 블록부터 끝까지 임시로 떨어뜨린 상태(int.MaxValue = 떨어뜨린 블록 없음)
         private float _plannedHeight; // 이 레벨의 단계를 모두 쌓고 완성하기까지 붙였을 때의 높이(px)
         private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함, 함수 정의 블록이 더 길면 그 높이)
         private bool _withValueBlocks = true;
@@ -262,16 +267,40 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// fromIndex번째 단계 블록부터 끝까지 흐리게, 그 앞은 원래대로 표시함. fromIndex가 블록 수 이상이면 모두 원래대로 표시함.
-        /// 함수 정의 블록은 함께 놓인 함수 사용 단계를 따름.
+        /// fromIndex번째 단계 블록부터 끝까지 임시로 떨어뜨리고(가라앉으며 사라지되 블록은 남겨 둠), 앞서 떨어뜨렸다가 이번에 fromIndex 앞이 된 블록은
+        /// 천천히 다시 붙임. fromIndex가 블록 수 이상이면 떨어뜨린 블록을 모두 다시 붙임. 함수 정의 블록은 함께 놓인 함수 사용 단계를 따름.
         /// </summary>
-        public void DimFrom(int fromIndex)
+        public void DropFrom(int fromIndex)
         {
+            int previous = _droppedFrom;
+            _droppedFrom = fromIndex;
+            if (fromIndex == previous) return;
+
+            Relayout(); // 묶음 높이와 ㄷ자·함수 정의 블록 높이를 보이는 블록에 맞춤
             for (int i = 0; i < _steps.Count; i++)
             {
-                if (_steps[i]) _steps[i].SetDimmed(i >= fromIndex, DeactivatedAlpha);
+                if (_steps[i]) SetDropped(_steps[i], i >= previous, i >= fromIndex, PositionOf(i + 1));
             }
-            if (_functionDef) _functionDef.SetDimmed(_functionDefStep >= fromIndex, DeactivatedAlpha);
+            if (_functionDef) SetDropped(_functionDef, _functionDefStep >= previous, _functionDefStep >= fromIndex, FunctionDefinitionPosition());
+
+            if (fromIndex < previous)
+            {
+                ShrinkContentToStack(); // 더 앞에서부터 떨어뜨림: 남은 블록의 맨 아래가 보이게 올린 뒤 스크롤 범위를 줄임
+            }
+            else
+            {
+                UpdateContentHeight(); // 다시 붙음: 블록을 쌓을 때처럼 스크롤 범위를 늘리고 다시 붙는 블록이 보이게 내림
+                ScrollToBottom();
+            }
+        }
+
+        /// <summary> 블록의 떨어뜨림 상태가 바뀌었을 때만 떨어뜨리는 연출이나 천천히 다시 붙는 연출을 시작함. </summary>
+        private void SetDropped(DesignBlockView block, bool wasDropped, bool dropped, Vector2 attachedPosition)
+        {
+            if (wasDropped == dropped) return;
+
+            if (dropped) block.PlayDrop(riseHeight * _scale, removeDuration);
+            else block.PlayAttach(attachedPosition, riseHeight * _scale, restoreRiseDuration, valueSlideDistance, restoreValueSlideDuration);
         }
 
         /// <summary> index번째 자리(0 = 시작하기)에 블록이 붙는 연출을 시작함. 올라오는 깊이는 content 좌표라 배율을 곱하고, 값 블록 거리는 블록 안 좌표라 그대로 넘김. </summary>
@@ -330,12 +359,25 @@ namespace DGAIZone.Game.UI
             return false;
         }
 
-        /// <summary> 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, ㄷ자 블록·함수 정의 블록 높이를 안쪽 블록에 맞춤. </summary>
+        /// <summary>
+        /// 지금 놓인 블록으로 위치와 묶음 높이를 다시 계산하고, ㄷ자 블록·함수 정의 블록 높이를 안쪽 블록에 맞춤. 떨어뜨린 블록이 있으면 위치(다시 붙을 자리)는
+        /// 모든 블록 기준으로 두고, 묶음 높이(스크롤 범위)와 ㄷ자·함수 정의 블록 높이는 보이는 블록만으로 정함(떨어뜨린 블록이 잠시 빠진 것처럼 보이게).
+        /// </summary>
         private void Relayout()
         {
             bool withEnd = _endBlock;
             float functionDefX = (FunctionDefinitionPosition().x - _offsetX) / _scale; // 함수 정의 블록 왼쪽 끝(px, Layout 좌표)
             _stackHeight = Layout(_stepShapes, withEnd, functionDefX, _positions, _flowInnerHeights, out float functionInnerHeight);
+
+            if (_droppedFrom < _stepShapes.Count)
+            {
+                _visibleShapes.Clear();
+                for (int i = 0; i < _droppedFrom; i++) _visibleShapes.Add(_stepShapes[i]);
+                _stackHeight = Layout(_visibleShapes, withEnd, functionDefX, _visiblePositions, _visibleFlowInnerHeights, out float visibleFunctionInnerHeight);
+                for (int i = 0; i < _visibleFlowInnerHeights.Count; i++) _flowInnerHeights[i] = _visibleFlowInnerHeights[i];
+                if (_functionDefStep < _droppedFrom) functionInnerHeight = visibleFunctionInnerHeight;
+            }
+
             for (int i = 0; i < _steps.Count; i++)
             {
                 if (_steps[i] && _steps[i].Kind == DesignBlockKind.FlowControl) _steps[i].SetFlowInnerHeight(_flowInnerHeights[i]);
@@ -538,6 +580,32 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
+        /// 블록 묶음이 짧아졌을 때(블록을 떨어뜨림) '크게 두고 자동 스크롤' 방식이면 줄어든 묶음의 맨 아래가 보이는 자리까지 부드럽게 올린 뒤 스크롤 범위(content 높이)를
+        /// 줄임. 범위를 먼저 줄이면 ScrollRect(Clamped)가 범위를 벗어난 위치를 한 번에 끌어올려 튐. 그 방식이 아니거나 이미 그 자리보다 위에 있으면 바로 줄임.
+        /// content는 위쪽 기준이라 anchoredPosition.y가 아래로 내린 거리임.
+        /// </summary>
+        private void ShrinkContentToStack()
+        {
+            if (layoutMode != DesignLayoutMode.ScrollLarge || !scrollRect || !content)
+            {
+                UpdateContentHeight();
+                return;
+            }
+
+            float maxScroll = Mathf.Max(0f, edgePadding * 2f + _stackHeight * _scale - ViewportRect().height); // 줄어든 묶음에서 내릴 수 있는 최대 거리
+            scrollRect.StopMovement();
+            _scrollTween?.Kill(); // 끊긴 연출의 OnComplete는 불리지 않지만, 아래에서 높이를 다시 맞춤
+            if (content.anchoredPosition.y <= maxScroll + ScrolledUpEpsilon)
+            {
+                UpdateContentHeight();
+                return;
+            }
+
+            _scrollTween = content.DOAnchorPosY(maxScroll, scrollDuration).SetEase(Ease.OutQuad).SetUpdate(true).SetLink(gameObject)
+                .OnComplete(UpdateContentHeight);
+        }
+
+        /// <summary>
         /// '크게 두고 자동 스크롤' 방식에서 사용자가 드래그로 위로 올려 둬 맨 아래가 보이지 않는지 여부. 블록 묶음이 보이는 영역보다 짧으면 false.
         /// scrollRect가 없으면 false(경고는 이어서 부르는 ScrollToBottom이 남김).
         /// </summary>
@@ -564,6 +632,7 @@ namespace DGAIZone.Game.UI
             _endBlock = null;
             _functionDef = null;
             _functionDefStep = -1;
+            _droppedFrom = int.MaxValue;
             _steps.Clear();
             _stepShapes.Clear();
         }

@@ -224,6 +224,108 @@ namespace DGAIZone.Tests
             Assert.AreEqual(2, _content.childCount, "빼기 연출이 끝나면 시작하기 + 단계 1개만 남아야 함");
         });
 
+        /// <summary> content의 index번째 자식 블록의 알파(떨어뜨리면 0, 붙어 있으면 1). </summary>
+        private float BlockAlpha(int index) => BlockAt(index).GetComponent<CanvasGroup>().alpha;
+
+        [UnityTest]
+        public IEnumerator 카드가_떨어진_단계부터_블록이_임시로_빠졌다가_돌아오면_제자리에_다시_붙는다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(Commands(4), true);
+            _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
+            _panel.AddItem(DesignStepShape.Command, "탑재 종류", "인공위성");
+            _panel.AddItem(DesignStepShape.Command, "연료량", "3");
+            await UniTask.Delay(1200, DelayType.UnscaledDeltaTime); // 붙는 연출(0.5초 + 값 0.3초)이 끝나길 기다림
+            Vector2 step2 = BlockPosition(2), step3 = BlockPosition(3);
+
+            _panel.DropFrom(1);
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime); // 떨어뜨리는 연출(기본 0.2초)이 끝나길 기다림
+            Assert.AreEqual(3, _panel.Count, "떨어뜨린 블록은 지우지 않고 남겨 둬야 함");
+            Assert.AreEqual(4, _content.childCount, "떨어뜨린 블록 오브젝트가 파괴되지 않아야 함");
+            Assert.AreEqual(1f, BlockAlpha(1), Tolerance, "카드가 떨어진 단계 앞 블록은 그대로 붙어 있어야 함");
+            Assert.AreEqual(0f, BlockAlpha(2), Tolerance, "카드가 떨어진 단계 블록은 사라져야 함");
+            Assert.AreEqual(0f, BlockAlpha(3), Tolerance, "카드가 떨어진 단계 뒤 블록도 사라져야 함");
+
+            _panel.DropFrom(int.MaxValue);
+            await UniTask.Delay(2000, DelayType.UnscaledDeltaTime); // 다시 붙는 연출(기본 1초 + 값 0.6초)이 끝나길 기다림
+            Assert.AreEqual(1f, BlockAlpha(2), Tolerance, "카드가 돌아오면 블록이 다시 보여야 함");
+            Assert.AreEqual(1f, BlockAlpha(3), Tolerance, "뒤 블록도 다시 보여야 함");
+            Assert.AreEqual(step2.x, BlockPosition(2).x, Tolerance, "다시 붙은 블록은 원래 자리에 맞물려야 함(x)");
+            Assert.AreEqual(step2.y, BlockPosition(2).y, Tolerance, "다시 붙은 블록은 원래 자리에 맞물려야 함(y)");
+            Assert.AreEqual(step3.x, BlockPosition(3).x, Tolerance, "다시 붙은 뒤 블록도 원래 자리에 맞물려야 함(x)");
+            Assert.AreEqual(step3.y, BlockPosition(3).y, Tolerance, "다시 붙은 뒤 블록도 원래 자리에 맞물려야 함(y)");
+        });
+
+        [UnityTest]
+        public IEnumerator 다시_붙는_도중에_카드를_또_떼면_붙은_자리로_튀지_않고_그_자리에서_사라진다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(Commands(3), true);
+            _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
+            await UniTask.Delay(1200, DelayType.UnscaledDeltaTime);
+            Vector2 attached = BlockPosition(1);
+
+            _panel.DropFrom(0);
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime);
+            _panel.DropFrom(int.MaxValue);
+            await UniTask.Delay(300, DelayType.UnscaledDeltaTime); // 다시 붙는 연출(기본 1초) 도중
+
+            _panel.DropFrom(0);
+            Assert.Less(BlockAlpha(1), 0.99f, "다시 붙는 도중에 떼면 다 붙은 상태(알파 1)로 건너뛰지 않아야 함");
+            Assert.Less(BlockPosition(1).y, attached.y - Tolerance, "다시 붙는 도중에 떼면 붙은 자리로 튀지 않고 그보다 아래에서 가라앉아야 함");
+
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime);
+            Assert.AreEqual(0f, BlockAlpha(1), Tolerance, "떨어뜨리는 연출이 끝나면 사라져 있어야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 스크롤된_상태에서_앞_카드가_떨어지면_남은_블록이_보이게_올라가고_돌아오면_다시_맨_아래로_내려간다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            _panel.Initialize(Commands(5), true);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나길 기다림
+            float fullHeight = _content.sizeDelta.y;
+            Assert.Greater(fullHeight, ViewportHeight, "단계 5개면 보이는 영역보다 길어 스크롤 범위가 있어야 함");
+            Assert.Greater(_content.anchoredPosition.y, 0f, "블록이 쌓이면 맨 아래로 내려가 있어야 함");
+
+            _panel.DropFrom(0); // 1번 카드가 떨어짐
+            await UniTask.Delay(800, DelayType.UnscaledDeltaTime); // 떨어뜨리기(0.2초)·올리기(0.3초) 연출이 끝나길 기다림
+            Assert.Less(_content.sizeDelta.y, ViewportHeight, "보이는 블록이 시작하기뿐이라 스크롤 범위가 보이는 영역보다 짧아져야 함");
+            Assert.AreEqual(0f, _content.anchoredPosition.y, Tolerance, "남은 시작하기 블록이 보이도록 맨 위로 올라가야 함");
+
+            _panel.DropFrom(int.MaxValue); // 1번 카드가 돌아옴
+            await UniTask.Delay(2000, DelayType.UnscaledDeltaTime); // 다시 붙기(1초 + 값 0.6초)·자동 스크롤 연출이 끝나길 기다림
+            Assert.AreEqual(fullHeight, _content.sizeDelta.y, Tolerance, "블록이 다시 붙으면 스크롤 범위가 원래대로 늘어나야 함");
+            Assert.AreEqual(0f, _scrollRect.verticalNormalizedPosition, Tolerance, "다시 붙은 블록이 보이도록 맨 아래로 내려가야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 함수_정의_블록은_함수_사용_단계를_따라_빠지고_앞_카드만_돌아오면_그_앞까지만_다시_붙는다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(DesignLayoutMode.FitAll);
+            _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
+            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null); // 자식 1 = 함수 사용, 자식 2 = 함수 정의
+            _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);        // 자식 3
+            await UniTask.Delay(1200, DelayType.UnscaledDeltaTime);
+
+            _panel.DropFrom(0);
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime);
+            Assert.AreEqual(0f, BlockAlpha(1), Tolerance, "함수 사용 단계 카드가 떨어지면 함수 사용 블록이 사라져야 함");
+            Assert.AreEqual(0f, BlockAlpha(2), Tolerance, "함수 정의 블록도 함께 사라져야 함");
+            Assert.AreEqual(0f, BlockAlpha(3), Tolerance, "뒤 블록도 사라져야 함");
+
+            _panel.DropFrom(1); // 함수 사용 카드만 돌아오고 2단계 카드는 아직 떨어져 있음
+            await UniTask.Delay(2000, DelayType.UnscaledDeltaTime);
+            Assert.AreEqual(1f, BlockAlpha(1), Tolerance, "돌아온 함수 사용 블록은 다시 보여야 함");
+            Assert.AreEqual(1f, BlockAlpha(2), Tolerance, "함수 정의 블록도 함께 다시 보여야 함");
+            Assert.AreEqual(0f, BlockAlpha(3), Tolerance, "아직 카드가 떨어진 단계 블록은 계속 사라져 있어야 함");
+
+            _panel.RemoveLastItem(); // 떨어진 상태의 블록을 취소로 빼도 파괴됨
+            await UniTask.Delay(500, DelayType.UnscaledDeltaTime);
+            Assert.AreEqual(3, _content.childCount, "떨어져 있던 블록을 빼면 시작하기 + 함수 사용 + 함수 정의만 남아야 함");
+        });
+
         [UnityTest]
         public IEnumerator 레벨_3은_만약_블록_안쪽에_동작_블록이_맞물리고_논리_블록과_완성하기는_만약_블록_아래_돌기에_맞물린다() => UniTask.ToCoroutine(async () =>
         {

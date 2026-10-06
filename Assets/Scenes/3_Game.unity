@@ -7723,6 +7723,8 @@ MonoBehaviour:
   valueSlideDuration: 0.3
   valueSlideDistance: 120
   removeDuration: 0.2
+  restoreRiseDuration: 1
+  restoreValueSlideDuration: 0.6
   scrollDuration: 0.3
   completeHoldDuration: 0.5
 --- !u!1 &1218452683

@@ -131,8 +131,9 @@ namespace DGAIZone.Game.UI
         // 라우팅을 적용하지 않고 기존처럼 아무 리더기의 태그나 현재 스탭에 적용함. 2대 이상부터 활성화됨.
         private int _readerCount = 1;
 
-        // 이미 확정된 스탭의 카드가 리더기에서 떨어져(RfidReaderIdleEvent) 값이 불확실해진 스탭 인덱스 목록.
-        // 여기 포함된 스탭부터 이후 DesignItem이 흐리게(비활성) 표시됨. 카드가 다시 인식되면 해당 인덱스가 제거됨.
+        // 이미 확정된 스탭의 카드가 리더기에서 떨어진(RfidReaderIdleEvent) 스탭 인덱스 목록.
+        // 여기 포함된 가장 이른 스탭부터 뒤쪽 설계창 블록을 임시로 떨어뜨리고, 하나라도 있으면 설정하기·코딩 완료를 막음.
+        // 같은 category 카드가 다시 인식되면 해당 인덱스가 제거되고 블록이 다시 붙음.
         private readonly HashSet<int> _idleReaderStepIndices = new HashSet<int>();
 
         // R3 반응형 상태 관리
@@ -320,6 +321,7 @@ namespace DGAIZone.Game.UI
             _confirmedCategories = new string[_totalSteps];
             _idleReaderStepIndices.Clear();
             ResetDesignPanel();
+            RefreshMissingCards();
             InitializeStepBalls();
             UpdateCategoryHint();
 
@@ -452,8 +454,17 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnRfidTagReceived(RfidTagEvent evt)
         {
+            // 리더기별 스탭 라우팅: 설정된 리더기가 2대 이상일 때만 적용함(1대뿐이면 기존처럼 어떤 리더기든 현재 스탭에 적용).
+            // "Reader_N" 형식이 아닌 readerId(디버그 키보드 시뮬레이터의 "Keyboard", 미등록 리더기의 "Unknown_...")는
+            // GetStepIndexForReader가 -1을 반환하므로 라우팅 없이 기존처럼 현재 스탭에 적용됨.
+            int readerStepIndex = _readerCount > 1 ? GetStepIndexForReader(evt.ReaderId) : -1;
+
+            // 카드가 떨어졌던 스탭의 리더기에 카드가 다시 올라온 것이면 스토리 화면 등으로 게임 패널이 잠시 비활성이어도 처리함
+            // (무시하면 카드는 놓였는데 블록은 떨어진 채 남고 설정하기·코딩 완료도 계속 막힘). 결과 화면으로 넘어가는 중에는 처리하지 않음.
+            bool returnsMissingCard = !_isBusy && readerStepIndex >= 0 && _idleReaderStepIndices.Contains(readerStepIndex);
+
             // 게임 패널이 활성 상태가 아니면(스토리 화면 등) RFID 입력을 무시함
-            if (!gamePanel || !gamePanel.interactable)
+            if (!gamePanel || (!gamePanel.interactable && !returnsMissingCard))
             {
                 if (_logger != null)
                 {
@@ -462,19 +473,16 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            // 리더기별 스탭 라우팅: 설정된 리더기가 2대 이상일 때만 적용함(1대뿐이면 기존처럼 어떤 리더기든 현재 스탭에 적용).
-            // "Reader_N" 형식이 아닌 readerId(디버그 키보드 시뮬레이터의 "Keyboard", 미등록 리더기의 "Unknown_...")는
-            // GetStepIndexForReader가 -1을 반환하므로 라우팅 없이 기존처럼 현재 스탭에 적용됨.
+            if (!gamePanel.interactable && _logger != null)
+            {
+                _logger.ZLogInformation($"[IngredientSelectionController] 게임 패널이 비활성이지만 {evt.ReaderId}는 카드가 떨어졌던 단계라 태그를 처리함.");
+            }
+
             if (_readerCount > 1)
             {
-                int readerStepIndex = GetStepIndexForReader(evt.ReaderId);
-
-                // 카드가 다시 인식됐으므로(어떤 category든) 흐리게 표시돼 있었다면 정상 표시로 되돌림
+                // 카드가 떨어졌던 스탭이면 떨어짐 표시에서 뺌. 떨어뜨린 블록은 같은 category일 때만 아래에서 다시 붙이고,
+                // 다른 category면 HandleConfirmedStepCardChanged가 그 스탭부터 블록을 지움(다시 붙였다 지우면 깜빡이므로 미리 붙이지 않음).
                 bool wasIdle = readerStepIndex >= 0 && _idleReaderStepIndices.Remove(readerStepIndex);
-                if (wasIdle)
-                {
-                    UpdateDesignItemGrayState();
-                }
 
                 if (readerStepIndex >= 0 && readerStepIndex < _currentStepIndex)
                 {
@@ -487,8 +495,9 @@ namespace DGAIZone.Game.UI
                     {
                         if (_logger != null)
                         {
-                            _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {readerStepIndex + 1})에 동일 카테고리({evt.Category}) 카드가 다시 인식되어 정상 상태로 복구함.");
+                            _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {readerStepIndex + 1})에 동일 카테고리({evt.Category}) 카드가 다시 인식되어 떨어뜨렸던 블록을 다시 붙임.");
                         }
+                        RefreshMissingCards();
                         return;
                     }
 
@@ -621,48 +630,77 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 이미 확정된 스탭을 담당하는 리더기에서 카드가 떨어졌을(RfidReaderIdleEvent) 때 호출됨. 그 값이 더 이상
-        /// 확실하지 않다는 걸 시각적으로 알리기 위해, 해당 스탭 이후의 DesignItem을 흐리게(비활성) 표시함.
-        /// 카드가 다시 인식되면(OnRfidTagReceived) 자동으로 정상 표시로 되돌아감. 리더기 1대뿐이면(현재) 그 1대가
-        /// 항상 "지금 진행 중인" 스탭이라 카드를 떼는 것 자체가 일반적인 조작 흐름이므로 이 기능을 적용하지 않음.
+        /// 리더기에서 카드가 떨어졌을(RfidReaderIdleEvent) 때 호출됨. 이미 확정된 스탭의 카드면 그 스탭부터 뒤쪽 설계창 블록을 임시로
+        /// 떨어뜨리고 설정하기·코딩 완료를 막음(같은 category 카드가 다시 인식되면 OnRfidTagReceived가 되돌림). 값을 고르던(아직 확정 안 된)
+        /// 현재 스탭의 카드면 취소하기처럼 고르던 값만 비움. 리더기 1대뿐이면 그 1대가 항상 "지금 진행 중인" 스탭이라 카드를 떼는 것 자체가
+        /// 일반적인 조작 흐름이므로 이 기능을 적용하지 않음.
         /// </summary>
         private void OnRfidReaderIdle(RfidReaderIdleEvent evt)
         {
             if (_readerCount <= 1) return;
-            if (_confirmedMatters == null) return;
+            if (_confirmedMatters == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 워크플로우 초기화가 끝나지 않아 {evt.ReaderId} 카드 떨어짐을 처리할 수 없음.");
+                return;
+            }
+
+            // 코딩 완료·건너뛰기로 결과 화면으로 넘어가는 중에는 체험자가 카드를 치워도 완성된 설계창을 그대로 둠
+            if (_isBusy)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 결과 화면으로 넘어가는 중이라 {evt.ReaderId} 카드 떨어짐을 무시함.");
+                return;
+            }
 
             int stepIndex = GetStepIndexForReader(evt.ReaderId);
-            if (stepIndex < 0 || stepIndex >= _currentStepIndex) return; // 매핑 안 되거나 아직 확정 안 된 스탭은 무시
+            if (stepIndex < 0 || stepIndex > _currentStepIndex)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}는 단계가 정해지지 않았거나 아직 진행하지 않은 단계라 카드 떨어짐을 무시함(현재 {_currentStepIndex + 1}번째 진행 중).");
+                return;
+            }
+
+            if (stepIndex == _currentStepIndex)
+            {
+                if (_currentMatters.Value.Length == 0)
+                {
+                    if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어졌지만 고르던 값이 없어 그대로 둠.");
+                    return;
+                }
+
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 고르던 값을 비움.");
+                ClearPendingSelection();
+                UpdateCategoryHint();
+                return;
+            }
 
             if (_idleReaderStepIndices.Add(stepIndex))
             {
                 if (_logger != null)
                 {
-                    _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 이후 항목을 비활성 표시로 전환함.");
+                    _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 이후 블록을 임시로 떨어뜨리고 설정하기·코딩 완료를 막음.");
                 }
-                UpdateDesignItemGrayState();
+                RefreshMissingCards();
             }
         }
 
         /// <summary>
-        /// _idleReaderStepIndices 중 가장 이른 인덱스부터 끝까지 설계창 항목을 흐리게(비활성) 표시하고,
-        /// 그 앞쪽은 정상 알파로 되돌림. 값 자체는 바꾸지 않고 시각적 표시만 담당함.
+        /// 카드가 떨어진 스탭(_idleReaderStepIndices) 중 가장 이른 스탭부터 끝까지 설계창 블록을 임시로 떨어뜨리고(그 앞은 다시 붙임),
+        /// 떨어진 카드가 있는 동안 설정하기·코딩 완료 버튼을 막음. 확정 값 자체는 바꾸지 않음.
         /// </summary>
-        private void UpdateDesignItemGrayState()
+        private void RefreshMissingCards()
         {
-            if (!_designPanel)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창 흐림 표시를 갱신할 수 없음.");
-                return;
-            }
-
-            int grayFromIndex = int.MaxValue;
+            int dropFromIndex = int.MaxValue;
             foreach (int idx in _idleReaderStepIndices)
             {
-                if (idx < grayFromIndex) grayFromIndex = idx;
+                if (idx < dropFromIndex) dropFromIndex = idx;
             }
 
-            _designPanel.DimFrom(grayFromIndex);
+            if (_designPanel) _designPanel.DropFrom(dropFromIndex);
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 카드가 떨어진 단계의 블록을 떨어뜨리거나 다시 붙일 수 없음.");
+
+            if (buttonConfirm) buttonConfirm.interactable = _idleReaderStepIndices.Count == 0;
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] buttonConfirm이 null이라 카드가 떨어진 동안 설정하기를 막을 수 없음.");
+
+            UpdateCodingCompleteButton();
         }
 
         /// <summary>
@@ -817,6 +855,7 @@ namespace DGAIZone.Game.UI
             }
 
             RollbackOneStep();
+            RefreshMissingCards(); // 되돌린 단계의 카드가 떨어져 있었다면 막아 둔 설정하기·코딩 완료를 풂
 
             ApplyProgressToMissionBoard();
 
@@ -865,7 +904,7 @@ namespace DGAIZone.Game.UI
                 _confirmedCategories[_currentStepIndex] = null;
             }
 
-            _idleReaderStepIndices.Remove(_currentStepIndex); // 해당 스탭의 DesignItem이 곧 제거되므로 흐림 표시 추적 대상에서도 제외
+            _idleReaderStepIndices.Remove(_currentStepIndex); // 해당 스탭의 블록이 곧 제거되므로 카드 떨어짐 추적 대상에서도 제외(표시 갱신은 호출자가 RefreshMissingCards로)
             RemoveLastDesignItem();
         }
 
@@ -882,7 +921,7 @@ namespace DGAIZone.Game.UI
 
             ApplyProgressToMissionBoard();
 
-            UpdateDesignItemGrayState(); // 남아있는 DesignItem의 흐림 표시 경계를 다시 계산함
+            RefreshMissingCards(); // 다 되돌린 뒤 한 번만 갱신함(중간에 갱신하면 곧 지울 블록이 다시 붙었다 사라지며 깜빡임)
             ClearPendingSelection();
         }
 
@@ -961,7 +1000,8 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 확정된 단계 수가 레벨 상태의 코딩 완료 조건(레벨 4·5는 1단계 이상, 나머지는 모든 단계)을 채웠을 때만 코딩완료 버튼을 활성화함.
+        /// 확정된 단계 수가 레벨 상태의 코딩 완료 조건(레벨 4·5는 1단계 이상, 나머지는 모든 단계)을 채웠고 카드가 떨어진 단계가 없을 때만
+        /// 코딩완료 버튼을 활성화함.
         /// </summary>
         private void UpdateCodingCompleteButton()
         {
@@ -971,7 +1011,8 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            buttonCodingComplete.interactable = CurrentLevelState?.IsCodingCompleteInteractable(this, _currentStepIndex, _totalSteps) ?? false;
+            bool reachedCompletion = CurrentLevelState?.IsCodingCompleteInteractable(this, _currentStepIndex, _totalSteps) ?? false;
+            buttonCodingComplete.interactable = reachedCompletion && _idleReaderStepIndices.Count == 0;
         }
 
         /// <summary>

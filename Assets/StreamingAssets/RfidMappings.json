@@ -35,8 +35,14 @@
   ],
   "mappings": [
     { "uid": "A1G081736922500B047C", "category": "동작" },
+    { "uid": "A1G08061AF3BA7F20472", "category": "동작" },
+    { "uid": "A1G0807369226313040D", "category": "동작" },
+    { "uid": "A1G081736922B958047D", "category": "동작" },
+    { "uid": "A1G0817369226642040D", "category": "동작" },
     { "uid": "A1G0951E0FDA0D0D0402", "category": "제어" },
+    { "uid": "A1G081736922C12B0409", "category": "제어" },
     { "uid": "A1G0807369225839040D", "category": "논리" },
+    { "uid": "A1G080736922BCA1047B", "category": "논리" },
     { "uid": "A1G080736922CBBC040A", "category": "함수" }
   ],
   "levelMappings": [

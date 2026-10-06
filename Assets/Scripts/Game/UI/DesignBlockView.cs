@@ -262,16 +262,25 @@ namespace DGAIZone.Game.UI
             return _motion;
         }
 
-        /// <summary> 붙을 때와 반대로 아래로 가라앉으며 사라지는 빼기 연출을 재생한 뒤 블록을 파괴함. </summary>
-        public void PlayDetachAndDestroy(float sinkHeight, float duration)
+        /// <summary>
+        /// 붙을 때와 반대로 아래로 가라앉으며 사라지는 빼기 연출을 재생함. 블록은 남겨 두므로 PlayAttach로 다시 붙일 수 있음.
+        /// 붙는 연출 도중이면 다 붙은 자리로 건너뛰지 않고 지금 자리·알파에서 바로 가라앉음.
+        /// </summary>
+        public void PlayDrop(float sinkHeight, float duration)
         {
-            CompleteMotion();
+            _motion?.Kill();
             RectTransform rect = (RectTransform)transform;
 
             _motion = DOTween.Sequence().SetUpdate(true).SetLink(gameObject)
                 .Join(rect.DOAnchorPos(rect.anchoredPosition - new Vector2(0f, sinkHeight), duration).SetEase(Ease.InOutSine))
-                .Join(_group.DOFade(0f, duration).SetEase(Ease.InOutSine))
-                .OnComplete(() => Destroy(gameObject));
+                .Join(_group.DOFade(0f, duration).SetEase(Ease.InOutSine));
+        }
+
+        /// <summary> 빼기 연출(PlayDrop)을 재생한 뒤 블록을 파괴함. </summary>
+        public void PlayDetachAndDestroy(float sinkHeight, float duration)
+        {
+            PlayDrop(sinkHeight, duration);
+            _motion.OnComplete(() => Destroy(gameObject));
         }
 
         /// <summary> 연출 없이 위치를 바로 정함(배치 방식이 바뀌어 전체를 다시 놓을 때). </summary>
@@ -279,13 +288,6 @@ namespace DGAIZone.Game.UI
         {
             CompleteMotion();
             ((RectTransform)transform).anchoredPosition = position;
-        }
-
-        /// <summary> 흐림 표시 여부에 따라 알파를 정함(카드가 떨어져 값이 불확실해진 단계). </summary>
-        public void SetDimmed(bool dimmed, float dimmedAlpha)
-        {
-            CompleteMotion();
-            _group.alpha = dimmed ? dimmedAlpha : 1f;
         }
 
         /// <summary> 진행 중인 연출이 있으면 끝 상태로 건너뜀. </summary>
