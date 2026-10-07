@@ -13,6 +13,21 @@
 
 ---
 
+### [2026-10-07] Claude → Antigravity · T45
+- 배경: 사용자가 가져온 실제 USB QR 리더기로 테스트(이 PC는 내부망 서버에 닿지 않아 127.0.0.1 가짜 서버, uid는 숫자 9·영문 A 형태로만 기록). 서로 다른 QR 3장, 6번 읽음 — 5번은 12자 그대로·Enter 인식·서버 확인까지 정상, Windows 한/영을 한글로 바꿔도 같은 값(Unity IME 모드 Auto라 입력란이 없으면 조합 안 함). 첫 번째 한 번만 맨 앞에 영문 소문자 한 글자가 붙어 13자 — 타이틀이 Enter까지 들어온 글자를 모두 모으므로 찍기 전에 눌린 키로 봄(Play 모드를 다시 켠 뒤에는 재현되지 않음). 디버그 창·인스펙터는 꺼진 그대로, 세 단축키는 Ctrl 조합만 남음(커서 표시는 Game 뷰 포커스가 바뀔 때 에디터가 되살리는 것).
+- 요청(사용자): 글자 사이가 0.5초 넘게 벌어지면 앞에 모은 글자를 버리고 새로 모음. PC가 느리면 늦게 들어올 수 있으니 값은 JSON으로. 1존은 사용자가 따로 반영.
+- 변경 파일
+  - `Title/ScanInputBuffer.cs`(새 파일): Append(char, now)가 앞 글자와 MaxCharGapSeconds 넘게 벌어지면 앞 글자를 비우고 버린 개수를 돌려줌, IsStale(now)·TakeAndClear·Clear. 기본 0.5초(DefaultMaxCharGapSeconds).
+  - `Title/TitleFlowController.cs`: StringBuilder 대신 ScanInputBuffer. 버리면 개수만 로그(uid 내용 없음). Enter가 마지막 글자보다 간격 넘게 늦게 오면 QR로 보지 않고 버림. ApplyGuideAsync가 qrCanvasGroup이 없어도 0_Title.json을 항상 읽도록 순서를 바꾸고(전에는 안내가 없으면 QR 확인 최소 시간 등도 기본값) `ApplyScanCharGap`(0 이하면 경고 후 기본값).
+  - `Data/TitleSceneSettings.cs`·`StreamingAssets/Json/0_Title.json`: scanCharGapSeconds 0.5.
+  - `Tests/Runtime/ScanInputBufferTests.cs`(새 5개): 짧은 간격 이어 붙음, 간격 초과 시 앞 글자 버림, 정확히 0.5초는 유지, 낡은 입력 판정, 간격을 늘린 경우. `CHANGELOG.md`([Unreleased] Fixed), `TODO.md`.
+- 확인: 컴파일 에러 0, PlayMode `DGAIZone.Tests` 165/165. Play 모드(가짜 서버, 서버 모드 — 테스트 뒤 원복): 'x' 입력 → 약 4초 뒤 'NF1'+Enter → 로그 '앞에 모은 1글자를 버리고 새로 모음'·서버가 받은 uid는 `NF1`, 'NFab' 입력 → 약 6초 뒤 Enter → '모은 4글자를 QR로 보지 않고 버림'·서버 요청 없음·QR 대기 유지. 확인 뒤 Server.json·운영 모드 PlayerPrefs·확인용 PlayerPrefs·EditorSettings·GamtanRoadTantan SDF 동적 글자 원복, 가짜 서버 종료.
+  - 간격을 JSON으로 뺀 뒤: 0_Title.json scanCharGapSeconds를 잠시 1.5로 바꿔 Play 모드에서 적용 값 1.5 확인 후 0.5로 원복.
+- 확인 요청: (1차, 고정 0.5초 코드) 정상 스캔 유지·두 Enter 경로 한 번 처리, 버려야 할 경우·경계값, 프레임 멈춤 영향, uid 로그, 규칙, 콘솔 (2차, JSON 분리 뒤 최종 diff) 로드 전·후 값과 0 이하 처리·키 이름, ApplyGuideAsync 순서 변경 영향, 0.5초 고정 가정 잔존, 규칙·콘솔
+- 결과: 1차 6/6, 2차 4/4 통과(agy `gemini-3.8-flash-high`), 수정 사항 없음. 프레임이 0.5초 넘게 멈춰 스캔 중간이 잘리면 미등록·확인 불가 안내 뒤 QR 대기로 돌아감(타이틀은 정지 화면이라 드묾, 느린 PC는 scanCharGapSeconds를 늘림).
+
+---
+
 ### [2026-10-07] Claude → Antigravity · PR #47 머지 전 리뷰 (T42~T44)
 - 요청(사용자): 체험자 정보는 GameSession(1존 방식)이 아니라 지금의 루트 싱글톤 저장소를 유지하고, PR을 만들어 Antigravity와 리뷰한 뒤 머지. 1존은 그대로 둠(GameSession과 싱글톤의 성능 차이는 없음).
 - PR: wonjeong97/DG_AI_Zone4#47 — 이어 만든 브랜치 3개(T42 feat/debug-shortcut-ctrl → T43 feat/admin-page → T44 feat/visitor-server-api)를 맨 위 브랜치 하나로 올림(기능별 커밋 유지, CHANGELOG 날짜 섹션 이동·머지를 한 번에).

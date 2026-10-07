@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
@@ -51,8 +50,9 @@ namespace DGAIZone.Title
         private Tween _qrBlinkTween;
 
         // USB 바코드 스캐너는 키보드처럼 문자를 입력한 뒤 Enter를 보냄 — Enter 전까지 모은 문자열이 QR 값.
+        // 글자 사이가 0_Title.json scanCharGapSeconds(기본 0.5초)보다 벌어지면 앞에 모은 글자(찍기 전에 눌린 키 등)는 버림(ScanInputBuffer).
         // 스캐너는 본체 키보드와 별개의 키보드 장치로 잡히므로 연결된 키보드 전부(나중에 꽂힌 것 포함)를 구독함.
-        private readonly StringBuilder _scanBuffer = new();
+        private readonly ScanInputBuffer _scanBuffer = new();
         private readonly List<Keyboard> _scanKeyboards = new();
         private bool _isWaitingForQr;
 
@@ -118,7 +118,7 @@ namespace DGAIZone.Title
 
         /// <summary>
         /// 서버 연동(관리자 화면의 운영 모드)이면 QR 안내를 띄우고 시작 버튼을 숨긴 채 QR 입력을 기다리고, 로컬 모드면 시작 안내와 버튼을 바로 보여줌.
-        /// 안내는 어느 쪽이든 천천히 깜빡이며, 페이드 시간은 0_Title.json(TitleSceneSettings)에서 읽어와 재빌드 없이 조정 가능.
+        /// 안내는 어느 쪽이든 천천히 깜빡이며, 페이드 시간·QR 확인 시간·스캐너 글자 간격은 0_Title.json(TitleSceneSettings)에서 읽어와 재빌드 없이 조정 가능.
         /// </summary>
         private async UniTaskVoid ApplyGuideAsync(CancellationToken token)
         {
@@ -133,11 +133,14 @@ namespace DGAIZone.Title
                 if (isServerConnected) WaitForQr();
                 else ShowStartGuide(Constants.TitleMessages.StartGuide);
 
-                if (!qrCanvasGroup) return; // Start에서 이미 경고함
-                qrCanvasGroup.gameObject.SetActive(true);
+                if (qrCanvasGroup) qrCanvasGroup.gameObject.SetActive(true); // null이면 Start에서 이미 경고함
 
+                // 안내가 없어도 QR 확인·스캐너 값은 써야 하므로 설정은 항상 읽음
                 string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Title}";
                 _sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token);
+                ApplyScanCharGap();
+
+                if (!qrCanvasGroup) return;
 
                 _qrBlinkTween = qrCanvasGroup.DOFade(_sceneSettings.qrBlinkMinAlpha, _sceneSettings.qrFadeDuration)
                     .SetLoops(-1, LoopType.Yoyo)
@@ -148,6 +151,20 @@ namespace DGAIZone.Title
             {
                 // 씬 전환 등으로 오브젝트가 파괴되어 취소된 경우 — 정상 종료
             }
+        }
+
+        /// <summary> 0_Title.json의 스캐너 글자 사이 최대 간격을 적용함. 0 이하면 경고를 남기고 기본값을 씀. </summary>
+        private void ApplyScanCharGap()
+        {
+            float gap = _sceneSettings.scanCharGapSeconds;
+            if (gap > 0f)
+            {
+                _scanBuffer.MaxCharGapSeconds = gap;
+                return;
+            }
+
+            _scanBuffer.MaxCharGapSeconds = ScanInputBuffer.DefaultMaxCharGapSeconds;
+            if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] 0_Title.json의 scanCharGapSeconds({gap})가 0 이하라 기본값 {ScanInputBuffer.DefaultMaxCharGapSeconds}초를 씀.");
         }
 
         /// <summary> 시작 버튼을 숨기고 QR 안내를 띄운 뒤 키보드(바코드 스캐너) 문자 입력을 받기 시작함. </summary>
@@ -210,13 +227,25 @@ namespace DGAIZone.Title
             keyboard.onTextInput -= OnScanTextInput;
         }
 
-        /// <summary> 스캐너가 보낸 문자를 모음. 스캐너가 Enter를 CR/LF 문자로 보내는 경우 그 자리에서 인식을 끝냄. </summary>
+        /// <summary>
+        /// 스캐너가 보낸 문자를 모음. 스캐너가 Enter를 CR/LF 문자로 보내는 경우 그 자리에서 인식을 끝냄.
+        /// 앞 글자와 scanCharGapSeconds(기본 0.5초)보다 벌어진 글자가 오면 앞에 모은 글자는 이번 스캔이 아니라 버림(글자 내용은 uid일 수 있어 개수만 로그에 남김).
+        /// </summary>
         private void OnScanTextInput(char c)
         {
             if (!_isWaitingForQr) return;
 
-            if (c == '\r' || c == '\n') SubmitScan();
-            else if (!char.IsControl(c)) _scanBuffer.Append(c);
+            if (c == '\r' || c == '\n')
+            {
+                SubmitScan();
+                return;
+            }
+
+            if (char.IsControl(c)) return; // Tab 등 제어 문자는 QR 값이 아님(정상)
+
+            int discarded = _scanBuffer.Append(c, Time.realtimeSinceStartup);
+            if (discarded > 0 && _logger != null)
+                _logger.ZLogInformation($"[TitleFlowController] 글자 사이가 {_scanBuffer.MaxCharGapSeconds}초 넘게 벌어져 앞에 모은 {discarded}글자를 버리고 새로 모음.");
         }
 
         /// <summary> Enter가 문자로 오지 않는 장치를 위해, QR 대기 중 어느 키보드든 Enter 키가 눌리면 인식을 끝냄. </summary>
@@ -234,12 +263,21 @@ namespace DGAIZone.Title
             }
         }
 
-        /// <summary> 모은 문자열을 QR 값으로 처리함 — 비어 있으면(Enter만 들어온 경우) 무시하고 계속 기다림. </summary>
+        /// <summary>
+        /// 모은 문자열을 QR 값으로 처리함 — 비어 있으면(Enter만 들어온 경우) 무시하고 계속 기다림.
+        /// 마지막 글자 뒤로 scanCharGapSeconds(기본 0.5초)보다 늦게 온 Enter면 모은 글자는 스캔이 아니라 손으로 누른 키로 보고 버림.
+        /// </summary>
         private void SubmitScan()
         {
-            string code = _scanBuffer.ToString();
-            _scanBuffer.Clear();
+            bool isStale = _scanBuffer.IsStale(Time.realtimeSinceStartup);
+            string code = _scanBuffer.TakeAndClear();
             if (!_isWaitingForQr || string.IsNullOrWhiteSpace(code)) return;
+
+            if (isStale)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 마지막 글자보다 {_scanBuffer.MaxCharGapSeconds}초 넘게 늦게 Enter가 와서 모은 {code.Length}글자를 QR로 보지 않고 버림.");
+                return;
+            }
 
             OnQrScanned(code);
         }
