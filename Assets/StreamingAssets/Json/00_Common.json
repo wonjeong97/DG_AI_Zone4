@@ -1,6 +1,6 @@
 {
   "sceneTransitionFadeDuration": 0.5,
-  "panelFadeDuration": 0.4,
+  "panelFadeDuration": 0.5,
   "storyLineMoveDuration": 0.7,
   "storyLineInterval": 0.35,
   "storyLineYOffset": 22.0

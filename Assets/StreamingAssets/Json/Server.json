@@ -1,0 +1,8 @@
+{
+  "baseUrl": "http://192.168.0.52:8500",
+  "uploadTimeoutSeconds": 5,
+  "uploadMaxAttempts": 10,
+  "qrCheckTimeoutSeconds": 3,
+  "qrCheckMaxAttempts": 3,
+  "retryDelaySeconds": 1.0
+}

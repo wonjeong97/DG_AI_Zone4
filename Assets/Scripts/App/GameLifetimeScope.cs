@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using DGAIZone.Data;
+using DGAIZone.Network;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -96,7 +97,7 @@ namespace DGAIZone.App
         }
 
         /// <summary>
-        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)을 등록하고
+        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)·서버 API를 등록하고
         /// 템플릿 디버그 단축키를 Ctrl 조합으로 바꿈.
         /// </summary>
         protected override void Configure(IContainerBuilder builder)
@@ -109,6 +110,7 @@ namespace DGAIZone.App
             builder.Register<UnlockedLevelStore>(Lifetime.Singleton);
             builder.Register<AdminLevelJumpStore>(Lifetime.Singleton);
             builder.Register<VisitorInfoProvider>(Lifetime.Singleton);
+            builder.Register<VisitorApiClient>(Lifetime.Singleton);
 
             // 운영 모드·체험자 이름 — 관리자 화면에서 바꾼 값은 PlayerPrefs에 남아 있어 재부팅 후에도 유지됨
             builder.RegisterInstance(LoadVisitorSettings());

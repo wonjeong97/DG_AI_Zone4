@@ -49,16 +49,16 @@ namespace DGAIZone.Tests
             Assert.AreEqual("미션 실패!", _missionResultText.text);
         }
 
-        /// <summary> 미션에 성공하면 패널 제목이 "미션 완료!"여야 함. </summary>
+        /// <summary> 미션에 성공하면 패널 제목이 1존과 같은 "미션 성공!"이어야 함. </summary>
         [Test]
-        public void 미션_성공이면_결과_문구가_미션_완료로_나온다()
+        public void 미션_성공이면_결과_문구가_미션_성공으로_나온다()
         {
             _missionResultText.text = "";
             _resultStore.Result = MissionResult.Success;
 
             _controller.ApplyMissionResultText();
 
-            Assert.AreEqual("미션 완료!", _missionResultText.text);
+            Assert.AreEqual("미션 성공!", _missionResultText.text);
         }
     }
 }

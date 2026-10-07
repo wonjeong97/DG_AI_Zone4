@@ -17,11 +17,20 @@ namespace DGAIZone.App
             public const string Outro = "5_Outro";
         }
 
-        /// <summary> 타이틀 씬 하단 안내 문구. </summary>
+        /// <summary> 타이틀 씬 하단 안내 문구. 값은 1존과 같음. </summary>
         public static class TitleMessages
         {
             public const string QrGuide = "QR 코드를 인식하여 주세요.";
             public const string StartGuide = "시작하기를 눌러주세요.";
+
+            /// <summary> 서버 모드에서 QR로 확인한 체험자에게 보이는 시작 안내 — {0}에 체험자 이름. </summary>
+            public const string StartGuideWithNameFormat = "{0}님, 시작하기를 눌러주세요.";
+
+            // 서버 모드에서 QR을 찍은 뒤 체험자 확인 결과 안내 — 확인 중을 빼면 잠시 보여 준 뒤 QrGuide로 돌아감
+            public const string QrChecking    = "QR 코드를 확인하고 있습니다.";
+            public const string QrCompleted   = "이미 체험을 완료한 QR 코드입니다.";
+            public const string QrNotFound    = "등록되지 않은 QR 코드입니다.";
+            public const string QrCheckFailed = "QR 코드를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.";
         }
 
         /// <summary> 스토리 텍스트 등에 들어가는 체험자 이름 플레이스홀더. </summary>
@@ -118,6 +127,39 @@ namespace DGAIZone.App
 
             /// <summary> 체험자 이름 최대 글자 수 — 인트로·아웃트로 문장 안에 들어가므로 한 줄을 넘지 않게 제한함. </summary>
             public const int VisitorNameMaxLength = 8;
+        }
+
+        /// <summary>
+        /// 체험자 서버 API(서버 모드에서 타이틀 QR uid로 체험자 확인, 결과 화면에서 레벨 결과 저장). 서버는 현장 내부망에 있음.
+        /// 경로·응답 문구·기본값은 1존과 같고 콘텐츠 코드만 이 존(D)의 것.
+        /// </summary>
+        public static class VisitorApi
+        {
+            /// <summary> 서버 주소 JSON(StreamingAssets/Json/Server.json) 파일명. </summary>
+            public const string SettingsFileName = "Server";
+
+            // 요청 실패(연결 실패·시간 초과·HTTP 오류) 시 응답 대기 시간(초)과 최대 시도 횟수(첫 시도 포함).
+            // 결과 업로드(updateValue)는 화면을 막지 않아 넉넉히, 타이틀 QR 확인(checkActive·getUser)은 체험자가 화면 앞에서
+            // 기다리므로 짧게 둠. 재시도 간격은 공통
+            public const int   DefaultUploadTimeoutSeconds  = 5;
+            public const int   DefaultUploadMaxAttempts     = 10;
+            public const int   DefaultQrCheckTimeoutSeconds = 3;
+            public const int   DefaultQrCheckMaxAttempts    = 3;
+            public const float DefaultRetryDelaySeconds     = 1f;
+
+            /// <summary> 체험 가능 여부(평문 응답) — 뒤에 uid를 붙임. 체험 가능하면 "idx_user,name"(예: "10,LLL"). </summary>
+            public const string CheckActivePath   = "/api/checkActive.cfm?uid=";
+            public const string CompletedResponse = "체험을 완료한 유저입니다";
+            public const string NotFoundResponse  = "NOT_FOUND";
+
+            /// <summary> 체험자 정보·진행도 — 뒤에 uid를 붙임. 응답 JSON의 user에 A1~D5(성공 1·실패 0·기록 없음 null)가 있음. </summary>
+            public const string GetUserPath = "/api/getUser.cfm?uid=";
+
+            /// <summary> 레벨 결과 저장 — {0} idx_user, {1} 콘텐츠 코드, {2} 성공 1·실패 0. </summary>
+            public const string UpdateValuePathFormat = "/api/updateValue.cfm?idx_user={0}&code={1}&value={2}";
+
+            /// <summary> 이 존(4존)의 콘텐츠 코드 — 레벨 번호를 붙여 D1~D5(레벨1~5)로 씀. </summary>
+            public const string ZoneCode = "D";
         }
 
         /// <summary> RFID 카드 분류(RfidMappings.json의 category 값과 일치해야 함). </summary>
@@ -226,7 +268,7 @@ namespace DGAIZone.App
             public const string GameStart      = "gameStart";      // 타이틀 시작하기 버튼
             public const string HintEpisode    = "hintEpisode";    // 미션 다시 보기 버튼
             public const string MissionFailed  = "missonFailed";   // 결과 완료 화면 '미션 실패!'
-            public const string MissionSuccess = "missonSuccess";  // 결과 완료 화면 '미션 완료!'
+            public const string MissionSuccess = "missonSuccess";  // 결과 완료 화면 '미션 성공!'
         }
     }
 }

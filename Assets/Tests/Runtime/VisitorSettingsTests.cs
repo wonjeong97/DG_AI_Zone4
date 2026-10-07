@@ -81,18 +81,39 @@ namespace DGAIZone.Tests
             }
         }
 
-        /// <summary> VisitorInfoProvider는 설정의 모드를 그대로 알려 주고, 이름이 비어 있으면 기본 이름을 씀. </summary>
+        /// <summary> 로컬 모드는 설정의 이름을 쓰고, 이름이 비어 있으면 기본 이름을 씀. </summary>
         [Test]
-        public void 체험자_정보는_설정을_따르고_빈_이름이면_기본_이름을_쓴다()
+        public void 로컬_모드는_설정_이름을_쓰고_빈_이름이면_기본_이름을_쓴다()
         {
             VisitorInfoProvider provider = new VisitorInfoProvider(_settings, null);
 
-            _settings.IsServerConnected = true;
             _settings.VisitorName = "홍길동";
-            Assert.IsTrue(provider.IsServerConnected);
+            Assert.IsFalse(provider.IsServerConnected);
             Assert.AreEqual("홍길동", provider.GetNameAsync().GetAwaiter().GetResult());
 
             _settings.VisitorName = string.Empty;
+            Assert.AreEqual(Constants.DefaultVisitorName, provider.GetNameAsync().GetAwaiter().GetResult());
+        }
+
+        /// <summary> 서버 모드는 QR로 확인한 서버 이름을 쓰고, 확인한 체험자가 없으면 설정 이름 대신 기본 이름을 씀. </summary>
+        [Test]
+        public void 서버_모드는_서버_이름을_쓰고_없으면_기본_이름을_쓴다()
+        {
+            VisitorInfoProvider provider = new VisitorInfoProvider(_settings, null);
+            _settings.IsServerConnected = true;
+            _settings.VisitorName = "홍길동";
+
+            Assert.IsTrue(provider.IsServerConnected);
+            Assert.IsFalse(provider.HasServerVisitor);
+            Assert.AreEqual(Constants.DefaultVisitorName, provider.GetNameAsync().GetAwaiter().GetResult(), "QR 확인 전에는 로컬 이름이 아니라 기본 이름이어야 함");
+
+            provider.SetServerVisitor(10, "LLL");
+            Assert.IsTrue(provider.HasServerVisitor);
+            Assert.AreEqual(10, provider.VisitorIdx);
+            Assert.AreEqual("LLL", provider.GetNameAsync().GetAwaiter().GetResult());
+
+            provider.ClearServerVisitor();
+            Assert.IsFalse(provider.HasServerVisitor);
             Assert.AreEqual(Constants.DefaultVisitorName, provider.GetNameAsync().GetAwaiter().GetResult());
         }
     }

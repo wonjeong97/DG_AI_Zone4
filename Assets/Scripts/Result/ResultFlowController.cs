@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Data;
+using DGAIZone.Network;
 using Microsoft.Extensions.Logging;
 using TMPro;
 using UnityEngine;
@@ -18,10 +19,11 @@ namespace DGAIZone.Result
     /// <summary>
     /// 결과 씬의 화면 흐름 제어. 플레이어 결과 영상 재생이 끝나면(ResultVideoPanel) 화면 중앙에 'AI가 코딩중입니다...'를 띄웠다가 지우고,
     /// 우측 상단 AI 패널(ResultAiPanel)에서 정답 설계창과 성공 영상을 보여 준 뒤 컴플리트 패널로 페이드인함.
-    /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 완료!" 또는 "미션 실패!"로 표시함.
+    /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 성공!" 또는 "미션 실패!"로 표시함(1존과 같은 문구).
     /// 컴플리트 패널의 "다음 미션" 버튼은 방금 플레이한 레벨이 마지막 레벨이 아니면 2_LevelSelect로(다음 레벨을
     /// 고를 수 있도록), 마지막 레벨(Constants.LastLevel)이면 5_Outro로 전환하며 버튼 문구도 "종료하기"로 바뀜.
     /// 관리자 레벨 이동으로 시작한 판이면 레벨과 상관없이 타이틀로 돌아가 관리자 화면을 다시 엶.
+    /// 서버 모드에서 QR로 확인한 체험자의 판이면 결과 화면에 들어오자마자 레벨 결과(미션 성공 1·실패 0)를 체험자 서버에 올림(관리자 판 제외).
     /// </summary>
     public class ResultFlowController : MonoBehaviour
     {
@@ -34,7 +36,7 @@ namespace DGAIZone.Result
         [SerializeField] private ResultPlayerPanel playerPanel; // 좌측 하단 '나의 코딩 결과' 패널
 
         private const string EndButtonText = "종료하기";
-        private const string MissionSuccessText = "미션 완료!";
+        private const string MissionSuccessText = "미션 성공!";
         private const string MissionFailText = "미션 실패!";
         private const string AiCodingText = "AI가 코딩중입니다";
         private const string AiCodingDots = "..."; // 점 슬롯 3개 — AiCodingDotCycle과 맞춰야 함
@@ -45,6 +47,8 @@ namespace DGAIZone.Result
         private UnlockedLevelStore _unlockedLevelStore;
         private GameResultStore _resultStore;
         private AdminLevelJumpStore _levelJumpStore;
+        private VisitorInfoProvider _visitorInfoProvider;
+        private VisitorApiClient _visitorApiClient;
         private InactivityTimer _inactivityTimer;
         private ILogger<ResultFlowController> _logger;
         private SoundManager _soundManager;
@@ -55,9 +59,13 @@ namespace DGAIZone.Result
         private ResultSceneSettings _sceneSettings = new ResultSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소를 할당함. </summary>
+        /// <summary>
+        /// VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소,
+        /// 체험자 정보 제공자, 체험자 서버 API를 할당함.
+        /// </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null, AdminLevelJumpStore levelJumpStore = null)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null, AdminLevelJumpStore levelJumpStore = null,
+            VisitorInfoProvider visitorInfoProvider = null, VisitorApiClient visitorApiClient = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
@@ -67,12 +75,14 @@ namespace DGAIZone.Result
             _inactivityTimer = inactivityTimer;
             _soundManager = soundManager;
             _levelJumpStore = levelJumpStore;
+            _visitorInfoProvider = visitorInfoProvider;
+            _visitorApiClient = visitorApiClient;
         }
 
         /// <summary>
         /// 초기 패널 상태(AI 코딩 안내·컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 결과 영상과 AI 연출은 입력 없이 보는 구간이라
         /// 미션 결과 문구(컴플리트 패널)가 나올 때까지 비활동 타이머를 멈춤. 방금 플레이한 레벨(SelectedLevelStore)을
-        /// 완료한 것으로 간주해 다음 레벨까지 잠금 해제하고(성공/실패 무관, 체험 자체를 진행도로 인정),
+        /// 완료한 것으로 간주해 다음 레벨까지 잠금 해제하고(성공/실패 무관, 체험 자체를 진행도로 인정), 레벨 결과를 체험자 서버에 올리고,
         /// 패널 제목을 미션 결과에 맞추고, 마지막 레벨이면 버튼 문구를 "종료하기"로 바꾼 뒤 연출 타이밍을 비동기로 불러옴.
         /// </summary>
         private void Start()
@@ -89,9 +99,43 @@ namespace DGAIZone.Result
             if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockThrough(playedLevel);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] unlockedLevelStore가 null이라 다음 레벨을 잠금 해제할 수 없음.");
 
+            UploadLevelResult(playedLevel);
+
             if (playedLevel >= Constants.LastLevel) ApplyEndButtonText();
 
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary>
+        /// 방금 플레이한 레벨(1부터)의 결과를 체험자 서버에 올림(D1~D5, 미션 성공 1·실패 0 — 넘어가기·미완료는 실패로 기록돼 0).
+        /// 서버 모드, QR로 확인한 체험자, 관리자 레벨 이동 판이 아닐 때만 올림. 씬을 떠나도 업로드(재시도 포함)가 끊기지 않게 씬 수명과 묶지 않음.
+        /// </summary>
+        private void UploadLevelResult(int playedLevel)
+        {
+            if (_visitorInfoProvider == null || _visitorApiClient == null || _resultStore == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] 체험자 정보 제공자·서버 API·결과 저장소 중 주입되지 않은 것이 있어 레벨 결과를 올리지 않음.");
+                return;
+            }
+
+            if (!_visitorInfoProvider.IsServerConnected) return; // 로컬 모드 — 올릴 서버가 없음(정상)
+
+            if (_levelJumpStore != null && _levelJumpStore.IsLevelJump)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[ResultFlowController] 관리자 레벨 이동으로 시작한 판이라 레벨 결과를 올리지 않음.");
+                return;
+            }
+
+            if (!_visitorInfoProvider.HasServerVisitor)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] QR로 확인한 체험자가 없어 레벨 결과를 올리지 않음.");
+                return;
+            }
+
+            string code = VisitorApiClient.GetLevelCode(playedLevel);
+            bool isSuccess = _resultStore.Result == MissionResult.Success;
+            _visitorApiClient.UpdateValueAsync(_visitorInfoProvider.VisitorIdx, _visitorInfoProvider.ServerVisitorName, code, isSuccess,
+                CancellationToken.None).Forget();
         }
 
         /// <summary> completeNextButton의 자식 텍스트를 "종료하기"로 바꿈(마지막 레벨을 완료했을 때만 호출됨). </summary>
@@ -110,7 +154,7 @@ namespace DGAIZone.Result
         /// <summary> 테스트 전용: 인스펙터로 연결하는 컴플리트 패널 제목 텍스트를 넣음. </summary>
         internal void SetMissionResultTextForTest(TMP_Text text) => missionResultText = text;
 
-        /// <summary> 컴플리트 패널(미션 완료/실패 문구)이 나타날 때 미션 결과에 맞는 효과음을 냄. 결과 저장소가 없으면 결과를 알 수 없어 경고만 남김. </summary>
+        /// <summary> 컴플리트 패널(미션 성공/실패 문구)이 나타날 때 미션 결과에 맞는 효과음을 냄. 결과 저장소가 없으면 결과를 알 수 없어 경고만 남김. </summary>
         private void PlayMissionResultSound()
         {
             if (_resultStore == null)
@@ -123,7 +167,7 @@ namespace DGAIZone.Result
             SoundEffects.Play(_soundManager, key, _logger);
         }
 
-        /// <summary> 컴플리트 패널 제목(Text_MissionComplete)을 미션 결과에 맞춰 "미션 완료!" 또는 "미션 실패!"로 바꿈. </summary>
+        /// <summary> 컴플리트 패널 제목(Text_MissionComplete)을 미션 결과에 맞춰 "미션 성공!" 또는 "미션 실패!"로 바꿈. </summary>
         internal void ApplyMissionResultText()
         {
             if (!missionResultText)
