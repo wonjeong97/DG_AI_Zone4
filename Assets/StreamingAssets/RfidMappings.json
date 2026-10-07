@@ -55,7 +55,7 @@
           "matters": [
             { "id": "SolidRocket", "label": "고체 로켓 (+7)", "value": 7 },
             { "id": "LiquidRocket", "label": "액체 로켓 (+10)", "value": 10 },
-            { "id": "NuclearEngine", "label": "핵 추진 엔진 (+12)", "value": 12 }
+            { "id": "NuclearEngine", "label": "핵 추진 엔진 (+15)", "value": 15 }
           ]
         },
         {
