@@ -13,6 +13,20 @@
 
 ---
 
+### [2026-10-08] Claude → Antigravity · T46
+- 요청(사용자): 레벨 5에서 '그리고' 블록을 없애고 적절한 동작 블록 하나 추가 → 논리 카드를 통째로 빼고 함수 1·동작 4장, 새 블록 '연결 통로 코드', 스토리 '네 가지 시스템'(셋 다 사용자 선택). 이어서 Panel_Level5 그림(Image_Rover·Tower·Corridor·Dome)을 처음에 숨기고 동작 블록이 함수 정의 블록 안에 들어갈 때마다 맞는 그림 표시 → 블록이 다 붙은 뒤에 나오게. 마지막으로 확정한 단계의 카드를 떼면 취소하기로(모든 레벨), 리더기가 카드가 있는데도 가끔 떨어졌다고 판정하므로 디바운스.
+- 변경 파일
+  - 레벨 5: `App/Constants.cs`(Level5 Logic·And 제거, 동작 블록 id 4개, Level5Cards 함수1·동작4), `States/IngredientLevel5State.cs`(논리 제거, 정답 함수→동작 4개, 함수 정의 안쪽 동작 블록을 모아 그림 갱신 — 확정 때 AttachDuration, 다시 붙을 때 RestoreDuration만큼 기다림), `Data/RfidMappingValidator.cs`, `StreamingAssets/RfidMappings.json`(레벨 5), `Data/Level5.asset`(스토리, 두 씬 스토리 칸에 들어감 확인).
+  - 그림: 새 `UI/Level5CityView.cs`(Panel_Level5, 그림 4장 연결, 투명하게 켜 두고 SetDelay 뒤 페이드인, 숨길 때 DOKill 후 바로 끔), `States/IIngredientSelectionLevelState.cs`·레벨 1~4 상태(OnMissingCardsRefreshed 빈 구현), `IngredientSelectionController.cs`(level5City, FirstMissingCardStep, RefreshMissingCards 끝 훅, DesignAttachDuration·DesignRestoreDuration), `DesignPanel.cs`(AttachDuration·RestoreDuration), `GameSceneLifetimeScope.cs`, `Scenes/3_Game.unity`(컴포넌트 추가·그림 4장 끔·컨트롤러 연결).
+  - 마지막 카드 취소: `IngredientSelectionController.cs`(OnRfidReaderIdle에 마지막 확정 단계 분기, 취소 버튼 본문을 CancelLastStep으로 — 클릭음은 버튼만).
+  - 디바운스: 새 `Hardware/CardRemovalDebouncer.cs`, `Hardware/RfidReaderService.cs`(무카드 응답이 cardRemovedDebounceMs 동안 이어질 때만 떨어짐 발행, 같은 카드가 다시 읽히면 오응답 로그), `Data/RfidMappingData.cs`·`RfidMappings.json`(cardRemovedDebounceMs 1000).
+  - 테스트: `Level5RuleTests`(함수1·동작4, 함수 정의 안쪽 동작 블록 모으기, 그림 켜고 끄기, 기다린 뒤 페이드인), `DesignPanelTests`(레벨 5 시나리오), 새 `CardRemovalDebouncerTests`. `ProjectSettings` 버전 26.10.8, `CHANGELOG.md`, `TODO.md`.
+- 확인(Claude): PlayMode 171/171, 콘솔 오류 0. Play 모드 레벨 5(가짜 카드 이벤트): 함수 앞 동작 블록은 그림 없음, 함수 뒤 동작 블록은 그림 켜짐(투명 대기 뒤 표시), 마지막 카드 떼면 단계 3→2·블록·그림 빠짐, 앞 단계 카드 떼면 임시로 떨어지고 설정하기 막힘 → 같은 카드 돌아오면 다시 붙고 그림 다시 보임. 디바운스는 단위 테스트로만 확인(실제 리더기 미확인). 확인 뒤 EditorSettings(테스트가 켠 Enter Play Mode Options)·GamtanRoadTantan SDF 동적 글자 원복.
+  - 첫 Play 점검 중 Antigravity의 validate_script 호출로 보이는 재컴파일이 일어나 Play 세션이 깨짐(템플릿 의존성 미주입 오류, KeyboardRfidSimulator OnEnable NRE) → 2차부터 Play 점검 중에는 validate_script·run_tests 금지로 요청.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`): (1차 코드) 그림·블록 일치(확정·취소·교체·떨어짐·초기화·함수 위치), 논리 제거 잔존, Level5CityView, 규칙, 콘솔 → 통과, 낮음 2건 중 '그림 참조가 비어 있는데 끄는 경우 로그 없음' 반영, 'ShowOnly null 목록'은 호출부가 항상 목록을 넘겨 미반영. (데이터·씬·테스트) 씬 참조·m_IsActive·스토리·JSON·실물 카드 수·테스트·버전 → 6/6 통과. (2차 코드: 디바운스·마지막 카드 취소·그림 지연) → 6/6 통과. (PR wonjeong97/DG_AI_Zone4#49 머지 전: 설명 일치·레벨 1~4 영향·CHANGELOG·TODO·테스트·잔존 참조·콘솔) → 5/5 통과, 문제 0건.
+
+---
+
 ### [2026-10-07] Claude → Antigravity · T45
 - 배경: 사용자가 가져온 실제 USB QR 리더기로 테스트(이 PC는 내부망 서버에 닿지 않아 127.0.0.1 가짜 서버, uid는 숫자 9·영문 A 형태로만 기록). 서로 다른 QR 3장, 6번 읽음 — 5번은 12자 그대로·Enter 인식·서버 확인까지 정상, Windows 한/영을 한글로 바꿔도 같은 값(Unity IME 모드 Auto라 입력란이 없으면 조합 안 함). 첫 번째 한 번만 맨 앞에 영문 소문자 한 글자가 붙어 13자 — 타이틀이 Enter까지 들어온 글자를 모두 모으므로 찍기 전에 눌린 키로 봄(Play 모드를 다시 켠 뒤에는 재현되지 않음). 디버그 창·인스펙터는 꺼진 그대로, 세 단축키는 Ctrl 조합만 남음(커서 표시는 Game 뷰 포커스가 바뀔 때 에디터가 되살리는 것).
 - 요청(사용자): 글자 사이가 0.5초 넘게 벌어지면 앞에 모은 글자를 버리고 새로 모음. PC가 느리면 늦게 들어올 수 있으니 값은 JSON으로. 1존은 사용자가 따로 반영.

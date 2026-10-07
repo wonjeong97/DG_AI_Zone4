@@ -35,6 +35,7 @@ namespace DGAIZone.Game
             builder.RegisterComponentInHierarchy<CodingCategoryIndicatorController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
             builder.RegisterComponentInHierarchy<Level4BoardController>();
+            builder.RegisterComponentInHierarchy<Level5CityView>();
 
             MessagePipeOptions options = builder.RegisterMessagePipe();
             builder.RegisterMessageBroker<RfidTagEvent>(options);

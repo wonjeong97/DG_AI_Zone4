@@ -344,6 +344,16 @@ namespace DGAIZone.Game.Hardware
             string lastPublishedDecoded = null;
             int discardedCardReads = 0; // 접속 직후 리더기가 백그라운드에서 계속 스캔하다 쌓아둔 잔여 카드 값을 최초 cardReadsToDiscard회만큼 버림
             bool discardWindowOpen = true; // "무카드" 응답을 한 번이라도 받으면(리더기 상태가 실시간을 반영한다는 뜻) 즉시 닫힘
+            CardRemovalDebouncer removal = new CardRemovalDebouncer(); // 리더기의 "무카드" 오응답을 카드 떨어짐으로 보지 않도록 판정을 늦춤
+            System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew(); // 무카드 응답이 이어진 시간을 재는 단조 시계
+
+            int removedDebounceMs = _settings?.cardRemovedDebounceMs ?? RfidSettings.DefaultCardRemovedDebounceMs;
+            if (removedDebounceMs < 0)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] cardRemovedDebounceMs가 {removedDebounceMs}라 0으로 씀(첫 무카드 응답에 바로 카드 떨어짐으로 봄).");
+                removedDebounceMs = 0;
+            }
+            removal.DebounceMs = removedDebounceMs;
 
             try
             {
@@ -387,6 +397,12 @@ namespace DGAIZone.Game.Hardware
                         if (length > noCardMaxLength)
                         {
                             string decoded = DecodeTagPayload(responseBuffer, length);
+                            int ignoredNoCardReads = removal.OnCardRead();
+                            if (ignoredNoCardReads > 0 && string.Equals(decoded, lastPublishedDecoded, StringComparison.Ordinal) && _logger != null)
+                            {
+                                _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 무카드 응답 {ignoredNoCardReads}번 뒤 같은 카드가 다시 읽혀 카드 떨어짐으로 보지 않음(리더기 오응답).");
+                            }
+
                             if (!string.IsNullOrEmpty(decoded) && !string.Equals(decoded, lastPublishedDecoded, StringComparison.Ordinal))
                             {
                                 lastPublishedDecoded = decoded;
@@ -421,13 +437,14 @@ namespace DGAIZone.Game.Hardware
                             // 잔여값 필터링 창을 즉시 닫음(정상 상황이면 씬 진입 직후 대부분 이 경로로 바로 닫힘).
                             discardWindowOpen = false;
 
-                            if (lastPublishedDecoded != null)
+                            // 직전까지 인식되어 있던 카드에 대해 무카드 응답이 cardRemovedDebounceMs 동안 이어지면 떨어진 것으로 보고 1회만 알림.
+                            // 그 전에 같은 카드가 다시 읽히면 리더기 오응답으로 보고 무시함(lastPublishedDecoded를 유지해 재발행하지 않음).
+                            if (lastPublishedDecoded != null && removal.OnNoCard(clock.ElapsedMilliseconds))
                             {
-                                // 직전까지 인식되어 있던 카드가 방금 떨어짐(짧은 응답으로 전환된 순간) -> 1회만 알림
                                 if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드가 떨어짐.");
                                 _idleSubject.OnNext(session.ReaderId); // 구독자가 UI를 바꾸므로 이 수신 스레드에서 바로 발행하지 않음
+                                lastPublishedDecoded = null; // 카드가 떨어짐 -> 다음 태그 때 다시 발행 가능하도록 리셋
                             }
-                            lastPublishedDecoded = null; // 카드가 떨어짐(짧은 응답) -> 다음 태그 때 다시 발행 가능하도록 리셋
                         }
                     }
 

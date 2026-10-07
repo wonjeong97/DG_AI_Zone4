@@ -31,6 +31,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 단계 취소(되돌리기) 시 적용되었던 레벨별 효과를 원복. </summary>
         void OnStepRolledBack(IngredientSelectionController controller, int stepIndex, string ingredientId, RfidMatter matter);
 
+        /// <summary> 카드가 떨어지거나 돌아와 설계창 블록을 임시로 떨어뜨리거나 다시 붙인 뒤 호출됨(워크플로우 초기화·취소·되돌리기 뒤에도 호출됨). </summary>
+        void OnMissingCardsRefreshed(IngredientSelectionController controller);
+
         /// <summary> 설계창에 값 블록(명령 블록 오른쪽에 끼우는 블록)이 쌓일 수 있는 레벨인지 여부. 설계창이 블록 묶음을 가운데 놓는 폭 계산에 쓰임. </summary>
         bool UsesValueBlocks { get; }
 
