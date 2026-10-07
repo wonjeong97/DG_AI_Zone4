@@ -12,7 +12,7 @@ namespace DGAIZone.Data
         public float sceneTransitionFadeDuration = 0.5f;
 
         /// <summary> 같은 씬 안에서 패널이 페이드/크로스페이드되는 데 걸리는 시간(초). </summary>
-        public float panelFadeDuration = 0.4f;
+        public float panelFadeDuration = 0.5f;
 
         /// <summary> 스토리 텍스트 각 줄이 아래에서 위로 올라오는 이동/페이드 연출 시간(초). </summary>
         public float storyLineMoveDuration = 0.7f;

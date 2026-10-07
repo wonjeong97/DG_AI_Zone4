@@ -1,0 +1,130 @@
+using DGAIZone.Admin;
+using DGAIZone.App;
+using NUnit.Framework;
+
+namespace DGAIZone.Tests
+{
+    /// <summary>
+    /// 관리자 화면 진입 규칙 — 연속 클릭 판정과 키패드 비밀번호 입력을 검증함.
+    /// </summary>
+    public class AdminLogicTests
+    {
+        /// <summary>
+        /// 제한 시간 안에 목표 횟수를 채우면 마지막 클릭에서만 true가 되고 카운트가 비워짐.
+        /// </summary>
+        [Test]
+        public void 제한_시간_안에_목표_횟수를_채우면_열린다()
+        {
+            ConsecutiveClickCounter counter = new ConsecutiveClickCounter(10, 3f);
+
+            for (int i = 0; i < 9; i++)
+                Assert.IsFalse(counter.Register(i * 0.2f), $"{i + 1}번째 클릭에서 열리면 안 됨");
+
+            Assert.IsTrue(counter.Register(1.8f), "10번째 클릭에서 열려야 함");
+            Assert.AreEqual(0, counter.Count, "연 뒤에는 다음 연속 클릭을 위해 카운트가 비워져야 함");
+        }
+
+        /// <summary>
+        /// 첫 클릭부터 제한 시간이 지나면 지금 클릭을 새 1회로 셈.
+        /// </summary>
+        [Test]
+        public void 제한_시간이_지나면_다시_1회부터_센다()
+        {
+            ConsecutiveClickCounter counter = new ConsecutiveClickCounter(10, 3f);
+
+            for (int i = 0; i < 9; i++)
+                counter.Register(i * 0.3f);
+
+            Assert.IsFalse(counter.Register(3.5f), "첫 클릭에서 3초가 지난 10번째 클릭은 인정되지 않아야 함");
+            Assert.AreEqual(1, counter.Count);
+        }
+
+        /// <summary>
+        /// 최대 6자리까지만 입력되고, 지우기는 마지막 자리부터 지움.
+        /// </summary>
+        [Test]
+        public void 최대_자릿수까지만_입력되고_지우기는_마지막_자리를_지운다()
+        {
+            PasswordInput input = new PasswordInput();
+
+            for (int i = 1; i <= Constants.Admin.PasswordMaxLength; i++)
+                Assert.IsTrue(input.TryAppend(i), $"{i}번째 자리는 입력돼야 함");
+            Assert.IsFalse(input.TryAppend(7), "최대 자릿수를 넘는 입력은 무시돼야 함");
+            Assert.IsTrue(input.Matches("123456"));
+
+            input.RemoveLast();
+            Assert.IsTrue(input.Matches("12345"));
+
+            input.Clear();
+            input.RemoveLast();
+            Assert.AreEqual(0, input.Length, "비어 있을 때 지우기는 아무것도 하지 않아야 함");
+        }
+
+        /// <summary>
+        /// 4자리 미만은 확인할 수 없고, 비밀번호와 글자까지 같아야 맞음.
+        /// </summary>
+        [Test]
+        public void 네_자리부터_확인할_수_있고_글자까지_같아야_맞다()
+        {
+            PasswordInput input = new PasswordInput();
+            input.TryAppend(0);
+            input.TryAppend(0);
+            input.TryAppend(0);
+            Assert.IsFalse(input.HasValidLength, "3자리는 확인할 수 없어야 함");
+
+            input.TryAppend(0);
+            Assert.IsTrue(input.HasValidLength);
+            Assert.IsTrue(input.Matches(Constants.Admin.DefaultPassword));
+            Assert.IsFalse(input.Matches("00000"), "길이가 다르면 틀려야 함");
+            Assert.IsFalse(input.Matches("0001"));
+            Assert.IsFalse(input.Matches(null));
+        }
+
+        /// <summary>
+        /// 저장된 비밀번호는 숫자 4~6자리만 유효함.
+        /// </summary>
+        [Test]
+        public void 저장된_비밀번호는_숫자_4에서_6자리만_유효하다()
+        {
+            Assert.IsTrue(PasswordInput.IsValidPassword("0000"));
+            Assert.IsTrue(PasswordInput.IsValidPassword("123456"));
+            Assert.IsFalse(PasswordInput.IsValidPassword("123"));
+            Assert.IsFalse(PasswordInput.IsValidPassword("1234567"));
+            Assert.IsFalse(PasswordInput.IsValidPassword("12a4"));
+            Assert.IsFalse(PasswordInput.IsValidPassword(" 1234"));
+            Assert.IsFalse(PasswordInput.IsValidPassword(""));
+            Assert.IsFalse(PasswordInput.IsValidPassword(null));
+        }
+
+        /// <summary>
+        /// 비밀번호 변경 때 저장할 값으로 입력한 숫자를 그대로 꺼낼 수 있어야 함.
+        /// </summary>
+        [Test]
+        public void 입력한_숫자를_새_비밀번호_문자열로_꺼낸다()
+        {
+            PasswordInput input = new PasswordInput();
+            foreach (int digit in new[] { 0, 5, 7, 9 })
+                input.TryAppend(digit);
+
+            string newPassword = input.ToString();
+
+            Assert.AreEqual("0579", newPassword, "앞자리 0도 그대로 남아야 함");
+            Assert.IsTrue(PasswordInput.IsValidPassword(newPassword), "저장한 값을 다음에 다시 읽어도 유효해야 함");
+        }
+
+        /// <summary>
+        /// 체험자 이름은 비었거나 앞뒤가 띄어쓰기면 저장할 수 없음 — 인트로·아웃트로 문장에 어긋난 여백이 생김.
+        /// </summary>
+        [Test]
+        public void 비었거나_앞뒤가_띄어쓰기인_이름은_저장할_수_없다()
+        {
+            Assert.IsTrue(VisitorNamePanel.IsSavableName("홍길동"));
+            Assert.IsTrue(VisitorNamePanel.IsSavableName("김 철수"), "가운데 띄어쓰기는 허용");
+            Assert.IsFalse(VisitorNamePanel.IsSavableName(string.Empty));
+            Assert.IsFalse(VisitorNamePanel.IsSavableName(null));
+            Assert.IsFalse(VisitorNamePanel.IsSavableName(" 홍길동"));
+            Assert.IsFalse(VisitorNamePanel.IsSavableName("홍길동 "));
+            Assert.IsFalse(VisitorNamePanel.IsSavableName("  "));
+        }
+    }
+}

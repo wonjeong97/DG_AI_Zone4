@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using TMPro;
+using DGAIZone.Data;
+using DGAIZone.Network;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -95,7 +97,8 @@ namespace DGAIZone.App
         }
 
         /// <summary>
-        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과 저장소를 등록함.
+        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)·서버 API를 등록하고
+        /// 템플릿 디버그 단축키를 Ctrl 조합으로 바꿈.
         /// </summary>
         protected override void Configure(IContainerBuilder builder)
         {
@@ -105,12 +108,44 @@ namespace DGAIZone.App
             builder.Register<GameResultStore>(Lifetime.Singleton);
             builder.Register<SelectedLevelStore>(Lifetime.Singleton);
             builder.Register<UnlockedLevelStore>(Lifetime.Singleton);
+            builder.Register<AdminLevelJumpStore>(Lifetime.Singleton);
             builder.Register<VisitorInfoProvider>(Lifetime.Singleton);
+            builder.Register<VisitorApiClient>(Lifetime.Singleton);
+
+            // 운영 모드·체험자 이름 — 관리자 화면에서 바꾼 값은 PlayerPrefs에 남아 있어 재부팅 후에도 유지됨
+            builder.RegisterInstance(LoadVisitorSettings());
+
+            // 템플릿 디버그 단축키(D·I·M)를 Ctrl 조합으로 — QR 스캐너가 입력하는 uid 문자와 겹치지 않게.
+            // GameManagerBase가 주입받는 것과 같은 싱글톤 인스턴스라 그대로 반영됨
+            builder.RegisterBuildCallback(container =>
+                DebugShortcutBindings.Apply(container.Resolve<TemplateInputActions>()));
 
             using (RegisterTmpFontsMarker.Auto())
             {
                 RegisterTmpFonts();
             }
+        }
+
+        /// <summary>
+        /// 체험자 설정(VisitorSettings SO)을 Addressables로 불러옴. Configure는 동기 실행이라 WaitForCompletion으로 동기 로드함.
+        /// 불러오지 못하면 에셋 기본값(로컬 모드, '체험자')과 같은 임시 인스턴스를 써서 부팅은 이어 가되 에러를 남김
+        /// (관리자 화면에서 바꾼 PlayerPrefs 값은 그대로 읽힘).
+        /// </summary>
+        private static VisitorSettings LoadVisitorSettings()
+        {
+            try
+            {
+                VisitorSettings settings = Addressables.LoadAssetAsync<VisitorSettings>(Constants.ResourcePaths.VisitorSettingsKey).WaitForCompletion();
+                if (settings) return settings;
+            }
+            catch (Exception ex)
+            {
+                // 컨테이너 구성 도중이라 로거를 아직 주입받을 수 없어 Debug로 대체 출력함
+                Debug.LogError($"[GameLifetimeScope] VisitorSettings 로드 중 예외: {ex.Message}");
+            }
+
+            Debug.LogError($"[GameLifetimeScope] Addressables 주소 '{Constants.ResourcePaths.VisitorSettingsKey}'의 VisitorSettings를 불러오지 못해 기본값으로 대체함.");
+            return ScriptableObject.CreateInstance<VisitorSettings>();
         }
 
         /// <summary>

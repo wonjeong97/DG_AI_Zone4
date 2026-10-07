@@ -13,6 +13,77 @@
 
 ---
 
+### [2026-10-07] Claude → Antigravity · PR #47 머지 전 리뷰 (T42~T44)
+- 요청(사용자): 체험자 정보는 GameSession(1존 방식)이 아니라 지금의 루트 싱글톤 저장소를 유지하고, PR을 만들어 Antigravity와 리뷰한 뒤 머지. 1존은 그대로 둠(GameSession과 싱글톤의 성능 차이는 없음).
+- PR: wonjeong97/DG_AI_Zone4#47 — 이어 만든 브랜치 3개(T42 feat/debug-shortcut-ctrl → T43 feat/admin-page → T44 feat/visitor-server-api)를 맨 위 브랜치 하나로 올림(기능별 커밋 유지, CHANGELOG 날짜 섹션 이동·머지를 한 번에).
+- 확인 요청(main 대비 전체 diff를 세 묶음으로 나눠 병렬): (A) 관리자·공용 코드 — 기능 사이 상호작용(QR 체험자가 있는 상태의 관리자 레벨 이동, 관리자 화면을 연 채 QR), 루트 등록과 Construct 매개변수(기본값 무시), 로컬 모드 일반 체험 회귀, 누수·빌드 분기, 규칙 (B) 씬 흐름·네트워크 — 타이틀 모드 전환·QR·관리자 복귀 간섭과 초기화 순서, 레벨 선택 자동 선택·디버그 해금·잠금 재적용·서버 해금과 json 프리셋, 결과 화면 순서·업로드 수명·예외, 동시 요청·로그, 규칙 (C) 테스트·에셋·설정·문서 — JSON 값 1존 일치, 씬·Addressables·SO 기본값, bundleVersion·EditorSettings, 테스트 정리·순서 독립, CHANGELOG·TODO·HANDOFF, 콘솔
+- 결과: A 5/5, B 5/5, C 6/6 통과(agy `gemini-3.8-flash-high`), 머지 전 수정 사항 없음.
+  - Claude 확인: 씬 전환 중(페이드아웃 → 로드 → 페이드인) 템플릿 FadeManager 이미지가 raycastTarget으로 입력을 막아, 관리자 화면 버튼이 전환 도중 눌려 전환 요청이 무시되는 경우는 생기지 않음. VisitorSettings는 Addressables에 들어 있어 기존 폰트·레벨 이미지와 같은 빌드 과정(AddressableAssetSettings는 플레이어 빌드 시 Addressables 빌드를 전역 환경설정에 맡김)으로 함께 빌드됨.
+- 머지 뒤 남는 일: 현장 내부망에서 실제 서버 확인, 현장 Settings.json useInactivityTimer true(시작하기 대기 시간 제한), Visitor.json으로 서버 모드·다른 이름을 쓰던 PC는 관리자 화면에서 다시 설정.
+
+---
+
+### [2026-10-07] Claude → Antigravity · T44
+- 요청(사용자): 1존의 QR 체험자 확인·체험자 서버 API(checkActive·getUser·updateValue, 재시도)를 4존에 같은 동작·값으로. 콘텐츠 코드 D(레벨1~5 = D1~D5). 서버는 회사 내부망 전용이라 응답 형식은 사용자가 준 실측값만 근거로 함.
+  - 사용자 선택: getUser 해금 변환은 1존과 같은 규칙(열린 레벨 개수 = 기록 있는 마지막 D 레벨 번호 + 1, 최대 5, 없으면 1 — 4존 로컬 규칙도 결과 화면에서 성공·실패와 상관없이 다음 레벨을 엶). 결과 문구는 1존과 같은 '미션 성공!'.
+- 변경 파일
+  - 새 파일: `Network/VisitorApiClient.cs`(Server.json을 호출마다 읽음, 연결 실패·시간 초과·HTTP 오류만 재시도·UnscaledDeltaTime 대기·로그 n/최대, uid·URL·getUser 원문은 로그에 남기지 않음, 업로드 로그는 idx·이름·코드=값, 서버가 거부하면 원문을 에러 로그), `Network/CheckActiveResult.cs`(평문 해석), `Network/GetUserResult.cs`(result는 JsonUtility, D1~D5는 정규식으로 null·0 구분, `UnlockedLevelCount`), `Network/UpdateValueResponse.cs`, `Data/ServerSettings.cs`, `StreamingAssets/Json/Server.json`(1존과 같은 값). 네임스페이스는 DGAIZone.Network(같은 폴더의 기존 APIManager는 `Network` 그대로 둠).
+  - `App/Constants.cs`: VisitorApi(경로·응답 문구·기본값, ZoneCode "D"), TitleMessages(이름 시작 안내·확인 중·완료·미등록·확인 불가).
+  - `App/VisitorInfoProvider.cs`: VisitorIdx·ServerVisitorName·HasServerVisitor·SetServerVisitor·ClearServerVisitor. 서버 모드 이름은 QR로 확인한 서버 이름, 없으면 '체험자'(사용자 지시대로 — 1존은 이 경우 관리자 화면 이름으로 대체).
+  - `App/GameLifetimeScope.cs`: VisitorApiClient 등록.
+  - `Title/TitleFlowController.cs`: 1존 TitleSceneManager 흐름 — QR → 입력 정지·대기 취소·시작 버튼 숨김·앞사람 기록 비움 → 확인 중(최소 qrCheckingMinSeconds) → checkActive → getUser → 체험자·해금 기록 → '{이름}님, 시작하기를 눌러주세요.'·스캐너 입력 유지·대기 시간 재기(Settings.json useInactivityTimer·resetTime) / 실패 안내 scanResultMessageSeconds 뒤 QR 대기. 시작하기를 누르면 입력·대기 정지. Start에서 모드와 상관없이 해금·체험자·관리자 판 표시 초기화.
+  - `Result/ResultFlowController.cs`: Start에서 `UploadLevelResult`(서버 모드·QR 체험자·관리자 판 아님일 때 D{레벨}=성공 1/실패 0, CancellationToken.None + Forget), 성공 문구 '미션 성공!'.
+  - 연출 값(1존과 같게): `00_Common.json` panelFadeDuration 0.4 → 0.5(이 값은 3_Game 패널 전환만 씀, 2_LevelSelect.json·4_Result.json의 panelFadeDuration 0.4는 범위 밖이라 그대로), `0_Title.json` qrFadeDuration 1.2 → 1.0·qrCheckingMinSeconds 1.0·scanResultMessageSeconds 3.0, 설정 클래스 기본값도 같게.
+  - 테스트(새 46개): CheckActiveResultTests 15·GetUserResultTests 16(실측 응답, D 값·해금 변환·다른 존 무시·공백 없는 응답·따옴표 숫자·없는 레벨 키)·VisitorApiClientTests 14, VisitorSettingsTests(서버 모드 이름 1개 추가·로컬 모드로 고침), ResultFlowTests('미션 성공!'). `CHANGELOG.md`, `TODO.md`.
+- 확인: 컴파일 에러 0, PlayMode `DGAIZone.Tests` 158/158(리뷰 반영 뒤 160/160). 127.0.0.1:8599 가짜 서버(Python, 응답 앞뒤 \r\n·charset 없는 UTF-8)로 0_Title Play 모드(스캐너 입력은 `OnScanTextInput`에 문자를 직접 넣음, 안내 문구 변화를 시각과 함께 기록):
+  - 체험 가능 LLL(D1=1·D2=0): 확인 중 16.28 → 'LLL님, …'·시작 버튼 17.28(1.00초), idx 10·해금 3. Settings.json useInactivityTimer true·resetTime 8(테스트 동안만)로 25.28에 QR 대기·기록 비움.
+  - MMM(D1~D5 모두 기록) → 해금 5, 시작하기가 떠 있는 동안 미등록 QR → 시작 버튼 숨김·기록 비움(idx -1·해금 1) → '등록되지 않은 QR 코드입니다.' 3초 → QR 대기.
+  - 완료 문구 → '이미 체험을 완료한 QR 코드입니다.'(charset 없는 UTF-8 한글 해석 확인), HTML → Unknown 원문 경고·확인 불가, getUser NOT_FOUND → 확인 불가.
+  - 재시도: 처음 2번 HTTP 500 → checkActive·getUser 각각 (1/3)(2/3) 실패 뒤 성공, 3번 모두 500 → '3번 모두 실패' → 확인 불가, 5초 지연 응답 → Request timeout 3번(약 11초) → 확인 불가, 닫힌 포트 → Cannot connect 3번 → 확인 불가.
+  - 시작하기 → 입력 정지·대기 취소, 인트로에 'LLL'. 결과 씬(레벨 2 성공): 업로드 2번 HTTP 500 뒤 `레벨 결과 저장 완료 (idx 10, 이름 LLL, D2=1)`, 화면 '미션 성공!'. idx 99 → `{"result":false,"message":"ERROR_IDX_USER"}` 원문 에러 로그, 다시 보내지 않음. 관리자 판 → '올리지 않음' 로그·요청 없음. 타이틀 복귀 → idx -1·해금 1·관리자 판 표시 꺼짐.
+  - 콘솔 에러는 의도한 실패 경우 4건뿐, uid·URL 로그 없음. 확인 뒤 Server.json(192.168.0.52:8500)·Settings.json·운영 모드 PlayerPrefs(원래 없음)·Enter Play Mode Options·GamtanRoadTantan SDF 동적 글자 원복, 가짜 서버 종료.
+- 현장 확인 필요: 실제 서버가 완료 문구를 UTF-8이 아닌 인코딩으로 charset 없이 보내면 Unknown(확인 불가)이 됨 — 로그의 원문으로 판단(1존과 같음). Settings.json useInactivityTimer가 false면 시작하기 대기 시간 제한도 꺼짐(현장은 true로).
+- 확인 요청: (A) 서버 API — 실측 규칙대로 해석·해금 변환, 1존과 다른 점, 재시도·취소·예외 누출, uid·URL·원문 로그, 테스트 범위, 규칙, 콘솔 (B) 타이틀 흐름·업로드 — 요구 사항 8개, CTS·경쟁·중복 구독·시작 뒤 간섭, 업로드 값·횟수·제외 조건, VContainer 등록(기본값 무시), 규칙·CHANGELOG, 콘솔
+- 결과: B 통과(6/6, 수정 사항 없음). A는 1·2·3·5·6 통과, 4(테스트)는 보완 권장(agy `gemini-3.8-flash-high`, 두 묶음 병렬).
+  - 반영: `GetUserResult`가 D1~D5 밖의 키(D0·D6·D10)를 무시(서버에 없는 레벨 키가 생겨도 모든 레벨을 열지 않게), 테스트 2개(따옴표 숫자, 없는 레벨 키). 리뷰 뒤 반영한 작은 변경이라 Claude가 테스트로 검증 — PlayMode 160/160.
+  - 미반영: `Uri.EscapeDataString(uid ?? "")` — 호출부(SubmitScan)가 빈 값을 걸러 null이 들어올 수 없음. `Failed()`·`GetLevelCode` 범위 밖 값 테스트 — 호출부가 1~5만 넘김.
+
+---
+
+### [2026-10-07] Claude → Antigravity · T43
+- 요청(사용자): 1존(main 3b24d60)의 관리자 페이지를 4존에 같은 동작·값으로. 체험자 이름·운영 모드는 Visitor.json을 없애고 관리자 화면에서 바꿈(1존 Data/VisitorSettings.cs와 같은 방식).
+  - 사용자 선택: 관리자 레벨 이동은 2_LevelSelect에서 그 레벨 버튼을 고른 것처럼 스토리를 바로 띄움.
+- 변경 파일
+  - 새 파일: `Admin/AdminTrigger.cs`·`ConsecutiveClickCounter.cs`·`AdminPasswordPanel.cs`·`PasswordInput.cs`·`AdminPanel.cs`·`VisitorNamePanel.cs`·`HangulComposer.cs`(1존 코드를 네임스페이스 DGAIZone.Admin, 효과음 SoundEffects.Play, 씬 전환 SceneTransitionService로 옮김), `App/RaycastArea.cs`, `App/AdminLevelJumpStore.cs`(루트 싱글톤 — Begin(level)·TryTakePendingStoryLevel·IsLevelJump·OpenAdminOnTitle·EndLevelJump), `Data/VisitorSettings.cs`·`Data/AdminSettings.cs`, `StreamingAssets/Json/Admin.json`(0000), `AddressableAssets/Data/VisitorSettings.asset`(주소 VisitorSettings, Default Local Group — 그룹 파일의 나머지 변경은 GUID 순 재정렬).
+  - `Prefabs/AdminCanvas.prefab`: 1존 프리팹을 복사해 스크립트 GUID 5개와 GamtanRoadTantan SDF 머티리얼 fileID(-119739183008471601 → -958249402790162185, 폰트 에셋 GUID는 두 프로젝트가 같음)만 바꿈. `0_Title.unity`에 배치(별도 Canvas sortingOrder 10). 바꾼 뒤 끊긴 참조 0.
+  - 삭제: `StreamingAssets/Visitor.json`, `App/VisitorData.cs`, `Constants.Files.Visitor`.
+  - `App/VisitorInfoProvider.cs`: VisitorSettings 주입, `IsServerConnected` 속성(`IsServerConnectedAsync` 제거), `GetNameAsync`는 SO 이름(비면 '체험자').
+  - `App/GameLifetimeScope.cs`: AdminLevelJumpStore 등록, VisitorSettings를 Addressables 동기 로드해 RegisterInstance(실패하면 기본 인스턴스 + 에러 로그).
+  - `Title/TitleLifetimeScope.cs`: 관리자 컴포넌트 4개 RegisterComponentInHierarchy(비활성 패널도 주입됨). `Title/TitleFlowController.cs`: 모드는 `IsServerConnected`로, Start에서 `EndLevelJump`.
+  - `LevelSelect/LevelSelectFlowController.cs`: OnLevelClicked를 클릭음 + `SelectLevel`로 나눔. 2_LevelSelect.json을 읽고 잠금을 다시 적용한 뒤 관리자 레벨 이동 레벨이 있으면 씬 전환이 끝나기를 기다려 `SelectLevel`(먼저 고르면 다시 적용되는 잠금이 옮긴 버튼을 다시 누를 수 있게 만듦). `_isLevelSelected`로 그사이 버튼으로 먼저 고른 경우 다시 고르지 않음.
+  - `Result/ResultFlowController.cs`: 다음 버튼은 관리자 판이면 `OpenAdminOnTitle` 후 0_Title(레벨 5도 아웃트로 대신).
+  - 테스트(새 22개): AdminLogicTests 7·HangulComposerTests 8·RaycastAreaTests 1(1존에서 옮김), VisitorSettingsTests 3(체험자 정보 제공자 1 추가), AdminLevelJumpTests 3. `CHANGELOG.md`(⚠ Breaking Changes: Visitor.json 삭제), `TODO.md`.
+- 확인: 컴파일 에러 0, PlayMode `DGAIZone.Tests` 114/114. Play 모드(0_Title, 버튼 onClick 직접 호출): 왼쪽 위 레이캐스트는 AdminTrigger, 9회까지 안 열리고 10회째 비밀번호 창, 2자리 확인 → 자릿수 안내, 1234 → 오류 안내·입력 지움, 10초 무입력 닫힘(로그), 0000 → 관리자 화면, 이름 '홍길동'(조합)·Shift ㄲ·숫자·영문 → 8자에서 멈춤·저장·상태 문구, 서버 모드 전환 → 닫으면 타이틀 다시 불러와 'QR 코드를 인식하여 주세요.'·시작 버튼 숨김, 비밀번호 1234로 변경(불일치 → 다시 입력 → Admin.json 저장·상태 문구), 0000 거부·1234로 진입, 레벨 3 이동 → 2_LevelSelect 레벨 3 스토리(선택 3·해금 3·관리자 판), 결과 씬 다음 → 0_Title 관리자 화면 바로 열림(관리자 판 표시·해금 초기화), 인트로에 '홍길동ㄲ1abc' 표시. 콘솔 에러 0. 확인 뒤 운영 모드·이름 PlayerPrefs(원래 없음) 삭제, Admin.json 0000, Enter Play Mode Options 끔, Play 중 늘어난 GamtanRoadTantan SDF 동적 글자는 되돌림.
+- 확인 요청: (A) 관리자 UI — 1존과 동작·값, 비활성 패널 주입·Awake 시점, 프리팹 필드 이름, 비동기 취소·리스너·중복 입력, 규칙, 콘솔 (B) 설정 이전·레벨 이동 — 남은 참조, 흐름 4가지(관리자 판 완료·도중 타임아웃·일반 체험·레벨 5), 자동 선택 시점·debugUnlockedLevelCount·취소, Addressables 동기 로드·그룹 항목, 테스트, 규칙·CHANGELOG
+- 결과: A 6/6, B 6/6 통과(agy `gemini-3.8-flash-high`, 두 묶음 병렬), 수정 사항 없음. A 제안(`saved?.password`)은 JsonLoader가 실패해도 new T()를 돌려줘 null이 될 수 없으므로 미반영.
+
+---
+
+### [2026-10-07] Claude → Antigravity · T42
+- 요청(사용자): 4존에 1존과 같은 관리자 페이지·QR·체험자 서버 API를 넣기 전에, USB QR 스캐너(uid를 숫자+영문 대문자로 키보드 입력 후 Enter)와 겹치는 키보드 단축키 정리.
+  - 확인 결과(코드): 템플릿 `TemplateInputActions` System 맵의 D(디버그 창)·I(인스펙터)·M(마우스 커서)는 `GameManagerBase`가 모든 빌드(릴리스 포함)에서 켬. 4존 `DebugInputActions`의 숫자 1~4(`KeyboardRfidSimulator`, 3_Game 모든 레벨)·Space(2_LevelSelect 전체 해금, 3_Game 레벨 4 이동 시뮬레이션)는 모두 `Debug.isDebugBuild`(에디터·개발 빌드)에서만 켜지고, 스캐너를 읽는 0_Title에서는 꺼져 있음. 스캐너는 Space를 보내지 않음.
+  - 사용자 선택: 4존 디버그 키는 그대로 둠(개발 빌드로 게임하는 도중에 QR을 찍을 때만 1~4가 가짜 카드가 됨).
+- 변경 파일
+  - `Assets/Scripts/App/DebugShortcutBindings.cs`(새 파일): 세 액션의 원본 단일 키 바인딩(bindings[0])을 빈 경로로 오버라이드하고 같은 키에 `OneModifier`(Ctrl) 컴포지트를 추가. 템플릿 패키지는 고치지 않음(1존 `Input/DebugShortcutBindings.cs`와 같은 방식).
+  - `Assets/Scripts/App/GameLifetimeScope.cs`: `RegisterBuildCallback`에서 싱글톤 `TemplateInputActions`에 적용(`GameManagerBase`가 주입받는 것과 같은 인스턴스).
+  - `Assets/Tests/Runtime/DebugShortcutBindingsTests.cs`(새 파일): D·I·M 각각 문자 키만·Shift+문자 키(스캐너 대문자 입력)로는 실행되지 않고 Ctrl 조합으로 한 번 실행되는지. Editor 포커스가 없으면 `InputState.Change`가 에디터 상태에 기록되므로 테스트 동안만 `InputSettings` 사본(IgnoreFocus·AllDeviceInputAlwaysGoesToGameView)으로 바꿨다가 되돌림.
+  - `CHANGELOG.md`, `TODO.md`(T42~T44 추가), `ProjectSettings/ProjectSettings.asset`(bundleVersion 26.10.7).
+- 확인: Unity 새로고침(scope=all, force) 뒤 콘솔 에러 0, PlayMode `DGAIZone.Tests` 92/92 통과(새 테스트 3개 포함). 테스트 뒤 Enter Play Mode Options를 다시 끔.
+- 확인 요청: 빌드 콜백 시점·인스턴스 일치, bindings[0]이 원본 단일 키인지와 Shift+문자에서 실행되지 않는지, 테스트 정리와 다른 입력 테스트 간섭, 규칙(조용한 실패·한국어), 콘솔.
+- 결과: 5/5 통과(agy `gemini-3.8-flash-high`), 수정 사항 없음. agy가 리뷰 중 PlayMode 테스트를 직접 돌려 Enter Play Mode Options가 다시 켜져서 Claude가 끄고 파일을 되돌림.
+
+---
+
 ### [2026-10-06] Claude (리뷰도 Claude) · T41
 - 요청(사용자): 중간에 카드가 떨어지면 블록을 흐리게 하지 말고 떨어진 단계부터 뒤 블록을 임시로 떨어뜨리고, 카드가 돌아오면 천천히 다시 붙이기. 다른 분류 카드가 올라오면 그 단계부터 다시 시작. 값을 고르던 단계의 카드가 떨어지면 취소하기처럼.
   - 사용자 선택: 값을 고르던 단계는 고르던 값만 비움(앞 블록은 그대로). 떨어진 카드가 있는 동안 설정하기·코딩 완료를 막음.

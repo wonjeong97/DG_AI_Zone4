@@ -22,6 +22,7 @@ namespace DGAIZone.LevelSelect
     /// 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼을 Background로 옮겨
     /// 목표 위치·크기로 튀어 들어오도록(OutBack) 이동시키고, 해당 레벨의 스토리 오브젝트만 활성화함.
     /// 에디터·개발 빌드에서는 레벨을 고르기 전에 디버그 액션 UnlockAllLevels(DebugInputActions, 기본 스페이스바)를 누르면 모든 레벨이 열림.
+    /// 타이틀 관리자 화면의 레벨 이동으로 들어오면(AdminLevelJumpStore) 씬 전환이 끝난 뒤 그 레벨 버튼을 고른 것처럼 스토리를 바로 띄움.
     /// </summary>
     public class LevelSelectFlowController : MonoBehaviour
     {
@@ -50,8 +51,10 @@ namespace DGAIZone.LevelSelect
         private InactivityTimer _inactivityTimer;
         private VisitorInfoProvider _visitorInfoProvider;
         private SoundManager _soundManager;
+        private AdminLevelJumpStore _levelJumpStore;
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
+        private bool _isLevelSelected; // 레벨을 이미 골랐는지(관리자 레벨 이동이 씬 전환을 기다리는 사이 버튼으로 먼저 고른 경우 다시 고르지 않음)
         private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
         private DebugInputActions _debugInput;
 
@@ -59,7 +62,7 @@ namespace DGAIZone.LevelSelect
         private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머, 효과음 매니저를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소를 할당함. </summary>
         [Inject]
         public void Construct(
             SceneTransitionService sceneTransition,
@@ -68,7 +71,8 @@ namespace DGAIZone.LevelSelect
             ILogger<LevelSelectFlowController> logger,
             VisitorInfoProvider visitorInfoProvider = null,
             InactivityTimer inactivityTimer = null,
-            SoundManager soundManager = null)
+            SoundManager soundManager = null,
+            AdminLevelJumpStore levelJumpStore = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
@@ -77,6 +81,7 @@ namespace DGAIZone.LevelSelect
             _visitorInfoProvider = visitorInfoProvider;
             _inactivityTimer = inactivityTimer;
             _soundManager = soundManager;
+            _levelJumpStore = levelJumpStore;
         }
 
         /// <summary>
@@ -187,7 +192,10 @@ namespace DGAIZone.LevelSelect
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        /// <summary> 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함. </summary>
+        /// <summary>
+        /// 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함.
+        /// 관리자 레벨 이동이면 잠금을 다시 적용한 뒤에 그 레벨을 고름(먼저 고르면 다시 적용되는 잠금이 스토리 영역으로 옮긴 버튼을 다시 누를 수 있게 만듦).
+        /// </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.LevelSelect}";
@@ -197,6 +205,42 @@ namespace DGAIZone.LevelSelect
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
             ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
+
+            if (_levelJumpStore != null && _levelJumpStore.TryTakePendingStoryLevel(out int level))
+                await SelectAdminJumpLevelAsync(level, token);
+        }
+
+        /// <summary>
+        /// 관리자 레벨 이동으로 들어온 레벨(1부터)을, 씬 전환 페이드인이 끝나면 그 레벨 버튼을 고른 것처럼 선택해 스토리를 띄움.
+        /// 관리자 화면이 그 레벨까지 해금해 두지만, 에디터 테스트용 debugUnlockedLevelCount가 더 작으면 고르지 못하고 경고만 남김.
+        /// </summary>
+        private async UniTask SelectAdminJumpLevelAsync(int level, CancellationToken token)
+        {
+            try
+            {
+                if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+                else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 관리자 레벨 이동 레벨을 고름.");
+            }
+            catch (OperationCanceledException)
+            {
+                return; // 기다리는 도중 씬을 떠난 경우 — 정상 종료
+            }
+
+            if (_isLevelSelected)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 씬 전환 중에 이미 레벨을 골라 관리자 레벨 이동 레벨{level}은 고르지 않음.");
+                return;
+            }
+
+            int index = level - 1;
+            if (index < 0 || index >= _currentUnlockedCount)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 관리자 레벨 이동 레벨{level}이 열린 레벨 수({_currentUnlockedCount}) 밖이라 고르지 못함.");
+                return;
+            }
+
+            if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 관리자 레벨 이동으로 레벨{level} 스토리를 바로 띄움.");
+            SelectLevel(index);
         }
 
         /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
@@ -280,13 +324,20 @@ namespace DGAIZone.LevelSelect
             }
         }
 
-        /// <summary> 열린 레벨 버튼 클릭 시 클릭음을 내고 선택한 버튼을 분리해 스토리 영역으로 트윈 이동시키고 패널을 전환함 (Zone1과 동일한 연출). </summary>
+        /// <summary> 열린 레벨 버튼 클릭 시 클릭음을 내고 그 레벨을 고름. </summary>
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
             if (index < 0 || index >= _currentUnlockedCount) return;
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
+            SelectLevel(index);
+        }
+
+        /// <summary> 선택한 버튼을 분리해 스토리 영역으로 트윈 이동시키고 패널을 전환함 (Zone1과 동일한 연출). 버튼 클릭과 관리자 레벨 이동이 함께 씀. </summary>
+        private void SelectLevel(int index)
+        {
+            _isLevelSelected = true;
 
             // 레벨을 고른 뒤 전체 해금이 다시 적용되면 스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 되므로 디버그 입력을 끔
             _debugInput.Debug.UnlockAllLevels.Disable();
@@ -358,7 +409,7 @@ namespace DGAIZone.LevelSelect
                     {
                         // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 3_Game(스토리 다시보기)과 같은 에셋을 참조하므로
                         // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
-                        // {name}은 Visitor.json 로드 전에 레벨을 눌러도 이름이 반영되도록, SwitchToStoryAsync가 이름 로드를 기다린 뒤 이 원본으로 치환함.
+                        // {name}은 SwitchToStoryAsync가 체험자 이름을 받은 뒤 이 원본으로 치환함.
                         if (levelDataList != null && index < levelDataList.Length && levelDataList[index])
                         {
                             storyTemplate = levelDataList[index].storyText;
@@ -449,7 +500,7 @@ namespace DGAIZone.LevelSelect
             finally { _isBusy = false; }
         }
 
-        /// <summary> 체험자 이름을 불러옴(Visitor.json은 한 번만 로드되어 공유되므로 이미 로드됐으면 바로 끝남). 제공자가 없으면 기본 이름을 씀. </summary>
+        /// <summary> 체험자 이름을 불러옴(관리자 화면 이름, 서버 모드면 QR로 확인한 이름). 제공자가 없으면 기본 이름을 씀. </summary>
         private UniTask<string> GetVisitorNameAsync(CancellationToken token)
         {
             if (_visitorInfoProvider != null) return _visitorInfoProvider.GetNameAsync(token);

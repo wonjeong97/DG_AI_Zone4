@@ -36,6 +36,7 @@ Zone1의 `TitleSceneManager.ApplyQrVisibilityAsync`를 Zone4의 `TitleFlowContro
 그대로 이식함. `Visitor.json`의 `isServerConnected`에 따라 QR을 표시/숨김하고,
 표시할 때만 알파 1~`qrBlinkMinAlpha` 사이를 `InOutSine` 이징으로 무한 Yoyo 반복 페이드.
 타이밍 값은 `0_Title.json`(`qrFadeDuration`, `qrBlinkMinAlpha`)에서 읽음.
+(2026-10-07부터 `Visitor.json`은 없어지고 운영 모드는 관리자 화면에서 바꾸는 `VisitorSettings`(SO, PlayerPrefs 우선)에서 읽음 — 1존과 같음.)
 
 이식하면서 원본(Zone1)에도 있던 문제 2가지를 Zone4에서 발견해 고침 — **Zone1에도
 동일하게 적용할 것**:
