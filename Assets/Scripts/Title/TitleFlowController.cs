@@ -36,6 +36,7 @@ namespace DGAIZone.Title
         private VisitorInfoProvider _visitorInfoProvider;
         private SelectedLevelStore _selectedLevelStore;
         private UnlockedLevelStore _unlockedLevelStore;
+        private AdminLevelJumpStore _levelJumpStore;
         private ILogger<TitleFlowController> _logger;
         private SoundManager _soundManager;
         private bool _isBusy;
@@ -54,14 +55,15 @@ namespace DGAIZone.Title
         // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 로거, 효과음 매니저를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 관리자 레벨 이동 저장소, 로거, 효과음 매니저를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, ILogger<TitleFlowController> logger, SoundManager soundManager = null)
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, AdminLevelJumpStore levelJumpStore, ILogger<TitleFlowController> logger, SoundManager soundManager = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
             _selectedLevelStore = selectedLevelStore;
             _unlockedLevelStore = unlockedLevelStore;
+            _levelJumpStore = levelJumpStore;
             _logger = logger;
             _soundManager = soundManager;
         }
@@ -69,12 +71,14 @@ namespace DGAIZone.Title
         /// <summary>
         /// 버튼 이벤트를 연결하고, QR 표시 여부/블링크 연출과 00_Common.json 연출 타이밍을 비동기로 처리함.
         /// 0_Title은 앱이 처음 켜졌을 때뿐 아니라 아웃트로에서 홈으로 돌아오거나 비활동 타임아웃으로도 진입하므로,
-        /// 여기서 레벨 진행도를 초기화해 이전 체험자의 잠금 해제 상태가 다음 체험자에게 넘어가지 않도록 함.
+        /// 여기서 레벨 진행도와 관리자 레벨 이동 표시를 초기화해 이전 체험자의 상태가 다음 체험자에게 넘어가지 않도록 함.
         /// </summary>
         private void Start()
         {
             if (_unlockedLevelStore != null) _unlockedLevelStore.Reset();
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] unlockedLevelStore가 null이라 레벨 진행도를 초기화할 수 없음.");
+            if (_levelJumpStore != null) _levelJumpStore.EndLevelJump();
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] levelJumpStore가 null이라 관리자 레벨 이동 표시를 비울 수 없음.");
             if (_selectedLevelStore != null) _selectedLevelStore.SelectedLevel = 1;
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] selectedLevelStore가 null이라 선택 레벨을 초기화할 수 없음.");
 
@@ -93,7 +97,7 @@ namespace DGAIZone.Title
         }
 
         /// <summary>
-        /// 서버 연동이면 QR 안내를 띄우고 시작 버튼을 숨긴 채 QR 입력을 기다리고, 미연동이면 시작 안내와 버튼을 바로 보여줌.
+        /// 서버 연동(관리자 화면의 운영 모드)이면 QR 안내를 띄우고 시작 버튼을 숨긴 채 QR 입력을 기다리고, 로컬 모드면 시작 안내와 버튼을 바로 보여줌.
         /// 안내는 어느 쪽이든 천천히 깜빡이며, 페이드 시간은 0_Title.json(TitleSceneSettings)에서 읽어와 재빌드 없이 조정 가능.
         /// </summary>
         private async UniTaskVoid ApplyGuideAsync(CancellationToken token)
@@ -102,7 +106,7 @@ namespace DGAIZone.Title
             {
                 bool isServerConnected = false;
                 if (_visitorInfoProvider != null)
-                    isServerConnected = await _visitorInfoProvider.IsServerConnectedAsync(token);
+                    isServerConnected = _visitorInfoProvider.IsServerConnected;
                 else if (_logger != null)
                     _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 서버 미연동으로 보고 시작 안내를 표시함.");
 

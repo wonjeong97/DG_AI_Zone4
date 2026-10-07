@@ -1,3 +1,4 @@
+using DGAIZone.Admin;
 using DGAIZone.App;
 using VContainer;
 using VContainer.Unity;
@@ -6,7 +7,7 @@ namespace DGAIZone.Title
 {
     /// <summary>
     /// 타이틀 씬 전용 LifetimeScope. VContainerSettings로 생성되는 GameLifetimeScope(루트, DontDestroyOnLoad)를
-    /// 부모로 연결하며, 타이틀 흐름 컨트롤러를 컨테이너에 등록함.
+    /// 부모로 연결하며, 타이틀 흐름 컨트롤러와 관리자 화면(AdminCanvas) 컴포넌트를 컨테이너에 등록함.
     /// </summary>
     public class TitleLifetimeScope : LifetimeScope
     {
@@ -17,10 +18,14 @@ namespace DGAIZone.Title
         /// </summary>
         protected override LifetimeScope FindParent() => GameLifetimeScope.ResolveAndEnsureBuilt();
 
-        /// <summary> 타이틀 흐름 컨트롤러를 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 타이틀 흐름 컨트롤러와 관리자 화면 컴포넌트(처음엔 꺼져 있는 패널 포함)를 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<TitleFlowController>();
+            builder.RegisterComponentInHierarchy<AdminTrigger>();
+            builder.RegisterComponentInHierarchy<AdminPasswordPanel>();
+            builder.RegisterComponentInHierarchy<AdminPanel>();
+            builder.RegisterComponentInHierarchy<VisitorNamePanel>();
         }
     }
 }

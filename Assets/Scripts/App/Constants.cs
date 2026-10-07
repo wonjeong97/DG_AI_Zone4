@@ -27,7 +27,7 @@ namespace DGAIZone.App
         /// <summary> 스토리 텍스트 등에 들어가는 체험자 이름 플레이스홀더. </summary>
         public const string VisitorPlaceholder = "{name}";
 
-        /// <summary> 체험자 이름을 알 수 없을 때(Visitor.json 로드 전·실패, 서버 미연동) {name} 대신 쓰는 기본 이름. </summary>
+        /// <summary> 체험자 이름이 비어 있을 때(관리자 화면 이름·서버 이름이 없을 때) {name} 대신 쓰는 기본 이름. </summary>
         public const string DefaultVisitorName = "체험자";
 
         /// <summary>
@@ -53,7 +53,6 @@ namespace DGAIZone.App
         public static class Files
         {
             public const string RfidMappings = "RfidMappings.json";
-            public const string Visitor = "Visitor.json";
 
             /// <summary> 인트로/레벨 선택/게임/아웃트로에서 반복 재생하는 로봇 영상 파일명(Videos 폴더 안). </summary>
             public const string RobotVideo = "robot_0811.webm";
@@ -86,6 +85,39 @@ namespace DGAIZone.App
             /// TMP의 &lt;font="..."&gt; 태그가 해석되도록 함.
             /// </summary>
             public const string TmpFontLabel = "TMPFont";
+
+            /// <summary> 운영 모드·체험자 이름 설정(VisitorSettings SO)의 Addressables 주소. 루트 스코프가 부팅 시 동기로 불러와 등록함. </summary>
+            public const string VisitorSettingsKey = "VisitorSettings";
+        }
+
+        /// <summary> 관리자 화면(타이틀 왼쪽 위 연속 터치 → 비밀번호 키패드). 값과 문구는 1존과 같음. </summary>
+        public static class Admin
+        {
+            /// <summary> 비밀번호 JSON(StreamingAssets/Json/Admin.json) 파일명 — 파일이 없거나 값이 잘못되면 기본 비밀번호를 씀. </summary>
+            public const string SettingsFileName = "Admin";
+            public const string DefaultPassword  = "0000";
+
+            public const int PasswordMinLength = 4;
+            public const int PasswordMaxLength = 6;
+
+            public const string WrongPassword  = "비밀번호가 올바르지 않습니다.";
+            public const string PasswordLength = "비밀번호는 4~6자리입니다.";
+
+            // 비밀번호 창 안내 — 확인 단계마다 바뀜
+            public const string PromptVerify     = "비밀번호를 입력하세요";
+            public const string PromptNew        = "새 비밀번호를 입력하세요";
+            public const string PromptConfirm    = "한 번 더 입력하세요";
+            public const string PasswordMismatch = "비밀번호가 서로 다릅니다. 다시 입력하세요.";
+
+            // 관리자 화면 상태 문구
+            public const string PasswordChanged    = "비밀번호를 변경했습니다.";
+            public const string PasswordSaveFailed = "비밀번호를 저장하지 못했습니다. Admin.json을 확인하세요.";
+            public const string LocalModeSet       = "로컬 모드로 바꿨습니다. 관리자 화면을 닫으면 타이틀에 반영됩니다.";
+            public const string ServerModeSet      = "서버 모드로 바꿨습니다. 관리자 화면을 닫으면 타이틀에 반영됩니다.";
+            public const string VisitorNameChanged = "체험자 이름을 변경했습니다.";
+
+            /// <summary> 체험자 이름 최대 글자 수 — 인트로·아웃트로 문장 안에 들어가므로 한 줄을 넘지 않게 제한함. </summary>
+            public const int VisitorNameMaxLength = 8;
         }
 
         /// <summary> RFID 카드 분류(RfidMappings.json의 category 값과 일치해야 함). </summary>

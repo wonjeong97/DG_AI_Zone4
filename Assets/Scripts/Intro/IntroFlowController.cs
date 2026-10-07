@@ -120,7 +120,7 @@ namespace DGAIZone.Intro
             StartTextAnimation(token);
         }
 
-        /// <summary> Visitor.json(또는 추후 서버/QR)에서 체험자 이름을 가져와 storyText의 자리표시자를 교체함. </summary>
+        /// <summary> 체험자 이름(관리자 화면 이름, 서버 모드면 QR로 확인한 이름)을 가져와 storyText의 자리표시자를 교체함. </summary>
         private async UniTask ApplyVisitorNameAsync(CancellationToken token)
         {
             if (!storyText || _visitorInfoProvider == null)

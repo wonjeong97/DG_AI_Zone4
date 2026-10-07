@@ -21,6 +21,7 @@ namespace DGAIZone.Result
     /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 완료!" 또는 "미션 실패!"로 표시함.
     /// 컴플리트 패널의 "다음 미션" 버튼은 방금 플레이한 레벨이 마지막 레벨이 아니면 2_LevelSelect로(다음 레벨을
     /// 고를 수 있도록), 마지막 레벨(Constants.LastLevel)이면 5_Outro로 전환하며 버튼 문구도 "종료하기"로 바뀜.
+    /// 관리자 레벨 이동으로 시작한 판이면 레벨과 상관없이 타이틀로 돌아가 관리자 화면을 다시 엶.
     /// </summary>
     public class ResultFlowController : MonoBehaviour
     {
@@ -43,6 +44,7 @@ namespace DGAIZone.Result
         private SelectedLevelStore _selectedLevelStore;
         private UnlockedLevelStore _unlockedLevelStore;
         private GameResultStore _resultStore;
+        private AdminLevelJumpStore _levelJumpStore;
         private InactivityTimer _inactivityTimer;
         private ILogger<ResultFlowController> _logger;
         private SoundManager _soundManager;
@@ -53,9 +55,9 @@ namespace DGAIZone.Result
         private ResultSceneSettings _sceneSettings = new ResultSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null)
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null, AdminLevelJumpStore levelJumpStore = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
@@ -64,6 +66,7 @@ namespace DGAIZone.Result
             _logger = logger;
             _inactivityTimer = inactivityTimer;
             _soundManager = soundManager;
+            _levelJumpStore = levelJumpStore;
         }
 
         /// <summary>
@@ -200,6 +203,7 @@ namespace DGAIZone.Result
         /// <summary>
         /// 컴플리트 패널의 다음 버튼 클릭 시 클릭음을 내고 화면 페이드와 함께 전환함. 방금 플레이한 레벨이 마지막 레벨(Constants.LastLevel)이면
         /// 아웃트로 씬으로, 아니면 다음 레벨을 고를 수 있도록 레벨 선택 씬으로 전환함.
+        /// 관리자 레벨 이동으로 시작한 판이면 타이틀로 돌아가 관리자 화면을 다시 열도록 표시함.
         /// </summary>
         private void OnCompleteNextClicked()
         {
@@ -213,6 +217,17 @@ namespace DGAIZone.Result
 
             int playedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
             string nextScene = playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
+
+            if (_levelJumpStore == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] levelJumpStore가 null이라 관리자 레벨 이동 판인지 알 수 없어 {nextScene}(으)로 이동함.");
+            }
+            else if (_levelJumpStore.IsLevelJump)
+            {
+                _levelJumpStore.OpenAdminOnTitle = true;
+                nextScene = Constants.Scenes.Title;
+                if (_logger != null) _logger.ZLogInformation($"[ResultFlowController] 관리자 레벨 이동 판이라 타이틀 관리자 화면으로 돌아감.");
+            }
 
             _isBusy = true;
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);

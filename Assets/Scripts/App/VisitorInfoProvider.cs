@@ -1,92 +1,55 @@
-using System;
 using System.Threading;
-using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using DGAIZone.Data;
 using Microsoft.Extensions.Logging;
 using VContainer;
-using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.App
 {
     /// <summary>
-    /// 체험자 이름을 가져오는 제공자. Visitor.json의 isServerConnected로 서버(QR 스캔) 연결 여부를 구분함.
-    /// false(로컬 실행)면 defaultUserName을 그대로 사용하고, true(서버 연결)면 서버에서 이름을 조회해야 하지만
-    /// 서버가 아직 없어 TODO로 남겨두고 우선 기본 이름으로 대체함.
-    /// Visitor.json을 단 한 번만 로드하여 모든 소비자에게 공유함(AppSettingsProvider와 동일한 패턴).
+    /// 운영 모드(서버 연동 여부)와 화면에 쓸 체험자 이름을 알려 주는 제공자.
+    /// 모드와 로컬 모드 이름은 VisitorSettings(SO, 관리자 화면에서 변경 — PlayerPrefs 우선)에서 읽음.
     /// </summary>
-    public class VisitorInfoProvider : IDisposable
+    public class VisitorInfoProvider
     {
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
-        private readonly object _lock = new object();
+        private readonly VisitorSettings _settings;
         private readonly ILogger<VisitorInfoProvider> _logger;
 
-        // 공유 소스로 UniTask 대신 Task를 사용함(여러 소비자가 완료 전 동시에 await할 수 있으므로).
-        private Task<VisitorData> _loadTask;
-        private bool _isLoadStarted;
-
-        /// <summary> VContainer 생성자 주입. 로거를 할당함. </summary>
+        /// <summary> VContainer 생성자 주입. 체험자 설정과 로거를 할당함. </summary>
         [Inject]
-        public VisitorInfoProvider(ILogger<VisitorInfoProvider> logger)
+        public VisitorInfoProvider(VisitorSettings settings, ILogger<VisitorInfoProvider> logger)
         {
+            _settings = settings;
             _logger = logger;
         }
 
-        /// <summary>
-        /// 체험자 이름을 비동기로 반환함. 최초 호출 시에만 실제 로드가 발생하고 이후 호출은 같은 결과를 공유함.
-        /// isServerConnected가 false면 defaultUserName(없으면 Constants.DefaultVisitorName)을 반환하고,
-        /// true면 서버 조회가 아직 구현되지 않아 경고 로그를 남기고 Constants.DefaultVisitorName을 반환함(TODO).
-        /// </summary>
-        public async UniTask<string> GetNameAsync(CancellationToken cancellationToken = default)
+        /// <summary> 서버 연동(QR 인식) 모드인지. 설정이 없으면 로컬 모드로 봄. </summary>
+        public bool IsServerConnected
         {
-            VisitorData data = await LoadDataAsync(cancellationToken);
-
-            if (data != null && data.isServerConnected)
+            get
             {
-                // TODO: 서버 연동(QR 스캔)으로 체험자 이름을 조회하도록 구현. 서버가 준비되기 전까지는 기본 이름으로 대체함.
-                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] isServerConnected가 true이지만 서버 연동이 아직 구현되지 않아 기본 이름으로 대체함.");
-                return Constants.DefaultVisitorName;
-            }
+                if (_settings) return _settings.IsServerConnected;
 
-            return (data != null && !string.IsNullOrEmpty(data.defaultUserName)) ? data.defaultUserName : Constants.DefaultVisitorName;
+                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] VisitorSettings가 null이라 로컬 모드로 봄.");
+                return false;
+            }
         }
 
         /// <summary>
-        /// 서버(QR 스캔) 연동 여부를 비동기로 반환함. Visitor.json의 isServerConnected를 그대로 노출하며,
-        /// GetNameAsync와 같은 로드 결과를 공유함(중복 로드 없음). 타이틀 씬에서 QR 안내 표시 여부를 결정하는 데 사용함.
+        /// 화면에 표시할 체험자 이름을 반환함. VisitorSettings의 이름이 비어 있거나 설정이 없으면 Constants.DefaultVisitorName.
+        /// 소비자(인트로·레벨 선택·게임·아웃트로)가 await하는 형태를 유지하려고 UniTask로 돌려줌.
         /// </summary>
-        public async UniTask<bool> IsServerConnectedAsync(CancellationToken cancellationToken = default)
+        public UniTask<string> GetNameAsync(CancellationToken cancellationToken = default)
         {
-            VisitorData data = await LoadDataAsync(cancellationToken);
-            return data != null && data.isServerConnected;
-        }
-
-        /// <summary> Visitor.json을 최초 호출 시에만 로드하고, 이후 호출들은 같은 로드 결과를 공유함. </summary>
-        private async UniTask<VisitorData> LoadDataAsync(CancellationToken cancellationToken)
-        {
-            Task<VisitorData> loadTask;
-
-            lock (_lock)
+            if (!_settings)
             {
-                if (!_isLoadStarted)
-                {
-                    _isLoadStarted = true;
-                    _loadTask = JsonLoader.LoadAsync<VisitorData>(Constants.Files.Visitor, _cts.Token).AsTask();
-                }
-
-                loadTask = _loadTask;
+                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] VisitorSettings가 null이라 기본 이름 '{Constants.DefaultVisitorName}'을 씀.");
+                return UniTask.FromResult(Constants.DefaultVisitorName);
             }
 
-            VisitorData data = await loadTask.AsUniTask().AttachExternalCancellation(cancellationToken);
-            await UniTask.SwitchToMainThread(cancellationToken);
-            return data;
-        }
-
-        /// <summary> 컨테이너 파기 시 진행 중인 로드를 취소하고 리소스를 해제함. </summary>
-        public void Dispose()
-        {
-            _cts.Cancel();
-            _cts.Dispose();
+            string visitorName = _settings.VisitorName;
+            return UniTask.FromResult(string.IsNullOrEmpty(visitorName) ? Constants.DefaultVisitorName : visitorName);
         }
     }
 }

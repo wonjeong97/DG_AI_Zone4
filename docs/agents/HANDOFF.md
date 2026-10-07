@@ -13,6 +13,25 @@
 
 ---
 
+### [2026-10-07] Claude → Antigravity · T43
+- 요청(사용자): 1존(main 3b24d60)의 관리자 페이지를 4존에 같은 동작·값으로. 체험자 이름·운영 모드는 Visitor.json을 없애고 관리자 화면에서 바꿈(1존 Data/VisitorSettings.cs와 같은 방식).
+  - 사용자 선택: 관리자 레벨 이동은 2_LevelSelect에서 그 레벨 버튼을 고른 것처럼 스토리를 바로 띄움.
+- 변경 파일
+  - 새 파일: `Admin/AdminTrigger.cs`·`ConsecutiveClickCounter.cs`·`AdminPasswordPanel.cs`·`PasswordInput.cs`·`AdminPanel.cs`·`VisitorNamePanel.cs`·`HangulComposer.cs`(1존 코드를 네임스페이스 DGAIZone.Admin, 효과음 SoundEffects.Play, 씬 전환 SceneTransitionService로 옮김), `App/RaycastArea.cs`, `App/AdminLevelJumpStore.cs`(루트 싱글톤 — Begin(level)·TryTakePendingStoryLevel·IsLevelJump·OpenAdminOnTitle·EndLevelJump), `Data/VisitorSettings.cs`·`Data/AdminSettings.cs`, `StreamingAssets/Json/Admin.json`(0000), `AddressableAssets/Data/VisitorSettings.asset`(주소 VisitorSettings, Default Local Group — 그룹 파일의 나머지 변경은 GUID 순 재정렬).
+  - `Prefabs/AdminCanvas.prefab`: 1존 프리팹을 복사해 스크립트 GUID 5개와 GamtanRoadTantan SDF 머티리얼 fileID(-119739183008471601 → -958249402790162185, 폰트 에셋 GUID는 두 프로젝트가 같음)만 바꿈. `0_Title.unity`에 배치(별도 Canvas sortingOrder 10). 바꾼 뒤 끊긴 참조 0.
+  - 삭제: `StreamingAssets/Visitor.json`, `App/VisitorData.cs`, `Constants.Files.Visitor`.
+  - `App/VisitorInfoProvider.cs`: VisitorSettings 주입, `IsServerConnected` 속성(`IsServerConnectedAsync` 제거), `GetNameAsync`는 SO 이름(비면 '체험자').
+  - `App/GameLifetimeScope.cs`: AdminLevelJumpStore 등록, VisitorSettings를 Addressables 동기 로드해 RegisterInstance(실패하면 기본 인스턴스 + 에러 로그).
+  - `Title/TitleLifetimeScope.cs`: 관리자 컴포넌트 4개 RegisterComponentInHierarchy(비활성 패널도 주입됨). `Title/TitleFlowController.cs`: 모드는 `IsServerConnected`로, Start에서 `EndLevelJump`.
+  - `LevelSelect/LevelSelectFlowController.cs`: OnLevelClicked를 클릭음 + `SelectLevel`로 나눔. 2_LevelSelect.json을 읽고 잠금을 다시 적용한 뒤 관리자 레벨 이동 레벨이 있으면 씬 전환이 끝나기를 기다려 `SelectLevel`(먼저 고르면 다시 적용되는 잠금이 옮긴 버튼을 다시 누를 수 있게 만듦). `_isLevelSelected`로 그사이 버튼으로 먼저 고른 경우 다시 고르지 않음.
+  - `Result/ResultFlowController.cs`: 다음 버튼은 관리자 판이면 `OpenAdminOnTitle` 후 0_Title(레벨 5도 아웃트로 대신).
+  - 테스트(새 22개): AdminLogicTests 7·HangulComposerTests 8·RaycastAreaTests 1(1존에서 옮김), VisitorSettingsTests 3(체험자 정보 제공자 1 추가), AdminLevelJumpTests 3. `CHANGELOG.md`(⚠ Breaking Changes: Visitor.json 삭제), `TODO.md`.
+- 확인: 컴파일 에러 0, PlayMode `DGAIZone.Tests` 114/114. Play 모드(0_Title, 버튼 onClick 직접 호출): 왼쪽 위 레이캐스트는 AdminTrigger, 9회까지 안 열리고 10회째 비밀번호 창, 2자리 확인 → 자릿수 안내, 1234 → 오류 안내·입력 지움, 10초 무입력 닫힘(로그), 0000 → 관리자 화면, 이름 '홍길동'(조합)·Shift ㄲ·숫자·영문 → 8자에서 멈춤·저장·상태 문구, 서버 모드 전환 → 닫으면 타이틀 다시 불러와 'QR 코드를 인식하여 주세요.'·시작 버튼 숨김, 비밀번호 1234로 변경(불일치 → 다시 입력 → Admin.json 저장·상태 문구), 0000 거부·1234로 진입, 레벨 3 이동 → 2_LevelSelect 레벨 3 스토리(선택 3·해금 3·관리자 판), 결과 씬 다음 → 0_Title 관리자 화면 바로 열림(관리자 판 표시·해금 초기화), 인트로에 '홍길동ㄲ1abc' 표시. 콘솔 에러 0. 확인 뒤 운영 모드·이름 PlayerPrefs(원래 없음) 삭제, Admin.json 0000, Enter Play Mode Options 끔, Play 중 늘어난 GamtanRoadTantan SDF 동적 글자는 되돌림.
+- 확인 요청: (A) 관리자 UI — 1존과 동작·값, 비활성 패널 주입·Awake 시점, 프리팹 필드 이름, 비동기 취소·리스너·중복 입력, 규칙, 콘솔 (B) 설정 이전·레벨 이동 — 남은 참조, 흐름 4가지(관리자 판 완료·도중 타임아웃·일반 체험·레벨 5), 자동 선택 시점·debugUnlockedLevelCount·취소, Addressables 동기 로드·그룹 항목, 테스트, 규칙·CHANGELOG
+- 결과: A 6/6, B 6/6 통과(agy `gemini-3.8-flash-high`, 두 묶음 병렬), 수정 사항 없음. A 제안(`saved?.password`)은 JsonLoader가 실패해도 new T()를 돌려줘 null이 될 수 없으므로 미반영.
+
+---
+
 ### [2026-10-07] Claude → Antigravity · T42
 - 요청(사용자): 4존에 1존과 같은 관리자 페이지·QR·체험자 서버 API를 넣기 전에, USB QR 스캐너(uid를 숫자+영문 대문자로 키보드 입력 후 Enter)와 겹치는 키보드 단축키 정리.
   - 확인 결과(코드): 템플릿 `TemplateInputActions` System 맵의 D(디버그 창)·I(인스펙터)·M(마우스 커서)는 `GameManagerBase`가 모든 빌드(릴리스 포함)에서 켬. 4존 `DebugInputActions`의 숫자 1~4(`KeyboardRfidSimulator`, 3_Game 모든 레벨)·Space(2_LevelSelect 전체 해금, 3_Game 레벨 4 이동 시뮬레이션)는 모두 `Debug.isDebugBuild`(에디터·개발 빌드)에서만 켜지고, 스캐너를 읽는 0_Title에서는 꺼져 있음. 스캐너는 Space를 보내지 않음.
