@@ -5,6 +5,9 @@
 
 ## [Unreleased]
 
+### Changed
+- 템플릿 디버그 단축키(디버그 창·인스펙터·마우스 커서)가 D·I·M 대신 Ctrl+D·Ctrl+I·Ctrl+M으로 바뀌어, QR 스캐너가 uid를 입력할 때 켜지지 않음.
+
 ## [2026-10-06]
 
 ### Added

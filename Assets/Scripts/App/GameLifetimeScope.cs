@@ -95,7 +95,8 @@ namespace DGAIZone.App
         }
 
         /// <summary>
-        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과 저장소를 등록함.
+        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과 저장소를 등록하고
+        /// 템플릿 디버그 단축키를 Ctrl 조합으로 바꿈.
         /// </summary>
         protected override void Configure(IContainerBuilder builder)
         {
@@ -106,6 +107,11 @@ namespace DGAIZone.App
             builder.Register<SelectedLevelStore>(Lifetime.Singleton);
             builder.Register<UnlockedLevelStore>(Lifetime.Singleton);
             builder.Register<VisitorInfoProvider>(Lifetime.Singleton);
+
+            // 템플릿 디버그 단축키(D·I·M)를 Ctrl 조합으로 — QR 스캐너가 입력하는 uid 문자와 겹치지 않게.
+            // GameManagerBase가 주입받는 것과 같은 싱글톤 인스턴스라 그대로 반영됨
+            builder.RegisterBuildCallback(container =>
+                DebugShortcutBindings.Apply(container.Resolve<TemplateInputActions>()));
 
             using (RegisterTmpFontsMarker.Auto())
             {

@@ -13,6 +13,21 @@
 
 ---
 
+### [2026-10-07] Claude → Antigravity · T42
+- 요청(사용자): 4존에 1존과 같은 관리자 페이지·QR·체험자 서버 API를 넣기 전에, USB QR 스캐너(uid를 숫자+영문 대문자로 키보드 입력 후 Enter)와 겹치는 키보드 단축키 정리.
+  - 확인 결과(코드): 템플릿 `TemplateInputActions` System 맵의 D(디버그 창)·I(인스펙터)·M(마우스 커서)는 `GameManagerBase`가 모든 빌드(릴리스 포함)에서 켬. 4존 `DebugInputActions`의 숫자 1~4(`KeyboardRfidSimulator`, 3_Game 모든 레벨)·Space(2_LevelSelect 전체 해금, 3_Game 레벨 4 이동 시뮬레이션)는 모두 `Debug.isDebugBuild`(에디터·개발 빌드)에서만 켜지고, 스캐너를 읽는 0_Title에서는 꺼져 있음. 스캐너는 Space를 보내지 않음.
+  - 사용자 선택: 4존 디버그 키는 그대로 둠(개발 빌드로 게임하는 도중에 QR을 찍을 때만 1~4가 가짜 카드가 됨).
+- 변경 파일
+  - `Assets/Scripts/App/DebugShortcutBindings.cs`(새 파일): 세 액션의 원본 단일 키 바인딩(bindings[0])을 빈 경로로 오버라이드하고 같은 키에 `OneModifier`(Ctrl) 컴포지트를 추가. 템플릿 패키지는 고치지 않음(1존 `Input/DebugShortcutBindings.cs`와 같은 방식).
+  - `Assets/Scripts/App/GameLifetimeScope.cs`: `RegisterBuildCallback`에서 싱글톤 `TemplateInputActions`에 적용(`GameManagerBase`가 주입받는 것과 같은 인스턴스).
+  - `Assets/Tests/Runtime/DebugShortcutBindingsTests.cs`(새 파일): D·I·M 각각 문자 키만·Shift+문자 키(스캐너 대문자 입력)로는 실행되지 않고 Ctrl 조합으로 한 번 실행되는지. Editor 포커스가 없으면 `InputState.Change`가 에디터 상태에 기록되므로 테스트 동안만 `InputSettings` 사본(IgnoreFocus·AllDeviceInputAlwaysGoesToGameView)으로 바꿨다가 되돌림.
+  - `CHANGELOG.md`, `TODO.md`(T42~T44 추가), `ProjectSettings/ProjectSettings.asset`(bundleVersion 26.10.7).
+- 확인: Unity 새로고침(scope=all, force) 뒤 콘솔 에러 0, PlayMode `DGAIZone.Tests` 92/92 통과(새 테스트 3개 포함). 테스트 뒤 Enter Play Mode Options를 다시 끔.
+- 확인 요청: 빌드 콜백 시점·인스턴스 일치, bindings[0]이 원본 단일 키인지와 Shift+문자에서 실행되지 않는지, 테스트 정리와 다른 입력 테스트 간섭, 규칙(조용한 실패·한국어), 콘솔.
+- 결과: 5/5 통과(agy `gemini-3.8-flash-high`), 수정 사항 없음. agy가 리뷰 중 PlayMode 테스트를 직접 돌려 Enter Play Mode Options가 다시 켜져서 Claude가 끄고 파일을 되돌림.
+
+---
+
 ### [2026-10-06] Claude (리뷰도 Claude) · T41
 - 요청(사용자): 중간에 카드가 떨어지면 블록을 흐리게 하지 말고 떨어진 단계부터 뒤 블록을 임시로 떨어뜨리고, 카드가 돌아오면 천천히 다시 붙이기. 다른 분류 카드가 올라오면 그 단계부터 다시 시작. 값을 고르던 단계의 카드가 떨어지면 취소하기처럼.
   - 사용자 선택: 값을 고르던 단계는 고르던 값만 비움(앞 블록은 그대로). 떨어진 카드가 있는 동안 설정하기·코딩 완료를 막음.
