@@ -29,6 +29,9 @@
 - 1존과 연출 값을 맞춰 게임 화면의 패널 전환 페이드(`00_Common.json`의 `panelFadeDuration`)를 0.4초에서 0.5초로, 타이틀 하단 안내 깜빡임(`0_Title.json`의 `qrFadeDuration`)을 1.2초에서 1.0초로 바꿈.
 - 템플릿 디버그 단축키(디버그 창·인스펙터·마우스 커서)가 D·I·M 대신 Ctrl+D·Ctrl+I·Ctrl+M으로 바뀌어, QR 스캐너가 uid를 입력할 때 켜지지 않음.
 
+### Fixed
+- 서버 모드 타이틀에서 QR을 찍기 전에 눌린 키가 uid 앞에 붙어 QR을 확인하지 못하던 것을, 글자 사이가 0.5초(`0_Title.json`의 `scanCharGapSeconds`, PC가 느려 스캔 글자가 늦게 들어오면 늘림)보다 벌어지면 앞에 모은 글자를 버리고 Enter가 그보다 늦게 오면 QR로 보지 않도록 고침.
+
 ## [2026-10-06]
 
 ### Added

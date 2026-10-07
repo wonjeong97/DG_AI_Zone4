@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T45 타이틀 QR 입력: 글자 사이가 0.5초(0_Title.json scanCharGapSeconds — PC 렉 대비 사용자 요청으로 JSON 분리)보다 벌어지면 앞에 모은 글자를 버리고 새로 모음(실제 리더기 테스트에서 찍기 전에 눌린 키 한 글자가 uid 앞에 붙어 13자로 들어온 경우가 있었음, 사용자 요청. 1존은 사용자가 따로 반영)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-07)
 - [x] T44 QR·체험자 서버 API(checkActive·getUser·updateValue, 재시도), 타이틀 QR 확인 흐름, 결과 업로드, getUser 해금 변환(1존 규칙: 기록 있는 마지막 D 레벨 + 1, 최대 5, 없으면 1), 결과 문구 '미션 성공!'(사용자 확인), 연출 값 1존과 맞춤(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-07)
 - [x] T43 관리자 페이지(타이틀 왼쪽 위 10회 터치 → 비밀번호 → 비밀번호 변경·운영 모드·체험자 이름·레벨 1~5 이동) + 체험자 설정 이전(Visitor.json → VisitorSettings SO, PlayerPrefs 우선). 1존과 같은 동작·값, 레벨 이동은 2_LevelSelect에서 그 레벨 스토리를 자동으로 띄움(사용자 확인)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-07)
 - [x] T42 QR 스캐너 키 입력 충돌: 템플릿 디버그 단축키 D·I·M을 런타임 바인딩 오버라이드로 Ctrl+D·Ctrl+I·Ctrl+M으로(4존 디버그 키 숫자 1~4·Space는 에디터·개발 빌드 전용이고 스캐너를 읽는 타이틀에서는 꺼져 있어 그대로 둠, 사용자 확인) — 담당: Claude / 검증: Antigravity (2026-10-07)
