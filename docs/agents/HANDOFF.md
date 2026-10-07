@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-07] Claude → Antigravity · PR #47 머지 전 리뷰 (T42~T44)
+- 요청(사용자): 체험자 정보는 GameSession(1존 방식)이 아니라 지금의 루트 싱글톤 저장소를 유지하고, PR을 만들어 Antigravity와 리뷰한 뒤 머지. 1존은 그대로 둠(GameSession과 싱글톤의 성능 차이는 없음).
+- PR: wonjeong97/DG_AI_Zone4#47 — 이어 만든 브랜치 3개(T42 feat/debug-shortcut-ctrl → T43 feat/admin-page → T44 feat/visitor-server-api)를 맨 위 브랜치 하나로 올림(기능별 커밋 유지, CHANGELOG 날짜 섹션 이동·머지를 한 번에).
+- 확인 요청(main 대비 전체 diff를 세 묶음으로 나눠 병렬): (A) 관리자·공용 코드 — 기능 사이 상호작용(QR 체험자가 있는 상태의 관리자 레벨 이동, 관리자 화면을 연 채 QR), 루트 등록과 Construct 매개변수(기본값 무시), 로컬 모드 일반 체험 회귀, 누수·빌드 분기, 규칙 (B) 씬 흐름·네트워크 — 타이틀 모드 전환·QR·관리자 복귀 간섭과 초기화 순서, 레벨 선택 자동 선택·디버그 해금·잠금 재적용·서버 해금과 json 프리셋, 결과 화면 순서·업로드 수명·예외, 동시 요청·로그, 규칙 (C) 테스트·에셋·설정·문서 — JSON 값 1존 일치, 씬·Addressables·SO 기본값, bundleVersion·EditorSettings, 테스트 정리·순서 독립, CHANGELOG·TODO·HANDOFF, 콘솔
+- 결과: A 5/5, B 5/5, C 6/6 통과(agy `gemini-3.8-flash-high`), 머지 전 수정 사항 없음.
+  - Claude 확인: 씬 전환 중(페이드아웃 → 로드 → 페이드인) 템플릿 FadeManager 이미지가 raycastTarget으로 입력을 막아, 관리자 화면 버튼이 전환 도중 눌려 전환 요청이 무시되는 경우는 생기지 않음. VisitorSettings는 Addressables에 들어 있어 기존 폰트·레벨 이미지와 같은 빌드 과정(AddressableAssetSettings는 플레이어 빌드 시 Addressables 빌드를 전역 환경설정에 맡김)으로 함께 빌드됨.
+- 머지 뒤 남는 일: 현장 내부망에서 실제 서버 확인, 현장 Settings.json useInactivityTimer true(시작하기 대기 시간 제한), Visitor.json으로 서버 모드·다른 이름을 쓰던 PC는 관리자 화면에서 다시 설정.
+
+---
+
 ### [2026-10-07] Claude → Antigravity · T44
 - 요청(사용자): 1존의 QR 체험자 확인·체험자 서버 API(checkActive·getUser·updateValue, 재시도)를 4존에 같은 동작·값으로. 콘텐츠 코드 D(레벨1~5 = D1~D5). 서버는 회사 내부망 전용이라 응답 형식은 사용자가 준 실측값만 근거로 함.
   - 사용자 선택: getUser 해금 변환은 1존과 같은 규칙(열린 레벨 개수 = 기록 있는 마지막 D 레벨 번호 + 1, 최대 5, 없으면 1 — 4존 로컬 규칙도 결과 화면에서 성공·실패와 상관없이 다음 레벨을 엶). 결과 문구는 1존과 같은 '미션 성공!'.
