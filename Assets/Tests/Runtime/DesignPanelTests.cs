@@ -304,7 +304,7 @@ namespace DGAIZone.Tests
         public IEnumerator 함수_정의_블록은_함수_사용_단계를_따라_빠지고_앞_카드만_돌아오면_그_앞까지만_다시_붙는다() => UniTask.ToCoroutine(async () =>
         {
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
+            _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command }, false);
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null); // 자식 1 = 함수 사용, 자식 2 = 함수 정의
             _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);        // 자식 3
             await UniTask.Delay(1200, DelayType.UnscaledDeltaTime);
@@ -449,7 +449,7 @@ namespace DGAIZone.Tests
             const float EdgePadding = 8f, DefinitionGap = 16f;
             const float FunctionColumnWidth = FlowInnerTabCenterX - CommandSocketCenterX + 361f; // 안쪽 명령 블록이 함수 정의 블록(폭 361)보다 튀어나온 오른쪽 끝
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
+            _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command }, false);
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
             await UniTask.Delay(800, DelayType.UnscaledDeltaTime); // 붙는 연출(0.5초)이 끝나길 기다림
 
@@ -481,16 +481,16 @@ namespace DGAIZone.Tests
         {
             const float EdgePadding = 8f;
             CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(new[] { DesignStepShape.Command, DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Logic }, false);
+            _panel.Initialize(new[] { DesignStepShape.Command, DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command }, false);
             _panel.AddItem(DesignStepShape.Command, "우주 정거장 코드", null); // 함수 카드 앞
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
             _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);
             _panel.AddItem(DesignStepShape.Command, "통신 시스템 코드", null);
-            _panel.AddItem(DesignStepShape.Logic, "그리고", null);
+            _panel.AddItem(DesignStepShape.Command, "연결 통로 코드", null);
 
-            // 자식 순서: 시작하기, 우주 정거장, 함수 사용, 함수 정의(함수 사용과 함께 만들어짐), 탐사 로봇, 통신 시스템, 그리고
+            // 자식 순서: 시작하기, 우주 정거장, 함수 사용, 함수 정의(함수 사용과 함께 만들어짐), 탐사 로봇, 통신 시스템, 연결 통로
             Assert.AreEqual(DesignBlockKind.FunctionDef, BlockAt(3).Kind, "함수 사용 블록과 함께 함수 정의 블록이 놓여야 함");
-            Assert.AreEqual(DesignBlockKind.Logic, BlockAt(6).Kind, "함수 사용 뒤 논리 블록도 논리 블록 모양이어야 함");
+            Assert.AreEqual(DesignBlockKind.CommandNoValue, BlockAt(6).Kind, "함수 사용 뒤 동작 블록은 값 블록 없는 명령 블록 모양이어야 함");
             RectTransform defRect = (RectTransform)BlockAt(3).transform;
             float threeInside = FlowHeaderBodyHeight + CommandBodyHeight * 3f + FlowFooterBodyHeight;
             Assert.AreEqual(threeInside, defRect.sizeDelta.y, Tolerance, "함수 정의 블록은 안쪽 블록 셋 높이만큼 늘어나야 함");

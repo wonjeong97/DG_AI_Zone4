@@ -113,6 +113,12 @@ namespace DGAIZone.Game.UI
         /// <summary> 블록 배율(레이아웃 검증용). </summary>
         internal float Scale => _scale;
 
+        /// <summary> 설정하기로 단계 블록 하나가 다 붙기까지 걸리는 시간(초). 값 블록을 쓰는 레벨이면 값 블록이 미끄러져 붙는 시간까지. </summary>
+        internal float AttachDuration => riseDuration + (_withValueBlocks ? valueSlideDuration : 0f);
+
+        /// <summary> 떨어졌던 카드가 돌아와 블록이 다시 다 붙기까지 걸리는 시간(초). 값 블록을 쓰는 레벨이면 값 블록이 미끄러져 붙는 시간까지. </summary>
+        internal float RestoreDuration => restoreRiseDuration + (_withValueBlocks ? restoreValueSlideDuration : 0f);
+
         /// <summary> 배치 방식(줄여서 한 화면에/크게 두고 자동 스크롤). 결과 씬이 3_Game 설계창과 같은 방식으로 그릴 때 Initialize 전에 바꿈. </summary>
         public DesignLayoutMode LayoutMode
         {

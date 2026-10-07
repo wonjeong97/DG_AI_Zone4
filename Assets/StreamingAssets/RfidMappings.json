@@ -198,28 +198,21 @@
           "matters": [
             { "id": "SpaceStationCode", "label": "우주 정거장 코드" },
             { "id": "ExplorerRobotCode", "label": "탐사 로봇 코드" },
-            { "id": "CommunicationCode", "label": "통신 시스템 코드" }
-          ]
-        },
-        {
-          "id": "Logic",
-          "matters": [
-            { "id": "And", "label": "그리고" },
-            { "id": "Or", "label": "또는" }
+            { "id": "CommunicationCode", "label": "통신 시스템 코드" },
+            { "id": "ConnectionPassageCode", "label": "연결 통로 코드" }
           ]
         }
       ],
       "steps": [
-        { "categories": [ "함수", "동작", "논리" ] },
-        { "categories": [ "함수", "동작", "논리" ] },
-        { "categories": [ "함수", "동작", "논리" ] },
-        { "categories": [ "함수", "동작", "논리" ] },
-        { "categories": [ "함수", "동작", "논리" ] }
+        { "categories": [ "함수", "동작" ] },
+        { "categories": [ "함수", "동작" ] },
+        { "categories": [ "함수", "동작" ] },
+        { "categories": [ "함수", "동작" ] },
+        { "categories": [ "함수", "동작" ] }
       ],
       "categoryIngredients": [
         { "ingredientId": "Function", "ingredientName": "함수 사용하기", "matterSetId": "Function", "categories": [ "함수" ] },
-        { "ingredientId": "Action", "ingredientName": "사용하기", "matterSetId": "Action", "categories": [ "동작" ] },
-        { "ingredientId": "Logic", "ingredientName": "", "matterSetId": "Logic", "categories": [ "논리" ] }
+        { "ingredientId": "Action", "ingredientName": "사용하기", "matterSetId": "Action", "categories": [ "동작" ] }
       ]
     }
   ]

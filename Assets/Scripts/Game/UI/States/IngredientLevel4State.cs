@@ -99,6 +99,11 @@ namespace DGAIZone.Game.UI.States
         {
         }
 
+        /// <summary> 카드 떨어짐 갱신 시 레벨 4 추가 작업 없음. </summary>
+        public void OnMissingCardsRefreshed(IngredientSelectionController controller)
+        {
+        }
+
         /// <summary> 재료 이름은 명령 블록, 고른 블록 이름은 값 블록에 씀. 재료 이름이 없는 단계는 값 블록 없이 블록 이름만 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {

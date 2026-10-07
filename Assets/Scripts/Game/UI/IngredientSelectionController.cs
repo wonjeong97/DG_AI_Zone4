@@ -58,6 +58,7 @@ namespace DGAIZone.Game.UI
 
         [Header("Level 4 Board")]
         [SerializeField] private Level4BoardController level4Board; // Panel_Level4. Level4BoardController가 이 클래스를 주입받는 순환 의존이라 VContainer 대신 인스펙터로 연결함
+        [SerializeField] private Level5CityView level5City; // Panel_Level5. 함수 정의 블록 안쪽 동작 블록마다 맞는 그림을 보여 줌
 
         private StateMachine<IngredientSelectionController> _stateMachine;
         private IngredientLevel1State _level1State;
@@ -86,6 +87,9 @@ namespace DGAIZone.Game.UI
         internal float Level3IconBlinkDuration => _sceneSettings.level3IconBlinkDuration;
 
         internal Level4BoardController Level4Board => level4Board;
+        internal Level5CityView Level5City => level5City;
+        internal float DesignAttachDuration => _designPanel ? _designPanel.AttachDuration : 0f;   // 설정하기로 블록이 다 붙기까지(초). 설계창이 없으면 0
+        internal float DesignRestoreDuration => _designPanel ? _designPanel.RestoreDuration : 0f; // 떨어졌던 블록이 다시 다 붙기까지(초). 설계창이 없으면 0
         internal MissionBoardController MissionBoard => _missionBoard;
         internal ILogger<IngredientSelectionController> Logger => _logger;
         internal RfidMatter[] ConfirmedMatters => _confirmedMatters;
@@ -684,15 +688,11 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 카드가 떨어진 스탭(_idleReaderStepIndices) 중 가장 이른 스탭부터 끝까지 설계창 블록을 임시로 떨어뜨리고(그 앞은 다시 붙임),
-        /// 떨어진 카드가 있는 동안 설정하기·코딩 완료 버튼을 막음. 확정 값 자체는 바꾸지 않음.
+        /// 떨어진 카드가 있는 동안 설정하기·코딩 완료 버튼을 막음. 확정 값 자체는 바꾸지 않음. 끝나면 레벨 상태에 알림(레벨 5 현재 상황 그림 갱신).
         /// </summary>
         private void RefreshMissingCards()
         {
-            int dropFromIndex = int.MaxValue;
-            foreach (int idx in _idleReaderStepIndices)
-            {
-                if (idx < dropFromIndex) dropFromIndex = idx;
-            }
+            int dropFromIndex = FirstMissingCardStep;
 
             if (_designPanel) _designPanel.DropFrom(dropFromIndex);
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 카드가 떨어진 단계의 블록을 떨어뜨리거나 다시 붙일 수 없음.");
@@ -701,6 +701,22 @@ namespace DGAIZone.Game.UI
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] buttonConfirm이 null이라 카드가 떨어진 동안 설정하기를 막을 수 없음.");
 
             UpdateCodingCompleteButton();
+            CurrentLevelState?.OnMissingCardsRefreshed(this);
+        }
+
+        /// <summary> 카드가 떨어진 단계 중 가장 이른 단계(이 단계부터 뒤 설계창 블록이 임시로 떨어져 있음). 떨어진 카드가 없으면 int.MaxValue. </summary>
+        internal int FirstMissingCardStep
+        {
+            get
+            {
+                int first = int.MaxValue;
+                foreach (int idx in _idleReaderStepIndices)
+                {
+                    if (idx < first) first = idx;
+                }
+
+                return first;
+            }
         }
 
         /// <summary>

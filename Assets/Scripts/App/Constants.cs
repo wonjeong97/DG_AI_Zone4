@@ -223,13 +223,19 @@ namespace DGAIZone.App
                 public const string MoveLeft = "MoveLeft";
             }
 
-            /// <summary> 레벨 5 재료(함수 사용·동작·논리)와 판정·정답에 쓰는 블록 id. 카드 분류로 재료가 정해지며 순서는 자유(기획 검토 중, 임시). </summary>
+            /// <summary>
+            /// 레벨 5 재료(함수 사용·동작)와 동작 블록 id. 카드 분류로 재료가 정해지며 순서는 자유(기획 검토 중, 임시).
+            /// 동작 블록은 함수 정의 블록 안에 들어가면 현재 상황 화면에 맞는 그림(Level5CityView)이 나타남.
+            /// </summary>
             public static class Level5
             {
                 public const string Function = "Function";
                 public const string Action = "Action";
-                public const string Logic = "Logic";
-                public const string And = "And";
+
+                public const string SpaceStationCode = "SpaceStationCode";           // 우주 정거장 코드 — 돔 기지
+                public const string ExplorerRobotCode = "ExplorerRobotCode";         // 탐사 로봇 코드 — 로버
+                public const string CommunicationCode = "CommunicationCode";         // 통신 시스템 코드 — 통신탑
+                public const string ConnectionPassageCode = "ConnectionPassageCode"; // 연결 통로 코드 — 연결 통로
             }
         }
 
@@ -253,9 +259,8 @@ namespace DGAIZone.App
         public static class Level5Cards
         {
             public const int Function = 1;
-            public const int Action = 3;
-            public const int Logic = 1;
-            public const int Total = Function + Action + Logic;
+            public const int Action = 4;
+            public const int Total = Function + Action;
         }
 
         /// <summary> 효과음 키. StreamingAssets/Settings.json의 sounds 키와 같아야 하며, 파일과 키는 1존과 같음. </summary>

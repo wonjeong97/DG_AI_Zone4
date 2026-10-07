@@ -200,9 +200,8 @@ namespace DGAIZone.Game.Data
         }
 
         /// <summary>
-        /// 레벨 5(임시 규칙): 함수·동작·논리 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이며
-        /// (놓은 블록은 다시 고를 수 없음), 정답 설계에 쓰는 '그리고' 논리 블록이 있어야 함. 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고
-        /// 모든 단계가 세 분류 카드를 받아야 함.
+        /// 레벨 5(임시 규칙): 함수·동작 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이어야 함
+        /// (놓은 블록은 다시 고를 수 없음). 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고 모든 단계가 두 분류 카드를 받아야 함.
         /// </summary>
         private static void ValidateLevel5(RfidLevelMapping mapping, List<string> errors)
         {
@@ -210,21 +209,18 @@ namespace DGAIZone.Game.Data
 
             GetCategoryIngredientMatters(5, mapping, Constants.RfidCategories.Func, Constants.RfidIds.Level5.Function, errors);
             RfidMatter[] actions = GetCategoryIngredientMatters(5, mapping, Constants.RfidCategories.Action, Constants.RfidIds.Level5.Action, errors);
-            RfidMatter[] logics = GetCategoryIngredientMatters(5, mapping, Constants.RfidCategories.Logic, Constants.RfidIds.Level5.Logic, errors);
 
             if (actions != null && actions.Length < Constants.Level5Cards.Action)
             {
                 errors.Add($"레벨 5 동작 블록이 {actions.Length}개라 동작 카드 {Constants.Level5Cards.Action}장을 모두 놓을 수 없음(놓은 블록은 다시 고를 수 없음).");
             }
 
-            RequireMatterId(logics, Constants.RfidIds.Level5.And, "레벨 5 논리 블록", "정답 설계를 만들 수 없음", errors);
-
             if (mapping.steps.Length != Constants.Level5Cards.Total)
             {
                 errors.Add($"레벨 5 단계 수가 {mapping.steps.Length}개라 놓을 카드 수 합 {Constants.Level5Cards.Total}장과 맞지 않음.");
             }
 
-            string[] required = { Constants.RfidCategories.Func, Constants.RfidCategories.Action, Constants.RfidCategories.Logic };
+            string[] required = { Constants.RfidCategories.Func, Constants.RfidCategories.Action };
             for (int i = 0; i < mapping.steps.Length; i++)
             {
                 string[] categories = mapping.steps[i]?.categories;

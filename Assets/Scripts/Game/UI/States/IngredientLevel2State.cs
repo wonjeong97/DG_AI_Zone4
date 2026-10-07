@@ -110,6 +110,11 @@ namespace DGAIZone.Game.UI.States
             UpdateLevel2FillAmount(controller, stepIndex);
         }
 
+        /// <summary> 카드 떨어짐 갱신 시 레벨 2 추가 작업 없음. </summary>
+        public void OnMissingCardsRefreshed(IngredientSelectionController controller)
+        {
+        }
+
         /// <summary> 레벨 2는 모든 단계의 재료 이름이 같으므로 값 블록 없이 고른 블록 이름만 명령 블록에 씀. </summary>
         public (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel)
         {

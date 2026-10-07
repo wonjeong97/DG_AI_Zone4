@@ -74,6 +74,11 @@ namespace DGAIZone.Game.UI.States
             ApplyConfirmedValue(controller, ingredientId, 0);
         }
 
+        /// <summary> 카드 떨어짐 갱신 시 레벨 1 추가 작업 없음. </summary>
+        public void OnMissingCardsRefreshed(IngredientSelectionController controller)
+        {
+        }
+
         /// <summary>
         /// 확정된 값을 재료 역할(엔진 출력량/연료량/탑재 중량)에 맞는 필드에 반영함. 롤백 시 0을 넘겨 해당 역할을 미확정 상태로 되돌림.
         /// 값은 RfidMappings.json 블록의 value(항상 양수 크기)이며, 탑재 중량의 빼기는 계산식이 담당함.
