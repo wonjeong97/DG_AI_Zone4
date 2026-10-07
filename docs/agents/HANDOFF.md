@@ -24,7 +24,7 @@
 - 확인: 컴파일 에러 0, PlayMode `DGAIZone.Tests` 165/165. Play 모드(가짜 서버, 서버 모드 — 테스트 뒤 원복): 'x' 입력 → 약 4초 뒤 'NF1'+Enter → 로그 '앞에 모은 1글자를 버리고 새로 모음'·서버가 받은 uid는 `NF1`, 'NFab' 입력 → 약 6초 뒤 Enter → '모은 4글자를 QR로 보지 않고 버림'·서버 요청 없음·QR 대기 유지. 확인 뒤 Server.json·운영 모드 PlayerPrefs·확인용 PlayerPrefs·EditorSettings·GamtanRoadTantan SDF 동적 글자 원복, 가짜 서버 종료.
   - 간격을 JSON으로 뺀 뒤: 0_Title.json scanCharGapSeconds를 잠시 1.5로 바꿔 Play 모드에서 적용 값 1.5 확인 후 0.5로 원복.
 - 확인 요청: (1차, 고정 0.5초 코드) 정상 스캔 유지·두 Enter 경로 한 번 처리, 버려야 할 경우·경계값, 프레임 멈춤 영향, uid 로그, 규칙, 콘솔 (2차, JSON 분리 뒤 최종 diff) 로드 전·후 값과 0 이하 처리·키 이름, ApplyGuideAsync 순서 변경 영향, 0.5초 고정 가정 잔존, 규칙·콘솔
-- 결과: 1차 6/6, 2차 4/4 통과(agy `gemini-3.8-flash-high`), 수정 사항 없음. 프레임이 0.5초 넘게 멈춰 스캔 중간이 잘리면 미등록·확인 불가 안내 뒤 QR 대기로 돌아감(타이틀은 정지 화면이라 드묾, 느린 PC는 scanCharGapSeconds를 늘림).
+- 결과: 1차 6/6, 2차 4/4 통과(agy `gemini-3.8-flash-high`), 수정 사항 없음. PR wonjeong97/DG_AI_Zone4#48 머지 전 리뷰(main 대비 전체 diff — 설명 일치·머지 영향, 0_Title.json 기본값·1존과 다른 키는 scanCharGapSeconds뿐, CHANGELOG·TODO·HANDOFF, 콘솔)도 4/4 통과. 프레임이 0.5초 넘게 멈춰 스캔 중간이 잘리면 미등록·확인 불가 안내 뒤 QR 대기로 돌아감(타이틀은 정지 화면이라 드묾, 느린 PC는 scanCharGapSeconds를 늘림).
 
 ---
 
