@@ -634,10 +634,10 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 리더기에서 카드가 떨어졌을(RfidReaderIdleEvent) 때 호출됨. 이미 확정된 스탭의 카드면 그 스탭부터 뒤쪽 설계창 블록을 임시로
-        /// 떨어뜨리고 설정하기·코딩 완료를 막음(같은 category 카드가 다시 인식되면 OnRfidTagReceived가 되돌림). 값을 고르던(아직 확정 안 된)
-        /// 현재 스탭의 카드면 취소하기처럼 고르던 값만 비움. 리더기 1대뿐이면 그 1대가 항상 "지금 진행 중인" 스탭이라 카드를 떼는 것 자체가
-        /// 일반적인 조작 흐름이므로 이 기능을 적용하지 않음.
+        /// 리더기에서 카드가 떨어졌을(RfidReaderIdleEvent) 때 호출됨. 마지막으로 확정한 스탭의 카드면 취소하기를 누른 것처럼 그 스탭을 되돌림.
+        /// 그보다 앞서 확정된 스탭의 카드면 그 스탭부터 뒤쪽 설계창 블록을 임시로 떨어뜨리고 설정하기·코딩 완료를 막음(같은 category 카드가
+        /// 다시 인식되면 OnRfidTagReceived가 되돌림). 값을 고르던(아직 확정 안 된) 현재 스탭의 카드면 고르던 값만 비움. 리더기 1대뿐이면 그 1대가
+        /// 항상 "지금 진행 중인" 스탭이라 카드를 떼는 것 자체가 일반적인 조작 흐름이므로 이 기능을 적용하지 않음.
         /// </summary>
         private void OnRfidReaderIdle(RfidReaderIdleEvent evt)
         {
@@ -673,6 +673,14 @@ namespace DGAIZone.Game.UI
                 if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 고르던 값을 비움.");
                 ClearPendingSelection();
                 UpdateCategoryHint();
+                return;
+            }
+
+            // 다시 올려도 값을 다시 골라 설정해야 함(임시로 떨어뜨렸다가 다시 붙이지 않음)
+            if (stepIndex == _currentStepIndex - 1)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})는 마지막으로 확정한 단계라 카드가 떨어져 취소하기로 처리함.");
+                CancelLastStep();
                 return;
             }
 
@@ -870,6 +878,12 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            CancelLastStep();
+        }
+
+        /// <summary> 확정된 마지막 단계를 되돌리고 고르던 값을 비운 뒤 되돌아간 단계를 안내함. 취소하기 버튼과, 마지막으로 확정한 단계의 카드가 떨어졌을 때 씀. </summary>
+        private void CancelLastStep()
+        {
             RollbackOneStep();
             RefreshMissingCards(); // 되돌린 단계의 카드가 떨어져 있었다면 막아 둔 설정하기·코딩 완료를 풂
 
