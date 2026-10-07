@@ -6,13 +6,14 @@
 
 ## 진행 중
 
-- [ ] T46 레벨 5: '그리고'(논리 카드)를 없애고 동작 블록 '연결 통로 코드'를 추가(함수 1·동작 4장, 스토리 문구 네 가지 시스템), 현재 상황 화면 그림(Image_Dome·Rover·Tower·Corridor)을 처음에 숨기고 동작 블록이 함수 정의 블록 안에 들어가 다 붙으면 맞는 그림을 보여 줌. 모든 레벨: 마지막으로 확정한 단계의 카드를 떼면 취소하기로 처리, 리더기 '카드 없음' 오응답 디바운스(RfidMappings.json cardRemovedDebounceMs 1000)(사용자 요청) — 담당: Claude / 검증: Antigravity
 
 ## 할 일
 
 - [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
 
 ## 완료
+
+- [x] T46 레벨 5: '그리고'(논리 카드)를 없애고 동작 블록 '연결 통로 코드'를 추가(함수 1·동작 4장, 스토리 문구 네 가지 시스템), 현재 상황 화면 그림(Image_Dome·Rover·Tower·Corridor)을 처음에 숨기고 동작 블록이 함수 정의 블록 안에 들어가 다 붙으면 맞는 그림을 보여 줌. 모든 레벨: 마지막으로 확정한 단계의 카드를 떼면 취소하기로 처리, 리더기 '카드 없음' 오응답 디바운스(RfidMappings.json cardRemovedDebounceMs 1000)(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 
 - [x] T45 타이틀 QR 입력: 글자 사이가 0.5초(0_Title.json scanCharGapSeconds — PC 렉 대비 사용자 요청으로 JSON 분리)보다 벌어지면 앞에 모은 글자를 버리고 새로 모음(실제 리더기 테스트에서 찍기 전에 눌린 키 한 글자가 uid 앞에 붙어 13자로 들어온 경우가 있었음, 사용자 요청. 1존은 사용자가 따로 반영)(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-07)
 - [x] T44 QR·체험자 서버 API(checkActive·getUser·updateValue, 재시도), 타이틀 QR 확인 흐름, 결과 업로드, getUser 해금 변환(1존 규칙: 기록 있는 마지막 D 레벨 + 1, 최대 5, 없으면 1), 결과 문구 '미션 성공!'(사용자 확인), 연출 값 1존과 맞춤(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-07)
