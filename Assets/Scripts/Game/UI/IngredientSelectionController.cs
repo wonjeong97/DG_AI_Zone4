@@ -1418,6 +1418,13 @@ namespace DGAIZone.Game.UI
         /// <summary> 테스트 전용: 단계별로 확정된 블록 목록을 넣음. </summary>
         internal void SetConfirmedMattersForTest(RfidMatter[] matters) => _confirmedMatters = matters;
 
+        /// <summary> 테스트 전용: 단계별로 확정된 재료 id와 지금까지 확정한 단계 수를 넣음. </summary>
+        internal void SetConfirmedIngredientsForTest(string[] ingredientIds, int confirmedCount)
+        {
+            _confirmedIngredients = ingredientIds;
+            _currentStepIndex = confirmedCount;
+        }
+
         /// <summary>
         /// 오브젝트 파괴 시 이벤트 구독 해제 및 리스너 정리.
         /// </summary>

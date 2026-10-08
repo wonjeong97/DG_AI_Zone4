@@ -14,7 +14,7 @@ using UnityEngine.UI;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 레벨 5(임시 규칙) 검증 테스트. 카드 분류별 설계창 블록 모양, 분류별 장수 세기와 '모두 놓으면 성공' 판정,
+    /// 레벨 5 규칙 검증 테스트. 카드 분류별 설계창 블록 모양, 분류별 장수 세기와 '동작 블록이 모두 함수 정의 블록 안에 있으면 성공' 판정,
     /// 현재 상황 화면 그림을 보여 줄 함수 정의 블록 안쪽 동작 블록, 실제 StreamingAssets/RfidMappings.json 레벨 5 정의로 만든 정답 설계와 데이터 검사를 확인함.
     /// </summary>
     public class Level5RuleTests
@@ -30,13 +30,47 @@ namespace DGAIZone.Tests
         }
 
         [Test]
-        public void 함수_동작을_정해진_장수만큼_모두_놓으면_순서와_관계없이_완성이다()
+        public void 함수_카드_뒤에_놓인_동작_카드만_함수_정의_블록_안으로_센다()
         {
-            Assert.IsTrue(IngredientLevel5State.IsComplete(new[] { F, A, A, A, A }, 5), "함수1·동작4이면 완성");
-            Assert.IsTrue(IngredientLevel5State.IsComplete(new[] { A, A, F, A, A }, 5), "순서가 달라도 완성");
-            Assert.IsFalse(IngredientLevel5State.IsComplete(new[] { A, A, A, A, null }, 4), "함수가 빠지면 미완성");
-            Assert.IsFalse(IngredientLevel5State.IsComplete(new[] { F, A, A, A, A }, 4), "확정된 앞쪽 4장만 세면 미완성");
-            Assert.IsFalse(IngredientLevel5State.IsComplete(new[] { F, F, A, A, A }, 5), "함수가 2장이고 동작이 모자라면 미완성");
+            Assert.AreEqual(4, IngredientLevel5State.CountFunctionBodyActions(new[] { F, A, A, A, A }, 5), "함수 카드를 먼저 놓으면 동작 4장이 모두 안쪽");
+            Assert.AreEqual(2, IngredientLevel5State.CountFunctionBodyActions(new[] { A, A, F, A, A }, 5), "함수 카드보다 먼저 놓은 동작 2장은 시작하기 줄(바깥)");
+            Assert.AreEqual(0, IngredientLevel5State.CountFunctionBodyActions(new[] { A, A, A, A, F }, 5), "함수 카드를 마지막에 놓으면 안쪽 동작 없음");
+            Assert.AreEqual(0, IngredientLevel5State.CountFunctionBodyActions(new[] { A, A, A, A, null }, 4), "함수 카드가 없으면 0");
+            Assert.AreEqual(3, IngredientLevel5State.CountFunctionBodyActions(new[] { F, A, A, A, A }, 4), "확정된 앞쪽 4장만 셈");
+            Assert.AreEqual(0, IngredientLevel5State.CountFunctionBodyActions(null, 5), "확정 목록이 없으면 0");
+        }
+
+        [Test]
+        public void 블록_5개를_모두_놓아야_코딩_완료를_누를_수_있다()
+        {
+            IngredientLevel5State state = new IngredientLevel5State();
+            Assert.IsFalse(state.IsCodingCompleteInteractable(null, 1, 5), "1장만 놓으면 누를 수 없음");
+            Assert.IsFalse(state.IsCodingCompleteInteractable(null, 4, 5), "4장만 놓으면 누를 수 없음");
+            Assert.IsTrue(state.IsCodingCompleteInteractable(null, 5, 5), "5장을 모두 놓으면 누를 수 있음");
+        }
+
+        [Test]
+        public void 동작_블록이_모두_함수_정의_블록_안에_있어야_성공이다()
+        {
+            GameObject go = new GameObject("TestLevel5Evaluate");
+            try
+            {
+                IngredientSelectionController controller = go.AddComponent<IngredientSelectionController>();
+                IngredientLevel5State state = new IngredientLevel5State();
+
+                controller.SetConfirmedIngredientsForTest(new[] { F, A, A, A, A }, 5);
+                Assert.IsTrue(state.EvaluateMission(controller), "함수 카드 뒤에 동작 4장이면 성공");
+
+                controller.SetConfirmedIngredientsForTest(new[] { A, F, A, A, A }, 5);
+                Assert.IsFalse(state.EvaluateMission(controller), "동작 블록 하나라도 함수 밖에 있으면 실패");
+
+                controller.SetConfirmedIngredientsForTest(new[] { F, A, A, A, null }, 4);
+                Assert.IsFalse(state.EvaluateMission(controller), "동작 블록을 다 놓지 않으면 실패");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
         [Test]
@@ -160,7 +194,7 @@ namespace DGAIZone.Tests
 
                 Assert.AreEqual(Constants.Level5Cards.Total, solution.Count, "정답은 카드 수만큼이어야 함");
                 string[] ingredientIds = solution.Select(s => s.ingredient.ingredientId).ToArray();
-                Assert.IsTrue(IngredientLevel5State.IsComplete(ingredientIds, ingredientIds.Length), "정답을 그대로 놓으면 완성이어야 함");
+                Assert.AreEqual(Constants.Level5Cards.Action, IngredientLevel5State.CountFunctionBodyActions(ingredientIds, ingredientIds.Length), "정답을 그대로 놓으면 동작 블록이 모두 함수 정의 블록 안에 있어야 함");
                 Assert.AreEqual(F, solution[0].ingredient.ingredientId, "정답은 함수 사용 블록으로 시작해야 함");
                 Assert.AreEqual(Constants.Level5Cards.Action, solution.Where(s => s.ingredient.ingredientId == A).Select(s => s.matter.id).Distinct().Count(), "동작 블록은 서로 다른 블록이어야 함");
             }

@@ -11,8 +11,9 @@ using ZLogger;
 namespace DGAIZone.Game.UI.States
 {
     /// <summary>
-    /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 기획 검토 중이라 임시 규칙으로 동작함:
-    /// 함수·동작 카드를 Constants.Level5Cards 장수만큼 순서 없이 놓고(다 쓴 분류의 카드는 받지 않음), 모두 놓으면 성공.
+    /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 함수·동작 카드를 Constants.Level5Cards 장수만큼 어느 순서로든 놓을 수
+    /// 있고(다 쓴 분류의 카드는 받지 않음), 5장을 모두 놓으면 코딩 완료를 누를 수 있으며, 동작 블록이 모두 함수 정의 블록 안쪽(함수 카드 뒤)에
+    /// 들어가 있으면 성공.
     /// 함수 카드는 설계창에 함수 사용 블록(시작하기 아래 줄)과 함수 정의 블록(오른쪽)으로 쌓이고, 함수 카드 뒤에 놓은 동작 블록은 함수 정의
     /// 블록 안쪽에, 앞에 놓은 블록은 시작하기 아래 줄에 놓은 순서대로 쌓임. 함수 정의 블록 안쪽에 보이는 동작 블록마다 현재 상황 화면에
     /// 맞는 그림(Level5CityView)이 나타남.
@@ -119,7 +120,10 @@ namespace DGAIZone.Game.UI.States
             city.ShowOnly(_cityMatterIds, appearDelay);
         }
 
-        /// <summary> 확정된 앞쪽 count개 단계 중 함수 카드 뒤(함수 정의 블록 안쪽)에 놓인 동작 블록 id를 놓은 순서대로 result에 담음. </summary>
+        /// <summary>
+        /// 확정된 앞쪽 count개 단계 중 함수 카드 뒤(함수 정의 블록 안쪽)에 놓인 동작 블록 id를 놓은 순서대로 result에 담음.
+        /// 판정(CountFunctionBodyActions)과 같은 기준이어야 하므로 한쪽을 바꾸면 다른 쪽도 함께 바꿈.
+        /// </summary>
         internal static void CollectFunctionBodyActions(string[] confirmedIngredients, RfidMatter[] confirmedMatters, int count, List<string> result)
         {
             if (confirmedIngredients == null || confirmedMatters == null) return;
@@ -167,19 +171,24 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 함수·동작 블록 모두 값 블록을 쓰지 않음. </summary>
         public bool UsesValueBlocks => false;
 
-        /// <summary> 다 놓지 않아도 판정(실패)을 볼 수 있도록 1장 이상 놓이면 코딩완료 버튼을 활성화함. </summary>
+        /// <summary> 블록 5개(함수 1·동작 4)를 모두 써야 하므로 모든 단계가 확정됐을 때만 코딩완료 버튼을 활성화함. </summary>
         public bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps)
         {
-            return designItemCount > 0;
+            return designItemCount >= totalSteps;
         }
 
-        /// <summary> 임시 판정: 함수·동작 카드를 정해진 장수만큼 모두 놓았으면 성공(기획 확정 뒤 수정). </summary>
+        /// <summary>
+        /// 동작 블록이 정해진 장수(Constants.Level5Cards.Action)만큼 모두 함수 정의 블록 안쪽(함수 카드 뒤)에 들어가 있으면 성공.
+        /// 함수 카드가 없거나, 함수 카드보다 먼저 놓아 시작하기 줄에 있는 동작 블록이 있거나, 동작 블록을 다 놓지 않았으면 실패.
+        /// </summary>
         public bool EvaluateMission(IngredientSelectionController controller)
         {
-            bool success = IsComplete(controller.ConfirmedIngredients, controller.CurrentStepIndex);
+            int actionsInBody = CountFunctionBodyActions(controller.ConfirmedIngredients, controller.CurrentStepIndex);
+            bool success = actionsInBody == Constants.Level5Cards.Action;
             if (controller.Logger != null)
             {
-                controller.Logger.ZLogInformation($"[IngredientSelectionController] 레벨 5 판정(임시: 카드를 모두 놓으면 성공): {controller.CurrentStepIndex}/{Constants.Level5Cards.Total}장 -> {(success ? "성공" : "실패")}");
+                int functionCards = CountConfirmed(controller.ConfirmedIngredients, controller.CurrentStepIndex, Constants.RfidIds.Level5.Function);
+                controller.Logger.ZLogInformation($"[IngredientSelectionController] 레벨 5 판정: 함수 정의 블록 안 동작 블록 {actionsInBody}/{Constants.Level5Cards.Action}개(함수 카드 {functionCards}장, 놓은 카드 {controller.CurrentStepIndex}/{Constants.Level5Cards.Total}장) -> {(success ? "성공" : "실패")}");
             }
 
             return success;
@@ -191,11 +200,23 @@ namespace DGAIZone.Game.UI.States
             return null;
         }
 
-        /// <summary> 확정된 앞쪽 count개 단계 중 함수·동작 카드가 각각 정해진 장수만큼 있는지 여부. </summary>
-        internal static bool IsComplete(string[] confirmedIngredients, int count)
+        /// <summary>
+        /// 확정된 앞쪽 count개 단계 중 첫 함수 카드 뒤(함수 정의 블록 안쪽)에 놓인 동작 카드 수. 함수 카드가 없으면 0.
+        /// 설계창 배치(DesignPanel)·현재 상황 그림(CollectFunctionBodyActions)과 같은 기준이어야 하므로 한쪽을 바꾸면 다른 쪽도 함께 바꿈.
+        /// </summary>
+        internal static int CountFunctionBodyActions(string[] confirmedIngredients, int count)
         {
-            return CountConfirmed(confirmedIngredients, count, Constants.RfidIds.Level5.Function) == Constants.Level5Cards.Function
-                && CountConfirmed(confirmedIngredients, count, Constants.RfidIds.Level5.Action) == Constants.Level5Cards.Action;
+            if (confirmedIngredients == null) return 0;
+
+            bool inFunction = false;
+            int found = 0;
+            for (int i = 0; i < count && i < confirmedIngredients.Length; i++)
+            {
+                if (string.Equals(confirmedIngredients[i], Constants.RfidIds.Level5.Function, StringComparison.Ordinal)) inFunction = true;
+                else if (inFunction && string.Equals(confirmedIngredients[i], Constants.RfidIds.Level5.Action, StringComparison.Ordinal)) found++;
+            }
+
+            return found;
         }
 
         /// <summary> 확정된 앞쪽 count개 단계 중 재료가 ingredientId인 단계 수. </summary>
@@ -237,7 +258,7 @@ namespace DGAIZone.Game.UI.States
             return null;
         }
 
-        /// <summary> 임시 정답: 함수 사용 → 동작 블록 전부. 블록 정의가 모자라면 경고를 남기고 빈 목록을 반환함. </summary>
+        /// <summary> 정답: 함수 사용 → 동작 블록 전부(모든 동작 블록이 함수 정의 블록 안쪽). 블록 정의가 모자라면 경고를 남기고 빈 목록을 반환함. </summary>
         public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)
         {
             List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = new List<(RfidStepDefinition ingredient, RfidMatter matter)>();

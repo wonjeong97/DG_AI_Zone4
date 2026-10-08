@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T61
+- 요청(사용자): 레벨 5 성공 규칙은 "동작 블록이 모두 함수 바디 안에 들어가 있으면 성공", 블록 5개를 모두 사용해야 함(질문으로 확인: 5장을 다 놓아야 코딩 완료 버튼이 켜짐).
+- 변경 파일: `Game/UI/States/IngredientLevel5State.cs`(EvaluateMission — 첫 함수 카드 뒤 동작 카드 수(CountFunctionBodyActions)가 4이면 성공, IsComplete 삭제, 판정 로그에 안쪽 동작 수·함수 카드 수, IsCodingCompleteInteractable 1장 이상 → 모든 단계, 정답 주석의 '임시' 삭제, 그림 계산과 같은 기준이라는 상호 주석), `Game/UI/IngredientSelectionController.cs`(테스트 전용 SetConfirmedIngredientsForTest), `App/Constants.cs`·`Game/Data/RfidMappingValidator.cs`(옛 임시 규칙 주석), 테스트 `Level5RuleTests`(안쪽 동작 세기·판정·5장 버튼 조건). CHANGELOG Changed 2줄. 스토리·미션 문구는 그대로.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 191/191(로그 문구·주석 반영 뒤 컴파일만 다시 확인), 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 판정이 설계창 배치(첫 FunctionCall 뒤 블록을 함수 정의 블록 안에)·현재 상황 그림과 같은 기준, 카드가 떨어진 동안은 코딩 완료가 막혀 판정이 불리지 않음, 함수 카드 2장은 장수 제한으로 막힘, 정답 설계가 4/4로 성공 → 통과. 반영 — 옛 규칙을 말하던 주석 5곳(Constants 2·Validator·테스트·상태 클래스), 판정 로그에 함수 카드 수(함수 없음과 마지막에 놓음 구분), 판정·그림 루프 상호 주석. 남김 — 미션 문구에 '동작 블록을 함수 안에' 설명이 없음(기획 문구라 사용자 결정), 카드 떨어짐 판정 대기(cardRemovedDebounceMs) 동안 코딩 완료를 누르면 들고 있던 카드도 판정에 들어감(기존 동작, 그 카드는 화면에 그대로 보임).
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T60
 - 요청(사용자): 끝나면 남은 것이 없는지 다시 한번 점검.
 - 점검(Claude 서브에이전트, T59 파일 제외 전체): 오늘 바뀐 코드에서 새 위반 없음, 높음·중간 없음. UnityEngine.Object null 비교·Keyboard.current·Update 할당·<param> 없음, 지운 개념(DesignLayoutMode·FillPlanned·pollCommand 등) 흔적 없음, JSON 키와 설정 클래스 필드 일치.
