@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T59
+- 요청(사용자): 씬·프리팹·텍스처 UI 설정 점검(스킬 19번).
+- 점검(Claude 서브에이전트, 빌드 씬 6개·프리팹 3개·텍스처 .meta 113개): UI 그래픽 330개 중 Raycast Target 켜짐 97개 — 90개는 클릭을 받아 유지(Button 81·Dim 3·ScrollRect 영역 3 등), 6개 끔, 1개(InputField_Name 이미지)는 코드가 막으므로 유지. UI 스프라이트 밉맵 0건(밉맵 켜진 20개는 참조 없는 NuGet 아이콘). 캔버스 분리 공백 2곳. 전체 화면 투명 차단 이미지 0건.
+- 변경 파일: `Scenes/1_Intro.unity`(TutorialImageMask·TutorialBackImg·PageBackImg Raycast Target 끔), `Prefabs/AdminCanvas.prefab`(NamePanel Board·입력란 Placeholder·Text 끔), `Scenes/3_Game.unity`(Image_Warning·Panel_Level5에 하위 Canvas — 페이드 때 GamePanel 전체가 다시 배칭되지 않게, 아래에 클릭 받는 그래픽이 없어 GraphicRaycaster 없음), `Scenes/3_Game.unity`·`4_Result.unity` 재저장으로 지운 필드 값 정리(DesignPanel layoutMode·maxFitScale, CodingCategoryIndicatorController imageAction 등 — 4_Result의 restore* 두 값은 코드 기본값이 기록된 것), `Admin/VisitorNamePanel.cs`(점검 중 찾은 버그: 이름 입력란 터치 차단이 Awake 뒤 TMP_InputField.OnEnable이 만드는 Caret을 놓쳐 입력란을 누르면 선택됨 → 입력란 CanvasGroup.blocksRaycasts=false로 한꺼번에 막음), 새 테스트 `VisitorNamePanelTests`(수정 전 실패 재현 → 수정 뒤 통과). CHANGELOG Fixed 1줄. 0_Title·2_LevelSelect·5_Outro는 다시 저장해도 변경 없음. 테스트·씬을 열 때 바뀐 TMP 폰트 글리프는 되돌림.
+- 확인: Unity 컴파일·콘솔 오류 0, PlayMode 189/189, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 클릭 회귀 없음(튜토리얼 슬라이더·이름 창 키·저장·닫기), 하위 Canvas 설정이 기존 하위 Canvas와 같고 연출 영향 없음, CanvasGroup이 Caret까지 막음, 재저장으로 바뀐 값·참조 없음 → 통과.
+- 남김(검토만): Panel_Level4/Image_Grid/CellMarkers 디버그 라벨 16개(CanvasGroup 알파 0, 아이콘 정렬 기준점 — 레벨 4 구현 때 둔 것), 2_LevelSelect ThemeBackground(대기 중 알파 0이지만 보이는 연출), 4_Result VideoPanel 검정 Image(영상 위 1겹) — 비용이 작고 의도가 있어 그대로 둠.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T58
 - 요청(사용자): 타이틀·인트로 성능·버그 점검(T54에서 시간 제한으로 끊긴 부분).
 - 변경 파일: `Intro/IntroFlowController.cs`(1_Intro.json storyTextStartDelay가 0이라 스토리 첫 줄이 페이드인 뒤에서 올라오던 것 — 씬 전환이 끝날 때까지 기다린 뒤 시작), `Intro/TutorialImageSlider.cs`(씬 시작 때 7페이지 모두 로드 시작, 실패한 핸들은 캐시에서 빼고 Release해 다음에 다시 로드, 다른 호출이 먼저 해제한 핸들은 읽지 않음), `Title/ScanInputBuffer.cs`(Clear → Restart: 다시 받은 뒤 쉬거나 Enter가 올 때까지 이어서 오는 글자는 앞 스캔의 뒷부분으로 버림, TakeSkippedCount), `Title/TitleFlowController.cs`(StartScanning이 Restart, 버린 글자 수 로그, IsSceneChanging — 씬 전환 중이거나 관리자 레벨 이동 표시가 있으면 QR 무시·서버 확인 결과 미반영·시작하기 대기 초과 때 체험자를 비우지 않음), `Data/TitleSceneSettings.cs`(scanCharGapSeconds 주석), 테스트 `ScanInputBufferTests`(+5). CHANGELOG Fixed 4줄.
