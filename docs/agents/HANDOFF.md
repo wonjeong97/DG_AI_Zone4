@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-08] Claude → Antigravity · T50
+- 요청(사용자): T49 Play 모드 확인 중 찾은 CancelConfirmTimeout 잠재 예외도 같이 고치기.
+- 원인: CancelConfirmTimeout이 _confirmTimeoutCts.Cancel() 뒤 같은 필드로 Dispose()를 불렀다. 대기 작업이 아직 _settingsProvider.GetAsync를 기다리는 중이면(Task.AsUniTask 완료가 다음 프레임에 전달되는 구간, AttachExternalCancellation은 취소를 그 자리에서 전달) Cancel()이 ConfirmTimeoutAsync의 catch·finally까지 바로 실행하고, finally가 필드를 null로 만들어 다음 줄 Dispose()에서 NullReferenceException. UniTask.Delay 구간은 cancelImmediately 기본 false라 다음 프레임에 전달돼 문제없었다. 시작 버튼이 뜬 뒤 약 1프레임 안에 시작하기·다음 QR·씬 파괴가 겹쳐야 해서 실사용에서 겪기는 거의 어려움.
+- 변경 파일: `Title/TitleFlowController.cs`(CancelConfirmTimeout — 필드를 지역 변수로 옮겨 먼저 null로 비운 뒤 Cancel·Dispose, finally의 '_confirmTimeoutCts == cts' 비교가 거짓이 돼 한 번만 해제), `TODO.md`. CHANGELOG는 관람객·운영자가 겪기 어려운 내부 예외라 적지 않음.
+- 확인(Claude, Play 모드 0_Title): StartConfirmTimeout 직후 CancelConfirmTimeout 3번 → 예외 없음·필드 null. 연달아 StartConfirmTimeout 두 번 → 마지막 대기 하나만 남고, (메모리에서만 resetTime 2초) 2초 뒤 'QR 대기로 돌아감'과 move_idle_timeout 각 1번. 콘솔 오류·경고 0. PlayMode 177/177, 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`): 그 자리 취소·다음 프레임 취소 두 경로에서 CTS가 한 번만 해제되고 새 대기의 CTS를 건드리지 않는지, OnQrScanned·OnStartClicked·OnDestroy·StartConfirmTimeout 동작 유지(취소된 대기는 로그를 보내지 않음), 해제된 CTS의 Token을 쓰는 곳 없음·주석 문체 → 3/3 통과, 문제 0건.
+
+---
+
 ### [2026-10-08] Claude → Antigravity · T49
 - 요청(사용자): 타이틀은 이미 대기(idle) 화면이라 아무것도 하지 않았을 때는 move_idle_timeout을 보내면 안 되고(로컬 모드도 QR이 없으니 보내지 않음), QR을 찍었는데 정해진 시간 동안 시작하기를 누르지 않았으면 보내는 게 맞다. 그전에는 Template의 전역 InactivityTimer가 타이틀에서도 돌아 앱 시작 직후·아웃트로 홈 버튼 뒤 대기 중에도 move_idle_timeout이 나갔다(QR 뒤 미시작은 두 타이머 시간이 같아 우연히 1번 나감).
 - 변경 파일: `Network/APIManager.cs`(OnInactivityTimeout — 0_Title이면 정보 로그만 남기고 보내지 않음, 5_Outro move_idle·그 외 move_idle_timeout은 그대로), `Title/TitleFlowController.cs`(ApiManagerBase를 선택 주입 — 인트로의 InactivityTimer와 같은 방식, ConfirmTimeoutAsync가 시작하기 대기 시간이 끝나 QR 대기로 돌아갈 때 SendMoveIdleTimeoutLogAsync를 토큰 없이 보냄, null이면 경고), `CHANGELOG.md`, `TODO.md`. 버전은 이미 26.10.8.

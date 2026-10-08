@@ -420,9 +420,11 @@ namespace DGAIZone.Title
         {
             if (_confirmTimeoutCts == null) return;
 
-            _confirmTimeoutCts.Cancel();
-            _confirmTimeoutCts.Dispose();
+            // 대기 작업이 아직 설정을 읽는 중이면 Cancel()이 그 자리에서 finally까지 실행하므로, 필드를 먼저 비워 그쪽에서 건드리지 않게 함
+            CancellationTokenSource cts = _confirmTimeoutCts;
             _confirmTimeoutCts = null;
+            cts.Cancel();
+            cts.Dispose();
         }
 
         /// <summary>
