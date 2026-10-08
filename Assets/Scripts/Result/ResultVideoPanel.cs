@@ -131,7 +131,7 @@ namespace DGAIZone.Result
 
             bool success = _resultStore != null && _resultStore.Result == MissionResult.Success;
 
-            int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : MinLevel;
+            int level = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultVideoPanel));
             int clampedLevel = ClampLevel(level);
             if (clampedLevel != level && _logger != null)
             {

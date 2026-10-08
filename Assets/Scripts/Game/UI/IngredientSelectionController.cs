@@ -306,9 +306,7 @@ namespace DGAIZone.Game.UI
 
                 _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
 
-                int level = 1;
-                if (_selectedLevelStore != null) level = _selectedLevelStore.SelectedLevel;
-                else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] selectedLevelStore가 null이라 레벨 1로 진행함.");
+                int level = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(IngredientSelectionController));
                 ChangeLevelState(level);
                 ValidateMappings(settings);
                 ApplyLevelMapping(settings != null ? settings.FindLevelMapping(level) : null);

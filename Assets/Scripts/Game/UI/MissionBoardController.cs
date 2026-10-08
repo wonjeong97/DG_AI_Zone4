@@ -118,7 +118,7 @@ namespace DGAIZone.Game.UI
                 _logger.ZLogError($"[MissionBoardController] GameFlowController가 주입되지 않아 레벨 데이터(LevelData)를 읽을 수 없음. 기본 미션 문구를 사용함.");
             }
 
-            int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+            int level = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(MissionBoardController));
 
             if (level == 2)
             {
@@ -184,7 +184,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+            int level = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(MissionBoardController));
             string raw = GetRawMissionTextFromData(level);
             if (missionText && !string.IsNullOrEmpty(raw) && raw.Contains(Constants.VisitorPlaceholder))
             {
