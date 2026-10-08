@@ -20,6 +20,7 @@
 - 확인 요청·결과(agy `gemini-3.8-flash-high`, 3묶음 병렬 — 리뷰 때 4존 Editor가 꺼져 있어 Unity MCP 조회 없이 파일 읽기만): (코드) ExtractObject 경계와 기존 실패 응답 유지, Parse의 FromJson·정규식 모두 json 적용과 실패 사유에 uid·이름이 섞이지 않음(VisitorApiClient 경고 로그까지), IsSaved 호출부 영향, 규칙(ZString·네임스페이스·주석 문체·조용한 실패) → 4/4 통과. (테스트) 새 케이스 기대값(4존 레벨 1부터·D 코드), 빈칸 값이 JSON parse error를 내는지, updateValue 케이스, 기존 실패 케이스 유지 → 4/4 통과. (문서·설정) CHANGELOG 형식과 `` ``` `` 마크다운 영향, TODO 형식·번호, bundleVersion → 3/3 통과. 문제 0건.
 - 콘솔(Claude 확인): 컴파일 에러 없음. 테스트 뒤 에러 항목은 Template ApiRetryUtil의 'Editor/development build; skipping send: exit log' 1건(Play 모드 종료 때 나오는 로그, 이번 변경과 무관).
 - 남은 확인: 현장 서버 모드에서 QR → getUser·결과 저장을 실제로 확인. 서버 쪽 `` ``` `` 제거는 따로 요청 중.
+- PR wonjeong97/DG_AI_Zone4#51 머지 전 리뷰(agy 2묶음): (코드·테스트) BOM·문자열 값 안의 중괄호·CSS 중괄호가 든 HTML·JSON 두 개 이어 붙임에서 잘못 성공으로 판정하지 않음, 서버 응답 경로 범위(checkActive는 평문이라 제외), 새 테스트가 수정 전 코드에서 실패하는지(updateValue result false 케이스만 수정 전에도 통과 — 음성 테스트) → 3/3 통과. (문서) PR 설명·커밋 일치, HANDOFF 사실 대조, CHANGELOG·TODO 형식과 날짜 섹션 이동 → 3/3 통과. 문제 0건. 참고: checkActive 응답에도 같은 줄이 붙으면 이름 뒤에 남거나 Unknown이 될 수 있음(현장 1존에서는 checkActive 정상).
 
 ---
 
