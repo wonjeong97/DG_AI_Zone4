@@ -13,6 +13,17 @@
 
 ---
 
+### [2026-10-08] Claude → Antigravity · T48
+- 요청(사용자): 1존 현장에서 찾은 체험자 서버 응답 문제를 4존에 맞춰 반영. getUser 응답이 올바른 JSON 끝 } 뒤에 `` ``` `` 줄을 붙여 와 JsonUtility가 'The document root must not follow by other values.'로 실패하고, 체험 가능한 관람객도 모두 타이틀에서 'QR 코드를 확인할 수 없습니다'로 막혔다. 4존도 같은 서버·같은 코드. 서버 쪽 `` ``` `` 제거는 따로 요청하고, 앱은 서버 수정 전후 모두 동작해야 함. updateValue에도 같은 줄이 붙는지는 미확인.
+- 변경 파일: `Network/ApiJson.cs`(새 파일, ExtractObject — 첫 { ~ 마지막 }만, 중괄호가 없으면 원문을 돌려줘 JSON 해석에서 실패), `Network/GetUserResult.cs`(잘라낸 json으로 FromJson·정규식, 실패 사유 'JSON이 아닌 응답 (JsonUtility 오류 문구)' — 오류 문구에는 본문이 없어 uid·이름이 로그에 남지 않음), `Network/UpdateValueResponse.cs`(IsSaved도 ExtractObject), `Tests/Runtime/GetUserResultTests.cs`·`VisitorApiClientTests.cs`(회귀 테스트 6개), `CHANGELOG.md`, `TODO.md`. 버전은 이미 26.10.8.
+- 테스트: PlayMode 177/177(기존 171 + 새 6). 실행 뒤 m_EnterPlayModeOptionsEnabled 1 → 0으로 되돌림.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`, 3묶음 병렬 — 리뷰 때 4존 Editor가 꺼져 있어 Unity MCP 조회 없이 파일 읽기만): (코드) ExtractObject 경계와 기존 실패 응답 유지, Parse의 FromJson·정규식 모두 json 적용과 실패 사유에 uid·이름이 섞이지 않음(VisitorApiClient 경고 로그까지), IsSaved 호출부 영향, 규칙(ZString·네임스페이스·주석 문체·조용한 실패) → 4/4 통과. (테스트) 새 케이스 기대값(4존 레벨 1부터·D 코드), 빈칸 값이 JSON parse error를 내는지, updateValue 케이스, 기존 실패 케이스 유지 → 4/4 통과. (문서·설정) CHANGELOG 형식과 `` ``` `` 마크다운 영향, TODO 형식·번호, bundleVersion → 3/3 통과. 문제 0건.
+- 콘솔(Claude 확인): 컴파일 에러 없음. 테스트 뒤 에러 항목은 Template ApiRetryUtil의 'Editor/development build; skipping send: exit log' 1건(Play 모드 종료 때 나오는 로그, 이번 변경과 무관).
+- 남은 확인: 현장 서버 모드에서 QR → getUser·결과 저장을 실제로 확인. 서버 쪽 `` ``` `` 제거는 따로 요청 중.
+- PR wonjeong97/DG_AI_Zone4#51 머지 전 리뷰(agy 2묶음): (코드·테스트) BOM·문자열 값 안의 중괄호·CSS 중괄호가 든 HTML·JSON 두 개 이어 붙임에서 잘못 성공으로 판정하지 않음, 서버 응답 경로 범위(checkActive는 평문이라 제외), 새 테스트가 수정 전 코드에서 실패하는지(updateValue result false 케이스만 수정 전에도 통과 — 음성 테스트) → 3/3 통과. (문서) PR 설명·커밋 일치, HANDOFF 사실 대조, CHANGELOG·TODO 형식과 날짜 섹션 이동 → 3/3 통과. 문제 0건. 참고: checkActive 응답에도 같은 줄이 붙으면 이름 뒤에 남거나 Unknown이 될 수 있음(현장 1존에서는 checkActive 정상).
+
+---
+
 ### [2026-10-08] Claude → Antigravity · T47
 - 요청(사용자): 레벨 1 핵 추진 엔진 값을 +15로(외계 행성 정답 조합이 하나뿐이라 너무 어려움).
 - 변경 파일: `StreamingAssets/RfidMappings.json`(NuclearEngine value 12 → 15, 라벨 '핵 추진 엔진 (+15)'), `CHANGELOG.md`, `TODO.md`. 코드 변경 없음, 버전은 이미 26.10.8.

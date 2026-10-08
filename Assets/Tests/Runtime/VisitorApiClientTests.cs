@@ -37,5 +37,13 @@ namespace DGAIZone.Tests
         {
             Assert.IsFalse(UpdateValueResponse.IsSaved(body));
         }
+
+        /// <summary> JSON 뒤에 붙은 글자(현장 서버 getUser에서 본 ``` 줄 등)는 무시하고 result로 판정함. </summary>
+        [TestCase("\r\n{\"result\":true,\"idx_user\":10,\"code\":\"D1\",\"value\":1}\r\n```\r\n", true)]
+        [TestCase("{\"result\":false,\"message\":\"ERROR_IDX_USER\"}\r\n```", false)]
+        public void 결과_저장_응답_뒤에_붙은_글자는_무시한다(string body, bool expected)
+        {
+            Assert.AreEqual(expected, UpdateValueResponse.IsSaved(body));
+        }
     }
 }
