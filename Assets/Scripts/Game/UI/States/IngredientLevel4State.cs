@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using ZLogger;
@@ -37,7 +37,7 @@ namespace DGAIZone.Game.UI.States
         {
             if (IsRepeatFollowUpRequired(controller) && !string.Equals(evt.Category, Constants.RfidCategories.Action, StringComparison.Ordinal))
             {
-                controller.LogCardPlaced(evt, $"이전 단계가 '반복하기'라 {controller.CurrentStepIndex + 1}번째 단계는 동작 카드만 쓸 수 있어 경고를 띄움");
+                controller.LogCardPlaced(evt, ZString.Format("이전 단계가 '반복하기'라 {0}번째 단계는 동작 카드만 쓸 수 있어 경고를 띄움", controller.CurrentStepIndex + 1));
                 controller.ShowInvalidCardWarning();
                 return false;
             }

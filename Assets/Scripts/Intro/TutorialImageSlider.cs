@@ -170,7 +170,10 @@ namespace DGAIZone.Intro
 
                 if (_image) _image.sprite = sprite; // null이면 Awake에서 이미 오류를 남김
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                // 로딩 중 씬 전환 등으로 오브젝트가 파괴되어 취소된 경우 — 정상 종료
+            }
         }
     }
 }

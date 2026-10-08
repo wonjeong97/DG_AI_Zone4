@@ -4,7 +4,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using TMPro;

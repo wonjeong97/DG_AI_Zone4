@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using ZLogger;
@@ -45,7 +45,7 @@ namespace DGAIZone.Game.UI.States
             int limit = CardLimitOf(ingredient.ingredientId);
             if (CountConfirmed(controller.ConfirmedIngredients, controller.CurrentStepIndex, ingredient.ingredientId) < limit) return true;
 
-            controller.LogCardPlaced(evt, $"{evt.Category} 카드는 {limit}장까지라 경고를 띄움");
+            controller.LogCardPlaced(evt, ZString.Format("{0} 카드는 {1}장까지라 경고를 띄움", evt.Category, limit));
             controller.ShowInvalidCardWarning();
             return false;
         }

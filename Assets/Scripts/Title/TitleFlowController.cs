@@ -158,7 +158,7 @@ namespace DGAIZone.Title
                 _sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token, _logger);
                 ApplyScanCharGap();
 
-                if (!qrCanvasGroup) return;
+                if (!qrCanvasGroup) return; // null이면 Start에서 이미 경고함
 
                 _qrBlinkTween = qrCanvasGroup.DOFade(_sceneSettings.qrBlinkMinAlpha, _sceneSettings.qrFadeDuration)
                     .SetLoops(-1, LoopType.Yoyo)

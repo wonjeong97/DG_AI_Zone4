@@ -29,6 +29,7 @@ namespace DGAIZone.Game.UI
         public readonly string Command;
         public readonly string Value;
 
+        /// <summary> 단계 블록의 모양과 명령·값 블록 문구로 설계 단계 하나를 만듦. </summary>
         public DesignStep(DesignStepShape shape, string command, string value)
         {
             Shape = shape;
@@ -139,7 +140,7 @@ namespace DGAIZone.Game.UI
 
             _startBlock = CreateBlock(DesignBlockKind.Start, StartLabel, null);
             Relayout();
-            if (_startBlock) _startBlock.SnapTo(PositionOf(0));
+            if (_startBlock) _startBlock.SnapTo(PositionOf(0)); // 만들지 못하면 CreateBlock이 경고함
             UpdateContentHeight();
         }
 
@@ -162,7 +163,7 @@ namespace DGAIZone.Game.UI
             }
 
             DesignBlockView block = CreateBlock(KindOf(shape, value), command, value);
-            if (!block) return;
+            if (!block) return; // 만들지 못하면 CreateBlock이 경고함
 
             _steps.Add(block);
             _stepShapes.Add(shape);

@@ -1,4 +1,5 @@
 using System;
+using Cysharp.Text;
 
 namespace DGAIZone.App
 {
@@ -48,10 +49,10 @@ namespace DGAIZone.App
             if (string.IsNullOrEmpty(word)) return string.Empty;
 
             char last = word[word.Length - 1];
-            if (last < '가' || last > '힣') return word + "이(가)";
+            if (last < '가' || last > '힣') return ZString.Concat(word, "이(가)");
 
             bool hasFinalConsonant = (last - '가') % 28 != 0;
-            return word + (hasFinalConsonant ? "이" : "가");
+            return ZString.Concat(word, hasFinalConsonant ? "이" : "가");
         }
     }
 }

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using HuliacDev.Core;

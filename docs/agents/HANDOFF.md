@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T60
+- 요청(사용자): 끝나면 남은 것이 없는지 다시 한번 점검.
+- 점검(Claude 서브에이전트, T59 파일 제외 전체): 오늘 바뀐 코드에서 새 위반 없음, 높음·중간 없음. UnityEngine.Object null 비교·Keyboard.current·Update 할당·<param> 없음, 지운 개념(DesignLayoutMode·FillPlanned·pollCommand 등) 흔적 없음, JSON 키와 설정 클래스 필드 일치.
+- 변경 파일(낮음 정리, 동작 변화는 아래 두 가지뿐): 쓰이지 않는 using 10곳(레벨 상태 6개 DGAIZone.Data 등), summary 없던 메서드 5곳(스킬 11번은 메서드 대상이라 프로퍼티는 제외), XML 주석 오류 4곳(`<->`, `<size>`), 행동 로그 결과 문구 8곳 `$""` → ZString.Format·PlaceholderFormatter `+` → ZString.Concat(스킬 7번), 이미 다른 곳에서 경고하는 정상 분기·빈 catch에 이유 주석, RfidReaderService 쓰이지 않는 초기값. 동작 변화: `stageReadCounts` 첫 값이 0 이하이면 음수 크기 배열 예외 → 기본값 3(지금 데이터는 모든 레벨에 steps가 있어 쓰이지 않음), `GameSceneSettings` rightArrow 기본값 3개를 3_Game.json 값(0.2·0.5·0.25)과 맞춤(로드 전·실패 때만 차이).
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 189/189, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 지운 using이 확장 메서드·#if·nameof까지 정말 안 쓰임, ZString 치환 8곳 문구·인자·+1 위치 같음, stageReadCounts는 0 이하일 때만 바뀜, '이미 경고함' 주석 5곳 모두 실제로 경고함, 기본값이 JSON과 같음 → 통과. 낮음 반영 — 옮긴 주석이 레벨 3 폴백 범위까지 목적지 설명으로 묶던 것(MissionBoardController), stageReadCounts 0 이하 설명 3곳, ISceneVideoReadiness summary.
+- 남김(사용자 결정 필요 또는 판단): `stageReadCounts` 배열을 int 하나로 줄이거나 키를 빼기(현장 JSON 키 변경), 긴 메서드 나머지(LevelSelectFlowController.SelectLevel 101줄·SwitchToStoryAsync, StoryLineAnimator.AnimateLinesAsync, RfidReaderService.ReadLoop — 스킬 10번 기준이 줄 수가 아니라 한 문장 설명이고 UI 흐름이라 그대로 둠), 레벨 상태 로그의 [IngredientSelectionController] 태그(컨트롤러 로거를 빌려 쓰는 관례), 프로퍼티 summary 누락(규칙 대상 아님), 프로젝트 CLAUDE.md가 제목만 있음.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T59
 - 요청(사용자): 씬·프리팹·텍스처 UI 설정 점검(스킬 19번).
 - 점검(Claude 서브에이전트, 빌드 씬 6개·프리팹 3개·텍스처 .meta 113개): UI 그래픽 330개 중 Raycast Target 켜짐 97개 — 90개는 클릭을 받아 유지(Button 81·Dim 3·ScrollRect 영역 3 등), 6개 끔, 1개(InputField_Name 이미지)는 코드가 막으므로 유지. UI 스프라이트 밉맵 0건(밉맵 켜진 20개는 참조 없는 NuGet 아이콘). 캔버스 분리 공백 2곳. 전체 화면 투명 차단 이미지 0건.

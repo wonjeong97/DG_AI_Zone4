@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using R3;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
 using HuliacDev.UI;

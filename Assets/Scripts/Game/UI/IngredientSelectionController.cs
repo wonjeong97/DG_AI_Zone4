@@ -116,8 +116,8 @@ namespace DGAIZone.Game.UI
 
         private int _selectedLevel = 1;     // 현재 레벨 (디자인 항목 표시 형식 분기 등에 사용)
         private int _currentStepIndex = 0;  // 현재 read 인덱스 (0 ~ _totalSteps-1)
-        private int _totalSteps = 3;        // 현재 스테이지에서 찍어야 하는 총 read 횟수
-        private const int DefaultFallbackStepCount = 3; // 단계(steps) 정의가 없는 레벨인데 JSON stageReadCounts도 없을 때의 단계 수
+        private int _totalSteps = 3;        // 이번 레벨의 단계 수
+        private const int DefaultFallbackStepCount = 3; // 단계(steps) 정의가 없는 레벨인데 JSON stageReadCounts가 없거나 첫 값이 0 이하일 때의 단계 수
         private RfidLevelMapping _levelMapping; // 현재 레벨의 블록 목록(matterSets)·단계 정의. 단계가 고를 블록은 matterSetId로 여기서 찾음
         private RfidStepDefinition[] _stepDefinitions; // "동작" 카드를 찍을 때마다 순서대로 진행되는 재료 목록 (추진체 종류 -> 탑재 종류 -> 연료량)
         private RfidStepDefinition[] _categoryIngredients; // 카드 분류로 재료가 정해지는 레벨(레벨 4)의 분류별 재료 정의
@@ -309,11 +309,12 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// RfidMappings.json 설정으로 리더기 수, 레벨 상태, 이 레벨의 블록 목록·단계 정의, 총 단계 수를 정함.
-        /// 단계 정의가 없는 레벨이면 stageReadCounts의 첫 값만큼 진행하고 경고를 남김.
+        /// 단계 정의가 없는 레벨이면 stageReadCounts의 첫 값(없거나 0 이하면 기본값)만큼 진행하고 경고를 남김.
         /// </summary>
         private void ApplyRfidSettings(RfidSettings settings)
         {
-            int fallbackStepCount = (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0)
+            // 음수면 단계별 기록 배열을 만들 수 없고 0이면 진행할 단계가 없으므로 기본값을 씀(쓰일 때 아래 경고가 실제 단계 수를 남김)
+            int fallbackStepCount = (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0 && settings.stageReadCounts[0] > 0)
                 ? settings.stageReadCounts[0]
                 : DefaultFallbackStepCount;
 
@@ -329,7 +330,7 @@ namespace DGAIZone.Game.UI
 
             if (!hasStepDefinitions && _logger != null)
             {
-                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 stageReadCounts의 {_totalSteps}회로 진행함.");
+                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 {_totalSteps}단계로 진행함(stageReadCounts 첫 값, 없거나 0 이하면 기본 {DefaultFallbackStepCount}).");
             }
         }
 
@@ -523,7 +524,7 @@ namespace DGAIZone.Game.UI
 
                     if (wasIdle && string.Equals(previousCategory, evt.Category, StringComparison.Ordinal))
                     {
-                        LogCardPlaced(evt, $"{readerStepIndex + 1}번째 단계에서 뗐던 카드와 같은 분류라 블록을 다시 붙임");
+                        LogCardPlaced(evt, ZString.Format("{0}번째 단계에서 뗐던 카드와 같은 분류라 블록을 다시 붙임", readerStepIndex + 1));
                         RefreshMissingCards();
                         return false;
                     }
@@ -536,7 +537,7 @@ namespace DGAIZone.Game.UI
                 else if (readerStepIndex > _currentStepIndex)
                 {
                     // 아직 도달하지 않은(활성화되지 않은) 스탭의 리더기 -> 무시
-                    LogCardPlaced(evt, $"아직 {_currentStepIndex + 1}번째 단계를 하는 중이라 무시함");
+                    LogCardPlaced(evt, ZString.Format("아직 {0}번째 단계를 하는 중이라 무시함", _currentStepIndex + 1));
                     return false;
                 }
             }
@@ -573,7 +574,7 @@ namespace DGAIZone.Game.UI
 
             if (!step.AllowsCategory(evt.Category))
             {
-                LogCardPlaced(evt, $"{_currentStepIndex + 1}번째 단계에서 쓸 수 없는 카드라 경고를 띄움");
+                LogCardPlaced(evt, ZString.Format("{0}번째 단계에서 쓸 수 없는 카드라 경고를 띄움", _currentStepIndex + 1));
                 ShowInvalidCardWarning();
                 return false;
             }
@@ -725,7 +726,7 @@ namespace DGAIZone.Game.UI
             int stepIndex = GetStepIndexForReader(evt.ReaderId);
             if (stepIndex < 0 || stepIndex > _currentStepIndex)
             {
-                LogCardRemoved(evt.ReaderId, $"단계가 없는 리더기이거나 아직 하지 않은 단계라 그대로 둠(지금 {_currentStepIndex + 1}번째 단계)");
+                LogCardRemoved(evt.ReaderId, ZString.Format("단계가 없는 리더기이거나 아직 하지 않은 단계라 그대로 둠(지금 {0}번째 단계)", _currentStepIndex + 1));
                 return;
             }
 
@@ -747,13 +748,13 @@ namespace DGAIZone.Game.UI
             if (stepIndex == _currentStepIndex - 1)
             {
                 CancelLastStep();
-                LogCardRemoved(evt.ReaderId, $"마지막으로 설정한 단계라 취소해 {_currentStepIndex + 1}번째 단계로 되돌림");
+                LogCardRemoved(evt.ReaderId, ZString.Format("마지막으로 설정한 단계라 취소해 {0}번째 단계로 되돌림", _currentStepIndex + 1));
                 return;
             }
 
             if (_idleReaderStepIndices.Add(stepIndex))
             {
-                LogCardRemoved(evt.ReaderId, $"{stepIndex + 1}번째 단계부터 블록을 잠시 떼고 설정하기·코딩 완료를 막음");
+                LogCardRemoved(evt.ReaderId, ZString.Format("{0}번째 단계부터 블록을 잠시 떼고 설정하기·코딩 완료를 막음", stepIndex + 1));
                 RefreshMissingCards();
             }
         }
@@ -1375,7 +1376,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 값이 숫자로만 구성되어 있으면 <size> 리치 텍스트 태그로 감싸 강조 크기를 적용하고, 아니면 원본 값을 그대로 반환함.
+        /// 값이 숫자로만 구성되어 있으면 &lt;size&gt; 리치 텍스트 태그로 감싸 강조 크기를 적용하고, 아니면 원본 값을 그대로 반환함.
         /// </summary>
         internal string ApplyNumberSizeTag(string value)
         {

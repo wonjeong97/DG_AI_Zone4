@@ -36,9 +36,12 @@ namespace DGAIZone.Game.UI
         private string _visitorName = Constants.DefaultVisitorName;
         private MissionDestination _current = CreateFallbackDestination();
 
-        // Level1/Level3 LevelData에 값이 없을 때만 오류 로그와 함께 쓰는 폴백.
-        // 목적지는 인스턴스마다 새로 만듦: 공유 static 객체를 넣어 두면 에디터 스크립트 리로드 때 _current 복원 값이 그 객체에 덮어써짐
+        /// <summary>
+        /// Level1 LevelData에 목적지가 없을 때만 오류 로그와 함께 쓰는 폴백 목적지를 새로 만들어 반환함.
+        /// 공유 static 객체를 넣어 두면 에디터 스크립트 리로드 때 _current 복원 값이 그 객체에 덮어써지므로 인스턴스마다 새로 만듦.
+        /// </summary>
         private static MissionDestination CreateFallbackDestination() => new MissionDestination { planetName = "외계 행성", targetDistance = 20, spriteKey = "ExoPlanet" };
+        // Level3 LevelData에 기준값 범위가 없을 때만 오류 로그와 함께 쓰는 폴백 범위
         private static readonly Vector2Int FallbackLevel3Range = new Vector2Int(3, 5);
 
         // LevelData에 미션 문구가 없을 때 쓰는 기본 문구(레벨 1·3은 이번 판 값이 들어가므로 Start에서 만듦)
@@ -488,9 +491,10 @@ namespace DGAIZone.Game.UI
             EnsureSubCanvas(previewFillImage);
         }
 
+        /// <summary> target에 Canvas가 없으면 붙여 그 아래 트윈이 메인 캔버스를 다시 배칭하지 않게 함. </summary>
         private static void EnsureSubCanvas(Component target)
         {
-            if (!target) return;
+            if (!target) return; // null이면 게이지를 쓰는 곳(SetProgress 등)에서 경고함
             if (!target.TryGetComponent<Canvas>(out _))
             {
                 target.gameObject.AddComponent<Canvas>();
