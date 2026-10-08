@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T57
+- 요청(사용자): T54에서 미룬 것도 필요하면 지금 하기.
+- 판단: 큰 메서드 분리(스킬 10번)·쓰이지 않는 스테이지 인덱스는 함. 주입 실패 Debug.LogError 일괄 추가는 테스트가 로거 없이 컨트롤러를 만들어 Unity 테스트가 오류 로그로 실패하므로 하지 않음. 상태 인터페이스의 안 쓰는 controller 매개변수는 다섯 상태가 같은 모양을 유지하는 설계이고 레벨 5 규칙이 검토 중이라 그대로 둠. 씬에 남은 지운 필드 값은 T59에서 씬을 저장하며 정리.
+- 변경 파일: `Game/UI/IngredientSelectionController.cs`(InitializeWorkflowAsync → ApplyRfidSettings·ResetWorkflowProgress, OnRfidTagReceived → TryRouteToCurrentStep·TryResolveStepCard·ApplyStepCard, 항상 0이던 _currentStageIndex 삭제 — stageReadCounts의 첫 값을 지역 변수로), `Game/Data/RfidMappingData.cs`(stageReadCounts 주석). 동작 변화 없음, CHANGELOG 항목 없음.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 185/185(T23과 함께 실행).
+- 리뷰(Claude, agy 한도 초과): 예전 return 9개가 같은 순서·조건의 false로 옮겨짐, 설정한 단계 카드 변경 뒤 이어지는 경로, out 매개변수, 취소 시 조기 반환, 스테이지 인덱스 동등성 → 통과. 참고(필드를 지역 변수로) 반영.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T23
 - 요청(사용자): 설계창 배치 방식은 스크롤로 확정.
 - 변경 파일: `Game/UI/DesignPanel.cs`(DesignLayoutMode·layoutMode·maxFitScale·LayoutMode·_plannedHeight와 계획 높이 계산 삭제, 배율은 scrollScale과 폭 제한만, 자동 스크롤 조건 제거), `App/GameResultStore.cs`(DesignLayoutMode 삭제), `Game/UI/IngredientSelectionController.cs`(결과 저장소에 배치 방식 기록 삭제), `Result/ResultDesignPlayback.cs`(Prepare의 mode 매개변수 삭제), `Result/ResultAiPanel.cs`·`ResultPlayerPanel.cs`(호출부), 테스트 `DesignPanelTests`(한 화면에 전용 2개 삭제·이름 변경 2개·레벨 3 높이 확인 1줄 삭제, 19 → 17개).
