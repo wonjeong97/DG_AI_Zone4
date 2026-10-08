@@ -13,6 +13,9 @@
 
 ## 완료
 
+- [x] T50 TitleFlowController.CancelConfirmTimeout 잠재 예외: 시작하기 대기 작업이 아직 설정을 읽는 중(시작 버튼이 뜬 뒤 약 1프레임)에 취소하면 Cancel()이 그 자리에서 finally를 실행해 필드를 null로 만들고 바로 다음 Dispose()에서 NullReferenceException. 필드를 지역 변수로 옮겨 먼저 비운 뒤 Cancel·Dispose하도록 고침(T49 Play 모드 확인 중 발견, 실사용에서 겪기는 거의 어려움, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
+- [x] T49 타이틀 비활동 로그: 타이틀은 이미 대기 화면이라 입력 없이 기다리기만 할 때는 move_idle_timeout을 보내지 않고(로컬 모드 포함), 서버 모드에서 QR로 확인한 체험자가 시작하기를 누르지 않아 QR 대기로 돌아갈 때만 보냄(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
+
 - [x] T48 체험자 서버 JSON 응답 앞뒤 군더더기 무시(1존 현장에서 getUser가 JSON 끝 } 뒤에 ``` 줄을 붙여 보내 모든 체험자가 타이틀에서 막힘, 4존도 같은 서버·같은 코드) — getUser·updateValue는 첫 { ~ 마지막 }만 읽고, getUser 실패 사유에 JsonUtility 오류 문구 포함(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 
 - [x] T47 레벨 1 핵 추진 엔진 +12 → +15(외계 행성 정답 조합 1가지뿐이라 너무 어려움, 사용자 요청). 달 2·화성 6·외계 행성 3가지(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)

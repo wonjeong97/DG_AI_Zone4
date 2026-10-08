@@ -13,6 +13,27 @@
 
 ---
 
+### [2026-10-08] Claude → Antigravity · T50
+- 요청(사용자): T49 Play 모드 확인 중 찾은 CancelConfirmTimeout 잠재 예외도 같이 고치기.
+- 원인: CancelConfirmTimeout이 _confirmTimeoutCts.Cancel() 뒤 같은 필드로 Dispose()를 불렀다. 대기 작업이 아직 _settingsProvider.GetAsync를 기다리는 중이면(Task.AsUniTask 완료가 다음 프레임에 전달되는 구간, AttachExternalCancellation은 취소를 그 자리에서 전달) Cancel()이 ConfirmTimeoutAsync의 catch·finally까지 바로 실행하고, finally가 필드를 null로 만들어 다음 줄 Dispose()에서 NullReferenceException. UniTask.Delay 구간은 cancelImmediately 기본 false라 다음 프레임에 전달돼 문제없었다. 시작 버튼이 뜬 뒤 약 1프레임 안에 시작하기·다음 QR·씬 파괴가 겹쳐야 해서 실사용에서 겪기는 거의 어려움.
+- 변경 파일: `Title/TitleFlowController.cs`(CancelConfirmTimeout — 필드를 지역 변수로 옮겨 먼저 null로 비운 뒤 Cancel·Dispose, finally의 '_confirmTimeoutCts == cts' 비교가 거짓이 돼 한 번만 해제), `TODO.md`. CHANGELOG는 관람객·운영자가 겪기 어려운 내부 예외라 적지 않음.
+- 확인(Claude, Play 모드 0_Title): StartConfirmTimeout 직후 CancelConfirmTimeout 3번 → 예외 없음·필드 null. 연달아 StartConfirmTimeout 두 번 → 마지막 대기 하나만 남고, (메모리에서만 resetTime 2초) 2초 뒤 'QR 대기로 돌아감'과 move_idle_timeout 각 1번. 콘솔 오류·경고 0. PlayMode 177/177, 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`): 그 자리 취소·다음 프레임 취소 두 경로에서 CTS가 한 번만 해제되고 새 대기의 CTS를 건드리지 않는지, OnQrScanned·OnStartClicked·OnDestroy·StartConfirmTimeout 동작 유지(취소된 대기는 로그를 보내지 않음), 해제된 CTS의 Token을 쓰는 곳 없음·주석 문체 → 3/3 통과, 문제 0건.
+- PR wonjeong97/DG_AI_Zone4#52(T49·T50) 머지 전 리뷰(agy 2묶음): (코드) 두 수정을 합친 상태에서 시작하기 대기의 모든 끝(시간 만료 1번, 시작하기·다음 QR·씬 파괴·연달아 다시 시작 0번), 씬 전환 페이드 경계(시작하기 뒤·타임아웃 복귀·아웃트로 홈 — 입력으로 타이머가 초기화되거나 이미 타임아웃 상태라 새거나 빠지는 로그 없음), 다른 구독자·Pause/Resume·MoveIdleEvent 영향 없음 → 3/3 통과. (문서) PR 설명·커밋 일치, HANDOFF T49·T50 사실 대조, CHANGELOG·TODO 형식과 T50 CHANGELOG 제외 판단 → 3/3 통과. 문제 0건.
+
+---
+
+### [2026-10-08] Claude → Antigravity · T49
+- 요청(사용자): 타이틀은 이미 대기(idle) 화면이라 아무것도 하지 않았을 때는 move_idle_timeout을 보내면 안 되고(로컬 모드도 QR이 없으니 보내지 않음), QR을 찍었는데 정해진 시간 동안 시작하기를 누르지 않았으면 보내는 게 맞다. 그전에는 Template의 전역 InactivityTimer가 타이틀에서도 돌아 앱 시작 직후·아웃트로 홈 버튼 뒤 대기 중에도 move_idle_timeout이 나갔다(QR 뒤 미시작은 두 타이머 시간이 같아 우연히 1번 나감).
+- 변경 파일: `Network/APIManager.cs`(OnInactivityTimeout — 0_Title이면 정보 로그만 남기고 보내지 않음, 5_Outro move_idle·그 외 move_idle_timeout은 그대로), `Title/TitleFlowController.cs`(ApiManagerBase를 선택 주입 — 인트로의 InactivityTimer와 같은 방식, ConfirmTimeoutAsync가 시작하기 대기 시간이 끝나 QR 대기로 돌아갈 때 SendMoveIdleTimeoutLogAsync를 토큰 없이 보냄, null이면 경고), `CHANGELOG.md`, `TODO.md`. 버전은 이미 26.10.8.
+- 테스트: PlayMode 177/177. 실행 뒤 m_EnterPlayModeOptionsEnabled 1 → 0으로 되돌림. 새 단위 테스트는 없음 — 바뀐 것은 씬 이름 분기와 주입·호출 연결이라 Play 모드에서 실제 객체로 확인함.
+- Play 모드 확인(Claude, 0_Title, 저장소 설정 그대로 로컬 모드): 타이틀 컨트롤러에 APIManager가 주입됨. ① 루트 스코프의 InactivityTimeoutEvent를 직접 발행 → '[APIManager] 0_Title은 이미 대기 화면이라 비활동 타임아웃 로그를 보내지 않음.'만 남고 move_idle_timeout 전송 없음. ② 메모리에서만 useInactivityTimer true·resetTime 2초로 바꾸고 StartConfirmTimeout 호출 → 2초 뒤 'QR 대기로 돌아감'과 '[ApiRetryUtil] Editor/development build; skipping send: move_idle_timeout'(빌드에서는 전송). ③ 시작 직후 취소 → 전송 없음, 다만 기존 CancelConfirmTimeout에서 NullReferenceException(T50, 아래). 콘솔 오류·경고 0(종료 로그 건너뜀 1건 제외), Play 모드 종료 뒤 작업 폴더 변경 없음.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`, 2묶음 병렬): (코드) 씬별 분기와 타이틀 진입 경로(앱 시작·아웃트로 홈 뒤·관리자 화면·로컬 모드), 대기 시간이 끝날 때만 1번 전송·시작하기/다음 QR/씬 파괴 때 미전송·로컬 모드에서 안 돎, 주입 경로(RegisterIfPresentInScene·GameLifetimeScope 프리팹의 APIManager guid), 규칙 → 4/4 통과. (문서) CHANGELOG 문장·분류(Fixed), TODO 형식·번호, bundleVersion → 3/3 통과. 문제 0건.
+- 따로 발견(T50, 이 작업 범위 밖): CancelConfirmTimeout은 Cancel() 뒤 필드로 Dispose하는데, 대기 작업이 아직 설정을 읽는 중(AsUniTask가 다음 프레임에 끝남)이면 Cancel()이 그 자리에서 finally를 실행해 필드를 null로 만들어 예외가 남. 시작 버튼이 뜬 뒤 약 1프레임 구간이라 실사용에서 겪기는 거의 어려움.
+- 남은 확인: 현장 서버 모드(useInactivityTimer true)에서 서버 로그 확인 — 타이틀 대기 중에는 없고, QR 뒤 미시작 때만 move_idle_timeout 1번. 1존 작업 폴더에도 같은 방식(타이틀 제외, QR 뒤 미시작은 타이틀 매니저가 직접 보냄)의 APIManager 변경이 있음(2026-10-08 기준 커밋 전).
+
+---
+
 ### [2026-10-08] Claude → Antigravity · T48
 - 요청(사용자): 1존 현장에서 찾은 체험자 서버 응답 문제를 4존에 맞춰 반영. getUser 응답이 올바른 JSON 끝 } 뒤에 `` ``` `` 줄을 붙여 와 JsonUtility가 'The document root must not follow by other values.'로 실패하고, 체험 가능한 관람객도 모두 타이틀에서 'QR 코드를 확인할 수 없습니다'로 막혔다. 4존도 같은 서버·같은 코드. 서버 쪽 `` ``` `` 제거는 따로 요청하고, 앱은 서버 수정 전후 모두 동작해야 함. updateValue에도 같은 줄이 붙는지는 미확인.
 - 변경 파일: `Network/ApiJson.cs`(새 파일, ExtractObject — 첫 { ~ 마지막 }만, 중괄호가 없으면 원문을 돌려줘 JSON 해석에서 실패), `Network/GetUserResult.cs`(잘라낸 json으로 FromJson·정규식, 실패 사유 'JSON이 아닌 응답 (JsonUtility 오류 문구)' — 오류 문구에는 본문이 없어 uid·이름이 로그에 남지 않음), `Network/UpdateValueResponse.cs`(IsSaved도 ExtractObject), `Tests/Runtime/GetUserResultTests.cs`·`VisitorApiClientTests.cs`(회귀 테스트 6개), `CHANGELOG.md`, `TODO.md`. 버전은 이미 26.10.8.
