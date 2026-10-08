@@ -337,7 +337,14 @@ namespace DGAIZone.Game.UI.States
                 _level3OxygenGaugeTween?.Kill();
                 _level3OxygenGaugeTween = gauge.DOFillAmount(_level3OxygenFill, controller.Level3GaugeTweenDuration).SetLink(gauge.gameObject);
             }
-            SyncLevel3IconAlpha(controller.Level3OxygenIconCanvasGroup, _level3OxygenFill);
+            else if (controller.Logger != null)
+            {
+                controller.Logger.ZLogWarning($"[IngredientSelectionController] level3OxygenGauge가 null이라 산소 게이지를 채울 수 없음.");
+            }
+
+            CanvasGroup icon = controller.Level3OxygenIconCanvasGroup;
+            if (icon) SyncLevel3IconAlpha(icon, _level3OxygenFill);
+            else if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level3OxygenIcon이 없어 산소 아이콘 밝기를 맞출 수 없음.");
         }
 
         /// <summary> 전기 게이지를 지정된 delta만큼 증감하고 아이콘 알파를 동기화함. </summary>
@@ -350,13 +357,20 @@ namespace DGAIZone.Game.UI.States
                 _level3ElectricGaugeTween?.Kill();
                 _level3ElectricGaugeTween = gauge.DOFillAmount(_level3ElectricFill, controller.Level3GaugeTweenDuration).SetLink(gauge.gameObject);
             }
-            SyncLevel3IconAlpha(controller.Level3ElectricIconCanvasGroup, _level3ElectricFill);
+            else if (controller.Logger != null)
+            {
+                controller.Logger.ZLogWarning($"[IngredientSelectionController] level3ElectricGauge가 null이라 전기 게이지를 채울 수 없음.");
+            }
+
+            CanvasGroup icon = controller.Level3ElectricIconCanvasGroup;
+            if (icon) SyncLevel3IconAlpha(icon, _level3ElectricFill);
+            else if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level3ElectricIcon이 없어 전기 아이콘 밝기를 맞출 수 없음.");
         }
 
         /// <summary> 불안정 깜빡임 중이 아닐 때 아이콘 알파를 게이지 충전량에 맞춤. </summary>
         private void SyncLevel3IconAlpha(CanvasGroup group, float gaugeFill)
         {
-            if (!group) return;
+            if (!group) return; // 아이콘이 없다는 경고는 게이지를 바꾸는 쪽(Add*GaugeFill)에서 남김
             if (_level3OxygenIconBlinkTween != null && _level3OxygenIconBlinkTween.IsActive() && _level3OxygenIconBlinkTween.IsPlaying()) return;
             if (_level3ElectricIconBlinkTween != null && _level3ElectricIconBlinkTween.IsActive() && _level3ElectricIconBlinkTween.IsPlaying()) return;
 
@@ -388,6 +402,10 @@ namespace DGAIZone.Game.UI.States
                     .SetLoops(-1, LoopType.Yoyo)
                     .SetLink(oxGroup.gameObject);
             }
+            else if (controller.Logger != null)
+            {
+                controller.Logger.ZLogWarning($"[IngredientSelectionController] level3OxygenIcon이 없어 산소 아이콘 불안정 깜빡임을 보여 줄 수 없음.");
+            }
 
             if (elGroup)
             {
@@ -396,6 +414,10 @@ namespace DGAIZone.Game.UI.States
                     .SetEase(Ease.Linear)
                     .SetLoops(-1, LoopType.Yoyo)
                     .SetLink(elGroup.gameObject);
+            }
+            else if (controller.Logger != null)
+            {
+                controller.Logger.ZLogWarning($"[IngredientSelectionController] level3ElectricIcon이 없어 전기 아이콘 불안정 깜빡임을 보여 줄 수 없음.");
             }
         }
 

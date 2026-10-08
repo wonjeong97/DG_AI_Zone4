@@ -86,6 +86,7 @@ namespace DGAIZone.Game.UI
             imageCorridor = corridor;
         }
 
+        /// <summary> ids에 id가 들어 있는지 반환함. </summary>
         private static bool Contains(IReadOnlyList<string> ids, string id)
         {
             for (int i = 0; i < ids.Count; i++)
@@ -96,6 +97,7 @@ namespace DGAIZone.Game.UI
             return false;
         }
 
+        /// <summary> 동작 블록 id에 맞는 현재 상황 그림이 정해져 있는지 반환함. </summary>
         private static bool HasImage(string matterId)
         {
             switch (matterId)

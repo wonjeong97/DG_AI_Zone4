@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Cysharp.Text;
 
 namespace DGAIZone.Admin
 {
@@ -52,6 +51,14 @@ namespace DGAIZone.Admin
             { ('ㅡ', 'ㅣ'), 'ㅢ' }
         };
 
+        // 겹모음 → 앞 모음. 지울 때 겹받침처럼 겹모음도 한 단계씩 되돌리는 데 씀(과 → 고)
+        private readonly static Dictionary<char, char> JungSplit = new()
+        {
+            { 'ㅘ', 'ㅗ' }, { 'ㅙ', 'ㅗ' }, { 'ㅚ', 'ㅗ' },
+            { 'ㅝ', 'ㅜ' }, { 'ㅞ', 'ㅜ' }, { 'ㅟ', 'ㅜ' },
+            { 'ㅢ', 'ㅡ' }
+        };
+
         private readonly StringBuilder _committed = new();
 
         private int _cho = -1;
@@ -64,10 +71,13 @@ namespace DGAIZone.Admin
             get
             {
                 char active = RenderActiveChar();
+                if (active == NoActiveSyllable) return _committed.ToString();
 
-                return active == NoActiveSyllable
-                    ? _committed.ToString()
-                    : ZString.Concat(_committed.ToString(), active);
+                // 조합 중인 음절을 잠깐 붙여 문자열을 한 번만 만들고 되돌림(확정 텍스트를 따로 문자열로 만든 뒤 다시 잇지 않음)
+                _committed.Append(active);
+                string text = _committed.ToString();
+                _committed.Length--;
+                return text;
             }
         }
 
@@ -137,7 +147,7 @@ namespace DGAIZone.Admin
         }
 
         /// <summary>
-        /// 조합 중인 음절을 한 단계 되돌림(종성 → 중성 → 초성 순으로 제거). 조합 중인 음절이
+        /// 조합 중인 음절을 한 단계 되돌림(종성 → 중성 → 초성 순으로 제거, 겹받침·겹모음은 앞 자모만 남김). 조합 중인 음절이
         /// 없으면 이미 확정된 텍스트의 마지막 글자를 지움.
         /// </summary>
         public void Backspace()
@@ -150,7 +160,7 @@ namespace DGAIZone.Admin
                 }
                 else if (_jung >= 0)
                 {
-                    _jung = -1;
+                    _jung = JungSplit.TryGetValue(Jung[_jung], out char firstJung) ? Array.IndexOf(Jung, firstJung) : -1;
                 }
                 else
                 {

@@ -44,7 +44,7 @@ namespace DGAIZone.Result
             {
                 panel.AddItem(steps[i].Shape, steps[i].Command, steps[i].Value);
                 SoundEffects.Play(soundManager, Constants.Sounds.BlockAssembled, logger);
-                await UniTask.Delay(TimeSpan.FromSeconds(interval), DelayType.UnscaledDeltaTime, cancellationToken: token);
+                await UniTask.Delay(TimeSpan.FromSeconds(UnityEngine.Mathf.Max(0f, interval)), DelayType.UnscaledDeltaTime, cancellationToken: token); // 음수면 Delay가 예외를 냄
             }
 
             if (!withEnd) return;

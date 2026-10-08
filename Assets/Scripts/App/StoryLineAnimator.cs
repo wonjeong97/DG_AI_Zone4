@@ -26,6 +26,13 @@ namespace DGAIZone.App
             return pointer != null && pointer.press.wasPressedThisFrame;
         }
 
+        /// <summary> 마우스나 터치를 지금 누르고 있는지 반환함(입력 장치가 없으면 false). </summary>
+        public static bool IsPointerHeld()
+        {
+            Pointer pointer = Pointer.current;
+            return pointer != null && pointer.press.isPressed;
+        }
+
         /// <summary>
         /// storyText의 각 줄을 아래에서 위로 올리며 순차적으로 페이드인함. 보이는 문자가 없는 줄(간격용 빈 줄/스페이스)은
         /// 연출과 대기 없이 즉시 통과함. skipRequested가 true를 반환하면 남은 줄까지 전체를 즉시 표시하고 종료함.
@@ -129,7 +136,15 @@ namespace DGAIZone.App
 
                 if (!skipped && l < totalLines - 1)
                 {
-                    await UniTask.Delay(TimeSpan.FromSeconds(lineInterval), cancellationToken: token);
+                    // 줄 사이를 기다리는 동안 누른 넘기기도 받도록 Delay 대신 프레임마다 확인함(간격이 0 이하면 기다리지 않음)
+                    float waited = 0f;
+                    while (waited < lineInterval)
+                    {
+                        if (skipRequested != null && skipRequested()) { skipped = true; break; }
+
+                        waited += Time.deltaTime;
+                        await UniTask.Yield(PlayerLoopTiming.Update, token);
+                    }
                 }
             }
 

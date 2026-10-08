@@ -252,7 +252,11 @@ namespace DGAIZone.Game.UI.States
         private void UpdateStepBallDisplay(IngredientSelectionController controller, int stepIndex, string matterId, bool completed)
         {
             Image[] stepBalls = controller.StepBallImages;
-            if (stepBalls == null) return;
+            if (stepBalls == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] stepBallImages가 null이라 레벨 2 스텝 볼 표시를 건너뜀.");
+                return;
+            }
 
             if (stepIndex < 0 || stepIndex >= stepBalls.Length)
             {

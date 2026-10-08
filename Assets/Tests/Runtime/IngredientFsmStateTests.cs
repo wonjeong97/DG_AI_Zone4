@@ -1,7 +1,5 @@
 using System.Collections;
-using System.Collections.Generic;
 using DGAIZone.App;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.UI;
 using DGAIZone.Game.UI.States;

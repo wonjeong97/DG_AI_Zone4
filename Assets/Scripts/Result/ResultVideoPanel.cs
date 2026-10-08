@@ -153,7 +153,10 @@ namespace DGAIZone.Result
 
             videoPlayer.Play();
 
-            await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+            if (!await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token) && _logger != null)
+            {
+                _logger.ZLogWarning($"[ResultVideoPanel] {fileName}의 첫 화면이 {VideoReadyGate.FirstFrameTimeoutSeconds}초 안에 그려지지 않았지만 그대로 진행함.");
+            }
             _readySignal.TrySetResult();
 
             if (!await VideoReadyGate.WaitUntilPlaybackEndsAsync(videoPlayer, token) && _logger != null)

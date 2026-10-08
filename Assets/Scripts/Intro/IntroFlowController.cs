@@ -39,6 +39,7 @@ namespace DGAIZone.Intro
         public bool IsBusy => _isBusy;
         private bool _isIntroActive;
         private bool _isTextAnimating;
+        private bool _isStoryStarted; // 스토리 줄 연출을 시작했는지. 그 전(설정·이름을 불러오는 중)의 터치는 스토리를 건너뛰지 않게 무시함
         private IDisposable _tutorialCompletedSubscription;
         private bool _skipStoryRequested;
         private Color _originalStoryColor;
@@ -101,7 +102,7 @@ namespace DGAIZone.Intro
             try
             {
                 string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Intro}";
-                UniTask<IntroSceneSettings> settingsTask = JsonLoader.LoadAsync<IntroSceneSettings>(path, token);
+                UniTask<IntroSceneSettings> settingsTask = JsonLoader.LoadAsync<IntroSceneSettings>(path, token, _logger);
                 UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
 
                 (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
@@ -136,7 +137,7 @@ namespace DGAIZone.Intro
         /// <summary> 인트로 패널 활성화 상태에서 연출 중 터치 시 스킵, 연출 종료 또는 스킵 후 터치 시 클릭음을 내고 튜토리얼 패널로 크로스페이드. </summary>
         private void Update()
         {
-            if (!_isIntroActive || _isBusy) return;
+            if (!_isIntroActive || _isBusy || !_isStoryStarted) return;
 
             if (StoryLineAnimator.IsPointerPressedThisFrame())
             {
@@ -244,6 +245,8 @@ namespace DGAIZone.Intro
         /// <summary> 텍스트 한 줄씩 올라오는 연출을 시작함. </summary>
         private void StartTextAnimation(CancellationToken token)
         {
+            _isStoryStarted = true; // 연출을 못 하더라도 터치로 튜토리얼에 넘어갈 수 있게 먼저 표시함
+
             if (!storyText)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] storyText가 null이라 스토리 연출을 시작할 수 없음.");
@@ -278,7 +281,11 @@ namespace DGAIZone.Intro
                 if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 CanvasGroup이 null이라 페이드를 건너뜀.");
                 return;
             }
-            if (duration <= 0f) duration = 0.4f;
+            if (duration <= 0f)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 페이드 시간이 {duration}초라 0.4초로 대신함.");
+                duration = 0.4f;
+            }
 
             group.alpha = startAlpha;
             group.interactable = false;

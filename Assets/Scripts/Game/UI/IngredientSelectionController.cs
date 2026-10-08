@@ -78,8 +78,6 @@ namespace DGAIZone.Game.UI
 
         internal Image Level3OxygenGauge => level3OxygenGauge;
         internal Image Level3ElectricGauge => level3ElectricGauge;
-        internal Image Level3OxygenIcon => level3OxygenIcon;
-        internal Image Level3ElectricIcon => level3ElectricIcon;
         internal CanvasGroup Level3OxygenIconCanvasGroup => _level3OxygenIconCanvasGroup;
         internal CanvasGroup Level3ElectricIconCanvasGroup => _level3ElectricIconCanvasGroup;
         internal float Level3GaugeTweenDuration => _sceneSettings.level3GaugeTweenDuration;
@@ -143,7 +141,7 @@ namespace DGAIZone.Game.UI
 
         // R3 반응형 상태 관리
         private readonly ReactiveProperty<string> _currentIngredient = new ReactiveProperty<string>("");
-        private readonly ReactiveProperty<RfidMatter[]> _currentMatters = new ReactiveProperty<RfidMatter[]>(Array.Empty<RfidMatter>());
+        private RfidMatter[] _currentMatters = Array.Empty<RfidMatter>(); // 지금 단계에서 좌우 버튼으로 고를 블록 목록
         private readonly ReactiveProperty<int> _currentMatterIndex = new ReactiveProperty<int>(0);
 
         private R3.DisposableBag _disposables = new R3.DisposableBag();
@@ -178,6 +176,7 @@ namespace DGAIZone.Game.UI
             EnsureSubCanvas(level3ElectricGauge);
         }
 
+        /// <summary> target에 Canvas가 없으면 붙여 fillAmount 트윈이 메인 캔버스를 다시 만들지 않게 함. 참조가 없으면 넘김(그 이미지를 쓰는 곳에서 경고함). </summary>
         private static void EnsureSubCanvas(Component target)
         {
             if (!target) return;
@@ -294,7 +293,7 @@ namespace DGAIZone.Game.UI
 
             try
             {
-                RfidSettings settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token);
+                RfidSettings settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token, _logger);
 
                 // 로드 중에 씬을 떠나 이 오브젝트가 파괴됨. JsonLoader는 취소돼도 예외 없이 기본값을 돌려주므로 여기서 멈춤
                 // (계속하면 이미 해제된 상태 머신·참조를 건드려 ObjectDisposedException과 null 경고가 이어짐)
@@ -307,7 +306,9 @@ namespace DGAIZone.Game.UI
 
                 _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
 
-                int level = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+                int level = 1;
+                if (_selectedLevelStore != null) level = _selectedLevelStore.SelectedLevel;
+                else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] selectedLevelStore가 null이라 레벨 1로 진행함.");
                 ChangeLevelState(level);
                 ValidateMappings(settings);
                 ApplyLevelMapping(settings != null ? settings.FindLevelMapping(level) : null);
@@ -348,8 +349,15 @@ namespace DGAIZone.Game.UI
                 3 => _level3State,
                 4 => _level4State,
                 5 => _level5State,
-                _ => _level1State
+                _ => null
             };
+
+            if (targetState == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 {level}은 1~{Constants.LastLevel} 밖이라 레벨 1 상태를 씀.");
+                targetState = _level1State;
+            }
+
             _stateMachine.ChangeState(targetState);
         }
 
@@ -576,12 +584,27 @@ namespace DGAIZone.Game.UI
             _currentIngredient.Value = ingredient.ingredientName ?? "";
             _currentIngredientId = ingredient.ingredientId;
             _currentCategory = evt.Category;
-            _currentMatters.Value = CurrentLevelState != null
+            _currentMatters = CurrentLevelState != null
                 ? CurrentLevelState.FilterMatters(this, ingredient.ingredientId, matters)
                 : ExcludeConfirmedMatters(ingredient.ingredientId, matters);
-            _currentMatterIndex.Value = 0;
-            UpdateMatterText();
-            UpdateProgressPreview();
+            ResetMatterIndexAndRefresh();
+        }
+
+        /// <summary>
+        /// 고르던 블록 인덱스를 0으로 되돌리고 값 표시·미리보기를 한 번만 갱신함. 인덱스가 이미 0이면 구독이 불리지 않으므로 직접 갱신하고,
+        /// 0이 아니면 바꾸는 순간 구독이 같은 갱신을 함.
+        /// </summary>
+        private void ResetMatterIndexAndRefresh()
+        {
+            if (_currentMatterIndex.Value == 0)
+            {
+                UpdateMatterText();
+                UpdateProgressPreview();
+            }
+            else
+            {
+                _currentMatterIndex.Value = 0;
+            }
         }
 
         /// <summary> 행동 로그 주어(예: "홍길동이"). </summary>
@@ -614,8 +637,7 @@ namespace DGAIZone.Game.UI
             int underscoreIndex = readerId.LastIndexOf('_');
             if (underscoreIndex < 0 || underscoreIndex == readerId.Length - 1) return -1;
 
-            string suffix = readerId.Substring(underscoreIndex + 1);
-            return int.TryParse(suffix, out int readerNumber) ? readerNumber - 1 : -1;
+            return int.TryParse(readerId.AsSpan(underscoreIndex + 1), out int readerNumber) ? readerNumber - 1 : -1;
         }
 
         /// <summary>
@@ -670,7 +692,7 @@ namespace DGAIZone.Game.UI
 
             if (stepIndex == _currentStepIndex)
             {
-                if (_currentMatters.Value.Length == 0)
+                if (_currentMatters.Length == 0)
                 {
                     LogCardRemoved(evt.ReaderId, "고르던 값이 없어 그대로 둠");
                     return;
@@ -806,7 +828,7 @@ namespace DGAIZone.Game.UI
 
             // ingredientName이 빈 문자열인 단계(예: 레벨 3의 논리 연결어)도 있으므로, "스캔된 것이 없음"은
             // ingredient가 아니라 matters 목록의 존재 여부로 판단함.
-            RfidMatter[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters;
             if (matters == null || matters.Length == 0)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정할 RFID 태그가 스캔되어 있지 않음.");
@@ -906,10 +928,8 @@ namespace DGAIZone.Game.UI
             _currentIngredient.Value = "";
             _currentIngredientId = null;
             _currentCategory = null;
-            _currentMatters.Value = Array.Empty<RfidMatter>();
-            _currentMatterIndex.Value = 0;
-            UpdateMatterText();
-            UpdateProgressPreview();
+            _currentMatters = Array.Empty<RfidMatter>();
+            ResetMatterIndexAndRefresh();
         }
 
         /// <summary>
@@ -1065,15 +1085,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private async UniTaskVoid CompleteCodingAsync()
         {
-            if (gamePanel)
-            {
-                gamePanel.interactable = false;
-                gamePanel.blocksRaycasts = false;
-            }
-            else if (_logger != null)
-            {
-                _logger.ZLogWarning($"[IngredientSelectionController] gamePanel이 null이라 시뮬레이션 중 입력을 막을 수 없음.");
-            }
+            LockGamePanel();
 
             bool success = EvaluateMission();
             if (_resultStore != null)
@@ -1098,6 +1110,20 @@ namespace DGAIZone.Game.UI
             }
 
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
+        }
+
+        /// <summary> 결과 화면으로 넘어가는 동안(레벨 4 시뮬레이션 포함) 게임 패널의 카드·버튼 입력을 막음. </summary>
+        private void LockGamePanel()
+        {
+            if (gamePanel)
+            {
+                gamePanel.interactable = false;
+                gamePanel.blocksRaycasts = false;
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] gamePanel이 null이라 결과 화면으로 넘어가는 동안 입력을 막을 수 없음.");
+            }
         }
 
         /// <summary>
@@ -1125,6 +1151,7 @@ namespace DGAIZone.Game.UI
             StoreResultDesigns(false);
 
             _isBusy = true;
+            LockGamePanel();
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 건너뛰기를 누름 — {_selectedLevel}레벨 실패로 처리함.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
@@ -1218,7 +1245,7 @@ namespace DGAIZone.Game.UI
         /// <summary> 현재 좌우 버튼으로 선택 중인 물질을 반환함. 선택된 것이 없으면 null. </summary>
         internal RfidMatter CurrentSelectedMatter()
         {
-            RfidMatter[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters;
             int idx = _currentMatterIndex.Value;
             return (matters != null && idx >= 0 && idx < matters.Length) ? matters[idx] : null;
         }
@@ -1228,7 +1255,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnLeftButtonClicked()
         {
-            RfidMatter[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters;
             if (matters == null || matters.Length == 0) return;
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
@@ -1241,7 +1268,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnRightButtonClicked()
         {
-            RfidMatter[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters;
             if (matters == null || matters.Length == 0) return;
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
@@ -1277,7 +1304,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            RfidMatter[] matters = _currentMatters.Value;
+            RfidMatter[] matters = _currentMatters;
             int idx = _currentMatterIndex.Value;
 
             if (matters != null && idx >= 0 && idx < matters.Length)
@@ -1307,7 +1334,7 @@ namespace DGAIZone.Game.UI
 
             // ingredientName이 빈 문자열인 단계도 있으므로, "조절 중인 재료 없음"은 ingredient가 아니라
             // matters 목록의 존재 여부로 판단함.
-            if (_currentMatters.Value == null || _currentMatters.Value.Length == 0)
+            if (_currentMatters == null || _currentMatters.Length == 0)
             {
                 _missionBoard.ResetPreview();
                 return;
@@ -1328,7 +1355,7 @@ namespace DGAIZone.Game.UI
             }
 
             bool isNumber = float.TryParse(value, out _);
-            return isNumber ? $"<size={_sceneSettings.numberFontSize}>{value}</size>" : value;
+            return isNumber ? ZString.Format("<size={0}>{1}</size>", _sceneSettings.numberFontSize, value) : value;
         }
 
         /// <summary>
@@ -1374,7 +1401,6 @@ namespace DGAIZone.Game.UI
             _disposables.Dispose();
             _stateMachine?.Dispose();
             _currentIngredient?.Dispose();
-            _currentMatters?.Dispose();
             _currentMatterIndex?.Dispose();
         }
     }

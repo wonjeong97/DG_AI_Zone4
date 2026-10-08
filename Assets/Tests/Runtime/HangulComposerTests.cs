@@ -110,6 +110,28 @@ namespace DGAIZone.Tests
         }
 
         /// <summary>
+        /// 겹모음·겹받침은 지울 때 한 번에 사라지지 않고 앞 자모만 남겨야 함(곿 → 곽 → 과 → 고 → ㄱ).
+        /// </summary>
+        [Test]
+        public void 백스페이스가_겹받침과_겹모음을_한_단계씩_되돌린다()
+        {
+            Push("ㄱㅗㅏㄱㅅ");
+            Assert.AreEqual("곿", _composer.Text);
+
+            _composer.Backspace();
+            Assert.AreEqual("곽", _composer.Text);
+
+            _composer.Backspace();
+            Assert.AreEqual("과", _composer.Text);
+
+            _composer.Backspace();
+            Assert.AreEqual("고", _composer.Text);
+
+            _composer.Backspace();
+            Assert.AreEqual("ㄱ", _composer.Text);
+        }
+
+        /// <summary>
         /// TryAppendRaw는 최대 글자 수에 도달하면 거부해야 함.
         /// </summary>
         [Test]

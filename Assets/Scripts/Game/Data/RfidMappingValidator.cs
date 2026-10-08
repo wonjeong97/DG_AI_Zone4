@@ -63,7 +63,7 @@ namespace DGAIZone.Game.Data
             RequireMinValue(payloads, "레벨 1 탑재(Payload)", 1, thrustReason, errors);
             RequireMinValue(fuels, "레벨 1 연료(Fuel)", 1, thrustReason, errors);
 
-            if (levelData == null || levelData.destinations == null || engines == null || payloads == null || fuels == null) return;
+            if (!levelData || levelData.destinations == null || engines == null || payloads == null || fuels == null) return;
 
             HashSet<int> reachable = new HashSet<int>();
             foreach (RfidMatter engine in engines)
@@ -136,7 +136,7 @@ namespace DGAIZone.Game.Data
                 errors.Add($"레벨 3 논리(Logic) 단계에 '{Constants.RfidIds.Level3.Or}' 말고 고를 블록이 없어 항상 불안정해 성공할 수 없음.");
             }
 
-            if (levelData == null) return;
+            if (!levelData) return;
             RequireRangeCovered(levelData.maxElectricityRange, "레벨 3 LevelData의 전기량 상한 범위(maxElectricityRange)", electricityConditions, "전기량 조건", errors);
             RequireRangeCovered(levelData.minOxygenRange, "레벨 3 LevelData의 산소량 하한 범위(minOxygenRange)", oxygenConditions, "산소량 조건", errors);
         }

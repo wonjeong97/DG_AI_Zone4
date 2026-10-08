@@ -173,8 +173,8 @@ namespace DGAIZone.Admin
                 {
                     button.onClick.AddListener(() => OnLetterPressed(keyName));
 
-                    TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
-                    if (label) _keyLabels[keyName] = label;
+                    if (ChildComponentFinder.TryGetInDirectChildren(button.transform, out TMP_Text label)) _keyLabels[keyName] = label;
+                    else if (_logger != null) _logger.ZLogWarning($"[VisitorNamePanel] '{keyName}' 키에 글자(TMP_Text) 자식이 없어 자판을 바꿔도 키 글자를 바꿀 수 없음.");
                 }
                 else if (NumberMap.TryGetValue(keyName, out char number))
                 {

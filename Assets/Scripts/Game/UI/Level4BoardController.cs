@@ -470,7 +470,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 스텝 하나(한 칸 이동)를 실행함: 좌우 이동이면 시선 방향을 바꾸고(위/아래는 기존 시선 유지), Level4Rules.Step으로
-        /// 판정함. 그리드 밖이면 로봇 소멸 연출을 재생하고 멈춤. 범위 안이면 DOTween으로 부드럽게 이동하고 z-order를 갱신한 뒤,
+        /// 판정함. 그리드 밖이면 로봇 소멸 연출을 재생하고 멈춤. 범위 안이면 DOTween으로 부드럽게 이동한 뒤,
         /// 도착한 셀이 자원/함정/기지 셀이면 해당 연출을 재생함(PlayCellArrivalAsync). 마지막으로 다음 스텝 전 짧게 대기함.
         /// 반환값: 그리드 밖으로 나갔거나 함정/기지 셀에 도착해 로봇이 사라져서 남은 스텝을 더 진행하면 안 되면 true.
         /// </summary>
@@ -483,12 +483,9 @@ namespace DGAIZone.Game.UI
 
             if (result == Level4StepResult.OutOfBounds)
             {
+                // 정상적인 실패 결과라 경고를 남기지 않음(판정 근거는 EvaluateOutcome이 정보 로그로 남김)
                 int targetColumn = _robotCurrentColumn + step.DeltaColumn;
                 int targetRow = _robotCurrentRow + step.DeltaRow;
-                if (_logger != null)
-                {
-                    _logger.ZLogWarning($"[Level4BoardController] 로봇이 그리드 밖(Column={targetColumn}, Row={targetRow})으로 나가려 함: 실패 처리, 로봇 소멸 연출 재생.");
-                }
                 await PlayOutOfBoundsExitAsync(targetColumn, targetRow, token);
                 return true;
             }
@@ -497,8 +494,6 @@ namespace DGAIZone.Game.UI
 
             await robotIcon.DOAnchorPos(target, MoveDuration).SetEase(Ease.Linear)
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
-
-            ApplyRowBasedDrawOrder();
 
             bool shouldStop = await PlayCellArrivalAsync(result, token);
 
