@@ -4,7 +4,6 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
@@ -311,151 +310,89 @@ namespace DGAIZone.Game.Hardware
             return mac.Replace(":", "-").Replace(" ", "-").ToUpperInvariant();
         }
 
-        /// <summary> 폴링 응답 프레임의 종결 바이트(실측: 0x0D, CR). </summary>
-        private const byte FrameTerminatorByte = 0x0D;
+        /// <summary> 연속 읽기 모드에서 리더기가 보내는 UID 하나의 바이트 수(지금 쓰는 카드는 모두 7바이트 UID). </summary>
+        private const int UidByteLength = 7;
+
+        /// <summary> UidByteLength가 되기 전에 이 시간(ms) 동안 더 오는 게 없으면 받은 만큼을 UID 하나로 처리함(7바이트가 아닌 카드 대비). </summary>
+        private const int FrameIdleGapMs = 50;
+
+        /// <summary> 데이터를 한 번 기다리는 최대 시간(마이크로초). 데이터가 없어도 이 간격마다 카드 떨어짐을 확인함. </summary>
+        private const int ReceiveWaitMicroseconds = 10_000;
 
         private static readonly ProfilerMarker DispatchTagMarker = new ProfilerMarker("RfidReaderService.DispatchTag");
 
-        /// <summary> 폴링 응답이 연속으로 이만큼 타임아웃되면 연결 상태 확인 경고를 한 번 남김(매 폴링마다 로그를 남기면 스팸이 되므로). </summary>
-        private const int TimeoutWarnThreshold = 20;
-
-        private enum PollReadResult { Success, Timeout, Disconnected }
-
         /// <summary>
-        /// 백그라운드 스레드에서 실행되는 TCP 폴링 루프. 리더기(KA-LAN-754)는 데이터를 먼저 push하지 않음(실측
-        /// 확인됨: 카드만 태그해선 아무 데이터도 안 옴). pollCommandHex 명령을 반복 전송해야 하고, 그 응답으로
-        /// 카드 없음=짧은 응답, 카드 있음=UID가 포함된 긴 응답을 주므로 응답 길이로 카드 인식 여부를 판별함.
-        /// 카드가 리더기 위에 계속 올라가 있으면 폴링마다(pollIntervalMs 간격) 매번 같은 긴 응답이 반복되므로,
-        /// 직전에 발행한 값과 같으면 재발행하지 않고(카드를 계속 대고 있는 동안 이벤트가 수십 번 중복되는 것 방지),
-        /// 카드가 떨어져 짧은 응답으로 돌아오면 상태를 리셋해 다음 태그 때 다시 발행되도록 함.
-        /// 리더기가 유니티 접속 여부와 무관하게 백그라운드에서 계속 스캔을 유지하다 첫 읽기 명령에 쌓아둔 잔여값을
-        /// 그대로 돌려주는 경우가 있어, 접속 후 최초 cardReadsToDiscard회의 "새로운 카드 인식"은 발행하지 않고 버림.
+        /// 백그라운드 스레드에서 실행되는 수신 루프. 리더기(KA-LAN-754)는 연속 읽기 모드로 설정되어 있어, 명령을 보내지 않아도
+        /// 카드가 올라가 있는 동안 같은 UID를 계속 보내고 카드가 없으면 아무것도 보내지 않음.
+        /// UID는 구분자 없는 원시 바이트(예: 81 73 69 22 E5 1D 04)로 오고 그 안에 0x0D 같은 값도 들어 있을 수 있어(등록 카드 중 실제로 있음),
+        /// 구분 바이트로 자르지 않고 UidByteLength바이트씩 잘라 16진수 문자열(예: "81736922E51D04")로 바꿈.
+        /// 같은 UID가 반복되는 동안은 한 번만 발행하고, UID가 cardRemovedDebounceMs 동안 오지 않으면 카드가 떨어진 것으로 보고 한 번 알림.
+        /// 접속 뒤 그 시간 안에 읽힌 첫 카드는 접속 전부터 올려져 있던 카드로 보고 발행하지 않음(판정은 CardPresenceTracker).
+        /// NetworkStream.ReadTimeout(소켓 레벨 SO_RCVTIMEO) 기반 블로킹 읽기는 Unity의 Mono/IL2CPP 런타임에서 타임아웃 시
+        /// 소켓이 끊어지는 것처럼 동작한 적이 있어 쓰지 않고, Socket.Poll로 짧게 기다렸다가 데이터가 왔을 때만 읽음.
         /// </summary>
         private void ReadLoop(ReaderSession session)
         {
             NetworkStream stream = null;
-            byte[] pollCommand = ParseHexBytes(_settings?.pollCommandHex);
-            int noCardMaxLength = _settings?.noCardResponseMaxLength ?? 7;
-            int pollIntervalMs = _settings?.pollIntervalMs ?? 150;
-            int cardReadsToDiscard = _settings?.initialCardReadsToDiscard ?? 2;
-            byte[] responseBuffer = new byte[256];
-            byte[] drainBuffer = new byte[256];
-            int consecutiveTimeouts = 0;
-            string lastPublishedDecoded = null;
-            int discardedCardReads = 0; // 접속 직후 리더기가 백그라운드에서 계속 스캔하다 쌓아둔 잔여 카드 값을 최초 cardReadsToDiscard회만큼 버림
-            bool discardWindowOpen = true; // "무카드" 응답을 한 번이라도 받으면(리더기 상태가 실시간을 반영한다는 뜻) 즉시 닫힘
-            CardRemovalDebouncer removal = new CardRemovalDebouncer(); // 리더기의 "무카드" 오응답을 카드 떨어짐으로 보지 않도록 판정을 늦춤
-            System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew(); // 무카드 응답이 이어진 시간을 재는 단조 시계
+            byte[] readBuffer = new byte[256];
+            byte[] frameBuffer = new byte[UidByteLength];
+            int frameLength = 0;
+            long lastByteMs = 0;
+            System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew(); // 접속 시각을 0으로 재는 단조 시계
 
-            int removedDebounceMs = _settings?.cardRemovedDebounceMs ?? RfidSettings.DefaultCardRemovedDebounceMs;
-            if (removedDebounceMs < 0)
+            int removedTimeoutMs = _settings?.cardRemovedDebounceMs ?? RfidSettings.DefaultCardRemovedDebounceMs;
+            if (removedTimeoutMs <= 0)
             {
-                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] cardRemovedDebounceMs가 {removedDebounceMs}라 0으로 씀(첫 무카드 응답에 바로 카드 떨어짐으로 봄).");
-                removedDebounceMs = 0;
+                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] cardRemovedDebounceMs가 {removedTimeoutMs}라 기본값 {RfidSettings.DefaultCardRemovedDebounceMs}을 씀(0 이하이면 UID를 받을 때마다 카드가 떨어진 것으로 봄).");
+                removedTimeoutMs = RfidSettings.DefaultCardRemovedDebounceMs;
             }
-            removal.DebounceMs = removedDebounceMs;
+            CardPresenceTracker tracker = new CardPresenceTracker(removedTimeoutMs, 0);
 
             try
             {
-                if (pollCommand.Length == 0)
-                {
-                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] pollCommandHex 설정이 비어 있어 {session.ReaderId} 폴링을 시작할 수 없음.");
-                    return;
-                }
-
                 stream = session.Client.GetStream();
-                int responseTimeoutMs = _settings?.pollResponseTimeoutMs ?? 300;
+                Socket socket = session.Client.Client;
 
                 while (session.IsRunning && session.Client.Connected)
                 {
-                    // 이전 주기의 응답이 타임아웃 이후 지연 도착해 버퍼에 남아있으면, 이번 주기의 응답으로
-                    // 잘못 읽혀 요청-응답이 한 주기씩 밀리는(desync) 것을 막기 위해 먼저 비움
-                    while (stream.DataAvailable)
+                    if (socket.Poll(ReceiveWaitMicroseconds, SelectMode.SelectRead))
                     {
-                        stream.Read(drainBuffer, 0, drainBuffer.Length);
-                    }
+                        // 읽을 수 있다고 했는데 0바이트면 리더기가 접속을 끊은 것
+                        int n = stream.Read(readBuffer, 0, readBuffer.Length);
+                        if (n == 0) break;
 
-                    stream.Write(pollCommand, 0, pollCommand.Length);
-                    stream.Flush();
-
-                    PollReadResult result = TryReadResponseFrame(stream, responseBuffer, responseTimeoutMs, out int length);
-
-                    if (result == PollReadResult.Disconnected) break;
-
-                    if (result == PollReadResult.Timeout)
-                    {
-                        consecutiveTimeouts++;
-                        if (consecutiveTimeouts == TimeoutWarnThreshold && _logger != null)
+                        lastByteMs = clock.ElapsedMilliseconds;
+                        for (int i = 0; i < n; i++)
                         {
-                            _logger.ZLogWarning($"[RfidReaderService] {session.ReaderId} 폴링 응답이 연속 {TimeoutWarnThreshold}회 없음. 리더기 연결 상태 확인 필요.");
-                        }
-                    }
-                    else if (length > 0)
-                    {
-                        consecutiveTimeouts = 0;
-
-                        if (length > noCardMaxLength)
-                        {
-                            string decoded = DecodeTagPayload(responseBuffer, length);
-                            int ignoredNoCardReads = removal.OnCardRead();
-                            if (ignoredNoCardReads > 0 && string.Equals(decoded, lastPublishedDecoded, StringComparison.Ordinal) && _logger != null)
+                            frameBuffer[frameLength++] = readBuffer[i];
+                            if (frameLength == UidByteLength)
                             {
-                                _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 무카드 응답 {ignoredNoCardReads}번 뒤 같은 카드가 다시 읽혀 카드 떨어짐으로 보지 않음(리더기 오응답).");
-                            }
-
-                            if (!string.IsNullOrEmpty(decoded) && !string.Equals(decoded, lastPublishedDecoded, StringComparison.Ordinal))
-                            {
-                                lastPublishedDecoded = decoded;
-
-                                if (discardWindowOpen)
-                                {
-                                    // 리더기가 접속 전부터(유니티와 무관하게) 백그라운드에서 계속 스캔하며 쌓아둔 값을
-                                    // 첫 읽기 명령에 그대로 돌려주는 경우가 있어, 접속 직후(무카드 응답을 아직 한 번도
-                                    // 못 받은 상태)에 한해 최초 cardReadsToDiscard회까지는 발행하지 않고 기준값으로만 저장함.
-                                    discardedCardReads++;
-                                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 접속 초기 잔여값으로 판단해 무시함({discardedCardReads}/{cardReadsToDiscard}): {decoded}");
-
-                                    // 상한에 도달하면(연속 잔여값 대비 안전장치) 그 이후로는 정상 태그로 취급함
-                                    if (discardedCardReads >= cardReadsToDiscard) discardWindowOpen = false;
-                                }
-                                else
-                                {
-                                    if (_logger != null)
-                                    {
-                                        string hexDump = BitConverter.ToString(responseBuffer, 0, length).Replace("-", " ");
-                                        _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드 인식 응답(HEX, {length}바이트)={hexDump}");
-                                    }
-
-                                    _messageSubject.OnNext((session.ReaderId, decoded));
-                                }
-                            }
-                            // decoded가 lastPublishedDecoded와 같으면(같은 카드가 계속 올라가 있음) 중복 발행하지 않고 건너뜀
-                        }
-                        else
-                        {
-                            // 무카드 응답을 받았다는 것은 리더기 상태가 이미 실시간을 정확히 반영하고 있다는 뜻이므로,
-                            // 잔여값 필터링 창을 즉시 닫음(정상 상황이면 씬 진입 직후 대부분 이 경로로 바로 닫힘).
-                            discardWindowOpen = false;
-
-                            // 직전까지 인식되어 있던 카드에 대해 무카드 응답이 cardRemovedDebounceMs 동안 이어지면 떨어진 것으로 보고 1회만 알림.
-                            // 그 전에 같은 카드가 다시 읽히면 리더기 오응답으로 보고 무시함(lastPublishedDecoded를 유지해 재발행하지 않음).
-                            if (lastPublishedDecoded != null && removal.OnNoCard(clock.ElapsedMilliseconds))
-                            {
-                                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드가 떨어짐.");
-                                _idleSubject.OnNext(session.ReaderId); // 구독자가 UI를 바꾸므로 이 수신 스레드에서 바로 발행하지 않음
-                                lastPublishedDecoded = null; // 카드가 떨어짐 -> 다음 태그 때 다시 발행 가능하도록 리셋
+                                HandleFrame(session, tracker, frameBuffer, frameLength, lastByteMs);
+                                frameLength = 0;
                             }
                         }
                     }
 
-                    Thread.Sleep(pollIntervalMs);
+                    long nowMs = clock.ElapsedMilliseconds;
+                    if (frameLength > 0 && nowMs - lastByteMs >= FrameIdleGapMs)
+                    {
+                        HandleFrame(session, tracker, frameBuffer, frameLength, lastByteMs);
+                        frameLength = 0;
+                    }
+
+                    string removedCard = tracker.CurrentCard;
+                    if (tracker.CheckRemoved(nowMs))
+                    {
+                        if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드가 떨어짐({removedTimeoutMs}ms 동안 UID 없음, 올라가 있던 동안 UID 간격 최대 {tracker.MaxFrameGapMs}ms): {removedCard}");
+                        _idleSubject.OnNext(session.ReaderId); // 구독자가 UI를 바꾸므로 이 수신 스레드에서 바로 발행하지 않음
+                    }
                 }
             }
             catch (Exception e)
             {
                 if (session.IsRunning && _logger != null)
                 {
-                    _logger.ZLogWarning($"[RfidReaderService] {session.ReaderId} TCP 폴링 중 예외 발생: {e.Message}");
+                    _logger.ZLogWarning($"[RfidReaderService] {session.ReaderId} TCP 수신 중 예외 발생: {e.Message}");
                 }
             }
             finally
@@ -471,100 +408,26 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 폴링 응답 프레임을 읽음. FrameTerminatorByte(0x0D)가 나오면 즉시 완료로 처리하고,
-        /// timeoutMs 내에 아무 응답도 없으면 Timeout, 상대가 접속을 끊으면(Read가 0 반환) Disconnected를 반환함.
-        /// NetworkStream.ReadTimeout(소켓 레벨 SO_RCVTIMEO) 기반 블로킹 읽기는 Unity의 Mono/IL2CPP 런타임에서
-        /// 타임아웃 시 소켓이 끊어지는 것처럼 동작하는 문제가 있어(실측: NetAssist로는 끊김 없이 안정적으로 동작,
-        /// 우리 쪽만 계속 재접속됨), 대신 DataAvailable을 짧은 간격으로 폴링하는 방식으로 구현함(소켓 타임아웃
-        /// API 자체를 사용하지 않음).
+        /// 받은 UID 바이트를 16진수 문자열로 바꿔 카드 상태를 갱신하고, 새로 올라온 카드면 메인 스레드로 넘겨 발행되게 함.
         /// </summary>
-        private static PollReadResult TryReadResponseFrame(NetworkStream stream, byte[] buffer, int timeoutMs, out int length)
+        private void HandleFrame(ReaderSession session, CardPresenceTracker tracker, byte[] frame, int length, long receivedAtMs)
         {
-            const int pollStepMs = 10;
-            length = 0;
-            int elapsedMs = 0;
+            string hexWithDashes = BitConverter.ToString(frame, 0, length);
+            string uid = hexWithDashes.Replace("-", "");
 
-            try
+            switch (tracker.OnCardFrame(uid, receivedAtMs))
             {
-                while (elapsedMs < timeoutMs)
-                {
-                    if (stream.DataAvailable)
-                    {
-                        int n = stream.Read(buffer, length, buffer.Length - length);
-                        if (n == 0) return PollReadResult.Disconnected;
-
-                        length += n;
-                        if (buffer[length - 1] == FrameTerminatorByte || length >= buffer.Length)
-                        {
-                            return PollReadResult.Success;
-                        }
-
-                        continue; // 더 받을 데이터가 있을 수 있으니 대기시간 소모 없이 바로 이어서 확인
-                    }
-
-                    Thread.Sleep(pollStepMs);
-                    elapsedMs += pollStepMs;
-                }
-
-                return length > 0 ? PollReadResult.Success : PollReadResult.Timeout;
-            }
-            catch (Exception)
-            {
-                return PollReadResult.Disconnected; // 소켓 자체에 문제가 생긴 경우(진짜 연결 끊김)
-            }
-        }
-
-        /// <summary> "09 41 31 47 33 45 0D" 형식의 공백 구분 16진수 문자열을 바이트 배열로 변환함. </summary>
-        private static byte[] ParseHexBytes(string hexWithSpaces)
-        {
-            if (string.IsNullOrWhiteSpace(hexWithSpaces)) return Array.Empty<byte>();
-
-            string[] tokens = hexWithSpaces.Split(new[] { ' ', ',', '-' }, StringSplitOptions.RemoveEmptyEntries);
-            byte[] result = new byte[tokens.Length];
-            for (int i = 0; i < tokens.Length; i++)
-            {
-                result[i] = Convert.ToByte(tokens[i], 16);
-            }
-            return result;
-        }
-
-        /// <summary> 프레임 앞뒤에 붙을 수 있는 제어 바이트(TAB/LF/CR). 질의응답 프로토콜을 쓰는 경우 대비용. </summary>
-        private static bool IsFrameControlByte(byte b) => b == 0x09 || b == 0x0A || b == 0x0D;
-
-        /// <summary>
-        /// 수신된 바이트 뭉치를 카드 UID 문자열로 변환함. 두 가지 실측 형식을 모두 대응함:
-        /// (1) 매뉴얼 4.1절 기본 동작 - 구분자 없는 원시 바이너리 UID(예: 25 16 F9 96) → 16진수 문자열로 변환.
-        /// (2) 별도로 확인된 질의응답 프로토콜 - TAB/LF로 시작하고 CR로 끝나는 아스키 프레임(예: "\nA1G...\r")
-        /// → 앞뒤 제어 바이트를 잘라내고 아스키 텍스트로 처리.
-        /// 앞뒤 제어 바이트를 먼저 잘라낸 뒤 남은 바이트가 전부 출력 가능한 아스키 범위인지로 (1)/(2)를 자동 판별함.
-        /// </summary>
-        private static string DecodeTagPayload(byte[] buffer, int length)
-        {
-            int start = 0;
-            int end = length;
-            while (start < end && IsFrameControlByte(buffer[start])) start++;
-            while (end > start && IsFrameControlByte(buffer[end - 1])) end--;
-
-            int trimmedLength = end - start;
-            if (trimmedLength <= 0) return null;
-
-            bool isPrintableAscii = true;
-            for (int i = start; i < end; i++)
-            {
-                byte b = buffer[i];
-                if (b < 0x20 || b > 0x7E)
-                {
-                    isPrintableAscii = false;
+                case CardPresenceTracker.CardFrameResult.NewCard:
+                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드 인식(HEX, {length}바이트)={hexWithDashes.Replace("-", " ")}");
+                    _messageSubject.OnNext((session.ReaderId, uid));
                     break;
-                }
-            }
 
-            if (isPrintableAscii)
-            {
-                return CleanRawData(Encoding.ASCII.GetString(buffer, start, trimmedLength));
-            }
+                case CardPresenceTracker.CardFrameResult.Baseline:
+                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 접속 때 이미 올려져 있던 카드라 무시함(떼었다 다시 올리면 인식): {uid}");
+                    break;
 
-            return BitConverter.ToString(buffer, start, trimmedLength).Replace("-", "");
+                // Repeat: 올라가 있는 카드가 반복해서 보낸 UID라 다시 발행하지 않음(매번 로그를 남기면 스팸)
+            }
         }
 
         /// <summary>
@@ -626,23 +489,6 @@ namespace DGAIZone.Game.Hardware
             else if (_logger != null)
             {
                 _logger.ZLogWarning($"[RfidReaderService] publisher가 null이라 RfidTagEvent를 발행할 수 없음.");
-            }
-        }
-
-        /// <summary> 아스키 태그 문자열에서 영문자/숫자만 남기고 나머지 문자를 제거함. </summary>
-        private static string CleanRawData(string input)
-        {
-            if (string.IsNullOrEmpty(input)) return "";
-            using (Utf16ValueStringBuilder sb = ZString.CreateStringBuilder())
-            {
-                foreach (char c in input)
-                {
-                    if (char.IsLetterOrDigit(c))
-                    {
-                        sb.Append(c);
-                    }
-                }
-                return sb.ToString();
             }
         }
 

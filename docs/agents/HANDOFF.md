@@ -13,6 +13,17 @@
 
 ---
 
+### [2026-10-09] Claude → Antigravity · T52
+- 요청(사용자): RFID 리더기를 '읽기 명령에 1회 응답' 모드에서 연속 읽기 모드로 바꿨음. 사용자 확인: 카드가 올라가 있는 동안 같은 UID를 계속 보내고, 카드가 없으면 아무것도 안 보내고, 폴링 방식은 연속 모드로 교체. 작업 중 추가 정보: 연속 모드는 'A1G...' 아스키가 아니라 원시 바이트(예: `81 73 69 22 E5 1D 04`, 같은 카드 값은 아님)로 줌.
+- UID 대응: 1회 읽기 값 `A1G0` + 16진수 14자리 + 두 글자에서 가운데 14자리가 연속 모드의 7바이트와 같음. 사용자가 공유한 팀원의 연속 모드 카드 목록(48장, `uidByteLength: 7`·`absenceTimeoutMs: 1000`)과 대조해 변환한 10장 중 5장이 값·분류 모두 일치함을 확인(나머지 5장은 목록에 없음). 마지막 두 글자는 단순 합·XOR 체크섬이 아님(폴링 명령 `3E`·무카드 응답 `3D`는 앞 바이트 합의 2의 보수와 맞음). 제어 카드 하나(`95 1E 0F DA 0D 0D 04`)는 UID 안에 0x0D가 있어 CR로 자르면 안 됨.
+- 카드 추가(사용자 선택): 팀원 목록에서 새 카드 43장(Action→동작 23, Control→제어 14, Logic→논리 3, Function→함수 3)을 기존 10장 뒤에 추가해 53장, 중복 없음. 팀원 목록의 제어 Condition/Repeat 구분은 사용자 선택으로 지금은 '제어' 하나로 둠.
+- 변경 파일: `Hardware/RfidReaderService.cs`(폴링 제거, Socket.Poll 10ms + Read, 7바이트씩 잘라 16진수, 모자란 채 50ms면 받은 만큼 처리, 떨어짐 로그에 UID 간격 최댓값, 아스키 디코딩 함수 삭제), 신규 `Hardware/CardPresenceTracker.cs`(CardRemovalDebouncer 자리 — 반복 UID 한 번만, UID가 cardRemovedDebounceMs 동안 없으면 떨어짐, 접속 뒤 그 시간 안의 첫 카드는 무시하다 떼었다 올리면 인식 — 예전 initialCardReadsToDiscard 대신), `Data/RfidMappingData.cs`·`RfidMappings.json`(폴링 설정 5개 삭제, uid 10개를 가운데 14자리로), `Events/RfidReaderIdleEvent.cs`(주석), 테스트 `CardPresenceTrackerTests`(CardRemovalDebouncerTests 3개 자리, 7개), `CHANGELOG.md`, `TODO.md`, bundleVersion 26.10.9.
+- 테스트: PlayMode 181/181. 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
+- Play 모드 확인(Claude, 3_Game을 바로 열고 로컬 TCP 가짜 리더기로 원시 바이트 전송): 접속 직후 카드 A 무시 → 1초 조용하면 떨어짐(간격 최대 200ms) → 다시 A(첫 UID를 3+4바이트로 나눠 보냄) 인식·동작 발행 → 한 번에 A+B+B(B는 0x0D 포함) 보내면 B 인식·제어 발행 → 떨어짐 → 4바이트 카드는 50ms 뒤 `2516F996` 등록 안 된 카드 경고 1번 → 떨어짐 → 접속 끊으면 세션 종료 로그. 경고는 127.0.0.1 미등록 IP·4바이트 카드 두 건뿐(의도).
+- 확인 요청·결과(agy `gemini-3.8-flash-high`): 1차 4묶음 병렬 — (서비스) 접속 끊김·재접속·OnDestroy 때 스레드 종료, 7바이트 조립과 배열 범위, 메인 스레드 발행·한국어 로그·지운 함수 미사용 → 3/3 통과. (테스트) 단언 값 추적·형식 → 통과, 빠진 경우 지적(판정 시간 안에 떼었다 올림, 새 카드에서 간격 최댓값 0, 접속 때 무시한 카드 다음 다른 카드) → 테스트 3개로 보강. (문서) CHANGELOG·TODO·bundleVersion → 3/3 통과. (판정·설정) 5분 시간 제한으로 빈 결과 → 둘로 나눠 다시 맡김. 2차 3묶음 — (판정 클래스) 3/3 통과, (설정·JSON, 팀원 목록 파일과 대조) 지운 필드 미사용·기존 10장 변환·48장 포함과 분류·중복 없음·JSON 문법·주석 → 3/3 통과, (보강 테스트·문서) 테스트 3개 통과, HANDOFF 테스트 수를 8개로 잘못 적은 것 지적 → 7개로 고침.
+
+---
+
 ### [2026-10-08] Claude → Antigravity · T51
 - 요청(사용자): T49 뒤에도 4존 타이틀에서 기다리면 '[InactivityTimer] No activity ... Publishing timeout event.'와 '[APIManager] 0_Title은 이미 대기 화면이라 비활동 타임아웃 로그를 보내지 않음.'이 계속 올라온다 — 1존은 어떻게 처리했나. 1존은 GameManager가 sceneLoaded(와 Start의 처음 씬)에서 0_Title이면 InactivityTimer.Pause, 그 외 씬이면 Resume해 타이틀에서는 이벤트 자체가 나지 않음(APIManager의 타이틀 제외는 안전장치). 4존에 같은 방식 적용.
 - 변경 파일: `App/GameManager.cs`(InactivityTimer 선택 주입, OnEnable/OnDisable에서 sceneLoaded 구독 — 베이스의 private OnSceneLoaded와 겹치지 않게 OnGameSceneLoaded, Start에서 처음 씬 반영, UpdateInactivityTimerState — null이면 경고), `TODO.md`. 서버 로그 동작은 T49 그대로라 CHANGELOG에는 적지 않음. 버전은 이미 26.10.8.

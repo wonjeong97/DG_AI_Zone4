@@ -113,24 +113,16 @@ namespace DGAIZone.Game.Data
         public int listenPort = 10123; // PC(서버)가 모든 리더기 클라이언트의 접속을 받는 TCP 포트(공용). 리더기(KA-LAN-754) 기본 목적지 포트값과 동일하게 맞춰둠
         public int[] stageReadCounts = { 3 }; // 스테이지별 찍어야 하는 read 횟수 (인덱스 = 스테이지 번호)
 
-        // 리더기(KA-LAN-754)는 데이터를 먼저 push하지 않음(실측 확인됨: 카드만 태그해선 아무 데이터도 안 옴).
-        // 아래 명령이 "1회 읽기" 트리거로 추정되며, 이걸 반복 전송해 폴링해야 함.
-        // 실측: 카드 없음="09 41 31 47 33 45 0D"(그대로 에코) 또는 "0A 41 31 47 33 44 0D"(7바이트),
-        //       카드 있음="0A 41 31 47 30 38 31 37 33 36 39 32 32 35 30 30 42 30 34 37 43 0D"(22바이트, UID 포함).
-        public string pollCommandHex = "09 41 31 47 33 45 0D"; // 폴링(1회 읽기 트리거) 명령(공백으로 구분된 16진수 바이트열)
-        public int pollIntervalMs = 1000; // 폴링 명령을 반복 전송하는 주기(ms)
-        public int pollResponseTimeoutMs = 300; // 폴링 응답을 기다리는 최대 시간(ms). 초과하면 이번 폴링은 건너뜀
-        public int noCardResponseMaxLength = 7; // 이 바이트 수 이하의 응답은 "카드 없음"으로 간주하고 무시함(실측 기준 무카드=7바이트, 카드 인식=22바이트)
+        // 리더기(KA-LAN-754)는 연속 읽기 모드로 설정함. 명령을 보내지 않아도 카드가 올라가 있는 동안 같은 UID를 계속 보내고,
+        // 카드가 없으면 아무것도 보내지 않음. UID는 구분자 없는 원시 7바이트(예: 81 73 69 22 E5 1D 04)로 오며,
+        // mappings[].uid에는 이를 공백 없는 16진수 14자리(예: "81736922E51D04")로 적음.
+        // 예전 1회 읽기 모드의 아스키 응답 "A1G0" + 16진수 14자리 + 두 글자(예: "A1G081736922500B047C")에서 가운데 14자리가 같은 값임.
 
-        // 리더기가 카드가 올라가 있는데도 가끔 "카드 없음"으로 잘못 응답함. 인식돼 있던 카드에 대해 "카드 없음" 응답이 이 시간(ms) 동안
-        // 이어져야 카드가 떨어진 것으로 보고, 그 사이에 같은 카드가 다시 읽히면 무시함. 0이면 첫 "카드 없음" 응답에 바로 떨어짐으로 봄.
-        public const int DefaultCardRemovedDebounceMs = 1000; // 폴링 주기 1초 기준 "카드 없음" 응답 1번은 무시함
+        // UID가 이 시간(ms) 동안 오지 않으면 카드가 떨어진 것으로 봄. 리더기가 UID를 다시 보내는 간격보다 길어야 하며,
+        // 카드가 떨어질 때 로그에 남는 "UID 간격 최대"를 보고 맞춤. 접속 뒤 이 시간 안에 읽힌 첫 카드는 접속 전부터 올려져 있던
+        // 카드로 보고 떼었다 다시 올릴 때까지 무시함. 0 이하이면 기본값을 씀.
+        public const int DefaultCardRemovedDebounceMs = 1000;
         public int cardRemovedDebounceMs = DefaultCardRemovedDebounceMs;
-
-        // 리더기는 유니티가 실행되지 않는 동안에도 백그라운드에서 계속 스캔을 유지하다가, 접속 후 첫 읽기 명령을
-        // 보내는 순간 그동안 쌓여있던(유니티와 무관하게 읽힌) 잔여 카드 값을 그대로 돌려주는 경우가 있음.
-        // 접속 후 리더기별로 이 횟수만큼의 "카드 인식" 응답은 발행하지 않고 버림(기준값으로만 저장).
-        public int initialCardReadsToDiscard = 2;
         public RfidReaderConfig[] readers;
         public RfidMappingItem[] mappings; // 모든 레벨에서 공용으로 재사용되는 물리 카드 목록 (uid -> category)
         public RfidLevelMapping[] levelMappings;
