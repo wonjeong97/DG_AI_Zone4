@@ -113,7 +113,7 @@ namespace DGAIZone.Result
                 return false;
             }
 
-            int level = ResultVideoPanel.ClampLevel(_selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1);
+            int level = ResultVideoPanel.ClampLevel(SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultAiPanel)));
             string fileName = ResultVideoPanel.GetVideoFileName(level, true);
 
             videoPlayer.source = VideoSource.Url;

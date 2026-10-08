@@ -89,7 +89,7 @@ namespace DGAIZone.Game
             PanelFader.ApplyState(gamePanel, true, _logger);
             PanelFader.ApplyState(storyPanel, false, _logger);
 
-            _selectedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+            _selectedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(GameFlowController));
 
             ApplyThemeBackground();
             SetupStoryLevel();

@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T56
+- 요청(사용자): T56 진행 — PR #56 리뷰에서 찾은, `_selectedLevelStore`가 null이면 말없이 레벨 1을 쓰던 7곳에 경고 추가.
+- 변경 파일: `App/SelectedLevelStore.cs`(FallbackLevel 상수, 정적 LevelOrFallback(store, logger, owner) — null이면 `[owner] selectedLevelStore가 null이라 레벨 1로 처리함.` 경고 후 1), `Game/GameFlowController.cs`, `Game/UI/MissionBoardController.cs`(2곳), `Result/ResultAiPanel.cs`, `Result/ResultFlowController.cs`(2곳), `Result/ResultVideoPanel.cs`(예전 MinLevel도 1), T54에서 직접 경고를 넣었던 `Game/UI/IngredientSelectionController.cs`도 같은 헬퍼로 통일. 같은 모양은 이 8곳이 전부(검색으로 확인). 단순 값 반환이라 스킬 13번 기준으로 테스트는 추가하지 않음. CHANGELOG는 관람객·운영자 영향이 없어 적지 않음. 버전은 이미 26.10.9.
+- 확인: Rider 코드 분석 오류 0(새 헬퍼의 "Message template should be compile time constant" 경고는 변수 들어간 ZLogger 호출 모두에 뜨는 오탐), Unity 컴파일·콘솔 오류 0, PlayMode 187/187, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰: agy가 아직 이용 한도(429, 약 1시간 55분 뒤 초기화)라 Claude가 직접 diff 확인 — 8곳 모두 예전과 같은 값(1)·저장소가 있을 때 동작 같음·로거 null에도 예외 없음 → 통과. MissionBoardController·ResultFlowController는 저장소가 없으면 경고가 두 번 남을 수 있으나 주입이 빠진 잘못된 구성에서만 생겨 그대로 둠.
+- PR wonjeong97/DG_AI_Zone4#57 머지 전(Claude): 커밋 하나에 main과 차이 없음, 변경 범위(코드 7파일·TODO·HANDOFF)가 위 리뷰와 같음, 관람객·운영자 영향이 없어 CHANGELOG 항목 없음 → 통과.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T54
 - 요청(사용자): 전체 코드에서 스킬 위반·성능 최적화·리팩터링 후보를 찾아 적용, 끝나면 PR·리뷰·병합.
 - 점검 방법: 기계 검색(var·Find·리플렉션·LINQ·Debug.Log·`?.`·float 비교·Update 메서드 — 위반 없음) + agy 18묶음(1,000줄 안팎, 동시 6개) → 12묶음이 5분 시간 제한 → 항목을 둘로 나눠 24요청(동시 4개) → 8개가 또 시간 제한 → 규칙대로 Claude 서브에이전트 4개(읽기 전용)가 그 영역을 점검. 예전 점검(T16·T20)에서 기각한 항목은 다시 올리지 않게 요청에 적음.

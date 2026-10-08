@@ -95,7 +95,7 @@ namespace DGAIZone.Result
             if (completeNextButton) completeNextButton.onClick.AddListener(OnCompleteNextClicked);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null임.");
 
-            int playedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+            int playedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultFlowController));
             if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockThrough(playedLevel);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] unlockedLevelStore가 null이라 다음 레벨을 잠금 해제할 수 없음.");
 
@@ -259,7 +259,7 @@ namespace DGAIZone.Result
                 return;
             }
 
-            int playedLevel = _selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1;
+            int playedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultFlowController));
             string nextScene = playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
 
             if (_levelJumpStore == null)
