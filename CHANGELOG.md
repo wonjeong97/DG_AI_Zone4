@@ -5,6 +5,9 @@
 
 ## [Unreleased]
 
+### Removed
+- `RfidMappings.json`의 `stageReadCounts`를 더 이상 쓰지 않아 지움(현장 파일에 남아 있어도 무시되며, 레벨별 단계 수는 `levelMappings[].steps` 개수로 정해짐).
+
 ## [2026-10-09]
 
 ### ⚠ Breaking Changes
