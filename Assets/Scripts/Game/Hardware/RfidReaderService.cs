@@ -409,16 +409,15 @@ namespace DGAIZone.Game.Hardware
 
         /// <summary>
         /// 받은 UID 바이트를 16진수 문자열로 바꿔 카드 상태를 갱신하고, 새로 올라온 카드면 메인 스레드로 넘겨 발행되게 함.
+        /// 카드 인식은 게임 화면(IngredientSelectionController)이 처리 결과와 함께 행동 로그로 남기므로 여기서는 남기지 않음.
         /// </summary>
         private void HandleFrame(ReaderSession session, CardPresenceTracker tracker, byte[] frame, int length, long receivedAtMs)
         {
-            string hexWithDashes = BitConverter.ToString(frame, 0, length);
-            string uid = hexWithDashes.Replace("-", "");
+            string uid = BitConverter.ToString(frame, 0, length).Replace("-", "");
 
             switch (tracker.OnCardFrame(uid, receivedAtMs))
             {
                 case CardPresenceTracker.CardFrameResult.NewCard:
-                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드 인식(HEX, {length}바이트)={hexWithDashes.Replace("-", " ")}");
                     _messageSubject.OnNext((session.ReaderId, uid));
                     break;
 
@@ -457,8 +456,6 @@ namespace DGAIZone.Game.Hardware
         /// <summary> 수신 uid를 매핑 목록에서 찾아 category를 RfidTagEvent로 발행함. </summary>
         private void DispatchTag((string readerId, string rawData) data)
         {
-            if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {data.readerId}에서 받은 원시 태그: {data.rawData}");
-
             if (_mappings == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] 매핑이 로드되지 않아 태그를 처리할 수 없음.");
@@ -484,7 +481,6 @@ namespace DGAIZone.Game.Hardware
             if (_publisher != null)
             {
                 _publisher.Publish(new RfidTagEvent(data.readerId, matchedItem.category));
-                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] RfidTagEvent 발행됨: {data.readerId} -> category={matchedItem.category}");
             }
             else if (_logger != null)
             {

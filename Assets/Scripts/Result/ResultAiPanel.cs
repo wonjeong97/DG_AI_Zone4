@@ -111,7 +111,6 @@ namespace DGAIZone.Result
 
             int level = ResultVideoPanel.ClampLevel(_selectedLevelStore != null ? _selectedLevelStore.SelectedLevel : 1);
             string fileName = ResultVideoPanel.GetVideoFileName(level, true);
-            if (_logger != null) _logger.ZLogInformation($"[ResultAiPanel] AI 패널 성공 영상 {fileName} 준비 중.");
 
             videoPlayer.source = VideoSource.Url;
             videoPlayer.url = ResultVideoPanel.GetVideoPath(fileName);

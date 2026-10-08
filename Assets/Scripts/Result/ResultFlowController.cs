@@ -274,6 +274,7 @@ namespace DGAIZone.Result
             }
 
             _isBusy = true;
+            if (_logger != null) _logger.ZLogInformation($"[ResultFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 결과 화면에서 다음을 누름 — {nextScene}(으)로 이동함.");
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings.sceneTransitionFadeDuration).Forget();
         }

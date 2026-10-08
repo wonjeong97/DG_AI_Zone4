@@ -39,5 +39,19 @@ namespace DGAIZone.App
             bool hasFinalConsonant = lastDigit == 0 || lastDigit == 1 || lastDigit == 3 || lastDigit == 6 || lastDigit == 7 || lastDigit == 8;
             return hasFinalConsonant ? "이에요" : "예요";
         }
+
+        /// <summary>
+        /// word 뒤에 받침 유무에 맞는 주격 조사를 붙임(예: 홍길동이, 김철수가). 마지막 글자가 한글 음절이 아니면(영문·숫자 등) "이(가)"를 붙임.
+        /// </summary>
+        public static string AppendSubjectParticle(string word)
+        {
+            if (string.IsNullOrEmpty(word)) return string.Empty;
+
+            char last = word[word.Length - 1];
+            if (last < '가' || last > '힣') return word + "이(가)";
+
+            bool hasFinalConsonant = (last - '가') % 28 != 0;
+            return word + (hasFinalConsonant ? "이" : "가");
+        }
     }
 }

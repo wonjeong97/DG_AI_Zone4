@@ -24,6 +24,7 @@ namespace DGAIZone.Outro
         private ILogger<OutroFlowController> _logger;
         private IPublisher<MoveIdleEvent> _moveIdlePublisher;
         private SoundManager _soundManager;
+        private VisitorInfoProvider _visitorInfoProvider;
         private bool _isBusy;
 
         // 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀.
@@ -31,14 +32,15 @@ namespace DGAIZone.Outro
         // 씬별로 값이 갈리지 않도록 함(현장에서 페이드 시간을 한 곳만 바꾸면 전체 씬에 일관되게 반영됨).
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 로거, idle 전환 이벤트 퍼블리셔, 효과음 매니저를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 로거, idle 전환 이벤트 퍼블리셔, 효과음 매니저, 행동 로그 주어를 줄 체험자 정보를 할당함. </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, ILogger<OutroFlowController> logger, IPublisher<MoveIdleEvent> moveIdlePublisher = null, SoundManager soundManager = null)
+        public void Construct(SceneTransitionService sceneTransition, ILogger<OutroFlowController> logger, IPublisher<MoveIdleEvent> moveIdlePublisher = null, SoundManager soundManager = null, VisitorInfoProvider visitorInfoProvider = null)
         {
             _sceneTransition = sceneTransition;
             _logger = logger;
             _moveIdlePublisher = moveIdlePublisher;
             _soundManager = soundManager;
+            _visitorInfoProvider = visitorInfoProvider;
         }
 
         /// <summary> 버튼 이벤트를 연결하고 00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
@@ -46,6 +48,8 @@ namespace DGAIZone.Outro
         {
             if (homeButton) homeButton.onClick.AddListener(OnHomeClicked);
             else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] homeButton이 null임.");
+
+            if (_visitorInfoProvider == null && _logger != null) _logger.ZLogWarning($"[OutroFlowController] visitorInfoProvider가 null이라 행동 로그에 체험자 이름 대신 '체험자'를 씀.");
 
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
@@ -74,6 +78,7 @@ namespace DGAIZone.Outro
             }
 
             _isBusy = true;
+            if (_logger != null) _logger.ZLogInformation($"[OutroFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 처음으로를 누름.");
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             if (_moveIdlePublisher != null) _moveIdlePublisher.Publish(new MoveIdleEvent());
             else if (_logger != null) _logger.ZLogWarning($"[OutroFlowController] moveIdlePublisher가 null이라 idle 전환 이벤트를 발행하지 않음.");

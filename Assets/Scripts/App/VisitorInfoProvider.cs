@@ -69,22 +69,43 @@ namespace DGAIZone.App
         /// </summary>
         public UniTask<string> GetNameAsync(CancellationToken cancellationToken = default)
         {
-            if (IsServerConnected)
-            {
-                if (!string.IsNullOrEmpty(ServerVisitorName)) return UniTask.FromResult(ServerVisitorName);
+            return UniTask.FromResult(ResolveName(true));
+        }
 
-                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] 서버 모드이지만 QR로 확인한 체험자 이름이 없어 기본 이름 '{Constants.DefaultVisitorName}'을 씀.");
-                return UniTask.FromResult(Constants.DefaultVisitorName);
+        /// <summary>
+        /// 행동 로그의 주어(예: "홍길동이", "김철수가"). 이름은 GetNameAsync와 같은 규칙으로 정하되, 기본 이름으로 바꿀 때의 경고는
+        /// 화면에 이름을 띄울 때 GetNameAsync가 이미 남기므로 행동 로그마다 되풀이하지 않음.
+        /// </summary>
+        public string LogSubject => PlaceholderFormatter.AppendSubjectParticle(ResolveName(false));
+
+        /// <summary>
+        /// 행동 로그 주어를 provider 없이도 얻음. provider가 null이면 "체험자가"를 씀(null인 까닭은 각 컨트롤러가 이름을 쓰는 곳에서 경고로 남김).
+        /// </summary>
+        public static string LogSubjectOf(VisitorInfoProvider provider) => provider != null ? provider.LogSubject : UnknownLogSubject;
+
+        private const string UnknownLogSubject = "체험자가";
+
+        /// <summary> GetNameAsync의 이름 규칙. warnOnFallback이면 기본 이름으로 바꿀 때 까닭을 경고로 남김. </summary>
+        private string ResolveName(bool warnOnFallback)
+        {
+            // 설정이 없을 때의 경고는 IsServerConnected가 남기므로 warnOnFallback일 때만 그 속성을 거침
+            bool isServerConnected = warnOnFallback ? IsServerConnected : _settings && _settings.IsServerConnected;
+            if (isServerConnected)
+            {
+                if (!string.IsNullOrEmpty(ServerVisitorName)) return ServerVisitorName;
+
+                if (warnOnFallback && _logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] 서버 모드이지만 QR로 확인한 체험자 이름이 없어 기본 이름 '{Constants.DefaultVisitorName}'을 씀.");
+                return Constants.DefaultVisitorName;
             }
 
             if (!_settings)
             {
-                if (_logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] VisitorSettings가 null이라 기본 이름 '{Constants.DefaultVisitorName}'을 씀.");
-                return UniTask.FromResult(Constants.DefaultVisitorName);
+                if (warnOnFallback && _logger != null) _logger.ZLogWarning($"[VisitorInfoProvider] VisitorSettings가 null이라 기본 이름 '{Constants.DefaultVisitorName}'을 씀.");
+                return Constants.DefaultVisitorName;
             }
 
             string visitorName = _settings.VisitorName;
-            return UniTask.FromResult(string.IsNullOrEmpty(visitorName) ? Constants.DefaultVisitorName : visitorName);
+            return string.IsNullOrEmpty(visitorName) ? Constants.DefaultVisitorName : visitorName;
         }
     }
 }

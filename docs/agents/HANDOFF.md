@@ -13,6 +13,16 @@
 
 ---
 
+### [2026-10-09] Claude → Antigravity · T53
+- 요청(사용자): 반드시 남겨야 하는 로그를 빼고 자잘한 로그를 정리, 플레이어 행동은 '{name}이 ~를 함' 형식으로. 사용자 선택: 정리 기준은 '운영 진단 + 행동'(경고·오류는 실패 때만 남으므로 그대로), 행동 범위는 화면 이동(QR·시작하기·레벨 고름·결과 다음·처음으로)·카드 올림/뗌·코딩 조작(설정하기·취소하기·코딩 완료·건너뛰기). 좌우 값 고르기·스토리/튜토리얼 넘기기는 넣지 않음.
+- 변경 파일: `App/PlaceholderFormatter.cs`(AppendSubjectParticle — 받침이면 '이', 아니면 '가', 한글로 안 끝나면 '이(가)'), `App/VisitorInfoProvider.cs`(LogSubject — GetNameAsync와 같은 이름 규칙이되 기본 이름 경고는 되풀이하지 않음, 정적 LogSubjectOf — provider가 없으면 '체험자가'), `Game/UI/IngredientSelectionController.cs`(VisitorInfoProvider 선택 주입·없으면 경고, LogCardPlaced/LogCardRemoved/ReaderLabel — 카드 한 번에 처리 결과까지 한 줄, 설정하기·취소하기·코딩 완료·건너뛰기 행동 로그, 초기화 완료·모든 단계 완료·되돌림·결과 씬 이동·설계 기록·미리보기 추진력 로그 삭제), `States/IngredientLevel4State.cs`·`IngredientLevel5State.cs`(카드 거부를 LogCardPlaced로), `Hardware/RfidReaderService.cs`(카드 인식 HEX·원시 태그·발행됨 3줄 삭제 — 미등록 카드 경고는 유지), `Game/UI/MissionBoardController.cs`(진행도 시퀀스 6줄·미리보기·깜빡임 로그 삭제, 로그에만 쓰던 ApplyProgressAsync의 totalThrust 매개변수 삭제), `Game/UI/Level4BoardController.cs`(시뮬레이션 시작·완료·취소, 자원·함정·기지 도착 연출 로그 삭제 — 함정은 정상 실패 결과인데 경고로 찍히던 것, 판정 4줄은 유지), `Hardware/KeyboardRfidSimulator.cs`·`Result/ResultAiPanel.cs`(자잘한 로그 삭제), `Title/TitleFlowController.cs`(QR 길이 로그 → 확인 결과 행동 로그, 시작하기, 대기 초과에 주어, 비활동 타이머 꺼짐 로그 삭제), `LevelSelect/LevelSelectFlowController.cs`(레벨 고름·시작), `Result/ResultFlowController.cs`(다음), `Outro/OutroFlowController.cs`(VisitorInfoProvider 선택 주입, 처음으로), 테스트 `PlaceholderFormatterTests`(조사 1개), `CHANGELOG.md`, `TODO.md`. 버전은 이미 26.10.9.
+- 남긴 정보 로그(57개): 행동 17, 레벨 판정 근거(레벨 1~5, 레벨 4 보드 4줄), 미션 목표 2, 서버 응답 3·APIManager 2, 관리자 조작 9, 리더기 서버 시작·접속·재접속·MAC 식별·접속 때 카드 무시·떨어짐(UID 간격 최대)·끊김, QR 오입력 진단 2, 결과 영상 파일, 디버그 전용 3. Template 패키지 로그(GameManagerBase·InactivityTimer 등, 영어)는 이 저장소에서 고치지 않음.
+- 테스트: PlayMode 182/182. 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
+- Play 모드 확인(Claude, 3_Game에서 로컬 TCP 가짜 리더기): 스토리 화면에서 카드 → '체험자가 Unknown_127.0.0.1에 동작 카드를 올림 — 게임 화면이 아니라 무시함.', 게임 화면 → '… — 1번째 단계 '추진체 종류'에 적용함.', 설정하기 → '체험자가 설정하기를 누름 — 1번째 단계를 '추진체 종류 = 고체 로켓 (+7)'(으)로 정함.', 취소하기 2번 → '1번째 단계로 되돌림'·'1번째 단계에서 고르던 값을 비움', 카드 뗌 → 리더기 떨어짐 1줄 + 행동 1줄. 경고는 127.0.0.1 미등록 IP뿐(의도). 로컬 모드 기본 이름이 '체험자'라 주어가 '체험자가'.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`, 4묶음 병렬): (흐름·조사) 받침 계산·ResolveName 예전과 같은 이름·경고·LogSubject 경고 반복 없음, 타이틀·레벨 선택·결과·아웃트로 로그 위치와 조용한 실패 없음, 아웃트로 선택 주입 호환 → 3/3 통과. (리더기·미션 보드·레벨 4 보드) 지운 자리 동작 동일·totalThrust는 로그 전용이었음, 운영 진단 로그 유지, 안 쓰이는 using·변수 없음 → 3/3 통과. (테스트·문서) 조사 테스트 단언, CHANGELOG·TODO·HANDOFF와 실제 diff → 2/2 통과. (게임 컨트롤러) 5분 시간 제한으로 빈 결과 → 읽을 줄 범위를 좁혀 둘로 나눠 다시 맡김: 카드 올림 모든 경로가 행동 로그 한 번·동작 동일, 레벨 4·5 거부 경고·false 반환 유지 → 2/2 통과, 카드 뗌·버튼 로그의 단계 번호(CancelLastStep 뒤 번호)·두 호출부 로그, 안 쓰이는 변수 없음·선택 주입과 null 경고 → 2/2 통과. 문제 0건.
+
+---
+
 ### [2026-10-09] Claude → Antigravity · T52
 - 요청(사용자): RFID 리더기를 '읽기 명령에 1회 응답' 모드에서 연속 읽기 모드로 바꿨음. 사용자 확인: 카드가 올라가 있는 동안 같은 UID를 계속 보내고, 카드가 없으면 아무것도 안 보내고, 폴링 방식은 연속 모드로 교체. 작업 중 추가 정보: 연속 모드는 'A1G...' 아스키가 아니라 원시 바이트(예: `81 73 69 22 E5 1D 04`, 같은 카드 값은 아님)로 줌.
 - UID 대응: 1회 읽기 값 `A1G0` + 16진수 14자리 + 두 글자에서 가운데 14자리가 연속 모드의 7바이트와 같음. 사용자가 공유한 팀원의 연속 모드 카드 목록(48장, `uidByteLength: 7`·`absenceTimeoutMs: 1000`)과 대조해 변환한 10장 중 5장이 값·분류 모두 일치함을 확인(나머지 5장은 목록에 없음). 마지막 두 글자는 단순 합·XOR 체크섬이 아님(폴링 명령 `3E`·무카드 응답 `3D`는 앞 바이트 합의 2의 보수와 맞음). 제어 카드 하나(`95 1E 0F DA 0D 0D 04`)는 UID 안에 0x0D가 있어 CR로 자르면 안 됨.

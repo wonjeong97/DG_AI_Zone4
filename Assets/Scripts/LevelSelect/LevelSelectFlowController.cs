@@ -296,6 +296,7 @@ namespace DGAIZone.LevelSelect
             }
 
             _isBusy = true;
+            if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 스토리를 보고 시작을 누름.");
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
@@ -330,6 +331,7 @@ namespace DGAIZone.LevelSelect
             if (_isBusy) return;
             if (index < 0 || index >= _currentUnlockedCount) return;
 
+            if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} {index + 1}레벨을 고름.");
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             SelectLevel(index);
         }
