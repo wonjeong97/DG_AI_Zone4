@@ -45,10 +45,7 @@ namespace DGAIZone.Game.UI.States
             int limit = CardLimitOf(ingredient.ingredientId);
             if (CountConfirmed(controller.ConfirmedIngredients, controller.CurrentStepIndex, ingredient.ingredientId) < limit) return true;
 
-            if (controller.Logger != null)
-            {
-                controller.Logger.ZLogInformation($"[IngredientSelectionController] 레벨 5 '{evt.Category}' 카드는 {limit}장까지라 더 받지 않아 {evt.ReaderId} 태그를 무시함.");
-            }
+            controller.LogCardPlaced(evt, $"{evt.Category} 카드는 {limit}장까지라 경고를 띄움");
             controller.ShowInvalidCardWarning();
             return false;
         }

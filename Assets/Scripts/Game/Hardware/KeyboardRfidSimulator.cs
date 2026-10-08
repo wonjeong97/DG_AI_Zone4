@@ -74,7 +74,6 @@ namespace DGAIZone.Game.Hardware
             if (Debug.isDebugBuild) return;
 
             enabled = false;
-            if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] 릴리스 빌드라 숫자키 카드 시뮬레이션을 끔.");
         }
 
         /// <summary> 디버그 액션 에셋 사본을 정리함. </summary>
@@ -92,8 +91,7 @@ namespace DGAIZone.Game.Hardware
                 return;
             }
 
-            _publisher.Publish(new RfidTagEvent(simulatedReaderId, category));
-            if (_logger != null) _logger.ZLogInformation($"[KeyboardRfidSimulator] 카드 시뮬레이션됨: category={category}");
+            _publisher.Publish(new RfidTagEvent(simulatedReaderId, category)); // 처리 결과는 게임 화면이 행동 로그로 남김
         }
     }
 }

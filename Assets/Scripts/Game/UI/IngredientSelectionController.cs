@@ -113,6 +113,7 @@ namespace DGAIZone.Game.UI
         private DesignPanel _designPanel;
         private ILogger<IngredientSelectionController> _logger;
         private SoundManager _soundManager;
+        private VisitorInfoProvider _visitorInfoProvider;
         private bool _isBusy;
 
         private int _selectedLevel = 1;     // 현재 레벨 (디자인 항목 표시 형식 분기 등에 사용)
@@ -202,10 +203,10 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 미션 보드·카테고리 안내·결과 저장소,
-        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거, 효과음 매니저를 할당함.
+        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거, 효과음 매니저, 행동 로그 주어를 줄 체험자 정보를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger, SoundManager soundManager = null)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger, SoundManager soundManager = null, VisitorInfoProvider visitorInfoProvider = null)
         {
             _subscriber = subscriber;
             _idleSubscriber = idleSubscriber;
@@ -219,6 +220,7 @@ namespace DGAIZone.Game.UI
             _designPanel = designPanel;
             _logger = logger;
             _soundManager = soundManager;
+            _visitorInfoProvider = visitorInfoProvider;
         }
 
         /// <summary>
@@ -232,6 +234,11 @@ namespace DGAIZone.Game.UI
             AddButtonListener(buttonCancel, OnCancelButtonClicked, nameof(buttonCancel));
             AddButtonListener(buttonCodingComplete, OnCodingCompleteClicked, nameof(buttonCodingComplete));
             AddButtonListener(buttonSkip, OnSkipButtonClicked, nameof(buttonSkip));
+
+            if (_visitorInfoProvider == null && _logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] visitorInfoProvider가 null이라 행동 로그에 체험자 이름 대신 '체험자'를 씀.");
+            }
 
             if (_subscriber != null)
             {
@@ -328,8 +335,6 @@ namespace DGAIZone.Game.UI
             RefreshMissingCards();
             InitializeStepBalls();
             UpdateCategoryHint();
-
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 워크플로우 초기화 완료: 총 {_totalSteps}회 read 필요.");
         }
 
         /// <summary> 선택된 레벨(1~5)에 맞는 레벨 상태로 전환함. 범위를 벗어나면 레벨 1 상태를 씀. </summary>
@@ -470,16 +475,8 @@ namespace DGAIZone.Game.UI
             // 게임 패널이 활성 상태가 아니면(스토리 화면 등) RFID 입력을 무시함
             if (!gamePanel || (!gamePanel.interactable && !returnsMissingCard))
             {
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[IngredientSelectionController] 게임 패널이 비활성 상태라 {evt.ReaderId} 태그를 무시함.");
-                }
+                LogCardPlaced(evt, "게임 화면이 아니라 무시함");
                 return;
-            }
-
-            if (!gamePanel.interactable && _logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 게임 패널이 비활성이지만 {evt.ReaderId}는 카드가 떨어졌던 단계라 태그를 처리함.");
             }
 
             if (_readerCount > 1)
@@ -497,10 +494,7 @@ namespace DGAIZone.Game.UI
 
                     if (wasIdle && string.Equals(previousCategory, evt.Category, StringComparison.Ordinal))
                     {
-                        if (_logger != null)
-                        {
-                            _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {readerStepIndex + 1})에 동일 카테고리({evt.Category}) 카드가 다시 인식되어 떨어뜨렸던 블록을 다시 붙임.");
-                        }
+                        LogCardPlaced(evt, $"{readerStepIndex + 1}번째 단계에서 뗐던 카드와 같은 분류라 블록을 다시 붙임");
                         RefreshMissingCards();
                         return;
                     }
@@ -513,10 +507,7 @@ namespace DGAIZone.Game.UI
                 else if (readerStepIndex > _currentStepIndex)
                 {
                     // 아직 도달하지 않은(활성화되지 않은) 스탭의 리더기 -> 무시
-                    if (_logger != null)
-                    {
-                        _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {readerStepIndex + 1})은 아직 활성화되지 않아 태그를 무시함(현재 {_currentStepIndex + 1}번째 진행 중).");
-                    }
+                    LogCardPlaced(evt, $"아직 {_currentStepIndex + 1}번째 단계를 하는 중이라 무시함");
                     return;
                 }
             }
@@ -524,10 +515,7 @@ namespace DGAIZone.Game.UI
             // 모든 단계가 완료되면 더 이상 태그를 받지 않음
             if (_currentStepIndex >= _totalSteps)
             {
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[IngredientSelectionController] 모든 단계가 완료되어 {evt.ReaderId} 태그를 무시함.");
-                }
+                LogCardPlaced(evt, "모든 단계를 마쳐 무시함");
                 return;
             }
 
@@ -544,10 +532,7 @@ namespace DGAIZone.Game.UI
 
             if (!step.AllowsCategory(evt.Category))
             {
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[IngredientSelectionController] '{evt.Category}' 카테고리는 {_currentStepIndex + 1}번째 단계({step.ingredientName})에서 허용되지 않아 {evt.ReaderId} 태그를 무시함.");
-                }
+                LogCardPlaced(evt, $"{_currentStepIndex + 1}번째 단계에서 쓸 수 없는 카드라 경고를 띄움");
                 ShowInvalidCardWarning();
                 return;
             }
@@ -580,10 +565,9 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId} 리더기 태그를 {_currentStepIndex + 1}번째 단계에 적용함: {ingredient.ingredientName}({ingredient.ingredientId})");
-            }
+            LogCardPlaced(evt, string.IsNullOrEmpty(ingredient.ingredientName)
+                ? ZString.Concat(_currentStepIndex + 1, "번째 단계에 적용함")
+                : ZString.Concat(_currentStepIndex + 1, "번째 단계 '", ingredient.ingredientName, "'에 적용함"));
 
             // 현재 단계에 허용된 카드로 확인된 경우에만 CodingCategories 강조를 갱신함(허용되지 않으면 흑백 상태가 그대로 유지됨)
             if (_codingCategoryIndicator) _codingCategoryIndicator.HighlightCategory(evt.Category);
@@ -598,6 +582,28 @@ namespace DGAIZone.Game.UI
             _currentMatterIndex.Value = 0;
             UpdateMatterText();
             UpdateProgressPreview();
+        }
+
+        /// <summary> 행동 로그 주어(예: "홍길동이"). </summary>
+        private string PlayerSubject => VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider);
+
+        /// <summary> 체험자가 리더기에 카드를 올렸을 때 그 처리 결과를 행동 로그 한 줄로 남김. 레벨 상태가 카드를 받지 않을 때도 씀. </summary>
+        internal void LogCardPlaced(RfidTagEvent evt, string outcome)
+        {
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 {evt.Category} 카드를 올림 — {outcome}.");
+        }
+
+        /// <summary> 체험자가 리더기에서 카드를 뗐을 때 그 처리 결과를 행동 로그 한 줄로 남김. </summary>
+        private void LogCardRemoved(string readerId, string outcome)
+        {
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(readerId)}에서 카드를 뗌 — {outcome}.");
+        }
+
+        /// <summary> 행동 로그에 쓸 리더기 이름. "Reader_N"이면 "N번 리더기", 아니면(디버그 키보드·미등록 리더기) readerId 그대로. </summary>
+        private static string ReaderLabel(string readerId)
+        {
+            int stepIndex = GetStepIndexForReader(readerId);
+            return stepIndex >= 0 ? ZString.Concat(stepIndex + 1, "번 리더기") : readerId;
         }
 
         /// <summary> "Reader_N" 형식의 readerId에서 0-기반 스탭 인덱스(N-1)를 추출함. 형식이 안 맞으면(디버그/미등록 리더기) -1을 반환함. </summary>
@@ -651,14 +657,14 @@ namespace DGAIZone.Game.UI
             // 코딩 완료·건너뛰기로 결과 화면으로 넘어가는 중에는 체험자가 카드를 치워도 완성된 설계창을 그대로 둠
             if (_isBusy)
             {
-                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 결과 화면으로 넘어가는 중이라 {evt.ReaderId} 카드 떨어짐을 무시함.");
+                LogCardRemoved(evt.ReaderId, "결과 화면으로 넘어가는 중이라 그대로 둠");
                 return;
             }
 
             int stepIndex = GetStepIndexForReader(evt.ReaderId);
             if (stepIndex < 0 || stepIndex > _currentStepIndex)
             {
-                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}는 단계가 정해지지 않았거나 아직 진행하지 않은 단계라 카드 떨어짐을 무시함(현재 {_currentStepIndex + 1}번째 진행 중).");
+                LogCardRemoved(evt.ReaderId, $"단계가 없는 리더기이거나 아직 하지 않은 단계라 그대로 둠(지금 {_currentStepIndex + 1}번째 단계)");
                 return;
             }
 
@@ -666,11 +672,11 @@ namespace DGAIZone.Game.UI
             {
                 if (_currentMatters.Value.Length == 0)
                 {
-                    if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어졌지만 고르던 값이 없어 그대로 둠.");
+                    LogCardRemoved(evt.ReaderId, "고르던 값이 없어 그대로 둠");
                     return;
                 }
 
-                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 고르던 값을 비움.");
+                LogCardRemoved(evt.ReaderId, "고르던 값을 비움");
                 ClearPendingSelection();
                 UpdateCategoryHint();
                 return;
@@ -679,17 +685,14 @@ namespace DGAIZone.Game.UI
             // 다시 올려도 값을 다시 골라 설정해야 함(임시로 떨어뜨렸다가 다시 붙이지 않음)
             if (stepIndex == _currentStepIndex - 1)
             {
-                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})는 마지막으로 확정한 단계라 카드가 떨어져 취소하기로 처리함.");
                 CancelLastStep();
+                LogCardRemoved(evt.ReaderId, $"마지막으로 설정한 단계라 취소해 {_currentStepIndex + 1}번째 단계로 되돌림");
                 return;
             }
 
             if (_idleReaderStepIndices.Add(stepIndex))
             {
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[IngredientSelectionController] {evt.ReaderId}(스탭 {stepIndex + 1})의 카드가 떨어져 이후 블록을 임시로 떨어뜨리고 설정하기·코딩 완료를 막음.");
-                }
+                LogCardRemoved(evt.ReaderId, $"{stepIndex + 1}번째 단계부터 블록을 잠시 떼고 설정하기·코딩 완료를 막음");
                 RefreshMissingCards();
             }
         }
@@ -828,7 +831,9 @@ namespace DGAIZone.Game.UI
 
             if (_logger != null)
             {
-                _logger.ZLogInformation($"[IngredientSelectionController] {_currentStepIndex + 1}번째 단계 확정: {ingredientName}({ingredientId}) -> {chosenMatter.label}({chosenMatter.id}, 값={chosenMatter.value})");
+                string chosen = string.IsNullOrEmpty(ingredientName) ? chosenMatter.label : ZString.Concat(ingredientName, " = ", chosenMatter.label);
+                string finished = _currentStepIndex + 1 >= _totalSteps ? ", 모든 단계를 마침" : "";
+                _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 설정하기를 누름 — {_currentStepIndex + 1}번째 단계를 '{chosen}'(으)로 정함{finished}.");
             }
 
             // 디자인 컨테이너에 확정 항목을 자식으로 추가
@@ -850,11 +855,6 @@ namespace DGAIZone.Game.UI
             // 다음 단계가 남아있으면 그 단계의 카테고리 힌트를 다시 페이드로 안내하고, 없으면 힌트를 멈춤
             // (동작 확정으로 켜졌던 CodingCategories 강조도 여기서 함께 흑백으로 정리됨)
             UpdateCategoryHint();
-
-            if (_currentStepIndex >= _totalSteps && _logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 총 {_totalSteps}단계 모두 완료됨!");
-            }
         }
 
         /// <summary>
@@ -875,10 +875,12 @@ namespace DGAIZone.Game.UI
                 // 1단계(Reader 1)인 경우 현재 태그된 임시 선택값만 클리어
                 ClearPendingSelection();
                 UpdateCategoryHint();
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 취소하기를 누름 — 1번째 단계에서 고르던 값을 비움.");
                 return;
             }
 
             CancelLastStep();
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 취소하기를 누름 — {_currentStepIndex + 1}번째 단계로 되돌림.");
         }
 
         /// <summary> 확정된 마지막 단계를 되돌리고 고르던 값을 비운 뒤 되돌아간 단계를 안내함. 취소하기 버튼과, 마지막으로 확정한 단계의 카드가 떨어졌을 때 씀. </summary>
@@ -893,11 +895,6 @@ namespace DGAIZone.Game.UI
 
             // 되돌아간 단계의 카테고리 힌트를 다시 페이드로 안내함
             UpdateCategoryHint();
-
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] {_currentStepIndex + 1}번째 단계로 되돌림 (Reader_{_currentStepIndex + 1} 대기 중)");
-            }
         }
 
         /// <summary>
@@ -1090,7 +1087,7 @@ namespace DGAIZone.Game.UI
             }
             StoreResultDesigns(true);
 
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 코딩 완료. 결과={(success ? "성공" : "실패")}.");
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 코딩 완료를 누름 — {_selectedLevel}레벨 {(success ? "성공" : "실패")}.");
 
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             await AttachEndBlockAsync(token);
@@ -1100,7 +1097,6 @@ namespace DGAIZone.Game.UI
                 await CurrentLevelState.PlayCompletionSimulationAsync(this, token);
             }
 
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {Constants.Scenes.Result} 씬으로 이동.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
@@ -1130,7 +1126,7 @@ namespace DGAIZone.Game.UI
 
             _isBusy = true;
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] 스킵함. 결과=실패. {Constants.Scenes.Result} 씬으로 이동.");
+            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 건너뛰기를 누름 — {_selectedLevel}레벨 실패로 처리함.");
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Result, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
@@ -1168,7 +1164,6 @@ namespace DGAIZone.Game.UI
             }
 
             _resultStore.SolutionDesign = steps;
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {_selectedLevel}레벨 플레이어 설계 {_designSteps.Count}개(완료={completed}), 정답 설계 {steps.Length}개를 기록함.");
         }
 
         /// <summary>
@@ -1318,12 +1313,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            int previewThrust = CalculatePreviewThrust();
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 미리보기 추진력 조정 중: {previewThrust} (재료={_currentIngredient.Value})");
-            }
-            _missionBoard.UpdatePreview(previewThrust);
+            _missionBoard.UpdatePreview(CalculatePreviewThrust());
         }
 
         /// <summary>

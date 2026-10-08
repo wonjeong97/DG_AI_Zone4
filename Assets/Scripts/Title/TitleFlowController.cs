@@ -286,7 +286,7 @@ namespace DGAIZone.Title
         }
 
         /// <summary>
-        /// QR 인식이 끝나면 입력 대기를 멈추고 서버에 체험자를 확인함. uid에는 생년월일이 들어 있어 로그에는 길이만 남김.
+        /// QR 인식이 끝나면 입력 대기를 멈추고 서버에 체험자를 확인함. uid에는 생년월일이 들어 있어 로그에 남기지 않음(확인 결과만 CheckVisitorAsync가 남김).
         /// 시작하기가 떠 있는 동안 다음 사람이 찍은 경우에도 시작 버튼을 숨기고 앞사람 기록(체험자·해금)을 비운 뒤 새로 확인함.
         /// </summary>
         private void OnQrScanned(string code)
@@ -295,7 +295,6 @@ namespace DGAIZone.Title
             CancelConfirmTimeout();
             if (startButton) startButton.gameObject.SetActive(false);
             ClearConfirmedVisitor();
-            if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] QR 인식 완료 (길이 {code.Length})");
 
             CheckVisitorAsync(code, this.GetCancellationTokenOnDestroy()).Forget();
         }
@@ -320,10 +319,13 @@ namespace DGAIZone.Title
 
                 if (failMessage == null)
                 {
+                    if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} QR을 찍음 — 체험할 수 있음.");
                     await ShowConfirmedVisitorAsync(token);
                     return;
                 }
 
+                // 체험할 수 없는 QR은 체험자 이름을 기록하지 않으므로 주어 없이 남김
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] QR을 찍었지만 체험할 수 없음 — '{failMessage}'.");
                 if (guideText) guideText.text = failMessage;
 
                 // 0_Title.json에 음수를 적으면 Delay가 예외를 내 QR 대기로 돌아오지 못하므로 0 이상으로 제한함
@@ -446,15 +448,12 @@ namespace DGAIZone.Title
                 }
 
                 Settings settings = await _settingsProvider.GetAsync(token);
-                if (settings == null || !settings.useInactivityTimer || settings.resetTime <= 0f)
-                {
-                    if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 비활동 타이머가 꺼져 있어 시작하기 대기 시간 제한 없이 기다림.");
-                    return;
-                }
+                // 비활동 타이머를 끈 설정이면 시간 제한 없이 기다리는 것이 정상이라 로그를 남기지 않음
+                if (settings == null || !settings.useInactivityTimer || settings.resetTime <= 0f) return;
 
                 await UniTask.Delay(TimeSpan.FromSeconds(settings.resetTime), DelayType.UnscaledDeltaTime, cancellationToken: token);
 
-                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {settings.resetTime}초 동안 시작하기를 누르지 않아 QR 대기로 돌아감.");
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} {settings.resetTime}초 동안 시작하기를 누르지 않아 QR 대기로 돌아감.");
                 // 로그 전송은 씬과 상관없이 끝까지 보내도록 이 오브젝트의 토큰을 넘기지 않음
                 if (_apiManager != null) _apiManager.SendMoveIdleTimeoutLogAsync().Forget();
                 else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] apiManager가 null이라 시작하기 대기 시간 초과 로그(move_idle_timeout)를 보내지 않음.");
@@ -515,6 +514,7 @@ namespace DGAIZone.Title
             }
 
             _isBusy = true;
+            if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 시작하기를 누름.");
             StopWaitingForQr();
             CancelConfirmTimeout();
             SoundEffects.Play(_soundManager, Constants.Sounds.GameStart, _logger);

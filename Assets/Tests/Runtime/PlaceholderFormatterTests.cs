@@ -30,5 +30,17 @@ namespace DGAIZone.Tests
             Assert.AreEqual($"[{Constants.DefaultVisitorName}]님", PlaceholderFormatter.ReplaceVisitorName("[{name}]님", ""));
             Assert.AreEqual(string.Empty, PlaceholderFormatter.ReplaceVisitorName(null, "홍길동"));
         }
+
+        /// <summary> 행동 로그 주어는 받침이 있으면 "이", 없으면 "가"를 붙이고, 한글로 끝나지 않으면 "이(가)"를 붙여야 함. </summary>
+        [Test]
+        public void 주격_조사는_받침에_맞게_붙는다()
+        {
+            Assert.AreEqual("홍길동이", PlaceholderFormatter.AppendSubjectParticle("홍길동"));
+            Assert.AreEqual("김철수가", PlaceholderFormatter.AppendSubjectParticle("김철수"));
+            Assert.AreEqual("가가", PlaceholderFormatter.AppendSubjectParticle("가"), "한글 음절 범위의 첫 글자(받침 없음)");
+            Assert.AreEqual("힣이", PlaceholderFormatter.AppendSubjectParticle("힣"), "한글 음절 범위의 마지막 글자(받침 있음)");
+            Assert.AreEqual("Tom이(가)", PlaceholderFormatter.AppendSubjectParticle("Tom"));
+            Assert.AreEqual(string.Empty, PlaceholderFormatter.AppendSubjectParticle(null));
+        }
     }
 }

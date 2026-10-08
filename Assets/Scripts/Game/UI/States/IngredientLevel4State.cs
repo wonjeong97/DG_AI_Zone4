@@ -37,10 +37,7 @@ namespace DGAIZone.Game.UI.States
         {
             if (IsRepeatFollowUpRequired(controller) && !string.Equals(evt.Category, Constants.RfidCategories.Action, StringComparison.Ordinal))
             {
-                if (controller.Logger != null)
-                {
-                    controller.Logger.ZLogInformation($"[IngredientSelectionController] 이전 단계가 '반복하기'라 {controller.CurrentStepIndex + 1}번째 단계는 '동작' 카드만 허용되는데 '{evt.Category}' 카드가 인식되어 {evt.ReaderId} 태그를 무시함.");
-                }
+                controller.LogCardPlaced(evt, $"이전 단계가 '반복하기'라 {controller.CurrentStepIndex + 1}번째 단계는 동작 카드만 쓸 수 있어 경고를 띄움");
                 controller.ShowInvalidCardWarning();
                 return false;
             }

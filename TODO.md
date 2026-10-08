@@ -13,6 +13,8 @@
 
 ## 완료
 
+- [x] T53 로그 정리: 운영 진단에 필요한 정보 로그(리더기 접속·끊김, 서버 응답, 관리자 조작, QR 진단, 레벨 판정 근거)만 남기고 연출·내부 단계 로그(게이지 시퀀스, 깜빡임, 미리보기, 레벨 4 도착 연출, 초기화·설계 기록, RFID 원시 태그·발행) 삭제. 체험자 행동(QR·시작하기·레벨 고름·결과 다음·처음으로, 카드 올림·뗌과 처리 결과, 설정하기·취소하기·코딩 완료·건너뛰기)은 '{name}이 ~를 함' 형식으로(조사 이/가 자동)(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-09)
+- [x] T52 RFID 리더기 연속 읽기 모드 대응: 읽기 명령(폴링)을 없애고 리더기가 계속 보내는 원시 7바이트 UID를 받아 같은 UID 반복은 한 번만 발행, UID가 cardRemovedDebounceMs 동안 없으면 카드 떨어짐으로 판정, 접속 때 올려져 있던 카드는 떼었다 다시 올릴 때까지 무시. RfidMappings.json 카드 uid를 1회 읽기 값(A1G0+14자리+2자리)의 가운데 14자리로 변환하고, 팀원이 공유한 카드 목록에서 새 카드 43장 등록(제어는 Condition·Repeat 구분 없이 '제어'로)(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-09)
 - [x] T51 타이틀에서 비활동 타이머 멈춤: 1존처럼 GameManager가 0_Title에서는 InactivityTimer를 Pause, 다른 씬에서는 Resume해 타이틀 대기 중 타임아웃 이벤트 발행 로그와 APIManager의 '보내지 않음' 로그가 반복해 남지 않게 함(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 - [x] T50 TitleFlowController.CancelConfirmTimeout 잠재 예외: 시작하기 대기 작업이 아직 설정을 읽는 중(시작 버튼이 뜬 뒤 약 1프레임)에 취소하면 Cancel()이 그 자리에서 finally를 실행해 필드를 null로 만들고 바로 다음 Dispose()에서 NullReferenceException. 필드를 지역 변수로 옮겨 먼저 비운 뒤 Cancel·Dispose하도록 고침(T49 Play 모드 확인 중 발견, 실사용에서 겪기는 거의 어려움, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 - [x] T49 타이틀 비활동 로그: 타이틀은 이미 대기 화면이라 입력 없이 기다리기만 할 때는 move_idle_timeout을 보내지 않고(로컬 모드 포함), 서버 모드에서 QR로 확인한 체험자가 시작하기를 누르지 않아 QR 대기로 돌아갈 때만 보냄(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)

@@ -339,20 +339,14 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            float target = CalculateFillAmount(totalThrust);
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 요청: 총추진력={totalThrust}, 미리보기게이지={_previewFillAmount.Value:F2}, 목표게이지={target:F2}");
-            }
-
-            ApplyProgressAsync(totalThrust, target).Forget();
+            ApplyProgressAsync(CalculateFillAmount(totalThrust)).Forget();
         }
 
         /// <summary>
         /// 설정하기 확정 시퀀스: 1) 미리보기 깜빡임 강제 중지 -> 2) 미리보기 알파 페이드아웃과 실제 Image_Fill 상승을 동시에 진행 ->
         /// 3) 둘 다 끝나면 미리보기 오브젝트 비활성화. 씬 파괴/재조정 시 CancellationToken으로 안전하게 중단됨.
         /// </summary>
-        private async UniTaskVoid ApplyProgressAsync(int totalThrust, float target)
+        private async UniTaskVoid ApplyProgressAsync(float target)
         {
             _progressApplyCts?.Cancel();
             _progressApplyCts?.Dispose();
@@ -366,7 +360,6 @@ namespace DGAIZone.Game.UI
                 // 1. 깜빡임(블링크) 강제 중지
                 _blinkTween?.Kill();
                 _blinkTween = null;
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 깜빡임 중지됨. 총추진력={totalThrust}");
 
                 // 2. 미리보기는 fillAmount 변경 없이 알파만 페이드아웃하고, 그와 동시에 실제 Image_Fill을 타겟 값까지 부드럽게 채움
                 EnsurePreviewCanvasGroup();
@@ -379,9 +372,7 @@ namespace DGAIZone.Game.UI
                 Tween fillTween = AnimateFillAmount(target);
                 UniTask fillTask = fillTween.ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
 
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 미리보기 페이드아웃과 게이지 상승을 동시에 시작함, 목표값={target:F2}.");
                 await UniTask.WhenAll(fadeTask, fillTask);
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: fillAmount={target:F2} 적용됨");
 
                 // 3. 미리보기 오브젝트 비활성화. 그림자 게이지 컨셉에 맞춰 fillAmount는 0으로 리셋하지 않고
                 // 방금 적용된 실제 Image_Fill 값과 동일하게 유지함(다음에 다시 켜졌을 때도 실제 값을 그대로 반영한 상태로 시작함).
@@ -400,12 +391,10 @@ namespace DGAIZone.Game.UI
 
                 if (_previewCanvasGroup) _previewCanvasGroup.alpha = 1f;
                 _previewFillAmount.Value = target;
-
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스: 미리보기 비활성화, 적용된 fillAmount={target:F2}와 동기화 유지함.");
             }
             catch (OperationCanceledException)
             {
-                if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 진행도 적용 시퀀스 취소됨 (씬 파괴 또는 더 최신 요청으로 대체됨).");
+                // 씬 파괴 또는 더 최신 요청으로 대체되어 취소된 정상 흐름
             }
             finally
             {
@@ -452,10 +441,6 @@ namespace DGAIZone.Game.UI
             StartFuelPreviewBlink();
 
             _previewFillAmount.Value = CalculateFillAmount(totalThrust);
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[MissionBoardController] 미리보기 조정 중: 총추진력={totalThrust}, 미리보기게이지={_previewFillAmount.Value:F2}");
-            }
         }
 
         /// <summary> Image_Fill_Preview를 시작 상태(0)로 되돌리고 깜빡임을 멈춤. 조절 대기 중이거나 설정이 확정/취소되었을 때 호출됨. </summary>
@@ -543,8 +528,6 @@ namespace DGAIZone.Game.UI
             _blinkTween = _previewCanvasGroup.DOFade(_sceneSettings.previewBlinkMinAlpha, _sceneSettings.previewBlinkFadeDuration)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetLink(gameObject);
-
-            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 연료 미리보기 깜빡임 시작됨.");
         }
 
         /// <summary> 연료량 조절이 끝나면(설정 확정/취소, 다른 재료로 전환) Image_Fill_Preview 깜빡임을 멈추고 불투명 상태로 되돌림. </summary>
@@ -555,8 +538,6 @@ namespace DGAIZone.Game.UI
             _blinkTween.Kill();
             _blinkTween = null;
             if (_previewCanvasGroup) _previewCanvasGroup.alpha = 1f;
-
-            if (_logger != null) _logger.ZLogInformation($"[MissionBoardController] 연료 미리보기 깜빡임 중지됨.");
         }
 
         /// <summary>

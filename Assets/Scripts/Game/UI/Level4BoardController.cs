@@ -135,8 +135,6 @@ namespace DGAIZone.Game.UI
             if (_acceptsSimulationInput) _debugInput.Debug.PlayLevel4Simulation.Enable();
             if (!IsLevel4()) return;
 
-            if (!Debug.isDebugBuild && _logger != null) _logger.ZLogInformation($"[Level4BoardController] 릴리스 빌드라 스페이스바 이동 시뮬레이션을 끔.");
-
             if (robotIcon)
             {
                 _robotBaseScale = robotIcon.localScale;
@@ -167,11 +165,8 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnPlaySimulationInput(UnityEngine.InputSystem.InputAction.CallbackContext _)
         {
-            if (gamePanel && !gamePanel.interactable)
-            {
-                if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 게임 패널이 비활성이라 이동 시뮬레이션 디버그 입력을 무시함.");
-                return;
-            }
+            // 디버그 입력이라 스토리 화면 등에서 눌린 것은 로그 없이 무시함
+            if (gamePanel && !gamePanel.interactable) return;
 
             PlaySimulationAsync().Forget();
         }
@@ -310,22 +305,16 @@ namespace DGAIZone.Game.UI
                 ResetRobotToStart();
 
                 List<Level4MoveStep> steps = BuildMoveSteps();
-                if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 이동 시뮬레이션 시작: 총 {steps.Count}스텝.");
 
                 foreach (Level4MoveStep step in steps)
                 {
                     bool shouldStop = await ExecuteStepAsync(step, token);
                     if (shouldStop) break; // 함정/기지 셀에 도착해 로봇이 사라졌으면 남은 스텝은 진행하지 않음
                 }
-
-                if (_logger != null)
-                {
-                    _logger.ZLogInformation($"[Level4BoardController] 이동 시뮬레이션 완료: 최종 위치 Row={_robotCurrentRow}, Column={_robotCurrentColumn}.");
-                }
             }
             catch (OperationCanceledException)
             {
-                if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 이동 시뮬레이션이 취소됨(재시작 또는 씬 전환).");
+                // 재시작 또는 씬 전환으로 취소된 정상 흐름
             }
             finally
             {
@@ -528,17 +517,14 @@ namespace DGAIZone.Game.UI
             switch (result)
             {
                 case Level4StepResult.CollectedResource:
-                    if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 로봇이 자원 셀(R{ResourceRow}C{Level4Rules.ResourceColumn})에 도착함: 자원 흡수 연출 재생.");
                     await AnimateScaleToZeroAsync(resourceIcon, token);
                     return false;
 
                 case Level4StepResult.Trap:
-                    if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] 로봇이 함정 셀(R{TrapRow}C{Level4Rules.TrapColumn})에 도착함: 로봇 소멸 연출 재생.");
                     await AnimateScaleToZeroAsync(robotIcon, token);
                     return true;
 
                 case Level4StepResult.Hq:
-                    if (_logger != null) _logger.ZLogInformation($"[Level4BoardController] 로봇이 기지 셀(R{HqRow}C{Level4Rules.HqColumn})에 도착함: 로봇 소멸 연출 재생.");
                     await AnimateScaleToZeroAsync(robotIcon, token);
                     return true;
 
