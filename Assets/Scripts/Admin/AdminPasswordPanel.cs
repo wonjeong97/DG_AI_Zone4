@@ -272,6 +272,8 @@ namespace DGAIZone.Admin
                 await UniTask.SwitchToMainThread(token);
 
                 bool isSaved = saved.password == newPassword;
+                if (isSaved) _password = newPassword; // 다시 열 때 파일을 읽기 전에 입력을 마쳐도 새 비밀번호로 확인함
+
                 if (_logger != null)
                 {
                     if (isSaved) _logger.ZLogInformation($"[AdminPasswordPanel] 관리자 비밀번호를 변경함.");

@@ -82,11 +82,15 @@ namespace DGAIZone.Result
 
             if (designPanel) await ResultDesignPlayback.StackAsync(designPanel, SolutionDesign(), true, blockInterval, _soundManager, _logger, token);
 
-            await UniTask.Delay(TimeSpan.FromSeconds(designHoldDuration), cancellationToken: token);
+            // 4_Result.json에 음수를 넣으면 Delay가 예외를 내 완료 패널로 넘어가지 못하므로 0 이상으로 제한함
+            await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, designHoldDuration)), cancellationToken: token);
             if (!await prepareTask) return;
 
             videoPlayer.Play();
-            await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+            if (!await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token) && _logger != null)
+            {
+                _logger.ZLogWarning($"[ResultAiPanel] AI 패널 성공 영상의 첫 화면이 {VideoReadyGate.FirstFrameTimeoutSeconds}초 안에 그려지지 않았지만 그대로 진행함.");
+            }
 
             await UniTask.WhenAll(
                 PanelFader.FadeAsync(designGroup, 1f, 0f, fadeDuration, _logger, token),

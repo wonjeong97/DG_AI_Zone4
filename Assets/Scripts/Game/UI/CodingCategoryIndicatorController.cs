@@ -29,13 +29,9 @@ namespace DGAIZone.Game.UI
         private const string CategoryLogic = Constants.RfidCategories.Logic;
         private const string CategoryFunc = Constants.RfidCategories.Func;
 
-        [SerializeField] private Image imageAction;  // Image_Action
         [SerializeField] private Image imageActionOverlay; // Image_Action_GrayscaleOverlay (씬에 미리 배치, 흑백 머티리얼 적용됨)
-        [SerializeField] private Image imageControl; // Image_Control
         [SerializeField] private Image imageControlOverlay; // Image_Control_GrayscaleOverlay
-        [SerializeField] private Image imageLogic;   // Image_Logic
         [SerializeField] private Image imageLogicOverlay; // Image_Logic_GrayscaleOverlay
-        [SerializeField] private Image imageFunc;    // Image_Func
         [SerializeField] private Image imageFuncOverlay; // Image_Func_GrayscaleOverlay
 
         private ILogger<CodingCategoryIndicatorController> _logger;

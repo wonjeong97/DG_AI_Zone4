@@ -199,12 +199,20 @@ namespace DGAIZone.LevelSelect
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.LevelSelect}";
-            UniTask<LevelSelectSceneSettings> settingsTask = JsonLoader.LoadAsync<LevelSelectSceneSettings>(path, token);
+            UniTask<LevelSelectSceneSettings> settingsTask = JsonLoader.LoadAsync<LevelSelectSceneSettings>(path, token, _logger);
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
+            // 로드하는 사이 체험자가 이미 레벨을 골랐으면 다시 적용하지 않음(스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 됨)
+            if (_isLevelSelected)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 설정을 불러오는 사이 레벨을 이미 골라 레벨 잠금을 다시 적용하지 않음.");
+            }
+            else
+            {
+                ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
+            }
 
             if (_levelJumpStore != null && _levelJumpStore.TryTakePendingStoryLevel(out int level))
                 await SelectAdminJumpLevelAsync(level, token);
@@ -431,6 +439,10 @@ namespace DGAIZone.LevelSelect
                     }
                 }
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] storyLevels가 null이라 고른 레벨의 스토리를 보여 줄 수 없음.");
+            }
 
             SwitchToStoryAsync(storyText, storyTemplate, selectedButtonRect).Forget();
         }
@@ -450,6 +462,10 @@ namespace DGAIZone.LevelSelect
                 {
                     await PanelFader.FadeAsync(levelSelectPanel, 1f, 0f, duration, _logger, token);
                     PanelFader.ApplyState(levelSelectPanel, false, _logger);
+                }
+                else if (!levelSelectPanel && _logger != null)
+                {
+                    _logger.ZLogWarning($"[LevelSelectFlowController] levelSelectPanel이 null이라 레벨 선택 패널을 숨기지 못함.");
                 }
 
                 if (storyPanel)
@@ -495,6 +511,10 @@ namespace DGAIZone.LevelSelect
                     _commonSettings.storyLineInterval,
                     _commonSettings.storyLineYOffset,
                     StoryLineAnimator.IsPointerPressedThisFrame, token, _inactivityTimer);
+
+                // 스토리를 넘긴 탭을 시작 버튼 위에서 떼면 그대로 게임이 시작되므로(버튼은 뗄 때 눌림을 판정함), 손을 뗀 그 프레임이 끝난 뒤에 켬
+                await UniTask.WaitUntil(static () => !StoryLineAnimator.IsPointerHeld(), cancellationToken: token);
+                await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate, token);
 
                 if (startButton) startButton.interactable = true;
             }

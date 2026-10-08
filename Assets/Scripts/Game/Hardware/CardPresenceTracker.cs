@@ -22,8 +22,7 @@ namespace DGAIZone.Game.Hardware
         private bool _baselineWindowOpen = true; // 접속 때 이미 올려져 있던 카드를 가려내는 중인지. 첫 카드를 받거나 RemovedTimeoutMs가 지나면 닫힘
         private long _lastCardFrameMs;
 
-        /// <param name="removedTimeoutMs"> UID가 이 시간(ms) 동안 오지 않으면 떨어짐으로 봄. 0보다 커야 함(호출부가 검사). </param>
-        /// <param name="connectedAtMs"> 리더기가 접속한 시각(ms). </param>
+        /// <summary> 떨어짐 판정 시간 removedTimeoutMs(0보다 커야 함, 호출부가 검사)와 리더기가 접속한 시각 connectedAtMs(ms)로 판정을 시작함. </summary>
         public CardPresenceTracker(long removedTimeoutMs, long connectedAtMs)
         {
             RemovedTimeoutMs = removedTimeoutMs;

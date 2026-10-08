@@ -196,7 +196,7 @@ namespace DGAIZone.Result
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
             string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Result}";
-            UniTask<ResultSceneSettings> settingsTask = JsonLoader.LoadAsync<ResultSceneSettings>(path, token);
+            UniTask<ResultSceneSettings> settingsTask = JsonLoader.LoadAsync<ResultSceneSettings>(path, token, _logger);
             UniTask<CommonSettings> commonTask = CommonSettingsProvider.GetAsync(token);
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
@@ -324,7 +324,8 @@ namespace DGAIZone.Result
             AnimateAiCodingDotsAsync(dotCts.Token).Forget();
 
             await PanelFader.FadeAsync(aiCodingPanel, 0f, 1f, fadeDuration, _logger, token);
-            await UniTask.Delay(TimeSpan.FromSeconds(_sceneSettings.aiCodingHoldDuration), cancellationToken: token);
+            // 4_Result.json에 음수를 넣으면 Delay가 예외를 내 완료 패널로 넘어가지 못하므로 0 이상으로 제한함
+            await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, _sceneSettings.aiCodingHoldDuration)), cancellationToken: token);
             await PanelFader.FadeAsync(aiCodingPanel, 1f, 0f, fadeDuration, _logger, token);
             PanelFader.ApplyState(aiCodingPanel, false, _logger);
 
@@ -354,7 +355,7 @@ namespace DGAIZone.Result
                 {
                     aiCodingText.maxVisibleCharacters = baseLength + dotCount;
                     dotCount = (dotCount + 1) % AiCodingDotCycle;
-                    await UniTask.Delay(_sceneSettings.aiCodingDotIntervalMs, cancellationToken: token);
+                    await UniTask.Delay(Mathf.Max(0, _sceneSettings.aiCodingDotIntervalMs), cancellationToken: token);
                 }
             }
             catch (OperationCanceledException) { }

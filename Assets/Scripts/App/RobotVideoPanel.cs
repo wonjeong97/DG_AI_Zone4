@@ -101,7 +101,10 @@ namespace DGAIZone.App
 
                 videoPlayer.Play();
 
-                await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token);
+                if (!await VideoReadyGate.WaitUntilFrameRenderedAsync(videoPlayer, VideoReadyGate.DefaultProgressThreshold, token) && _logger != null)
+                {
+                    _logger.ZLogWarning($"[RobotVideoPanel] {Constants.Files.RobotVideo}의 첫 화면이 {VideoReadyGate.FirstFrameTimeoutSeconds}초 안에 그려지지 않았지만 그대로 진행함.");
+                }
 
                 if (rawImage) rawImage.enabled = true;
                 else if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] rawImage가 null이라 로봇 영상을 표시할 수 없음.");

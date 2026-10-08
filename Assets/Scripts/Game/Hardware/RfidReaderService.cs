@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -81,7 +80,7 @@ namespace DGAIZone.Game.Hardware
         {
             try
             {
-                _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy());
+                _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy(), _logger);
                 if (_settings == null)
                 {
                     if (_logger != null) _logger.ZLogError($"[RfidReaderService] RfidMappings.json 로드 실패.");
@@ -347,6 +346,7 @@ namespace DGAIZone.Game.Hardware
                 removedTimeoutMs = RfidSettings.DefaultCardRemovedDebounceMs;
             }
             CardPresenceTracker tracker = new CardPresenceTracker(removedTimeoutMs, 0);
+            RfidUidDecoder decoder = new RfidUidDecoder(UidByteLength);
 
             try
             {
@@ -367,7 +367,7 @@ namespace DGAIZone.Game.Hardware
                             frameBuffer[frameLength++] = readBuffer[i];
                             if (frameLength == UidByteLength)
                             {
-                                HandleFrame(session, tracker, frameBuffer, frameLength, lastByteMs);
+                                HandleFrame(session, tracker, decoder.Decode(frameBuffer, frameLength), lastByteMs);
                                 frameLength = 0;
                             }
                         }
@@ -376,7 +376,7 @@ namespace DGAIZone.Game.Hardware
                     long nowMs = clock.ElapsedMilliseconds;
                     if (frameLength > 0 && nowMs - lastByteMs >= FrameIdleGapMs)
                     {
-                        HandleFrame(session, tracker, frameBuffer, frameLength, lastByteMs);
+                        HandleFrame(session, tracker, decoder.Decode(frameBuffer, frameLength), lastByteMs);
                         frameLength = 0;
                     }
 
@@ -408,13 +408,11 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 받은 UID 바이트를 16진수 문자열로 바꿔 카드 상태를 갱신하고, 새로 올라온 카드면 메인 스레드로 넘겨 발행되게 함.
+        /// 받은 UID 문자열로 카드 상태를 갱신하고, 새로 올라온 카드면 메인 스레드로 넘겨 발행되게 함.
         /// 카드 인식은 게임 화면(IngredientSelectionController)이 처리 결과와 함께 행동 로그로 남기므로 여기서는 남기지 않음.
         /// </summary>
-        private void HandleFrame(ReaderSession session, CardPresenceTracker tracker, byte[] frame, int length, long receivedAtMs)
+        private void HandleFrame(ReaderSession session, CardPresenceTracker tracker, string uid, long receivedAtMs)
         {
-            string uid = BitConverter.ToString(frame, 0, length).Replace("-", "");
-
             switch (tracker.OnCardFrame(uid, receivedAtMs))
             {
                 case CardPresenceTracker.CardFrameResult.NewCard:

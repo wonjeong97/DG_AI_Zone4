@@ -148,6 +148,10 @@ namespace DGAIZone.Game
 
                 ApplyStoryText();
             }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[GameFlowController] storyLevels가 null이라 레벨 스토리를 보여 줄 수 없음.");
+            }
         }
 
         /// <summary> 활성화된 레벨의 스토리 텍스트에 levelData 및 체험자 이름을 반영함. </summary>
@@ -209,7 +213,11 @@ namespace DGAIZone.Game
         /// <summary> 활성화된 레벨에 맞춰 Image_CurrentSituation 하위의 Panel_Level(N)만 표시함. </summary>
         private void SetupSituationPanel()
         {
-            if (situationPanels == null) return;
+            if (situationPanels == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[GameFlowController] situationPanels가 null이라 현재 상황 화면을 레벨에 맞출 수 없음.");
+                return;
+            }
 
             int index = _selectedLevel - 1;
             for (int i = 0; i < situationPanels.Length; i++)

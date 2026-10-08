@@ -22,6 +22,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private RectTransform shakeTarget; // 경고와 함께 좌우로 흔들 패널(GamePanel)
 
         private CanvasGroup _panel;
+        private Vector2 _shakeRestPosition; // 흔들기 전 shakeTarget의 원래 위치. 흔들다 끊겨도 이 위치로 되돌림
         private Sequence _shakeSequence;
         private CancellationTokenSource _cts;
         private GameSceneSettings _sceneSettings = new GameSceneSettings(); // 3_Game.json 로드 전에는 설정 클래스의 기본값을 씀
@@ -37,9 +38,11 @@ namespace DGAIZone.Game.UI
             _logger = logger;
         }
 
-        /// <summary> 경고 패널 CanvasGroup을 찾아 숨긴 상태로 시작함. </summary>
+        /// <summary> 경고 패널 CanvasGroup을 찾아 숨긴 상태로 시작하고, 흔들 패널의 원래 위치를 기억함. </summary>
         private void Awake()
         {
+            if (shakeTarget) _shakeRestPosition = shakeTarget.anchoredPosition; // 없으면 ShakeAsync가 경고를 남김
+
             if (TryGetComponent(out _panel))
             {
                 _panel.alpha = 0f;
@@ -92,7 +95,7 @@ namespace DGAIZone.Game.UI
             try
             {
                 _shakeSequence?.Kill();
-                if (shakeTarget) shakeTarget.anchoredPosition = Vector2.zero;
+                if (shakeTarget) shakeTarget.anchoredPosition = _shakeRestPosition; // 앞선 흔들기가 중간에 끊겼어도 원래 위치에서 다시 시작함
 
                 _panel.interactable = false;
                 _panel.blocksRaycasts = false;
@@ -127,7 +130,7 @@ namespace DGAIZone.Game.UI
                 return UniTask.CompletedTask;
             }
 
-            Vector2 originalPos = shakeTarget.anchoredPosition;
+            Vector2 originalPos = _shakeRestPosition;
             Vector2 offset = new Vector2(_sceneSettings.warningShakeAmount, 0f);
             float half = _sceneSettings.warningShakeCycleDuration / 2f;
 

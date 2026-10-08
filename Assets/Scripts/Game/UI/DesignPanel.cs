@@ -651,6 +651,7 @@ namespace DGAIZone.Game.UI
         {
 #if UNITY_EDITOR
             if (!Application.isPlaying) return;
+            UnityEditor.EditorApplication.delayCall -= RelayoutAll; // 인스펙터 값을 연달아 바꿔도 다음 업데이트에 한 번만 다시 배치함
             UnityEditor.EditorApplication.delayCall += RelayoutAll;
 #endif
         }

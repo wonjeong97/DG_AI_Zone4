@@ -49,14 +49,14 @@ namespace DGAIZone.App
             _isTransitioning = true;
             try
             {
-                if (_fadeManager != null) await _fadeManager.FadeOutAsync(fadeDuration);
+                if (_fadeManager) await _fadeManager.FadeOutAsync(fadeDuration);
                 else if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] fadeManager가 null이라 페이드아웃 없이 {sceneName}을 로드함.");
 
                 await SceneManager.LoadSceneAsync(sceneName).ToUniTask();
 
                 await WaitForSceneVideoReadinessAsync();
 
-                if (_fadeManager != null) await _fadeManager.FadeInAsync(fadeDuration);
+                if (_fadeManager) await _fadeManager.FadeInAsync(fadeDuration); // 없을 때의 경고는 페이드아웃에서 남김
             }
             finally
             {

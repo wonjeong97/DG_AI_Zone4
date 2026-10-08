@@ -9,10 +9,12 @@
 
 ## 할 일
 
+- [ ] T56 남은 조용한 대체값에 경고 추가: `_selectedLevelStore`가 null이면 말없이 레벨 1을 쓰는 곳 7곳(GameFlowController·MissionBoardController 2·ResultAiPanel·ResultFlowController 2·ResultVideoPanel). 필수 주입이라 실제로는 테스트에서만 null(PR #56 리뷰에서 찾음) — 담당: Claude / 검증: Antigravity
 - [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
 
 ## 완료
 
+- [x] T54 전체 코드 재점검: 스킬(unity-stack-scaffold·unity-network-protocol) 위반, 성능 최적화, 리팩터링 후보를 찾아 확인된 것만 적용(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신, 사용자 확인) (2026-10-09)
 - [x] T55 HuliacDev Template 패키지 26.9.25-3 → 26.10.9-1 업데이트(packages-lock.json 고정 커밋 b4547f3 → 640d05e, VideoManager 영상 RenderTexture 깊이 버퍼 제거 — 이 프로젝트는 해당 API를 쓰지 않음, 버전은 이미 26.10.9)(HANDOFF.md 참고) — 담당: Claude / 검증: Claude(Antigravity 한도 초과로 대신 검증) (2026-10-09)
 - [x] T53 로그 정리: 운영 진단에 필요한 정보 로그(리더기 접속·끊김, 서버 응답, 관리자 조작, QR 진단, 레벨 판정 근거)만 남기고 연출·내부 단계 로그(게이지 시퀀스, 깜빡임, 미리보기, 레벨 4 도착 연출, 초기화·설계 기록, RFID 원시 태그·발행) 삭제. 체험자 행동(QR·시작하기·레벨 고름·결과 다음·처음으로, 카드 올림·뗌과 처리 결과, 설정하기·취소하기·코딩 완료·건너뛰기)은 '{name}이 ~를 함' 형식으로(조사 이/가 자동)(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-09)
 - [x] T52 RFID 리더기 연속 읽기 모드 대응: 읽기 명령(폴링)을 없애고 리더기가 계속 보내는 원시 7바이트 UID를 받아 같은 UID 반복은 한 번만 발행, UID가 cardRemovedDebounceMs 동안 없으면 카드 떨어짐으로 판정, 접속 때 올려져 있던 카드는 떼었다 다시 올릴 때까지 무시. RfidMappings.json 카드 uid를 1회 읽기 값(A1G0+14자리+2자리)의 가운데 14자리로 변환하고, 팀원이 공유한 카드 목록에서 새 카드 43장 등록(제어는 Condition·Repeat 구분 없이 '제어'로)(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-09)

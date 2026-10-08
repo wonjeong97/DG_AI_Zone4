@@ -109,8 +109,17 @@ namespace DGAIZone.Title
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] startButton이 null임.");
 
             // 서버 연동 여부 확인이 끝나기 전까지 안내·버튼이 잠깐 노출됐다 바뀌는 플리커를 방지하기 위해 먼저 숨겨둠
-            if (qrCanvasGroup) qrCanvasGroup.gameObject.SetActive(false);
-            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] qrCanvasGroup이 null이라 하단 안내를 표시하지 않음.");
+            if (qrCanvasGroup)
+            {
+                qrCanvasGroup.gameObject.SetActive(false);
+
+                // 안내가 대기 내내 깜빡이므로 타이틀 캔버스 전체가 매 프레임 다시 배칭되지 않게 하위 Canvas로 나눔(클릭을 받지 않아 GraphicRaycaster는 붙이지 않음)
+                if (!qrCanvasGroup.TryGetComponent(out Canvas _)) qrCanvasGroup.gameObject.AddComponent<Canvas>();
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[TitleFlowController] qrCanvasGroup이 null이라 하단 안내를 표시하지 않음.");
+            }
             if (!guideText && _logger != null) _logger.ZLogWarning($"[TitleFlowController] guideText가 null이라 안내 문구를 바꿀 수 없음.");
             if (startButton) startButton.gameObject.SetActive(false);
 
@@ -140,7 +149,7 @@ namespace DGAIZone.Title
 
                 // 안내가 없어도 QR 확인·스캐너 값은 써야 하므로 설정은 항상 읽음
                 string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Title}";
-                _sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token);
+                _sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token, _logger);
                 ApplyScanCharGap();
 
                 if (!qrCanvasGroup) return;
@@ -455,7 +464,7 @@ namespace DGAIZone.Title
 
                 if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} {settings.resetTime}초 동안 시작하기를 누르지 않아 QR 대기로 돌아감.");
                 // 로그 전송은 씬과 상관없이 끝까지 보내도록 이 오브젝트의 토큰을 넘기지 않음
-                if (_apiManager != null) _apiManager.SendMoveIdleTimeoutLogAsync().Forget();
+                if (_apiManager) _apiManager.SendMoveIdleTimeoutLogAsync().Forget();
                 else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] apiManager가 null이라 시작하기 대기 시간 초과 로그(move_idle_timeout)를 보내지 않음.");
                 ClearConfirmedVisitor();
                 WaitForQr();
