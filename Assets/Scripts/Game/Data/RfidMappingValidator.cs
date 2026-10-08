@@ -200,7 +200,7 @@ namespace DGAIZone.Game.Data
         }
 
         /// <summary>
-        /// 레벨 5(임시 규칙): 함수·동작 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이어야 함
+        /// 레벨 5: 함수·동작 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이어야 함
         /// (놓은 블록은 다시 고를 수 없음). 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고 모든 단계가 두 분류 카드를 받아야 함.
         /// </summary>
         private static void ValidateLevel5(RfidLevelMapping mapping, List<string> errors)

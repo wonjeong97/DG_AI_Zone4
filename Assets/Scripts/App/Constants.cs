@@ -224,7 +224,7 @@ namespace DGAIZone.App
             }
 
             /// <summary>
-            /// 레벨 5 재료(함수 사용·동작)와 동작 블록 id. 카드 분류로 재료가 정해지며 순서는 자유(기획 검토 중, 임시).
+            /// 레벨 5 재료(함수 사용·동작)와 동작 블록 id. 카드 분류로 재료가 정해지며 어느 순서로든 놓을 수 있음(성공하려면 함수 카드를 먼저 놓아야 함).
             /// 동작 블록은 함수 정의 블록 안에 들어가면 현재 상황 화면에 맞는 그림(Level5CityView)이 나타남.
             /// </summary>
             public static class Level5
@@ -254,7 +254,7 @@ namespace DGAIZone.App
 
         /// <summary>
         /// 레벨 5에서 분류별로 놓을 수 있는 카드 수. 합이 RfidMappings.json 레벨 5 단계 수와 같아야 하며, 다 쓴 분류의 카드는 받지 않음.
-        /// 판정(임시)은 모두 놓으면 성공(기획 확정 뒤 수정).
+        /// 판정은 동작 블록이 모두 함수 정의 블록 안(함수 카드 뒤)에 있으면 성공(IngredientLevel5State.EvaluateMission).
         /// </summary>
         public static class Level5Cards
         {
