@@ -20,6 +20,7 @@
 - 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 189/189, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
 - 리뷰(Claude 서브에이전트, agy 한도 초과): 지운 using이 확장 메서드·#if·nameof까지 정말 안 쓰임, ZString 치환 8곳 문구·인자·+1 위치 같음, stageReadCounts는 0 이하일 때만 바뀜, '이미 경고함' 주석 5곳 모두 실제로 경고함, 기본값이 JSON과 같음 → 통과. 낮음 반영 — 옮긴 주석이 레벨 3 폴백 범위까지 목적지 설명으로 묶던 것(MissionBoardController), stageReadCounts 0 이하 설명 3곳, ISceneVideoReadiness summary.
 - 남김(사용자 결정 필요 또는 판단): `stageReadCounts` 배열을 int 하나로 줄이거나 키를 빼기(현장 JSON 키 변경), 긴 메서드 나머지(LevelSelectFlowController.SelectLevel 101줄·SwitchToStoryAsync, StoryLineAnimator.AnimateLinesAsync, RfidReaderService.ReadLoop — 스킬 10번 기준이 줄 수가 아니라 한 문장 설명이고 UI 흐름이라 그대로 둠), 레벨 상태 로그의 [IngredientSelectionController] 태그(컨트롤러 로거를 빌려 쓰는 관례), 프로퍼티 summary 누락(규칙 대상 아님), 프로젝트 CLAUDE.md가 제목만 있음.
+- PR wonjeong97/DG_AI_Zone4#58 머지 전(Claude, agy 한도 초과): T23·T57·T23 후속·T58·T59·T60 커밋 6개만 있고 main과 차이 없음(뒤처짐 0), 변경 범위(43파일)가 각 작업 리뷰 범위와 같음, CHANGELOG 미배포 Fixed 5줄을 2026-10-09 섹션으로 옮김 → 통과.
 
 ---
 
