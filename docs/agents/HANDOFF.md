@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T23
+- 요청(사용자): 설계창 배치 방식은 스크롤로 확정.
+- 변경 파일: `Game/UI/DesignPanel.cs`(DesignLayoutMode·layoutMode·maxFitScale·LayoutMode·_plannedHeight와 계획 높이 계산 삭제, 배율은 scrollScale과 폭 제한만, 자동 스크롤 조건 제거), `App/GameResultStore.cs`(DesignLayoutMode 삭제), `Game/UI/IngredientSelectionController.cs`(결과 저장소에 배치 방식 기록 삭제), `Result/ResultDesignPlayback.cs`(Prepare의 mode 매개변수 삭제), `Result/ResultAiPanel.cs`·`ResultPlayerPanel.cs`(호출부), 테스트 `DesignPanelTests`(한 화면에 전용 2개 삭제·이름 변경 2개·레벨 3 높이 확인 1줄 삭제, 19 → 17개).
+- 동작: 3_Game.unity가 이미 layoutMode 1(자동 스크롤)이었고 결과 화면은 게임 값을 넘겨받아 실행 동작은 그대로(4_Result만 따로 Play할 때만 예전 기본값이 한 화면에였음). 씬에 남은 layoutMode·maxFitScale 키는 Unity가 무시하고 다음 저장 때 지움(T59에서 씬을 저장하며 정리). CHANGELOG 항목 없음.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 185/185(T57과 함께 실행).
+- 리뷰(Claude, agy 한도 초과): 한 화면에 분기 모두 제거·자동 스크롤 경로 예전과 같음, 계획 높이 계산 삭제가 위치에 영향 없음, 결과 화면 배율 같음, 테스트 커버리지 유지 → 통과. 낮음: 배치 방식을 언급하는 지난 주석, 레벨 4·5의 "가장 길게 쌓인 모양" 계산이 이제 함수 정의 자리 판단에만 쓰임 → T23 후속 정리 커밋에서 처리.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T56
 - 요청(사용자): T56 진행 — PR #56 리뷰에서 찾은, `_selectedLevelStore`가 null이면 말없이 레벨 1을 쓰던 7곳에 경고 추가.
 - 변경 파일: `App/SelectedLevelStore.cs`(FallbackLevel 상수, 정적 LevelOrFallback(store, logger, owner) — null이면 `[owner] selectedLevelStore가 null이라 레벨 1로 처리함.` 경고 후 1), `Game/GameFlowController.cs`, `Game/UI/MissionBoardController.cs`(2곳), `Result/ResultAiPanel.cs`, `Result/ResultFlowController.cs`(2곳), `Result/ResultVideoPanel.cs`(예전 MinLevel도 1), T54에서 직접 경고를 넣었던 `Game/UI/IngredientSelectionController.cs`도 같은 헬퍼로 통일. 같은 모양은 이 8곳이 전부(검색으로 확인). 단순 값 반환이라 스킬 13번 기준으로 테스트는 추가하지 않음. CHANGELOG는 관람객·운영자 영향이 없어 적지 않음. 버전은 이미 26.10.9.

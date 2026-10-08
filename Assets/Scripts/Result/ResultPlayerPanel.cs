@@ -42,7 +42,7 @@ namespace DGAIZone.Result
         {
             if (!designPanel) return; // Construct에서 이미 경고를 남김
 
-            ResultDesignPlayback.Prepare(designPanel, PlayerDesign(), _resultStore != null ? _resultStore.DesignLayoutMode : DesignLayoutMode.FitAll);
+            ResultDesignPlayback.Prepare(designPanel, PlayerDesign());
         }
 
         /// <summary> 플레이어 블록을 blockInterval초 간격으로 쌓기 시작함(ResultFlowController가 연출 설정을 불러온 뒤 부름). </summary>

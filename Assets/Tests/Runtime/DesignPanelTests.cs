@@ -48,7 +48,7 @@ namespace DGAIZone.Tests
         private ScrollRect _scrollRect;
 
         /// <summary> 보이는 영역(Viewport)과 content, DesignPanel을 만들고 실제 블록 프리팹과 빈 리졸버를 넣음. withScrollRect면 3_Game처럼 세로 ScrollRect도 붙임. </summary>
-        private void CreatePanel(DesignLayoutMode mode, bool withScrollRect = false)
+        private void CreatePanel(bool withScrollRect = false)
         {
 #if UNITY_EDITOR
             DesignBlockView prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<DesignBlockView>("Assets/Prefabs/DesignBlock.prefab");
@@ -82,7 +82,7 @@ namespace DGAIZone.Tests
             }
 
             _panel = _root.AddComponent<DesignPanel>();
-            _panel.SetUpForTest(_content, prefab, mode, _scrollRect);
+            _panel.SetUpForTest(_content, prefab, _scrollRect);
             _panel.Construct(new ContainerBuilder().Build(), null);
         }
 
@@ -112,7 +112,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 블록은_앞_블록의_아래_돌기에_위_홈이_맞물리게_놓인다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(Commands(5), true);
             _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
             _panel.AddItem(DesignStepShape.Command, "엔진 점화하기", null);
@@ -143,7 +143,7 @@ namespace DGAIZone.Tests
             const float ValueAttachedX = 360f; // 명령 블록 몸통 오른쪽 끝(값 소켓 시작) 위치
             Vector2 target = new Vector2(10f, -20f);
 
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             DesignBlockView block = Object.Instantiate(_prefab, _content);
             block.Setup(DesignBlockKind.Command, "추진체 종류", "고체 로켓");
             Sequence attach = block.PlayAttach(target, RiseHeight, RiseDuration, SlideDistance, SlideDuration);
@@ -167,21 +167,9 @@ namespace DGAIZone.Tests
         }
 
         [UnityTest]
-        public IEnumerator 줄여서_한_화면에_방식은_최대_단계와_완성하기까지_보이는_영역에_들어간다() => UniTask.ToCoroutine(async () =>
+        public IEnumerator 블록은_정해진_배율을_쓰고_넘치면_영역보다_길어진다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(Commands(5), true);
-            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
-            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
-
-            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "블록 7개가 스크롤 없이 보이는 영역 높이 안에 들어가야 함");
-            Assert.LessOrEqual(_panel.Scale, 0.8f + Tolerance, "블록 배율은 maxFitScale(0.8)을 넘지 않아야 함");
-        });
-
-        [UnityTest]
-        public IEnumerator 크게_두고_자동_스크롤_방식은_정해진_배율을_쓰고_넘치면_영역보다_길어진다() => UniTask.ToCoroutine(async () =>
-        {
-            CreatePanel(DesignLayoutMode.ScrollLarge);
+            CreatePanel();
             _panel.Initialize(Commands(5), true);
             for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
@@ -193,7 +181,7 @@ namespace DGAIZone.Tests
         [Test]
         public void 블록_묶음은_단계_수나_값_블록_유무가_달라도_레벨_1과_같은_왼쪽에_놓인다()
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(Commands(3), true); // 레벨 1: 값 블록 있음, 3단계
             float level1X = LastBlockPosition().x;
             float level1Width = (StartTabCenterX - CommandSocketCenterX + 360f + 361f) * _panel.Scale; // 단계 블록 위치 + 명령 몸통 + 값 블록 폭
@@ -212,7 +200,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 취소하면_마지막_블록이_빠지고_연출이_끝나면_파괴된다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(Commands(3), true);
             _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
             _panel.AddItem(DesignStepShape.Command, "탑재 종류", "인공위성");
@@ -230,7 +218,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 카드가_떨어진_단계부터_블록이_임시로_빠졌다가_돌아오면_제자리에_다시_붙는다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(Commands(4), true);
             _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
             _panel.AddItem(DesignStepShape.Command, "탑재 종류", "인공위성");
@@ -259,7 +247,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 다시_붙는_도중에_카드를_또_떼면_붙은_자리로_튀지_않고_그_자리에서_사라진다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(Commands(3), true);
             _panel.AddItem(DesignStepShape.Command, "추진체 종류", "고체 로켓");
             await UniTask.Delay(1200, DelayType.UnscaledDeltaTime);
@@ -281,7 +269,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 스크롤된_상태에서_앞_카드가_떨어지면_남은_블록이_보이게_올라가고_돌아오면_다시_맨_아래로_내려간다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            CreatePanel(true);
             _panel.Initialize(Commands(5), true);
             for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
             await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나길 기다림
@@ -303,7 +291,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 함수_정의_블록은_함수_사용_단계를_따라_빠지고_앞_카드만_돌아오면_그_앞까지만_다시_붙는다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command }, false);
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null); // 자식 1 = 함수 사용, 자식 2 = 함수 정의
             _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);        // 자식 3
@@ -329,7 +317,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 레벨_3은_만약_블록_안쪽에_동작_블록이_맞물리고_논리_블록과_완성하기는_만약_블록_아래_돌기에_맞물린다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(Level3Shapes, true);
             _panel.AddItem(DesignStepShape.FlowControl, "만약 전기량이", "3 넘으면");
             _panel.AddItem(DesignStepShape.InsideFlowControl, "전기량", "낮추기");
@@ -364,13 +352,12 @@ namespace DGAIZone.Tests
             Image ifBody = BlockAt(1).GetComponentInChildren<Image>();
             Assert.AreEqual(Image.Type.Sliced, ifBody.type, "만약 블록 이미지는 팔만 늘어나도록 9-slice여야 함");
             Assert.AreNotEqual(Vector4.zero, ifBody.sprite.border, "만약 블록 스프라이트에 9-slice 경계가 있어야 함");
-            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "레벨 3 블록 묶음 전체가 스크롤 없이 보이는 영역 높이 안에 들어가야 함");
         });
 
         [UnityTest]
         public IEnumerator 만약_블록은_안쪽_블록이_늘면_늘어나고_빼면_줄어든다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(new[] { DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl, DesignStepShape.InsideFlowControl }, true);
             _panel.AddItem(DesignStepShape.FlowControl, "만약 전기량이", "3 넘으면");
             RectTransform ifRect = (RectTransform)BlockAt(1).transform;
@@ -392,7 +379,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 위로_올려_둔_상태에서_완성하면_맨_아래로_내린_뒤_완성하기_블록을_붙인다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            CreatePanel(true);
             _panel.Initialize(Commands(5), true);
             for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
             await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기(0.8초)·자동 스크롤(0.3초) 연출이 끝나길 기다림
@@ -410,7 +397,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 이미_맨_아래면_기다리지_않고_바로_완성하기_블록을_붙인다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.ScrollLarge, true);
+            CreatePanel(true);
             _panel.Initialize(Commands(5), true);
             for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
             await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나 맨 아래에 있음
@@ -423,7 +410,7 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 레벨_4는_반복하기_ㄷ자_안쪽에_바로_뒤_이동하기가_들어가고_그다음_이동하기는_ㄷ자_아래에_붙는다() => UniTask.ToCoroutine(async () =>
         {
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(new[] { DesignStepShape.FlowControl, DesignStepShape.InsideFlowControl, DesignStepShape.Command }, true);
             _panel.AddItem(DesignStepShape.FlowControl, "반복하기", "3회");
             _panel.AddItem(DesignStepShape.InsideFlowControl, "이동하기", "오른쪽 한 칸");
@@ -448,7 +435,7 @@ namespace DGAIZone.Tests
         {
             const float EdgePadding = 8f, DefinitionGap = 16f;
             const float FunctionColumnWidth = FlowInnerTabCenterX - CommandSocketCenterX + 361f; // 안쪽 명령 블록이 함수 정의 블록(폭 361)보다 튀어나온 오른쪽 끝
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(new[] { DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command }, false);
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
             await UniTask.Delay(800, DelayType.UnscaledDeltaTime); // 붙는 연출(0.5초)이 끝나길 기다림
@@ -480,7 +467,7 @@ namespace DGAIZone.Tests
         public IEnumerator 함수_사용_뒤에_놓은_블록은_함수_정의_블록_안쪽에_쌓이고_앞에_놓은_블록과_완성하기는_시작하기_줄에_붙는다() => UniTask.ToCoroutine(async () =>
         {
             const float EdgePadding = 8f;
-            CreatePanel(DesignLayoutMode.FitAll);
+            CreatePanel();
             _panel.Initialize(new[] { DesignStepShape.Command, DesignStepShape.FunctionCall, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command }, false);
             _panel.AddItem(DesignStepShape.Command, "우주 정거장 코드", null); // 함수 카드 앞
             _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
@@ -520,27 +507,8 @@ namespace DGAIZone.Tests
             Assert.AreEqual(EdgePadding * 2f + (threeInside - CommandBodyHeight) * s, _content.sizeDelta.y, Tolerance, "시작하기 줄보다 긴 함수 정의 블록까지 스크롤 범위에 들어가야 함");
         });
 
-        [UnityTest]
-        public IEnumerator 레벨_5_설계창은_함수_카드를_처음에_놓든_마지막에_놓든_스크롤_없이_들어간다() => UniTask.ToCoroutine(async () =>
-        {
-            DesignStepShape[] plan = { DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.Command, DesignStepShape.FunctionCall };
-
-            CreatePanel(DesignLayoutMode.FitAll);
-            _panel.Initialize(plan, false);
-            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
-            for (int i = 0; i < 4; i++) _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);
-            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
-            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "함수 카드를 처음에 놓아 안쪽 블록이 넷이어도 보이는 영역에 들어가야 함");
-
-            _panel.Initialize(plan, false);
-            for (int i = 0; i < 4; i++) _panel.AddItem(DesignStepShape.Command, "탐사 로봇 코드", null);
-            _panel.AddItem(DesignStepShape.FunctionCall, "우주 도시 만들기", null);
-            await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
-            Assert.LessOrEqual(_content.sizeDelta.y, ViewportHeight + Tolerance, "함수 카드를 마지막에 놓아 시작하기 줄이 가장 길어도 보이는 영역에 들어가야 함");
-        });
-
         [Test]
-        public void 결과_설계창은_게임_설계창의_배치_방식으로_그린다()
+        public void 결과_설계창도_게임_설계창과_같은_배율로_그린다()
         {
             DesignStep[] steps =
             {
@@ -548,14 +516,10 @@ namespace DGAIZone.Tests
                 new DesignStep(DesignStepShape.Command, "이동하기", "오른쪽 한 칸")
             };
 
-            CreatePanel(DesignLayoutMode.FitAll);
-            ResultDesignPlayback.Prepare(_panel, steps, DesignLayoutMode.ScrollLarge);
-            Assert.AreEqual(DesignLayoutMode.ScrollLarge, _panel.LayoutMode, "게임 설계창이 자동 스크롤이면 결과 설계창도 자동 스크롤이어야 함");
-            Assert.AreEqual(0.7f, _panel.Scale, Tolerance, "자동 스크롤 방식의 배율(scrollScale 0.7)을 써야 함");
-
-            ResultDesignPlayback.Prepare(_panel, steps, DesignLayoutMode.FitAll);
-            Assert.AreEqual(DesignLayoutMode.FitAll, _panel.LayoutMode, "게임 설계창이 화면 맞추기면 결과 설계창도 화면 맞추기여야 함");
-            Assert.AreEqual(0.8f, _panel.Scale, Tolerance, "블록이 적으면 화면 맞추기 최대 배율(maxFitScale 0.8)을 써야 함");
+            CreatePanel();
+            ResultDesignPlayback.Prepare(_panel, steps);
+            Assert.AreEqual(0.7f, _panel.Scale, Tolerance, "블록이 적어도 게임 설계창과 같은 배율(scrollScale 0.7)을 써야 함");
+            Assert.AreEqual(1, _content.childCount, "준비하면 시작하기 블록만 놓여야 함");
         }
     }
 }

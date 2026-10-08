@@ -54,7 +54,7 @@ namespace DGAIZone.Result
             PanelFader.ApplyState(panelGroup, false, _logger);
             PanelFader.ApplyState(designGroup, false, _logger);
             PanelFader.ApplyState(videoGroup, false, _logger);
-            if (designPanel) ResultDesignPlayback.Prepare(designPanel, SolutionDesign(), _resultStore != null ? _resultStore.DesignLayoutMode : DesignLayoutMode.FitAll);
+            if (designPanel) ResultDesignPlayback.Prepare(designPanel, SolutionDesign());
         }
 
         /// <summary> 결과 저장소의 정답 설계. 없거나 비어 있으면 경고를 남기고 빈 목록(시작하기·완성하기만 보임)을 반환함. </summary>

@@ -1169,8 +1169,6 @@ namespace DGAIZone.Game.UI
 
             _resultStore.PlayerDesign = _designSteps.ToArray();
             _resultStore.PlayerDesignCompleted = completed;
-            if (_designPanel) _resultStore.DesignLayoutMode = _designPanel.LayoutMode;
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 결과 설계창 배치 방식을 기본값({_resultStore.DesignLayoutMode})으로 둠.");
 
             IIngredientSelectionLevelState state = CurrentLevelState;
             if (state == null)

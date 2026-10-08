@@ -11,18 +11,17 @@ namespace DGAIZone.Result
 {
     /// <summary>
     /// 결과 씬 설계창(나의 코딩 결과·AI 패널)에 3_Game에서 기록한 설계(DesignStep)를 같은 블록 이미지로 다시 쌓는 도우미.
-    /// 3_Game 설계창과 같은 배치 방식·설계 길이로 배율을 정해 두고(Prepare), 블록을 일정 간격으로 하나씩 붙임(StackAsync). 블록(완성하기 포함)이
-    /// 붙을 때마다 3_Game 설정하기와 같은 블록 장착 효과음을 내며, 자동 스크롤 방식이면 맨 아래로 스크롤함.
+    /// 3_Game 설계창과 같은 배율로 준비해 두고(Prepare), 블록을 일정 간격으로 하나씩 붙임(StackAsync). 블록(완성하기 포함)이
+    /// 붙을 때마다 3_Game 설정하기와 같은 블록 장착 효과음을 내며, 설계창보다 길어지면 맨 아래로 자동 스크롤함.
     /// </summary>
     internal static class ResultDesignPlayback
     {
         /// <summary>
-        /// 설계창을 3_Game 설계창과 같은 배치 방식(mode)으로 바꾸고 비운 뒤, steps가 모두 쌓였을 때의 모양으로 배율을 정해 시작하기 블록만 놓음.
-        /// 값 블록이 하나라도 있으면 값 블록 폭을 남김.
+        /// 설계창을 비운 뒤 steps가 모두 쌓였을 때의 모양(값 블록이 하나라도 있으면 값 블록 폭, 함수 사용 단계가 있으면 함수 정의 블록 자리)으로
+        /// 배율과 위치를 정해 시작하기 블록만 놓음.
         /// </summary>
-        public static void Prepare(DesignPanel panel, IReadOnlyList<DesignStep> steps, DesignLayoutMode mode)
+        public static void Prepare(DesignPanel panel, IReadOnlyList<DesignStep> steps)
         {
-            panel.LayoutMode = mode;
             List<DesignStepShape> shapes = new List<DesignStepShape>(steps.Count);
             bool withValueBlocks = false;
             for (int i = 0; i < steps.Count; i++)
