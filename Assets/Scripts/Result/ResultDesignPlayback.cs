@@ -17,20 +17,20 @@ namespace DGAIZone.Result
     internal static class ResultDesignPlayback
     {
         /// <summary>
-        /// 설계창을 비운 뒤 steps가 모두 쌓였을 때의 모양(값 블록이 하나라도 있으면 값 블록 폭, 함수 사용 단계가 있으면 함수 정의 블록 자리)으로
-        /// 배율과 위치를 정해 시작하기 블록만 놓음.
+        /// 설계창을 비운 뒤 steps에 맞춰(값 블록이 하나라도 있으면 값 블록 폭, 함수 사용 단계가 있으면 함수 정의 블록 자리) 블록 묶음 폭과
+        /// 위치를 정해 시작하기 블록만 놓음.
         /// </summary>
         public static void Prepare(DesignPanel panel, IReadOnlyList<DesignStep> steps)
         {
-            List<DesignStepShape> shapes = new List<DesignStepShape>(steps.Count);
             bool withValueBlocks = false;
+            bool withFunctionDefinition = false;
             for (int i = 0; i < steps.Count; i++)
             {
-                shapes.Add(steps[i].Shape);
                 if (!string.IsNullOrEmpty(steps[i].Value)) withValueBlocks = true;
+                if (steps[i].Shape == DesignStepShape.FunctionCall) withFunctionDefinition = true;
             }
 
-            panel.Initialize(shapes, withValueBlocks);
+            panel.Initialize(withValueBlocks, withFunctionDefinition);
         }
 
         /// <summary>

@@ -34,8 +34,11 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 카드가 떨어지거나 돌아와 설계창 블록을 임시로 떨어뜨리거나 다시 붙인 뒤 호출됨(워크플로우 초기화·취소·되돌리기 뒤에도 호출됨). </summary>
         void OnMissingCardsRefreshed(IngredientSelectionController controller);
 
-        /// <summary> 설계창에 값 블록(명령 블록 오른쪽에 끼우는 블록)이 쌓일 수 있는 레벨인지 여부. 설계창이 블록 묶음을 가운데 놓는 폭 계산에 쓰임. </summary>
+        /// <summary> 설계창에 값 블록(명령 블록 오른쪽에 끼우는 블록)이 쌓일 수 있는 레벨인지 여부. 설계창이 블록 묶음이 화면 폭을 넘지 않는 배율과 블록이 붙는 연출 시간을 정하는 데 씀. </summary>
         bool UsesValueBlocks { get; }
+
+        /// <summary> 함수 사용 단계가 있어 설계창 오른쪽에 함수 정의 블록 자리를 남겨야 하는지 여부. </summary>
+        bool UsesFunctionDefinition { get; }
 
         /// <summary> 설계창 블록에 쓸 문구(명령 블록 문구, 값 블록 문구)를 반환. 값 문구가 null이면 값 블록 없는 명령 블록으로 쌓임. </summary>
         (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel);
@@ -45,9 +48,6 @@ namespace DGAIZone.Game.UI.States
         /// 첫 단계면 null)에 따라 달라질 수 있음(레벨 4: 반복하기 바로 뒤 이동하기는 ㄷ자 안쪽). 게임 중 확정과 결과 씬 정답 설계에 함께 쓰임.
         /// </summary>
         DesignStepShape GetDesignStepShape(IngredientSelectionController controller, string ingredientId, string previousIngredientId);
-
-        /// <summary> 이번 레벨 단계를 설계창에 가장 길게 쌓았을 때의 블록 모양을 단계 순서대로 shapes에 채움('줄여서 한 화면에' 배율 계산용). </summary>
-        void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes);
 
         /// <summary> 코딩완료 버튼의 활성화 가능 여부를 반환. </summary>
         bool IsCodingCompleteInteractable(IngredientSelectionController controller, int designItemCount, int totalSteps);

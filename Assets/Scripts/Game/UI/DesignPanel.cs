@@ -128,18 +128,13 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함.
-        /// 묶음 왼쪽 끝은 레벨과 관계없이 같음. plannedShapes(이 레벨의 단계를 모두 쌓았을 때의 단계 모양)에 함수 사용 단계가 있으면
-        /// 오른쪽에 함수 정의 블록이 들어갈 폭도 남김.
+        /// 묶음 왼쪽 끝은 레벨과 관계없이 같음. withFunctionDefinition(함수 사용 단계가 있는 레벨인지)이면 오른쪽에 함수 정의 블록이 들어갈 폭도 남김.
         /// </summary>
-        public void Initialize(IReadOnlyList<DesignStepShape> plannedShapes, bool withValueBlocks)
+        public void Initialize(bool withValueBlocks, bool withFunctionDefinition)
         {
             DestroyAll();
             _withValueBlocks = withValueBlocks;
-            _plansFunctionDef = false;
-            for (int i = 0; i < plannedShapes.Count; i++)
-            {
-                if (plannedShapes[i] == DesignStepShape.FunctionCall) _plansFunctionDef = true;
-            }
+            _plansFunctionDef = withFunctionDefinition;
             UpdateScale();
 
             _startBlock = CreateBlock(DesignBlockKind.Start, StartLabel, null);

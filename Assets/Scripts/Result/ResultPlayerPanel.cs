@@ -13,7 +13,7 @@ using ZLogger;
 namespace DGAIZone.Result
 {
     /// <summary>
-    /// 결과 씬 왼쪽 아래 '나의 코딩 결과' 패널(PlayerPanel 프레임). 씬이 시작되면 3_Game 설계창과 같은 배치 방식으로 시작하기 블록을 놓아 두고,
+    /// 결과 씬 왼쪽 아래 '나의 코딩 결과' 패널(PlayerPanel 프레임). 씬이 시작되면 3_Game 설계창과 같은 배율로 시작하기 블록을 놓아 두고,
     /// ResultFlowController가 4_Result.json을 불러온 뒤 Play를 부르면 플레이어가 쌓은 블록(GameResultStore.PlayerDesign)을 같은 블록 이미지로
     /// designBlockInterval초 간격으로 하나씩 쌓으며, 코딩완료로 마쳤으면 완성하기 블록까지 붙임.
     /// </summary>
@@ -37,7 +37,7 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultPlayerPanel] designPanel이 null이라 나의 코딩 결과를 표시할 수 없음.");
         }
 
-        /// <summary> 3_Game 설계창과 같은 배치 방식·플레이어 설계 길이로 설계창 배율을 정해 시작하기 블록만 놓아 둠. </summary>
+        /// <summary> 플레이어 설계에 맞춰 설계창 블록 묶음 폭을 정하고 시작하기 블록만 놓아 둠. </summary>
         private void Start()
         {
             if (!designPanel) return; // Construct에서 이미 경고를 남김

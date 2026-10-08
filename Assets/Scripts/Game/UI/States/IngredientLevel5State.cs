@@ -161,14 +161,8 @@ namespace DGAIZone.Game.UI.States
             return DesignStepShape.Command;
         }
 
-        /// <summary>
-        /// 줄의 블록은 모두 높이가 같고 함수 사용 뒤 블록은 오른쪽 함수 정의 블록 안쪽에 쌓이므로, 설계창이 가장 길어지는 경우(함수 카드를 마지막에
-        /// 놓아 모든 블록이 시작하기 아래 줄에 쌓임)로 셈. 함수 사용 블록이 있어 오른쪽 함수 정의 블록 자리도 남음.
-        /// </summary>
-        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
-        {
-            for (int i = 0; i < controller.TotalSteps; i++) shapes.Add(i == controller.TotalSteps - 1 ? DesignStepShape.FunctionCall : DesignStepShape.Command);
-        }
+        /// <summary> 함수 카드가 함수 사용 블록이 되므로 오른쪽에 함수 정의 블록 자리를 남김. </summary>
+        public bool UsesFunctionDefinition => true;
 
         /// <summary> 함수·동작 블록 모두 값 블록을 쓰지 않음. </summary>
         public bool UsesValueBlocks => false;

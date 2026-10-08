@@ -125,7 +125,6 @@ namespace DGAIZone.Game.UI
         private string[] _confirmedIngredients; // 각 스탭에서 확정된 재료의 ingredientId
         private string _currentIngredientId; // 현재 대기 중인(아직 확정 안 된) 재료의 ingredientId. 화면 표시용 이름은 _currentIngredient
         private string[] _confirmedCategories; // 각 스탭을 확정시킨 카드의 category(동작/제어/논리/함수). 리더기별 스탭 라우팅에서 카드 변경 감지에 사용
-        private readonly List<DesignStepShape> _plannedDesignShapes = new List<DesignStepShape>(); // 이번 레벨 단계를 모두 쌓았을 때의 설계창 블록 모양(배율 계산용)
         private readonly List<DesignStep> _designSteps = new List<DesignStep>(); // 플레이어가 설계창에 쌓은 블록(결과 씬 '나의 코딩 결과'용)
         private string _currentCategory; // 현재 대기 중인(아직 확정 안 된) 태그의 category. Confirm 시 _confirmedCategories에 기록됨
 
@@ -1057,21 +1056,15 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(레벨 상태가 정한, 이번 레벨 단계를 가장 길게 쌓았을 때의 블록 모양으로 블록 크기를 정함)
+        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(레벨 상태가 정한 값 블록·함수 정의 블록 사용 여부로 블록 묶음 폭을 정함)
         /// 코딩완료 버튼 상태를 갱신함.
         /// </summary>
         private void ResetDesignPanel()
         {
             _designSteps.Clear();
-            _plannedDesignShapes.Clear();
-            if (CurrentLevelState != null) CurrentLevelState.FillPlannedDesignShapes(this, _plannedDesignShapes);
-            else
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 설계창 단계를 모두 명령 블록으로 셈.");
-                for (int i = 0; i < _totalSteps; i++) _plannedDesignShapes.Add(DesignStepShape.Command);
-            }
+            if (CurrentLevelState == null && _logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 설계창을 값 블록 있음·함수 정의 블록 없음으로 초기화함.");
 
-            if (_designPanel) _designPanel.Initialize(_plannedDesignShapes, CurrentLevelState == null || CurrentLevelState.UsesValueBlocks);
+            if (_designPanel) _designPanel.Initialize(CurrentLevelState == null || CurrentLevelState.UsesValueBlocks, CurrentLevelState != null && CurrentLevelState.UsesFunctionDefinition);
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창을 초기화할 수 없음.");
 
             UpdateCodingCompleteButton();
@@ -1199,7 +1192,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 결과 씬에서 보여 줄 설계를 결과 저장소에 기록함: 플레이어가 설계창에 쌓은 블록과 completed(코딩완료로 마쳤는지, 스킵이면 false),
-        /// 설계창 배치 방식, 이번 판 문제의 정답(레벨 상태의 BuildSolution)을 설계창과 같은 블록으로 바꾼 것. 정답을 만들지 못하면 정답은 빈 목록이 기록됨.
+        /// 이번 판 문제의 정답(레벨 상태의 BuildSolution)을 설계창과 같은 블록으로 바꾼 것. 정답을 만들지 못하면 정답은 빈 목록이 기록됨.
         /// </summary>
         internal void StoreResultDesigns(bool completed)
         {

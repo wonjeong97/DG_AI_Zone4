@@ -126,16 +126,8 @@ namespace DGAIZone.Game.UI.States
             }
         }
 
-        /// <summary> 단계 정의 순서대로 블록 모양을 셈(레벨 3은 단계 순서가 정해져 있음). 정의가 없는 단계는 명령 블록으로 셈. </summary>
-        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
-        {
-            RfidStepDefinition[] steps = controller.StepDefinitions;
-            for (int i = 0; i < controller.TotalSteps; i++)
-            {
-                RfidStepDefinition step = steps != null && i < steps.Length ? steps[i] : null;
-                shapes.Add(step != null ? GetDesignStepShape(controller, step.ingredientId, null) : DesignStepShape.Command);
-            }
-        }
+        /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
+        public bool UsesFunctionDefinition => false;
 
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
         public bool UsesValueBlocks => true;

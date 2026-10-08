@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T23 후속
+- 요청: T23 리뷰 낮음 항목 처리(지난 배치 방식 주석, 쓰이지 않게 된 '가장 길게 쌓인 모양' 계산).
+- 변경 파일: `Game/UI/States/IIngredientSelectionLevelState.cs`(FillPlannedDesignShapes → UsesFunctionDefinition 프로퍼티, UsesValueBlocks 설명 갱신), `IngredientLevel1~5State.cs`(레벨 1~4 false, 레벨 5 true, 레벨 4 FillPlannedShapes 삭제), `Game/UI/DesignPanel.cs`(Initialize(bool withValueBlocks, bool withFunctionDefinition)), `Game/UI/IngredientSelectionController.cs`(_plannedDesignShapes 삭제, 레벨 상태 null 경고 유지), `Result/ResultDesignPlayback.cs`(steps에 함수 사용이 있으면 함수 정의 자리), `Result/ResultAiPanel.cs`·`ResultPlayerPanel.cs`·`Game/UI/DesignBlockView.cs`(주석), 테스트 `DesignPanelTests`(Initialize 인자, 도우미 2개 삭제, 왼쪽 정렬 테스트를 값 블록 유무 2경우로)·`Level4DesignShapeTests`(가장 긴 모양 테스트 삭제)·`Level5RuleTests`(계획 크기 테스트 삭제). 동작 변화 없음, CHANGELOG 항목 없음.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 183/183(T58 반영 뒤 185/185), 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과 — 1시간 30분 뒤 초기화): 레벨 1~5·레벨 상태 null·결과 씬의 함수 정의 자리 판단이 예전과 같음, 지난 개념 참조 없음, Initialize 인자 치환 17곳 모두 예전 결과와 같음 → 통과. 낮음: Level5RuleTests 클래스 설명에 지운 테스트 언급, UsesValueBlocks 설명이 T23 뒤로 맞지 않음 → 둘 다 반영.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T57
 - 요청(사용자): T54에서 미룬 것도 필요하면 지금 하기.
 - 판단: 큰 메서드 분리(스킬 10번)·쓰이지 않는 스테이지 인덱스는 함. 주입 실패 Debug.LogError 일괄 추가는 테스트가 로거 없이 컨트롤러를 만들어 Unity 테스트가 오류 로그로 실패하므로 하지 않음. 상태 인터페이스의 안 쓰는 controller 매개변수는 다섯 상태가 같은 모양을 유지하는 설계이고 레벨 5 규칙이 검토 중이라 그대로 둠. 씬에 남은 지운 필드 값은 T59에서 씬을 저장하며 정리.

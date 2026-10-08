@@ -48,7 +48,7 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultAiPanel] designPanel이 null이라 정답 설계를 표시할 수 없음.");
         }
 
-        /// <summary> 패널·설계창·영상을 숨긴 상태로 시작하고, 3_Game 설계창과 같은 배치 방식·정답 설계 길이로 설계창 배율을 정해 시작하기 블록만 놓아 둠. </summary>
+        /// <summary> 패널·설계창·영상을 숨긴 상태로 시작하고, 정답 설계에 맞춰 설계창 블록 묶음 폭을 정하고 시작하기 블록만 놓아 둠. </summary>
         private void Start()
         {
             PanelFader.ApplyState(panelGroup, false, _logger);
