@@ -18,7 +18,7 @@ using ZLogger;
 namespace DGAIZone.Intro
 {
     /// <summary>
-    /// 튜토리얼 이미지를 페이지 단위로 넘겨보는 슬라이더. Addressables에서 Tutorial1~7 스프라이트를 로드해 캐싱하고,
+    /// 튜토리얼 이미지를 페이지 단위로 넘겨보는 슬라이더. 씬이 시작되면 Addressables에서 Tutorial1~7 스프라이트를 모두 미리 로드해 캐싱하고,
     /// 이미지의 좌/우 클릭 위치에 따라 이전/다음 페이지로 이동함. 1페이지 좌측 클릭 시 순환하지 않고, 마지막 페이지 우측 클릭 시 완료 이벤트 발생.
     /// </summary>
     [RequireComponent(typeof(Image))]
@@ -34,7 +34,7 @@ namespace DGAIZone.Intro
         /// <summary> 마지막 페이지(7/7)에서 우측 영역을 터치했을 때 값을 내보내는 완료 스트림. </summary>
         public Observable<Unit> TutorialCompleted => _tutorialCompleted;
 
-        // 페이지별로 1회만 Addressables에서 로드하고 이후에는 캐시된 핸들에서 반환. OnDestroy에서 모두 Release함.
+        // 페이지별로 1회만 Addressables에서 로드하고 이후에는 캐시된 핸들에서 반환(로드에 실패한 핸들은 해제하고 빼서 다음에 다시 로드). OnDestroy에서 모두 Release함.
         private readonly Dictionary<int, AsyncOperationHandle<Sprite>> _spriteHandles = new();
 
         private Image _image;
@@ -65,11 +65,23 @@ namespace DGAIZone.Intro
             _rectTransform = (RectTransform)transform;
         }
 
-        /// <summary> 첫 페이지를 불러와 표시함. </summary>
+        /// <summary> 넘길 때 이미지가 늦게 바뀌지 않도록 모든 페이지 로드를 시작하고 첫 페이지를 표시함. </summary>
         private void Start()
         {
+            for (int page = 1; page <= TotalPages; page++) GetOrLoadHandle(page);
+
             _currentIndex = 0;
             ShowPageAsync().Forget();
+        }
+
+        /// <summary> page번째 튜토리얼 이미지의 로드 핸들을 캐시에서 꺼내고, 없으면 Addressables 로드를 시작해 캐시에 넣고 반환함. </summary>
+        private AsyncOperationHandle<Sprite> GetOrLoadHandle(int page)
+        {
+            if (_spriteHandles.TryGetValue(page, out AsyncOperationHandle<Sprite> handle)) return handle;
+
+            handle = Addressables.LoadAssetAsync<Sprite>(ZString.Concat(AddressPrefix, page));
+            _spriteHandles[page] = handle;
+            return handle;
         }
 
         /// <summary> 완료 스트림과 로드해 둔 Addressables 핸들을 모두 해제함. </summary>
@@ -130,19 +142,33 @@ namespace DGAIZone.Intro
 
             try
             {
-                if (!_spriteHandles.TryGetValue(page, out AsyncOperationHandle<Sprite> handle))
+                AsyncOperationHandle<Sprite> handle = GetOrLoadHandle(page);
+                Sprite sprite = await handle.Task.AsUniTask().AttachExternalCancellation(this.GetCancellationTokenOnDestroy());
+
+                // 같은 핸들을 기다리던 다른 호출이 로드 실패를 보고 먼저 해제했으면 핸들을 더 읽을 수 없음(경고는 그쪽이 남김)
+                if (!handle.IsValid())
                 {
-                    handle = Addressables.LoadAssetAsync<Sprite>(ZString.Concat(AddressPrefix, page));
-                    _spriteHandles[page] = handle;
+                    if (_logger != null) _logger.ZLogInformation($"[TutorialImageSlider] 튜토리얼 이미지 '{AddressPrefix}{page}' 로드 실패를 다른 호출이 먼저 처리해 표시하지 않음.");
+                    return;
                 }
 
-                Sprite sprite = await handle.Task.AsUniTask().AttachExternalCancellation(this.GetCancellationTokenOnDestroy());
+                if (handle.Status != AsyncOperationStatus.Succeeded)
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] 튜토리얼 이미지 '{AddressPrefix}{page}'를 불러오지 못함(로드 상태={handle.Status}). 다음에 이 페이지로 오면 다시 불러옴.");
+
+                    // 같은 핸들을 기다리던 다른 호출이 이미 뺐으면 다시 해제하지 않음
+                    if (_spriteHandles.TryGetValue(page, out AsyncOperationHandle<Sprite> cached) && cached.Equals(handle))
+                    {
+                        _spriteHandles.Remove(page);
+                        Addressables.Release(handle);
+                    }
+                    return;
+                }
 
                 // 로딩 중 다른 페이지로 이동했다면(연속 클릭) 결과가 최신 페이지를 덮어쓰지 않도록 방지
                 if (_currentIndex + 1 != page) return;
 
-                if (handle.Status == AsyncOperationStatus.Succeeded && _image) _image.sprite = sprite;
-                else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] 튜토리얼 이미지 '{AddressPrefix}{page}'를 표시할 수 없음(로드 상태={handle.Status}).");
+                if (_image) _image.sprite = sprite; // null이면 Awake에서 이미 오류를 남김
             }
             catch (OperationCanceledException) { }
         }

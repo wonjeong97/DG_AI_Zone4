@@ -23,6 +23,7 @@ namespace DGAIZone.Data
         /// <summary>
         /// QR 스캐너 글자 사이 최대 간격(초). 이보다 벌어지면 앞에 모은 글자(찍기 전에 눌린 키 등)를 버리고, Enter가 이보다 늦게 오면 QR로 보지 않음.
         /// PC가 느려 스캔 글자가 늦게 들어오면 늘림. 0 이하면 기본값 0.5초를 씀.
+        /// 안내가 바뀌어 QR을 다시 받기 시작한 뒤 이 시간 안에 찍은 QR은 앞 스캔의 뒷부분으로 보고 버리므로, 너무 크게 늘리지 않음.
         /// </summary>
         public float scanCharGapSeconds = 0.5f;
     }

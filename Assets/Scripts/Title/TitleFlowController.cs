@@ -58,6 +58,12 @@ namespace DGAIZone.Title
         private readonly List<Keyboard> _scanKeyboards = new();
         private bool _isWaitingForQr;
 
+        /// <summary>
+        /// 씬 전환 중이거나 관리자 화면에서 레벨 이동을 눌러 곧 씬을 떠나는지. 이때는 QR로 체험자·해금 레벨을 바꾸지 않아 이동할 씬이 받은 값을
+        /// 덮어쓰지 않게 함. 레벨 이동은 설정을 읽은 뒤에야 전환을 시작하므로 그 사이도 막도록 이동 표시(IsLevelJump)도 봄.
+        /// </summary>
+        private bool IsSceneChanging => (_sceneTransition != null && _sceneTransition.IsTransitioning) || (_levelJumpStore != null && _levelJumpStore.IsLevelJump);
+
         // QR로 확인한 체험자가 시작하기를 누르지 않고 기다린 시간 재기 — 시작하기·새 QR·씬 파괴 때 취소함
         private CancellationTokenSource _confirmTimeoutCts;
 
@@ -187,10 +193,13 @@ namespace DGAIZone.Title
             StartScanning();
         }
 
-        /// <summary> 키보드(바코드 스캐너) 문자 입력을 받기 시작함. 이미 받고 있으면 모은 문자만 비움. </summary>
+        /// <summary>
+        /// 키보드(바코드 스캐너) 문자 입력을 받기 시작함(이미 받고 있으면 구독은 그대로 두고 모은 문자만 새로 시작함).
+        /// 받지 않던 동안 시작된 스캔의 뒷부분은 잘린 uid가 되므로 버림(ScanInputBuffer.Restart).
+        /// </summary>
         private void StartScanning()
         {
-            _scanBuffer.Clear();
+            _scanBuffer.Restart(Time.realtimeSinceStartup);
             _isWaitingForQr = true;
 
             foreach (InputDevice device in InputSystem.devices)
@@ -278,16 +287,26 @@ namespace DGAIZone.Title
         /// <summary>
         /// 모은 문자열을 QR 값으로 처리함 — 비어 있으면(Enter만 들어온 경우) 무시하고 계속 기다림.
         /// 마지막 글자 뒤로 scanCharGapSeconds(기본 0.5초)보다 늦게 온 Enter면 모은 글자는 스캔이 아니라 손으로 누른 키로 보고 버림.
+        /// 씬 전환 중(관리자 레벨 이동 등)에 찍힌 QR도 확인하지 않음.
         /// </summary>
         private void SubmitScan()
         {
             bool isStale = _scanBuffer.IsStale(Time.realtimeSinceStartup);
             string code = _scanBuffer.TakeAndClear();
+            int skipped = _scanBuffer.TakeSkippedCount();
+            if (skipped > 0 && _logger != null)
+                _logger.ZLogInformation($"[TitleFlowController] QR 입력을 다시 받기 시작한 직후 이어서 들어온 {skipped}글자를 앞 스캔의 뒷부분으로 보고 버림.");
             if (!_isWaitingForQr || string.IsNullOrWhiteSpace(code)) return;
 
             if (isStale)
             {
                 if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 마지막 글자보다 {_scanBuffer.MaxCharGapSeconds}초 넘게 늦게 Enter가 와서 모은 {code.Length}글자를 QR로 보지 않고 버림.");
+                return;
+            }
+
+            if (IsSceneChanging)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 씬을 전환하는 중이라 찍은 QR을 확인하지 않음.");
                 return;
             }
 
@@ -344,7 +363,7 @@ namespace DGAIZone.Title
             }
             catch (OperationCanceledException)
             {
-                // 확인 도중 씬 전환 등으로 오브젝트가 파괴된 경우 — 정상 종료
+                // 확인 도중 씬 전환 등으로 오브젝트가 파괴됐거나, 확인 결과를 반영하기 전에 씬을 떠나기 시작한 경우 — 정상 종료
             }
         }
 
@@ -365,6 +384,13 @@ namespace DGAIZone.Title
 
             GetUserResult progress = await _visitorApiClient.GetUserAsync(uid, token);
             if (!progress.IsFound) return Constants.TitleMessages.QrCheckFailed;
+
+            // 서버 응답을 기다리는 동안 관리자 레벨 이동 등으로 씬을 떠나기 시작했으면 그쪽이 정한 해금 레벨을 덮어쓰지 않음(CheckVisitorAsync가 정상 종료로 처리)
+            if (IsSceneChanging)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 서버 확인을 기다리는 동안 씬 전환이 시작돼 확인 결과를 반영하지 않음.");
+                throw new OperationCanceledException();
+            }
 
             if (_visitorInfoProvider != null) _visitorInfoProvider.SetServerVisitor(active.IdxUser, active.Name);
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 확인한 체험자를 기록하지 못함.");
@@ -461,6 +487,13 @@ namespace DGAIZone.Title
                 if (settings == null || !settings.useInactivityTimer || settings.resetTime <= 0f) return;
 
                 await UniTask.Delay(TimeSpan.FromSeconds(settings.resetTime), DelayType.UnscaledDeltaTime, cancellationToken: token);
+
+                // 관리자 레벨 이동 등으로 씬을 떠나는 중이면 그쪽이 정한 해금 레벨을 비우지 않음
+                if (IsSceneChanging)
+                {
+                    if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 씬을 전환하는 중이라 시작하기 대기 시간이 지나도 확인한 체험자를 비우지 않음.");
+                    return;
+                }
 
                 if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} {settings.resetTime}초 동안 시작하기를 누르지 않아 QR 대기로 돌아감.");
                 // 로그 전송은 씬과 상관없이 끝까지 보내도록 이 오브젝트의 토큰을 넘기지 않음

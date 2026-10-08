@@ -13,6 +13,14 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T58
+- 요청(사용자): 타이틀·인트로 성능·버그 점검(T54에서 시간 제한으로 끊긴 부분).
+- 변경 파일: `Intro/IntroFlowController.cs`(1_Intro.json storyTextStartDelay가 0이라 스토리 첫 줄이 페이드인 뒤에서 올라오던 것 — 씬 전환이 끝날 때까지 기다린 뒤 시작), `Intro/TutorialImageSlider.cs`(씬 시작 때 7페이지 모두 로드 시작, 실패한 핸들은 캐시에서 빼고 Release해 다음에 다시 로드, 다른 호출이 먼저 해제한 핸들은 읽지 않음), `Title/ScanInputBuffer.cs`(Clear → Restart: 다시 받은 뒤 쉬거나 Enter가 올 때까지 이어서 오는 글자는 앞 스캔의 뒷부분으로 버림, TakeSkippedCount), `Title/TitleFlowController.cs`(StartScanning이 Restart, 버린 글자 수 로그, IsSceneChanging — 씬 전환 중이거나 관리자 레벨 이동 표시가 있으면 QR 무시·서버 확인 결과 미반영·시작하기 대기 초과 때 체험자를 비우지 않음), `Data/TitleSceneSettings.cs`(scanCharGapSeconds 주석), 테스트 `ScanInputBufferTests`(+5). CHANGELOG Fixed 4줄.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 189/189(T59와 함께 실행), 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 높음·중간 없음. 낮음 반영 — Enter가 와도 버리기가 끝나지 않아 바로 이어 찍은 스캔(연속 판독 스캐너 포함)이 버려지던 것(TakeAndClear에서 끝냄), 관리자 레벨 클릭부터 전환 시작까지 1프레임 안팎의 빈틈(IsLevelJump도 봄), 같은 핸들을 기다리던 두 번째 호출이 해제된 핸들의 Status를 읽어 예외(IsValid 확인), 버리기 연쇄·늘린 간격·Enter 뒤 이어 찍기 테스트 추가, 주석 3곳. 남김 — 타이틀 가드·인트로 대기·슬라이더 미리 로드는 씬 의존이 커서 자동 테스트 없음(코드 리뷰로 확인), Time.realtimeSinceStartup float 정밀도(수 주 연속 실행 때만, 기존).
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T23 후속
 - 요청: T23 리뷰 낮음 항목 처리(지난 배치 방식 주석, 쓰이지 않게 된 '가장 길게 쌓인 모양' 계산).
 - 변경 파일: `Game/UI/States/IIngredientSelectionLevelState.cs`(FillPlannedDesignShapes → UsesFunctionDefinition 프로퍼티, UsesValueBlocks 설명 갱신), `IngredientLevel1~5State.cs`(레벨 1~4 false, 레벨 5 true, 레벨 4 FillPlannedShapes 삭제), `Game/UI/DesignPanel.cs`(Initialize(bool withValueBlocks, bool withFunctionDefinition)), `Game/UI/IngredientSelectionController.cs`(_plannedDesignShapes 삭제, 레벨 상태 null 경고 유지), `Result/ResultDesignPlayback.cs`(steps에 함수 사용이 있으면 함수 정의 자리), `Result/ResultAiPanel.cs`·`ResultPlayerPanel.cs`·`Game/UI/DesignBlockView.cs`(주석), 테스트 `DesignPanelTests`(Initialize 인자, 도우미 2개 삭제, 왼쪽 정렬 테스트를 값 블록 유무 2경우로)·`Level4DesignShapeTests`(가장 긴 모양 테스트 삭제)·`Level5RuleTests`(계획 크기 테스트 삭제). 동작 변화 없음, CHANGELOG 항목 없음.
