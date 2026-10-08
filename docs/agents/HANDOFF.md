@@ -13,6 +13,17 @@
 
 ---
 
+### [2026-10-08] Claude → Antigravity · T51
+- 요청(사용자): T49 뒤에도 4존 타이틀에서 기다리면 '[InactivityTimer] No activity ... Publishing timeout event.'와 '[APIManager] 0_Title은 이미 대기 화면이라 비활동 타임아웃 로그를 보내지 않음.'이 계속 올라온다 — 1존은 어떻게 처리했나. 1존은 GameManager가 sceneLoaded(와 Start의 처음 씬)에서 0_Title이면 InactivityTimer.Pause, 그 외 씬이면 Resume해 타이틀에서는 이벤트 자체가 나지 않음(APIManager의 타이틀 제외는 안전장치). 4존에 같은 방식 적용.
+- 변경 파일: `App/GameManager.cs`(InactivityTimer 선택 주입, OnEnable/OnDisable에서 sceneLoaded 구독 — 베이스의 private OnSceneLoaded와 겹치지 않게 OnGameSceneLoaded, Start에서 처음 씬 반영, UpdateInactivityTimerState — null이면 경고), `TODO.md`. 서버 로그 동작은 T49 그대로라 CHANGELOG에는 적지 않음. 버전은 이미 26.10.8.
+- 다른 Pause/Resume과의 순서(Claude 확인): StoryLineAnimator는 연출 중에만 멈추고 아웃트로 홈 버튼은 연출이 끝난 뒤에 보임, ResultFlowController의 OnDestroy 재개는 Single 로드에서 새 씬의 sceneLoaded보다 먼저 실행됨 — 타이틀에서 다시 켜지거나 게임 중 멈춘 채로 남는 경로 없음. QR 뒤 시작하기 대기는 TitleFlowController 자체 UniTask.Delay라 Pause와 무관.
+- Play 모드 확인(Claude, 저장소 설정 useInactivityTimer false라 메모리에서만 타이머 켜고 2초): 0_Title paused=True, 4초 기다려도 발행·APIManager 로그 없음 → SceneManager.LoadScene(3_Game) 직후 paused=False → 2초 뒤 'Publishing timeout event' 1번·move_idle_timeout(에디터라 전송 건너뜀 로그)·0_Title로 복귀 → paused=True, 4초 더 기다려도 추가 로그 없음. 콘솔 오류·경고 0, Play 모드 종료 뒤 작업 폴더 변경 없음.
+- 테스트: PlayMode 177/177. 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
+- 확인 요청·결과(agy `gemini-3.8-flash-high`, 2묶음 병렬): (코드) 타이틀 진입 경로별 Pause와 Pause 상태 유지, 다른 씬 Resume과 연출 Pause/Resume 순서, QR 뒤 시작하기 대기 독립 동작, DI·베이스 생명주기·이름 충돌·조용한 실패·문체 → 4/4 통과. (문서) TODO 형식·번호, CHANGELOG 제외 판단, bundleVersion → 3/3 통과. 문제 0건.
+- PR wonjeong97/DG_AI_Zone4#53 머지 전: (Claude Play 모드) 4_Result를 열어 결과 씬이 타이머를 멈춘 상태(timerPaused·_isTimerPaused True)에서 LoadSceneAsync(0_Title) → timerPaused True — 결과 씬 OnDestroy의 Resume이 새 씬 sceneLoaded의 Pause보다 먼저 실행됨을 확인(경고 2건은 결과 씬을 바로 연 탓의 정답 설계 없음·영상 색 정보). (agy 2묶음) 초기화 순서·0_Title이 아닌 씬에서 바로 Play·중복 인스턴스·도메인 리로드·같은 씬 다시 로드·Additive 없음 → 3/3, PR 설명·HANDOFF 사실·TODO·CHANGELOG → 3/3 통과. 문제 0건.
+
+---
+
 ### [2026-10-08] Claude → Antigravity · T50
 - 요청(사용자): T49 Play 모드 확인 중 찾은 CancelConfirmTimeout 잠재 예외도 같이 고치기.
 - 원인: CancelConfirmTimeout이 _confirmTimeoutCts.Cancel() 뒤 같은 필드로 Dispose()를 불렀다. 대기 작업이 아직 _settingsProvider.GetAsync를 기다리는 중이면(Task.AsUniTask 완료가 다음 프레임에 전달되는 구간, AttachExternalCancellation은 취소를 그 자리에서 전달) Cancel()이 ConfirmTimeoutAsync의 catch·finally까지 바로 실행하고, finally가 필드를 null로 만들어 다음 줄 Dispose()에서 NullReferenceException. UniTask.Delay 구간은 cancelImmediately 기본 false라 다음 프레임에 전달돼 문제없었다. 시작 버튼이 뜬 뒤 약 1프레임 안에 시작하기·다음 QR·씬 파괴가 겹쳐야 해서 실사용에서 겪기는 거의 어려움.

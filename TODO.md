@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T51 타이틀에서 비활동 타이머 멈춤: 1존처럼 GameManager가 0_Title에서는 InactivityTimer를 Pause, 다른 씬에서는 Resume해 타이틀 대기 중 타임아웃 이벤트 발행 로그와 APIManager의 '보내지 않음' 로그가 반복해 남지 않게 함(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 - [x] T50 TitleFlowController.CancelConfirmTimeout 잠재 예외: 시작하기 대기 작업이 아직 설정을 읽는 중(시작 버튼이 뜬 뒤 약 1프레임)에 취소하면 Cancel()이 그 자리에서 finally를 실행해 필드를 null로 만들고 바로 다음 Dispose()에서 NullReferenceException. 필드를 지역 변수로 옮겨 먼저 비운 뒤 Cancel·Dispose하도록 고침(T49 Play 모드 확인 중 발견, 실사용에서 겪기는 거의 어려움, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 - [x] T49 타이틀 비활동 로그: 타이틀은 이미 대기 화면이라 입력 없이 기다리기만 할 때는 move_idle_timeout을 보내지 않고(로컬 모드 포함), 서버 모드에서 QR로 확인한 체험자가 시작하기를 누르지 않아 QR 대기로 돌아갈 때만 보냄(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 
