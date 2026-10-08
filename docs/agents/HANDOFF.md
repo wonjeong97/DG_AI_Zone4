@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-09 02:35] Claude → Antigravity · T55
+- 요청(사용자): HuliacDev 패키지 업데이트.
+- 변경 파일: Packages/packages-lock.json(com.huliacdev.template hash b4547f3 → 640d05e, 26.9.25-3 → 26.10.9-1), TODO.md
+- 패키지 변경: VideoManager.WireRawImageAndRenderTexture가 영상 RenderTexture를 깊이 버퍼 없이(24 → 0) 만듦(Breaking: 반환 텍스처를 Camera.targetTexture 등 깊이가 필요한 용도로 쓰면 결과가 달라짐), TemplateInputActions.cs는 생성 헤더 주석(Input System 1.19.0)만, 나머지는 Template 테스트·문서. public API 변경 없음.
+- 확인 요청: (영향) 이 프로젝트가 WireRawImageAndRenderTexture·UIManager.SetVideo를 쓰는지, 반환 텍스처를 깊이가 필요한 용도로 쓰는지 / (diff) lock에서 template hash만 바뀌었는지, 버전, TODO 형식
+- 결과: Antigravity가 사용 한도에 걸려 Claude가 대신 확인. (영향) Assets에서 두 API를 쓰지 않음. RobotVideoPanel은 직렬화된 자체 RenderTexture를 씀 → 통과. (diff) lock은 template hash 한 줄만, 버전은 origin/main에서 이미 26.10.9라 그대로, TODO 형식 맞음 → 통과. 컴파일은 같은 패키지 커밋으로 0_Startup을 Unity 배치 모드로 열어 패키지 받기·컴파일 에러 0을 확인(이 프로젝트 에디터는 열지 않음, PlayMode 테스트 안 돌림).
+
+---
+
 ### [2026-10-09] Claude → Antigravity · T53
 - 요청(사용자): 반드시 남겨야 하는 로그를 빼고 자잘한 로그를 정리, 플레이어 행동은 '{name}이 ~를 함' 형식으로. 사용자 선택: 정리 기준은 '운영 진단 + 행동'(경고·오류는 실패 때만 남으므로 그대로), 행동 범위는 화면 이동(QR·시작하기·레벨 고름·결과 다음·처음으로)·카드 올림/뗌·코딩 조작(설정하기·취소하기·코딩 완료·건너뛰기). 좌우 값 고르기·스토리/튜토리얼 넘기기는 넣지 않음.
 - 변경 파일: `App/PlaceholderFormatter.cs`(AppendSubjectParticle — 받침이면 '이', 아니면 '가', 한글로 안 끝나면 '이(가)'), `App/VisitorInfoProvider.cs`(LogSubject — GetNameAsync와 같은 이름 규칙이되 기본 이름 경고는 되풀이하지 않음, 정적 LogSubjectOf — provider가 없으면 '체험자가'), `Game/UI/IngredientSelectionController.cs`(VisitorInfoProvider 선택 주입·없으면 경고, LogCardPlaced/LogCardRemoved/ReaderLabel — 카드 한 번에 처리 결과까지 한 줄, 설정하기·취소하기·코딩 완료·건너뛰기 행동 로그, 초기화 완료·모든 단계 완료·되돌림·결과 씬 이동·설계 기록·미리보기 추진력 로그 삭제), `States/IngredientLevel4State.cs`·`IngredientLevel5State.cs`(카드 거부를 LogCardPlaced로), `Hardware/RfidReaderService.cs`(카드 인식 HEX·원시 태그·발행됨 3줄 삭제 — 미등록 카드 경고는 유지), `Game/UI/MissionBoardController.cs`(진행도 시퀀스 6줄·미리보기·깜빡임 로그 삭제, 로그에만 쓰던 ApplyProgressAsync의 totalThrust 매개변수 삭제), `Game/UI/Level4BoardController.cs`(시뮬레이션 시작·완료·취소, 자원·함정·기지 도착 연출 로그 삭제 — 함정은 정상 실패 결과인데 경고로 찍히던 것, 판정 4줄은 유지), `Hardware/KeyboardRfidSimulator.cs`·`Result/ResultAiPanel.cs`(자잘한 로그 삭제), `Title/TitleFlowController.cs`(QR 길이 로그 → 확인 결과 행동 로그, 시작하기, 대기 초과에 주어, 비활동 타이머 꺼짐 로그 삭제), `LevelSelect/LevelSelectFlowController.cs`(레벨 고름·시작), `Result/ResultFlowController.cs`(다음), `Outro/OutroFlowController.cs`(VisitorInfoProvider 선택 주입, 처음으로), 테스트 `PlaceholderFormatterTests`(조사 1개), `CHANGELOG.md`, `TODO.md`. 버전은 이미 26.10.9.
