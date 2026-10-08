@@ -14,6 +14,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Data;
+using HuliacDev.Network;
 using HuliacDev.UI;
 using HuliacDev.Utils;
 using ZLogger;
@@ -44,6 +45,7 @@ namespace DGAIZone.Title
         private AppSettingsProvider _settingsProvider;
         private ILogger<TitleFlowController> _logger;
         private SoundManager _soundManager;
+        private ApiManagerBase _apiManager;
         private bool _isBusy;
 
         // 무한 반복 깜빡임이라 씬을 떠날 때 직접 Kill함
@@ -69,11 +71,11 @@ namespace DGAIZone.Title
 
         /// <summary>
         /// VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 관리자 레벨 이동 저장소,
-        /// 체험자 서버 API, 앱 설정(Settings.json) 제공자, 로거, 효과음 매니저를 할당함.
+        /// 체험자 서버 API, 앱 설정(Settings.json) 제공자, 로거, 효과음 매니저, 서버 로그 매니저를 할당함.
         /// </summary>
         [Inject]
         public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, AdminLevelJumpStore levelJumpStore,
-            VisitorApiClient visitorApiClient, AppSettingsProvider settingsProvider, ILogger<TitleFlowController> logger, SoundManager soundManager = null)
+            VisitorApiClient visitorApiClient, AppSettingsProvider settingsProvider, ILogger<TitleFlowController> logger, SoundManager soundManager = null, ApiManagerBase apiManager = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
@@ -84,6 +86,7 @@ namespace DGAIZone.Title
             _settingsProvider = settingsProvider;
             _logger = logger;
             _soundManager = soundManager;
+            _apiManager = apiManager;
         }
 
         /// <summary>
@@ -424,7 +427,8 @@ namespace DGAIZone.Title
 
         /// <summary>
         /// 비활동 타이머와 같은 설정(Settings.json의 useInactivityTimer·resetTime)으로, 시작하기를 누르지 않은 채
-        /// 그 시간이 지나면 확인한 체험자를 비우고 다시 QR을 기다림. 비활동 타이머가 꺼져 있으면 계속 기다림.
+        /// 그 시간이 지나면 서버에 move_idle_timeout을 보내고 확인한 체험자를 비운 뒤 다시 QR을 기다림. 비활동 타이머가 꺼져 있으면 계속 기다림.
+        /// 타이틀에서 난 비활동 타임아웃은 APIManager가 보내지 않으므로, 타이틀의 move_idle_timeout은 이 경우에만 남음.
         /// </summary>
         private async UniTaskVoid ConfirmTimeoutAsync(CancellationTokenSource cts)
         {
@@ -449,6 +453,9 @@ namespace DGAIZone.Title
                 await UniTask.Delay(TimeSpan.FromSeconds(settings.resetTime), DelayType.UnscaledDeltaTime, cancellationToken: token);
 
                 if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {settings.resetTime}초 동안 시작하기를 누르지 않아 QR 대기로 돌아감.");
+                // 로그 전송은 씬과 상관없이 끝까지 보내도록 이 오브젝트의 토큰을 넘기지 않음
+                if (_apiManager != null) _apiManager.SendMoveIdleTimeoutLogAsync().Forget();
+                else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] apiManager가 null이라 시작하기 대기 시간 초과 로그(move_idle_timeout)를 보내지 않음.");
                 ClearConfirmedVisitor();
                 WaitForQr();
             }
