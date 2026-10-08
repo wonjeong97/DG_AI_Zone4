@@ -19,6 +19,7 @@
 - 변경 파일: `Title/TitleFlowController.cs`(CancelConfirmTimeout — 필드를 지역 변수로 옮겨 먼저 null로 비운 뒤 Cancel·Dispose, finally의 '_confirmTimeoutCts == cts' 비교가 거짓이 돼 한 번만 해제), `TODO.md`. CHANGELOG는 관람객·운영자가 겪기 어려운 내부 예외라 적지 않음.
 - 확인(Claude, Play 모드 0_Title): StartConfirmTimeout 직후 CancelConfirmTimeout 3번 → 예외 없음·필드 null. 연달아 StartConfirmTimeout 두 번 → 마지막 대기 하나만 남고, (메모리에서만 resetTime 2초) 2초 뒤 'QR 대기로 돌아감'과 move_idle_timeout 각 1번. 콘솔 오류·경고 0. PlayMode 177/177, 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
 - 확인 요청·결과(agy `gemini-3.8-flash-high`): 그 자리 취소·다음 프레임 취소 두 경로에서 CTS가 한 번만 해제되고 새 대기의 CTS를 건드리지 않는지, OnQrScanned·OnStartClicked·OnDestroy·StartConfirmTimeout 동작 유지(취소된 대기는 로그를 보내지 않음), 해제된 CTS의 Token을 쓰는 곳 없음·주석 문체 → 3/3 통과, 문제 0건.
+- PR wonjeong97/DG_AI_Zone4#52(T49·T50) 머지 전 리뷰(agy 2묶음): (코드) 두 수정을 합친 상태에서 시작하기 대기의 모든 끝(시간 만료 1번, 시작하기·다음 QR·씬 파괴·연달아 다시 시작 0번), 씬 전환 페이드 경계(시작하기 뒤·타임아웃 복귀·아웃트로 홈 — 입력으로 타이머가 초기화되거나 이미 타임아웃 상태라 새거나 빠지는 로그 없음), 다른 구독자·Pause/Resume·MoveIdleEvent 영향 없음 → 3/3 통과. (문서) PR 설명·커밋 일치, HANDOFF T49·T50 사실 대조, CHANGELOG·TODO 형식과 T50 CHANGELOG 제외 판단 → 3/3 통과. 문제 0건.
 
 ---
 
