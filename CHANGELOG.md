@@ -5,9 +5,6 @@
 
 ## [Unreleased]
 
-### Removed
-- `RfidMappings.json`의 `stageReadCounts`를 더 이상 쓰지 않아 지움(현장 파일에 남아 있어도 무시되며, 레벨별 단계 수는 `levelMappings[].steps` 개수로 정해짐).
-
 ## [2026-10-09]
 
 ### ⚠ Breaking Changes
@@ -23,6 +20,9 @@
 - 각 화면의 설정 JSON(`0_Title.json`·`1_Intro.json`·`2_LevelSelect.json`·`4_Result.json`·`RfidMappings.json`)을 읽지 못하면 그 사실이 Unity 콘솔뿐 아니라 로그 파일에도 남음.
 - 레벨 5 성공 판정이 '카드 5장을 모두 놓으면 성공'(임시 규칙)에서 '동작 블록 4개가 모두 함수 정의 블록 안에 들어가 있으면 성공'으로 바뀌어, 함수 카드를 동작 카드보다 먼저 놓아야 성공함.
 - 레벨 5는 블록 5개(함수 1·동작 4)를 모두 놓아야 코딩 완료 버튼이 켜짐(예전에는 1장만 놓아도 눌러 실패를 볼 수 있었음).
+
+### Removed
+- `RfidMappings.json`의 `stageReadCounts`를 더 이상 쓰지 않아 지움(현장 파일에 남아 있어도 무시되며, 레벨별 단계 수는 `levelMappings[].steps` 개수로 정해짐).
 
 ### Fixed
 - 인트로에서 스토리가 나오기 전에 화면을 누르면 스토리를 보지 못하고 튜토리얼로 넘어가던 문제를 고침.

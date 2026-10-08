@@ -26,6 +26,7 @@
 - 변경 파일: `StreamingAssets/RfidMappings.json`(키 삭제), `Game/Data/RfidMappingData.cs`(RfidSettings.stageReadCounts 삭제), `Game/UI/IngredientSelectionController.cs`(대체 계산 삭제, steps가 없으면 DefaultFallbackStepCount 3으로 경고). 현장 JSON에 키가 남아 있어도 JsonUtility가 무시함. CHANGELOG Removed 1줄.
 - 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 191/191, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
 - 리뷰(Claude 서브에이전트): Assets·ProjectSettings 참조 0건, 현장 JSON 호환, 경고·summary·CHANGELOG 문장 맞음 → 통과.
+- PR wonjeong97/DG_AI_Zone4#60 머지 전(Claude, agy 한도 초과): T62·T63 커밋 둘에 main과 차이 없음(뒤처짐 0), 변경 범위(코드 2·JSON 1·문서 4)가 위 리뷰와 같음, CHANGELOG 미배포 Removed 1줄을 2026-10-09 섹션으로 옮김 → 통과. 사용자가 리뷰 뒤 바로 머지하라고 함.
 
 ---
 
