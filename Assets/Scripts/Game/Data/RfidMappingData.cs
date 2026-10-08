@@ -111,7 +111,6 @@ namespace DGAIZone.Game.Data
     public class RfidSettings
     {
         public int listenPort = 10123; // PC(서버)가 모든 리더기 클라이언트의 접속을 받는 TCP 포트(공용). 리더기(KA-LAN-754) 기본 목적지 포트값과 동일하게 맞춰둠
-        public int[] stageReadCounts = { 3 }; // levelMappings에 단계(steps) 정의가 없는 레벨의 단계 수. 첫 값만 씀(예전 스테이지 구분의 흔적)
 
         // 리더기(KA-LAN-754)는 연속 읽기 모드로 설정함. 명령을 보내지 않아도 카드가 올라가 있는 동안 같은 UID를 계속 보내고,
         // 카드가 없으면 아무것도 보내지 않음. UID는 구분자 없는 원시 7바이트(예: 81 73 69 22 E5 1D 04)로 오며,

@@ -13,6 +13,23 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T63
+- 요청(사용자): 프로젝트 CLAUDE.md 채우기.
+- 변경 파일: `CLAUDE.md`(개요·스택·씬 흐름·레벨 1~5 표·현장 설정 파일, RFID 리더기·QR 스캐너·체험자 서버·서버 로그·관리자 화면·디버그 키, 공통 규칙의 예외 3가지). 전시명·설치 장소는 모르는 정보라 적지 않음.
+- 리뷰(Claude 서브에이전트, 적힌 사실을 코드·데이터로 하나씩 확인): 틀림 2 — 결과 다음 씬(레벨 1~4는 2_LevelSelect, 5만 5_Outro, 관리자 레벨 이동 판은 타이틀 관리자 화면), 레벨 3 성공 조건(미션 문구 요약이 아니라 정답 블록 게이지 판정). 부정확 3 — 레벨 1은 정확히 같아야 함, 5_Outro 처음으로도 move_idle·타이틀 move_idle_timeout은 TitleFlowController가 보냄·서버 로그 주소 apiUrl, checkActive는 평문. 모두 반영. 민감 정보(서버 주소·IP·MAC·개인 경로) 없음.
+
+---
+
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T62
+- 요청(사용자): 쓰이지 않으면 stageReadCounts 지우기.
+- 확인: 단계 수는 `levelMappings[레벨].steps` 개수(레벨 1 = 3, 2~5 = 5)이고 stageReadCounts는 steps가 없는 레벨의 대체값이라 지금 데이터에서는 쓰이지 않음.
+- 변경 파일: `StreamingAssets/RfidMappings.json`(키 삭제), `Game/Data/RfidMappingData.cs`(RfidSettings.stageReadCounts 삭제), `Game/UI/IngredientSelectionController.cs`(대체 계산 삭제, steps가 없으면 DefaultFallbackStepCount 3으로 경고). 현장 JSON에 키가 남아 있어도 JsonUtility가 무시함. CHANGELOG Removed 1줄.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 191/191, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트): Assets·ProjectSettings 참조 0건, 현장 JSON 호환, 경고·summary·CHANGELOG 문장 맞음 → 통과.
+- PR wonjeong97/DG_AI_Zone4#60 머지 전(Claude, agy 한도 초과): T62·T63 커밋 둘에 main과 차이 없음(뒤처짐 0), 변경 범위(코드 2·JSON 1·문서 4)가 위 리뷰와 같음, CHANGELOG 미배포 Removed 1줄을 2026-10-09 섹션으로 옮김 → 통과. 사용자가 리뷰 뒤 바로 머지하라고 함.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T61
 - 요청(사용자): 레벨 5 성공 규칙은 "동작 블록이 모두 함수 바디 안에 들어가 있으면 성공", 블록 5개를 모두 사용해야 함(질문으로 확인: 5장을 다 놓아야 코딩 완료 버튼이 켜짐).
 - 변경 파일: `Game/UI/States/IngredientLevel5State.cs`(EvaluateMission — 첫 함수 카드 뒤 동작 카드 수(CountFunctionBodyActions)가 4이면 성공, IsComplete 삭제, 판정 로그에 안쪽 동작 수·함수 카드 수, IsCodingCompleteInteractable 1장 이상 → 모든 단계, 정답 주석의 '임시' 삭제, 그림 계산과 같은 기준이라는 상호 주석), `Game/UI/IngredientSelectionController.cs`(테스트 전용 SetConfirmedIngredientsForTest), `App/Constants.cs`·`Game/Data/RfidMappingValidator.cs`(옛 임시 규칙 주석), 테스트 `Level5RuleTests`(안쪽 동작 세기·판정·5장 버튼 조건). CHANGELOG Changed 2줄. 스토리·미션 문구는 그대로.

@@ -1,7 +1,6 @@
 {
   "listenPort": 10123,
   "cardRemovedDebounceMs": 1000,
-  "stageReadCounts": [ 3 ],
   "readers": [
     {
       "readerId": "Reader_1",
