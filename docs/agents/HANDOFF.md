@@ -18,6 +18,7 @@
 - 변경 파일: `App/SelectedLevelStore.cs`(FallbackLevel 상수, 정적 LevelOrFallback(store, logger, owner) — null이면 `[owner] selectedLevelStore가 null이라 레벨 1로 처리함.` 경고 후 1), `Game/GameFlowController.cs`, `Game/UI/MissionBoardController.cs`(2곳), `Result/ResultAiPanel.cs`, `Result/ResultFlowController.cs`(2곳), `Result/ResultVideoPanel.cs`(예전 MinLevel도 1), T54에서 직접 경고를 넣었던 `Game/UI/IngredientSelectionController.cs`도 같은 헬퍼로 통일. 같은 모양은 이 8곳이 전부(검색으로 확인). 단순 값 반환이라 스킬 13번 기준으로 테스트는 추가하지 않음. CHANGELOG는 관람객·운영자 영향이 없어 적지 않음. 버전은 이미 26.10.9.
 - 확인: Rider 코드 분석 오류 0(새 헬퍼의 "Message template should be compile time constant" 경고는 변수 들어간 ZLogger 호출 모두에 뜨는 오탐), Unity 컴파일·콘솔 오류 0, PlayMode 187/187, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
 - 리뷰: agy가 아직 이용 한도(429, 약 1시간 55분 뒤 초기화)라 Claude가 직접 diff 확인 — 8곳 모두 예전과 같은 값(1)·저장소가 있을 때 동작 같음·로거 null에도 예외 없음 → 통과. MissionBoardController·ResultFlowController는 저장소가 없으면 경고가 두 번 남을 수 있으나 주입이 빠진 잘못된 구성에서만 생겨 그대로 둠.
+- PR wonjeong97/DG_AI_Zone4#57 머지 전(Claude): 커밋 하나에 main과 차이 없음, 변경 범위(코드 7파일·TODO·HANDOFF)가 위 리뷰와 같음, 관람객·운영자 영향이 없어 CHANGELOG 항목 없음 → 통과.
 
 ---
 
