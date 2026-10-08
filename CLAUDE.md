@@ -4,8 +4,9 @@
 
 ## 프로젝트 개요
 
-4존 AI 코딩 체험 전시 콘텐츠. 관람객이 RFID 코딩 카드(동작·제어·논리·함수)를 리더기에 올려 설계창에 블록을 쌓고, 우주 미션을 코딩으로 푼다.
+**이동형 AI 4존** — AI 코딩 체험 전시 콘텐츠. 관람객이 RFID 코딩 카드(동작·제어·논리·함수)를 리더기에 올려 설계창에 블록을 쌓고, 우주 미션을 코딩으로 푼다.
 
+- 설치 장소: 고정되어 있지 않은 이동형 전시. 장소를 옮길 때마다 네트워크가 바뀌므로 Unity PC IP, 리더기의 Target IP, `RfidMappings.json`의 `readers`, `Server.json`의 `baseUrl`을 현장에 맞춘다.
 - Unity 2022.3.62f3, C# 10(`Assets/csc.rsp`), UI 캔버스·영상만 써서 URP-Performant·카메라 후처리 꺼짐.
 - 스택: VContainer, UniTask, MessagePipe, R3, ZLogger, ZString, DOTween, Addressables, Input System, 공용 템플릿 패키지 `com.huliacdev.template`(`HuliacDev.*`).
 - 어셈블리: 런타임 `DGAIZone` 하나와 테스트 `DGAIZone.Tests`(`InternalsVisibleTo`). 테스트는 PlayMode만 있음.
