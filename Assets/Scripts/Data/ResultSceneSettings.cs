@@ -8,7 +8,7 @@ namespace DGAIZone.Data
     [Serializable]
     public class ResultSceneSettings
     {
-        /// <summary> 패널(AI 코딩 안내, AI 패널, 설계창 <-> 영상, 컴플리트 패널) 페이드에 걸리는 시간(초). </summary>
+        /// <summary> 패널(AI 코딩 안내, AI 패널, 설계창 ↔ 영상, 컴플리트 패널) 페이드에 걸리는 시간(초). </summary>
         public float panelFadeDuration = 0.4f;
 
         /// <summary> 'AI가 코딩중입니다...' 안내를 띄워 두는 시간(초, 페이드 제외). </summary>

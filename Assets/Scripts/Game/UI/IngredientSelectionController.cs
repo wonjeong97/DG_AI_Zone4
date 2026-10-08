@@ -116,9 +116,8 @@ namespace DGAIZone.Game.UI
 
         private int _selectedLevel = 1;     // 현재 레벨 (디자인 항목 표시 형식 분기 등에 사용)
         private int _currentStepIndex = 0;  // 현재 read 인덱스 (0 ~ _totalSteps-1)
-        private int _totalSteps = 3;        // 현재 스테이지에서 찍어야 하는 총 read 횟수
-        private int _currentStageIndex = 0; // 현재 스테이지 (0부터 시작)
-        private int[] _stageReadCounts = { 3 }; // 스테이지별 read 횟수 (JSON stageReadCounts, steps 미설정 시 폴백)
+        private int _totalSteps = 3;        // 이번 레벨의 단계 수
+        private const int DefaultFallbackStepCount = 3; // 단계(steps) 정의가 없는 레벨인데 JSON stageReadCounts가 없거나 첫 값이 0 이하일 때의 단계 수
         private RfidLevelMapping _levelMapping; // 현재 레벨의 블록 목록(matterSets)·단계 정의. 단계가 고를 블록은 matterSetId로 여기서 찾음
         private RfidStepDefinition[] _stepDefinitions; // "동작" 카드를 찍을 때마다 순서대로 진행되는 재료 목록 (추진체 종류 -> 탑재 종류 -> 연료량)
         private RfidStepDefinition[] _categoryIngredients; // 카드 분류로 재료가 정해지는 레벨(레벨 4)의 분류별 재료 정의
@@ -126,7 +125,6 @@ namespace DGAIZone.Game.UI
         private string[] _confirmedIngredients; // 각 스탭에서 확정된 재료의 ingredientId
         private string _currentIngredientId; // 현재 대기 중인(아직 확정 안 된) 재료의 ingredientId. 화면 표시용 이름은 _currentIngredient
         private string[] _confirmedCategories; // 각 스탭을 확정시킨 카드의 category(동작/제어/논리/함수). 리더기별 스탭 라우팅에서 카드 변경 감지에 사용
-        private readonly List<DesignStepShape> _plannedDesignShapes = new List<DesignStepShape>(); // 이번 레벨 단계를 모두 쌓았을 때의 설계창 블록 모양(배율 계산용)
         private readonly List<DesignStep> _designSteps = new List<DesignStep>(); // 플레이어가 설계창에 쌓은 블록(결과 씬 '나의 코딩 결과'용)
         private string _currentCategory; // 현재 대기 중인(아직 확정 안 된) 태그의 category. Confirm 시 _confirmedCategories에 기록됨
 
@@ -299,33 +297,46 @@ namespace DGAIZone.Game.UI
                 // (계속하면 이미 해제된 상태 머신·참조를 건드려 ObjectDisposedException과 null 경고가 이어짐)
                 if (token.IsCancellationRequested) return;
 
-                if (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0)
-                {
-                    _stageReadCounts = settings.stageReadCounts;
-                }
-
-                _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
-
-                int level = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(IngredientSelectionController));
-                ChangeLevelState(level);
-                ValidateMappings(settings);
-                ApplyLevelMapping(settings != null ? settings.FindLevelMapping(level) : null);
-
-                _currentStageIndex = Mathf.Clamp(_currentStageIndex, 0, _stageReadCounts.Length - 1);
-                _totalSteps = (_stepDefinitions != null && _stepDefinitions.Length > 0)
-                    ? _stepDefinitions.Length
-                    : _stageReadCounts[_currentStageIndex];
-
-                if ((_stepDefinitions == null || _stepDefinitions.Length == 0) && _logger != null)
-                {
-                    _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 stageReadCounts의 {_totalSteps}회로 진행함.");
-                }
+                ApplyRfidSettings(settings);
             }
             catch (Exception e)
             {
                 if (_logger != null) _logger.ZLogError($"[IngredientSelectionController] 워크플로우용 RfidMappings.json 로드 실패: {e.Message}");
             }
 
+            ResetWorkflowProgress();
+        }
+
+        /// <summary>
+        /// RfidMappings.json 설정으로 리더기 수, 레벨 상태, 이 레벨의 블록 목록·단계 정의, 총 단계 수를 정함.
+        /// 단계 정의가 없는 레벨이면 stageReadCounts의 첫 값(없거나 0 이하면 기본값)만큼 진행하고 경고를 남김.
+        /// </summary>
+        private void ApplyRfidSettings(RfidSettings settings)
+        {
+            // 음수면 단계별 기록 배열을 만들 수 없고 0이면 진행할 단계가 없으므로 기본값을 씀(쓰일 때 아래 경고가 실제 단계 수를 남김)
+            int fallbackStepCount = (settings != null && settings.stageReadCounts != null && settings.stageReadCounts.Length > 0 && settings.stageReadCounts[0] > 0)
+                ? settings.stageReadCounts[0]
+                : DefaultFallbackStepCount;
+
+            _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
+
+            int level = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(IngredientSelectionController));
+            ChangeLevelState(level);
+            ValidateMappings(settings);
+            ApplyLevelMapping(settings != null ? settings.FindLevelMapping(level) : null);
+
+            bool hasStepDefinitions = _stepDefinitions != null && _stepDefinitions.Length > 0;
+            _totalSteps = hasStepDefinitions ? _stepDefinitions.Length : fallbackStepCount;
+
+            if (!hasStepDefinitions && _logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 {_totalSteps}단계로 진행함(stageReadCounts 첫 값, 없거나 0 이하면 기본 {DefaultFallbackStepCount}).");
+            }
+        }
+
+        /// <summary> 확정 기록과 떨어진 카드 표시를 비우고, 설계창·설정하기/코딩 완료 막힘·스텝 볼·분류 안내를 처음 상태로 둠. </summary>
+        private void ResetWorkflowProgress()
+        {
             _confirmedMatters = new RfidMatter[_totalSteps];
             _confirmedIngredients = new string[_totalSteps];
             _confirmedCategories = new string[_totalSteps];
@@ -466,8 +477,21 @@ namespace DGAIZone.Game.UI
         /// 해당 단계의 재료로 진행함. 카드는 더 이상 재료 이름을 알려주지 않으므로, 진행 순서(추진체 종류 -> 탑재 종류 -> 연료량)는
         /// _currentStepIndex에 대응하는 _stepDefinitions 항목으로 결정됨. 단계별로 허용 category가 다를 수 있음
         /// (예: 레벨 1은 모든 단계가 "동작"만 허용, 레벨 4는 "동작"/"제어"를 유동적으로 허용).
+        /// 리더기 라우팅·무시 판정(TryRouteToCurrentStep) → 단계와 카드 확인(TryResolveStepCard) → 선택 상태 적용(ApplyStepCard) 순서로 처리함.
         /// </summary>
         private void OnRfidTagReceived(RfidTagEvent evt)
+        {
+            if (!TryRouteToCurrentStep(evt)) return;
+            if (!TryResolveStepCard(evt, out RfidStepDefinition ingredient, out RfidMatter[] matters)) return;
+
+            ApplyStepCard(evt, ingredient, matters);
+        }
+
+        /// <summary>
+        /// 이 태그를 지금 단계의 입력으로 처리할지 정함. 게임 화면이 아니거나, 아직 차례가 아닌 리더기이거나, 모든 단계를 마쳤으면 무시하고(행동 로그),
+        /// 떼었던 카드가 같은 분류로 돌아오면 블록만 다시 붙이고 끝냄. 이미 설정한 단계의 리더기에서 카드가 바뀌었으면 그 단계까지 되돌린 뒤 true를 돌려줌.
+        /// </summary>
+        private bool TryRouteToCurrentStep(RfidTagEvent evt)
         {
             // 리더기별 스탭 라우팅: 설정된 리더기가 2대 이상일 때만 적용함(1대뿐이면 기존처럼 어떤 리더기든 현재 스탭에 적용).
             // "Reader_N" 형식이 아닌 readerId(디버그 키보드 시뮬레이터의 "Keyboard", 미등록 리더기의 "Unknown_...")는
@@ -482,7 +506,7 @@ namespace DGAIZone.Game.UI
             if (!gamePanel || (!gamePanel.interactable && !returnsMissingCard))
             {
                 LogCardPlaced(evt, "게임 화면이 아니라 무시함");
-                return;
+                return false;
             }
 
             if (_readerCount > 1)
@@ -500,9 +524,9 @@ namespace DGAIZone.Game.UI
 
                     if (wasIdle && string.Equals(previousCategory, evt.Category, StringComparison.Ordinal))
                     {
-                        LogCardPlaced(evt, $"{readerStepIndex + 1}번째 단계에서 뗐던 카드와 같은 분류라 블록을 다시 붙임");
+                        LogCardPlaced(evt, ZString.Format("{0}번째 단계에서 뗐던 카드와 같은 분류라 블록을 다시 붙임", readerStepIndex + 1));
                         RefreshMissingCards();
-                        return;
+                        return false;
                     }
 
                     // 그 외(카드를 떼지 않은 채 다른 카드로 교체했거나, 떨어졌다가 다른 category로 바뀐 경우)는
@@ -513,8 +537,8 @@ namespace DGAIZone.Game.UI
                 else if (readerStepIndex > _currentStepIndex)
                 {
                     // 아직 도달하지 않은(활성화되지 않은) 스탭의 리더기 -> 무시
-                    LogCardPlaced(evt, $"아직 {_currentStepIndex + 1}번째 단계를 하는 중이라 무시함");
-                    return;
+                    LogCardPlaced(evt, ZString.Format("아직 {0}번째 단계를 하는 중이라 무시함", _currentStepIndex + 1));
+                    return false;
                 }
             }
 
@@ -522,8 +546,20 @@ namespace DGAIZone.Game.UI
             if (_currentStepIndex >= _totalSteps)
             {
                 LogCardPlaced(evt, "모든 단계를 마쳐 무시함");
-                return;
+                return false;
             }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 지금 단계의 정의와 카드 분류를 확인해, 이 카드로 고를 재료(ingredient)와 블록 목록(matters)을 찾음. 단계 정의·재료·블록 목록이 없으면 경고를,
+        /// 이 단계에서 쓸 수 없는 분류면 잘못된 카드 경고를 띄우고 false. 레벨 상태가 받지 않는 카드(레벨 4·5 규칙)도 false.
+        /// </summary>
+        private bool TryResolveStepCard(RfidTagEvent evt, out RfidStepDefinition ingredient, out RfidMatter[] matters)
+        {
+            ingredient = null;
+            matters = null;
 
             if (_stepDefinitions == null || _currentStepIndex >= _stepDefinitions.Length || _stepDefinitions[_currentStepIndex] == null)
             {
@@ -531,24 +567,24 @@ namespace DGAIZone.Game.UI
                 {
                     _logger.ZLogWarning($"[IngredientSelectionController] {_currentStepIndex}번 인덱스에 대한 단계 정의가 없어 {evt.ReaderId} 태그를 무시함.");
                 }
-                return;
+                return false;
             }
 
             RfidStepDefinition step = _stepDefinitions[_currentStepIndex];
 
             if (!step.AllowsCategory(evt.Category))
             {
-                LogCardPlaced(evt, $"{_currentStepIndex + 1}번째 단계에서 쓸 수 없는 카드라 경고를 띄움");
+                LogCardPlaced(evt, ZString.Format("{0}번째 단계에서 쓸 수 없는 카드라 경고를 띄움", _currentStepIndex + 1));
                 ShowInvalidCardWarning();
-                return;
+                return false;
             }
 
             if (CurrentLevelState != null && !CurrentLevelState.ValidateTagCategory(this, evt))
             {
-                return;
+                return false; // 레벨 상태가 행동 로그와 경고를 남김
             }
 
-            RfidStepDefinition ingredient = CurrentLevelState != null
+            ingredient = CurrentLevelState != null
                 ? CurrentLevelState.ResolveStepCard(this, step, evt.Category)
                 : step;
 
@@ -558,19 +594,25 @@ namespace DGAIZone.Game.UI
                 {
                     _logger.ZLogWarning($"[IngredientSelectionController] '{evt.Category}' 카드에 해당하는 재료 정의가 RfidMappings.json에 없어 {evt.ReaderId} 태그를 무시함.");
                 }
-                return;
+                return false;
             }
 
-            RfidMatter[] matters = _levelMapping?.FindMatters(ingredient.matterSetId);
+            matters = _levelMapping?.FindMatters(ingredient.matterSetId);
             if (matters == null || matters.Length == 0)
             {
                 if (_logger != null)
                 {
                     _logger.ZLogWarning($"[IngredientSelectionController] {ingredient.ingredientName}({ingredient.ingredientId})의 블록 목록 '{ingredient.matterSetId}'가 RfidMappings.json에 없거나 비어 있어 {evt.ReaderId} 태그를 무시함.");
                 }
-                return;
+                return false;
             }
 
+            return true;
+        }
+
+        /// <summary> 확인된 카드로 지금 단계의 재료와 고를 블록 목록을 정하고, 분류 강조·값 표시·미리보기를 갱신함(행동 로그 포함). </summary>
+        private void ApplyStepCard(RfidTagEvent evt, RfidStepDefinition ingredient, RfidMatter[] matters)
+        {
             LogCardPlaced(evt, string.IsNullOrEmpty(ingredient.ingredientName)
                 ? ZString.Concat(_currentStepIndex + 1, "번째 단계에 적용함")
                 : ZString.Concat(_currentStepIndex + 1, "번째 단계 '", ingredient.ingredientName, "'에 적용함"));
@@ -684,7 +726,7 @@ namespace DGAIZone.Game.UI
             int stepIndex = GetStepIndexForReader(evt.ReaderId);
             if (stepIndex < 0 || stepIndex > _currentStepIndex)
             {
-                LogCardRemoved(evt.ReaderId, $"단계가 없는 리더기이거나 아직 하지 않은 단계라 그대로 둠(지금 {_currentStepIndex + 1}번째 단계)");
+                LogCardRemoved(evt.ReaderId, ZString.Format("단계가 없는 리더기이거나 아직 하지 않은 단계라 그대로 둠(지금 {0}번째 단계)", _currentStepIndex + 1));
                 return;
             }
 
@@ -706,13 +748,13 @@ namespace DGAIZone.Game.UI
             if (stepIndex == _currentStepIndex - 1)
             {
                 CancelLastStep();
-                LogCardRemoved(evt.ReaderId, $"마지막으로 설정한 단계라 취소해 {_currentStepIndex + 1}번째 단계로 되돌림");
+                LogCardRemoved(evt.ReaderId, ZString.Format("마지막으로 설정한 단계라 취소해 {0}번째 단계로 되돌림", _currentStepIndex + 1));
                 return;
             }
 
             if (_idleReaderStepIndices.Add(stepIndex))
             {
-                LogCardRemoved(evt.ReaderId, $"{stepIndex + 1}번째 단계부터 블록을 잠시 떼고 설정하기·코딩 완료를 막음");
+                LogCardRemoved(evt.ReaderId, ZString.Format("{0}번째 단계부터 블록을 잠시 떼고 설정하기·코딩 완료를 막음", stepIndex + 1));
                 RefreshMissingCards();
             }
         }
@@ -1015,21 +1057,15 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(레벨 상태가 정한, 이번 레벨 단계를 가장 길게 쌓았을 때의 블록 모양으로 블록 크기를 정함)
+        /// 설계창을 시작하기 블록만 놓인 처음 상태로 되돌리고(레벨 상태가 정한 값 블록·함수 정의 블록 사용 여부로 블록 묶음 폭을 정함)
         /// 코딩완료 버튼 상태를 갱신함.
         /// </summary>
         private void ResetDesignPanel()
         {
             _designSteps.Clear();
-            _plannedDesignShapes.Clear();
-            if (CurrentLevelState != null) CurrentLevelState.FillPlannedDesignShapes(this, _plannedDesignShapes);
-            else
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 설계창 단계를 모두 명령 블록으로 셈.");
-                for (int i = 0; i < _totalSteps; i++) _plannedDesignShapes.Add(DesignStepShape.Command);
-            }
+            if (CurrentLevelState == null && _logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 레벨 상태가 없어 설계창을 값 블록 있음·함수 정의 블록 없음으로 초기화함.");
 
-            if (_designPanel) _designPanel.Initialize(_plannedDesignShapes, CurrentLevelState == null || CurrentLevelState.UsesValueBlocks);
+            if (_designPanel) _designPanel.Initialize(CurrentLevelState == null || CurrentLevelState.UsesValueBlocks, CurrentLevelState != null && CurrentLevelState.UsesFunctionDefinition);
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 설계창을 초기화할 수 없음.");
 
             UpdateCodingCompleteButton();
@@ -1157,7 +1193,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 결과 씬에서 보여 줄 설계를 결과 저장소에 기록함: 플레이어가 설계창에 쌓은 블록과 completed(코딩완료로 마쳤는지, 스킵이면 false),
-        /// 설계창 배치 방식, 이번 판 문제의 정답(레벨 상태의 BuildSolution)을 설계창과 같은 블록으로 바꾼 것. 정답을 만들지 못하면 정답은 빈 목록이 기록됨.
+        /// 이번 판 문제의 정답(레벨 상태의 BuildSolution)을 설계창과 같은 블록으로 바꾼 것. 정답을 만들지 못하면 정답은 빈 목록이 기록됨.
         /// </summary>
         internal void StoreResultDesigns(bool completed)
         {
@@ -1169,8 +1205,6 @@ namespace DGAIZone.Game.UI
 
             _resultStore.PlayerDesign = _designSteps.ToArray();
             _resultStore.PlayerDesignCompleted = completed;
-            if (_designPanel) _resultStore.DesignLayoutMode = _designPanel.LayoutMode;
-            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] designPanel이 null이라 결과 설계창 배치 방식을 기본값({_resultStore.DesignLayoutMode})으로 둠.");
 
             IIngredientSelectionLevelState state = CurrentLevelState;
             if (state == null)
@@ -1342,7 +1376,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 값이 숫자로만 구성되어 있으면 <size> 리치 텍스트 태그로 감싸 강조 크기를 적용하고, 아니면 원본 값을 그대로 반환함.
+        /// 값이 숫자로만 구성되어 있으면 &lt;size&gt; 리치 텍스트 태그로 감싸 강조 크기를 적용하고, 아니면 원본 값을 그대로 반환함.
         /// </summary>
         internal string ApplyNumberSizeTag(string value)
         {

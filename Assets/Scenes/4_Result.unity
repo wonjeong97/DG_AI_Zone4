@@ -1316,8 +1316,6 @@ MonoBehaviour:
   content: {fileID: 100585681}
   blockPrefab: {fileID: 3089114480932718145, guid: 824885bbc806ceb47ac41c4b5588eb50,
     type: 3}
-  layoutMode: 0
-  maxFitScale: 0.8
   scrollScale: 0.7
   edgePadding: 8
   stackShiftLeft: 30
@@ -1326,6 +1324,8 @@ MonoBehaviour:
   valueSlideDuration: 0.4
   valueSlideDistance: 120
   removeDuration: 0.2
+  restoreRiseDuration: 1
+  restoreValueSlideDuration: 0.6
   scrollDuration: 0.3
   completeHoldDuration: 0.5
 --- !u!114 &658948743
@@ -1966,8 +1966,6 @@ MonoBehaviour:
   content: {fileID: 1348507212}
   blockPrefab: {fileID: 3089114480932718145, guid: 824885bbc806ceb47ac41c4b5588eb50,
     type: 3}
-  layoutMode: 0
-  maxFitScale: 0.8
   scrollScale: 0.7
   edgePadding: 8
   stackShiftLeft: 30
@@ -1976,6 +1974,8 @@ MonoBehaviour:
   valueSlideDuration: 0.4
   valueSlideDistance: 120
   removeDuration: 0.2
+  restoreRiseDuration: 1
+  restoreValueSlideDuration: 0.6
   scrollDuration: 0.3
   completeHoldDuration: 0.5
 --- !u!114 &1101216804

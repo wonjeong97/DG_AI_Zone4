@@ -9,6 +9,7 @@ namespace DGAIZone.App
     /// </summary>
     public interface ISceneVideoReadiness
     {
+        /// <summary> 씬 안의 영상이 첫 화면을 그릴 때까지(영상을 틀 수 없으면 그것이 확정될 때까지) 기다림. </summary>
         UniTask WaitUntilVideoReadyAsync(CancellationToken token);
     }
 }

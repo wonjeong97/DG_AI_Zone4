@@ -9,10 +9,14 @@
 
 ## 할 일
 
-- [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
 
 ## 완료
 
+- [x] T60 마지막 점검 정리: 쓰이지 않는 using 10곳, summary 없던 메서드 5곳, XML 주석 오류, 행동 로그 문구 ZString, stageReadCounts 0 이하 예외 방지, rightArrow 기본값을 JSON과 맞춤(HANDOFF.md 참고) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
+- [x] T59 씬·프리팹·텍스처 UI 설정 점검(스킬 19번): 클릭 받지 않는 Raycast Target 6개 끔, 3_Game 페이드 UI 2곳 하위 Canvas 분리, 씬에 남은 지운 직렬화 필드 값 정리, 관리자 이름 입력란을 직접 누르면 선택되던 버그 수정(밉맵·투명 차단 이미지는 문제 없음, HANDOFF.md 참고) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
+- [x] T58 타이틀·인트로 성능·버그 점검(T54에서 시간 제한으로 끊긴 부분): 인트로 스토리를 화면 전환이 끝난 뒤 시작, 튜토리얼 7페이지 미리 로드·실패 핸들 재시도, QR을 다시 받은 직후 잘려 들어오는 글자 버림, 관리자 레벨 이동 중 QR·서버 응답·대기 초과가 해금 레벨을 바꾸지 않게 함(HANDOFF.md 참고) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
+- [x] T57 미룬 리팩터링(T54에서 범위가 커서 뺀 것 중 필요한 것): IngredientSelectionController의 InitializeWorkflowAsync·OnRfidTagReceived를 단계별 메서드로 나눔(스킬 10번), 쓰이지 않는 스테이지 인덱스 정리. 주입 실패 Debug.LogError 일괄 추가(테스트가 로거 없이 만들어 오류 로그로 실패함)·상태 인터페이스의 안 쓰는 매개변수(다섯 상태 공통 모양, 레벨 5 검토 중)는 하지 않음 — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
+- [x] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 → 사용자 결정으로 '크게 두고 자동 스크롤'만 남기고 DesignLayoutMode·maxFitScale·결과 저장소의 배치 방식·전용 테스트 2개 삭제(실행 동작은 이미 자동 스크롤이라 그대로) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T56 남은 조용한 대체값에 경고 추가: `_selectedLevelStore`가 null이면 말없이 레벨 1을 쓰는 곳 7곳(GameFlowController·MissionBoardController 2·ResultAiPanel·ResultFlowController 2·ResultVideoPanel). 필수 주입이라 실제로는 테스트에서만 null(PR #56 리뷰에서 찾음) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T54 전체 코드 재점검: 스킬(unity-stack-scaffold·unity-network-protocol) 위반, 성능 최적화, 리팩터링 후보를 찾아 확인된 것만 적용(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신, 사용자 확인) (2026-10-09)
 - [x] T55 HuliacDev Template 패키지 26.9.25-3 → 26.10.9-1 업데이트(packages-lock.json 고정 커밋 b4547f3 → 640d05e, VideoManager 영상 RenderTexture 깊이 버퍼 제거 — 이 프로젝트는 해당 API를 쓰지 않음, 버전은 이미 26.10.9)(HANDOFF.md 참고) — 담당: Claude / 검증: Claude(Antigravity 한도 초과로 대신 검증) (2026-10-09)

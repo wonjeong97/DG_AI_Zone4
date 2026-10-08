@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using ZLogger;
@@ -37,7 +37,7 @@ namespace DGAIZone.Game.UI.States
         {
             if (IsRepeatFollowUpRequired(controller) && !string.Equals(evt.Category, Constants.RfidCategories.Action, StringComparison.Ordinal))
             {
-                controller.LogCardPlaced(evt, $"이전 단계가 '반복하기'라 {controller.CurrentStepIndex + 1}번째 단계는 동작 카드만 쓸 수 있어 경고를 띄움");
+                controller.LogCardPlaced(evt, ZString.Format("이전 단계가 '반복하기'라 {0}번째 단계는 동작 카드만 쓸 수 있어 경고를 띄움", controller.CurrentStepIndex + 1));
                 controller.ShowInvalidCardWarning();
                 return false;
             }
@@ -127,35 +127,8 @@ namespace DGAIZone.Game.UI.States
             return afterRepeat ? DesignStepShape.InsideFlowControl : DesignStepShape.Command;
         }
 
-        /// <summary> 단계 정의(카드 분류)로 설계창이 가장 길어지는 모양을 셈. </summary>
-        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
-        {
-            FillPlannedShapes(controller.StepDefinitions, controller.TotalSteps, shapes);
-        }
-
-        /// <summary>
-        /// 제어 카드를 받는 단계마다 반복하기(ㄷ자 블록)를, 그 바로 뒤 단계에는 반복할 이동하기(안쪽)를 놓고, 나머지는 이동하기(명령 블록)로 채움.
-        /// ㄷ자 블록은 안쪽까지 몸통 303px로 명령 블록 둘(202px)보다 길어, 반복하기를 가장 많이 쓴 경우가 가장 김. 정의가 없는 단계는 명령 블록으로 셈.
-        /// </summary>
-        internal static void FillPlannedShapes(RfidStepDefinition[] steps, int totalSteps, List<DesignStepShape> shapes)
-        {
-            for (int i = 0; i < totalSteps; i++)
-            {
-                RfidStepDefinition step = steps != null && i < steps.Length ? steps[i] : null;
-                if (step == null || !step.AllowsCategory(Constants.RfidCategories.Control))
-                {
-                    shapes.Add(DesignStepShape.Command);
-                    continue;
-                }
-
-                shapes.Add(DesignStepShape.FlowControl);
-                if (i + 1 < totalSteps) // 반복하기 뒤에는 이동하기만 올 수 있음(마지막 단계의 반복하기는 안쪽이 빈 채로 남음)
-                {
-                    shapes.Add(DesignStepShape.InsideFlowControl);
-                    i++;
-                }
-            }
-        }
+        /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
+        public bool UsesFunctionDefinition => false;
 
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
         public bool UsesValueBlocks => true;

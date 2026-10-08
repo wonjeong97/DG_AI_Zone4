@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using R3;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
 using HuliacDev.UI;
@@ -94,8 +93,9 @@ namespace DGAIZone.Intro
 
         /// <summary>
         /// 1_Intro.json/00_Common.json 연출 타이밍을 불러오고, 체험자 이름을 불러와 storyText 안의 "체험자" 자리표시자를
-        /// 실제 이름으로 교체한 뒤, storyTextStartDelay만큼 대기했다가 줄별로 올라오는 등장 연출을 시작함. 알파가 이미
-        /// 0으로 설정돼 있어(Start에서) 이름을 불러오는 동안에도 자리표시자 텍스트가 잠깐 보이는 일은 없음.
+        /// 실제 이름으로 교체한 뒤, 씬 전환 페이드인이 끝나 화면이 다 보이면 storyTextStartDelay만큼 대기했다가 줄별로 올라오는
+        /// 등장 연출을 시작함(첫 줄이 검은 화면 뒤에서 올라와 버리지 않게 함). 알파가 이미 0으로 설정돼 있어(Start에서)
+        /// 이름을 불러오는 동안에도 자리표시자 텍스트가 잠깐 보이는 일은 없음.
         /// </summary>
         private async UniTaskVoid InitializeStoryTextAsync(CancellationToken token)
         {
@@ -108,6 +108,9 @@ namespace DGAIZone.Intro
                 (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
                 await ApplyVisitorNameAsync(token);
+
+                if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+                else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 스토리를 시작함.");
 
                 float startDelay = _sceneSettings.storyTextStartDelay;
                 if (startDelay > 0f) await UniTask.Delay(TimeSpan.FromSeconds(startDelay), cancellationToken: token);

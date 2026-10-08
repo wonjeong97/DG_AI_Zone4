@@ -283,7 +283,7 @@ namespace DGAIZone.Game.UI
             _motion.OnComplete(() => Destroy(gameObject));
         }
 
-        /// <summary> 연출 없이 위치를 바로 정함(배치 방식이 바뀌어 전체를 다시 놓을 때). </summary>
+        /// <summary> 연출 없이 위치를 바로 정함(처음 놓을 때나 배율·여백이 바뀌어 전체를 다시 놓을 때). </summary>
         public void SnapTo(Vector2 position)
         {
             CompleteMotion();

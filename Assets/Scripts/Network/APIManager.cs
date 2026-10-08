@@ -1,6 +1,5 @@
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
-using Microsoft.Extensions.Logging;
 using UnityEngine.SceneManagement;
 using HuliacDev.Network;
 using ZLogger;

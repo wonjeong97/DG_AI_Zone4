@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer;
 using HuliacDev.UI;

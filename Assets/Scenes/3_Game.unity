@@ -723,6 +723,7 @@ GameObject:
   - component: {fileID: 128903836}
   - component: {fileID: 128903838}
   - component: {fileID: 128903839}
+  - component: {fileID: 128903840}
   m_Layer: 5
   m_Name: Image_Warning
   m_TagString: Untagged
@@ -813,6 +814,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shakeTarget: {fileID: 1256388730}
+--- !u!223 &128903840
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128903834}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 25
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 0
+  m_TargetDisplay: 0
 --- !u!1 &212438984
 GameObject:
   m_ObjectHideFlags: 0
@@ -1178,13 +1202,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7280e0bed3423ed4a9cfe67aba7903bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  imageAction: {fileID: 1592378935}
   imageActionOverlay: {fileID: 26585189}
-  imageControl: {fileID: 348519817}
   imageControlOverlay: {fileID: 477995005}
-  imageLogic: {fileID: 1218452685}
   imageLogicOverlay: {fileID: 1672364098}
-  imageFunc: {fileID: 1290080090}
   imageFuncOverlay: {fileID: 294512246}
 --- !u!223 &216599238
 Canvas:
@@ -1701,6 +1721,7 @@ GameObject:
   m_Component:
   - component: {fileID: 246094117}
   - component: {fileID: 246094118}
+  - component: {fileID: 246094119}
   m_Layer: 5
   m_Name: Panel_Level5
   m_TagString: Untagged
@@ -1748,6 +1769,29 @@ MonoBehaviour:
   imageTower: {fileID: 408822588}
   imageCorridor: {fileID: 471452758}
   fadeInDuration: 0.5
+--- !u!223 &246094119
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 246094116}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 25
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 0
+  m_TargetDisplay: 0
 --- !u!1 &266491276
 GameObject:
   m_ObjectHideFlags: 0
@@ -7731,8 +7775,6 @@ MonoBehaviour:
   content: {fileID: 1227668177}
   blockPrefab: {fileID: 3089114480932718145, guid: 824885bbc806ceb47ac41c4b5588eb50,
     type: 3}
-  layoutMode: 1
-  maxFitScale: 0.8
   scrollScale: 0.7
   edgePadding: 8
   stackShiftLeft: 30

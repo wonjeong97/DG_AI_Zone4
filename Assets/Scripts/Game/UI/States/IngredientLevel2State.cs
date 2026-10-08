@@ -4,7 +4,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using DGAIZone.App;
-using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
 using TMPro;
@@ -127,11 +126,8 @@ namespace DGAIZone.Game.UI.States
             return DesignStepShape.Command;
         }
 
-        /// <summary> 모든 단계를 명령 블록으로 셈. </summary>
-        public void FillPlannedDesignShapes(IngredientSelectionController controller, List<DesignStepShape> shapes)
-        {
-            for (int i = 0; i < controller.TotalSteps; i++) shapes.Add(DesignStepShape.Command);
-        }
+        /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
+        public bool UsesFunctionDefinition => false;
 
         /// <summary> 레벨 2는 값 블록을 쓰지 않음. </summary>
         public bool UsesValueBlocks => false;

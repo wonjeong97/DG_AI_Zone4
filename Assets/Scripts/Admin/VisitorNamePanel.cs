@@ -154,12 +154,13 @@ namespace DGAIZone.Admin
 
         /// <summary>
         /// 화면 키보드로만 입력받아야 하므로 입력란을 직접 터치해 커서를 옮기거나 글자를 선택하지 못하게 막음.
-        /// 표시는 그대로 두기 위해 interactable 대신 raycastTarget만 끔.
+        /// 표시는 그대로 두기 위해 interactable 대신 입력란 CanvasGroup의 blocksRaycasts만 끔. 입력란이 켜질 때(OnEnable) 새로 만드는
+        /// 커서(Caret)는 이 Awake보다 늦게 생겨 그래픽마다 raycastTarget을 끄는 방식으로는 막지 못하므로 CanvasGroup으로 한꺼번에 막음.
         /// </summary>
         private void BlockInputFieldPointerInput()
         {
-            foreach (Graphic graphic in inputField.GetComponentsInChildren<Graphic>(true))
-                graphic.raycastTarget = false;
+            if (!inputField.TryGetComponent(out CanvasGroup group)) group = inputField.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
         }
 
         /// <summary> keyboardRoot 아래 버튼을 이름으로 찾아 각 역할에 맞는 동작을 연결함. </summary>

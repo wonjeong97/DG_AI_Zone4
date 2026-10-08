@@ -66,8 +66,8 @@ namespace DGAIZone.Tests
             Assert.IsFalse(buffer.IsStale(5f + ScanInputBuffer.DefaultMaxCharGapSeconds));
             Assert.IsTrue(buffer.IsStale(5f + ScanInputBuffer.DefaultMaxCharGapSeconds + 0.01f));
 
-            buffer.Clear();
-            Assert.IsFalse(buffer.IsStale(100f), "비운 뒤에는 낡은 입력이 아님");
+            buffer.Restart(6f);
+            Assert.IsFalse(buffer.IsStale(100f), "다시 받기 시작한 뒤에는 낡은 입력이 아님");
         }
 
         /// <summary> 간격을 늘리면(0_Title.json scanCharGapSeconds — PC가 느린 현장) 기본값보다 늦게 온 글자도 같은 스캔으로 봄. </summary>
@@ -81,6 +81,88 @@ namespace DGAIZone.Tests
             Assert.IsFalse(buffer.IsStale(2.7f));
             Assert.AreEqual(2, buffer.Append('0', 2.8f), "늘린 간격도 넘으면 버려야 함");
             Assert.AreEqual("0", buffer.TakeAndClear());
+        }
+
+        /// <summary> 다시 받기 시작한 직후 쉬지 않고 이어서 오는 글자는 받지 않던 동안 시작된 스캔의 뒷부분이라 모으지 않고 개수만 셈. </summary>
+        [Test]
+        public void 다시_받기_시작한_직후_이어서_오는_글자는_앞_스캔의_뒷부분으로_버린다()
+        {
+            ScanInputBuffer buffer = new ScanInputBuffer();
+            buffer.Restart(10f);
+            float t = 10f;
+            foreach (char c in "XWQH")
+            {
+                t += 0.02f;
+                Assert.AreEqual(0, buffer.Append(c, t));
+            }
+
+            Assert.AreEqual(0, buffer.Length, "잘린 uid가 되는 뒷부분은 모으지 않아야 함");
+            Assert.AreEqual(4, buffer.TakeSkippedCount(), "버린 글자 수를 알려야 함");
+            Assert.AreEqual(0, buffer.TakeSkippedCount(), "꺼낸 뒤에는 0이어야 함");
+
+            t += ScanInputBuffer.DefaultMaxCharGapSeconds + 0.1f; // 쉬었다가 다시 찍음
+            foreach (char c in "440930W1XWQH")
+            {
+                buffer.Append(c, t);
+                t += 0.02f;
+            }
+
+            Assert.AreEqual("440930W1XWQH", buffer.TakeAndClear(), "쉬었다가 새로 찍은 uid는 그대로 모아야 함");
+        }
+
+        /// <summary> 버리는 동안에는 마지막으로 버린 글자부터 간격을 재므로, 간격 안으로 계속 이어지면 다시 받은 시각에서 오래 지나도 버림. </summary>
+        [Test]
+        public void 버리는_동안_간격_안으로_이어지는_글자는_계속_버린다()
+        {
+            ScanInputBuffer buffer = new ScanInputBuffer();
+            buffer.Restart(0f);
+            for (int i = 1; i <= 5; i++) buffer.Append('A', i * 0.3f); // 0.3초 간격, 마지막 글자는 다시 받은 뒤 1.5초
+
+            Assert.AreEqual(0, buffer.Length, "간격 안으로 이어진 글자는 모두 버려야 함");
+            Assert.AreEqual(5, buffer.TakeSkippedCount());
+        }
+
+        /// <summary> Enter(TakeAndClear)가 오면 잘린 스캔이 끝난 것이므로 바로 이어서 찍은 다음 스캔은 버리지 않음. </summary>
+        [Test]
+        public void Enter가_오면_버리기를_끝내고_바로_이어_찍은_스캔을_모은다()
+        {
+            ScanInputBuffer buffer = new ScanInputBuffer();
+            buffer.Restart(0f);
+            buffer.Append('Q', 0.1f);
+            buffer.Append('H', 0.12f);
+            Assert.AreEqual(string.Empty, buffer.TakeAndClear(), "잘린 뒷부분은 모으지 않아야 함");
+            Assert.AreEqual(2, buffer.TakeSkippedCount());
+
+            buffer.Append('4', 0.3f);
+            buffer.Append('4', 0.32f);
+            Assert.AreEqual("44", buffer.TakeAndClear(), "Enter 뒤에 바로 찍은 스캔은 그대로 모아야 함");
+        }
+
+        /// <summary> 간격을 늘린 현장(scanCharGapSeconds)에서는 버리는 기준도 늘린 간격을 씀. </summary>
+        [Test]
+        public void 간격을_늘리면_다시_받은_뒤_버리는_기준도_늘어난다()
+        {
+            ScanInputBuffer buffer = new ScanInputBuffer { MaxCharGapSeconds = 1.5f };
+            buffer.Restart(0f);
+            buffer.Append('A', 1.2f);
+            Assert.AreEqual(1, buffer.TakeSkippedCount(), "늘린 간격 안이면 버려야 함");
+
+            buffer.Append('4', 2.8f);
+            Assert.AreEqual("4", buffer.TakeAndClear(), "늘린 간격을 넘겨 쉬었다가 온 글자는 모아야 함");
+        }
+
+        /// <summary> 다시 받기 시작하면 모은 글자를 비우고, 쉬었다가 온 첫 글자부터 그대로 모음. </summary>
+        [Test]
+        public void 다시_받기_시작한_뒤_쉬었다가_온_글자는_그대로_모은다()
+        {
+            ScanInputBuffer buffer = new ScanInputBuffer();
+            buffer.Append('Z', 1f);
+            buffer.Restart(5f);
+            Assert.AreEqual(0, buffer.Length, "다시 받으면 모은 글자를 비워야 함");
+
+            Assert.AreEqual(0, buffer.Append('4', 5f + ScanInputBuffer.DefaultMaxCharGapSeconds + 0.1f));
+            Assert.AreEqual("4", buffer.TakeAndClear());
+            Assert.AreEqual(0, buffer.TakeSkippedCount(), "버린 글자가 없어야 함");
         }
     }
 }

@@ -31,9 +31,6 @@ namespace DGAIZone.App
         /// <summary> 플레이어가 코딩완료로 설계를 마쳤는지 여부(스킵이면 false). '나의 코딩 결과'에 완성하기 블록을 붙일지 정함. </summary>
         public bool PlayerDesignCompleted { get; set; }
 
-        /// <summary> 3_Game 설계창의 배치 방식(줄여서 한 화면에/크게 두고 자동 스크롤). 4_Result의 두 설계창이 같은 방식으로 그림. </summary>
-        public DesignLayoutMode DesignLayoutMode { get; set; } = DesignLayoutMode.FitAll;
-
         /// <summary> 이번 판 문제의 정답 설계(설계창 블록). 3_Game이 코딩완료·스킵 시 기록하고 4_Result의 AI 패널이 "AI가 푼 설계"로 보여줌. </summary>
         public IReadOnlyList<DesignStep> SolutionDesign { get; set; } = Array.Empty<DesignStep>();
     }

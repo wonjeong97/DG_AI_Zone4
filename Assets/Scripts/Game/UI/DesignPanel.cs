@@ -12,13 +12,6 @@ using ZLogger;
 
 namespace DGAIZone.Game.UI
 {
-    /// <summary> 설계창에 블록이 다 들어가지 않을 때의 배치 방식. 기획 확인 뒤 하나만 남길 예정. </summary>
-    public enum DesignLayoutMode
-    {
-        [InspectorName("줄여서 한 화면에")] FitAll,       // 레벨의 최대 블록 수(시작 + 단계 + 완성)가 스크롤 없이 모두 보이게 줄임
-        [InspectorName("크게 두고 자동 스크롤")] ScrollLarge // 정해진 배율로 두고, 넘치면 새로 쌓인 블록이 보이게 아래로 스크롤
-    }
-
     /// <summary> 설계창 단계 블록의 모양. 레벨 상태가 단계(재료)마다 정함. </summary>
     public enum DesignStepShape
     {
@@ -36,6 +29,7 @@ namespace DGAIZone.Game.UI
         public readonly string Command;
         public readonly string Value;
 
+        /// <summary> 단계 블록의 모양과 명령·값 블록 문구로 설계 단계 하나를 만듦. </summary>
         public DesignStep(DesignStepShape shape, string command, string value)
         {
             Shape = shape;
@@ -50,6 +44,7 @@ namespace DGAIZone.Game.UI
     /// ㄷ자(만약·반복하기) 블록 뒤의 InsideFlowControl 단계는 ㄷ자 블록 안쪽에 쌓이고, 함수 사용 단계는 설계창 오른쪽 위에 함수 정의 블록을 함께 놓으며
     /// 그 뒤 단계는 모두 함수 정의 블록 안쪽에 쌓임(완성하기는 시작하기 줄 맨 아래).
     /// 카드가 떨어진 단계부터 뒤쪽 블록을 임시로 떨어뜨렸다가 카드가 돌아오면 다시 붙이는 일도 맡음.
+    /// 블록은 정해진 배율(scrollScale)로 두고, 설계창보다 길어지면 새로 쌓인 블록이 보이게 아래로 자동 스크롤함.
     /// 블록 모양과 문구는 호출하는 쪽(레벨 상태)이 정함.
     /// </summary>
     public class DesignPanel : MonoBehaviour
@@ -63,10 +58,8 @@ namespace DGAIZone.Game.UI
         [SerializeField] private RectTransform content;      // DesignScrollView/Viewport/DesignContainer(ScrollRect의 content)
         [SerializeField] private DesignBlockView blockPrefab; // DesignBlock 프리팹
 
-        [Header("Layout (기획 확인 뒤 하나만 남김)")]
-        [SerializeField] private DesignLayoutMode layoutMode = DesignLayoutMode.FitAll;
-        [SerializeField] private float maxFitScale = 0.8f; // 줄여서 한 화면에: 블록이 적은 레벨에서도 이 배율보다 크게 키우지 않음
-        [SerializeField] private float scrollScale = 0.7f; // 크게 두고 자동 스크롤: 블록 배율
+        [Header("Layout")]
+        [SerializeField] private float scrollScale = 0.7f; // 블록 배율(설계창보다 길어지면 아래로 자동 스크롤함)
         [SerializeField] private float edgePadding = 8f;   // 블록 묶음 위아래·좌우 최소 여백(UI 단위)
         [SerializeField] private float stackShiftLeft = 30f; // 블록 묶음(레벨 5는 함수 정의 블록도)을 기준 위치에서 왼쪽으로 옮기는 거리(UI 단위). 왼쪽 여백(edgePadding)을 넘어가지는 않음
 
@@ -94,7 +87,6 @@ namespace DGAIZone.Game.UI
         private int _functionDefStep = -1;    // 함수 정의 블록을 함께 놓은 함수 사용 단계 번호
         private bool _plansFunctionDef;       // 이 레벨에 함수 사용 단계가 있어 오른쪽에 함수 정의 블록 자리를 남겨야 하는지
         private int _droppedFrom = int.MaxValue; // 이 번호의 단계 블록부터 끝까지 임시로 떨어뜨린 상태(int.MaxValue = 떨어뜨린 블록 없음)
-        private float _plannedHeight; // 이 레벨의 단계를 모두 쌓고 완성하기까지 붙였을 때의 높이(px)
         private float _stackHeight;   // 지금 놓인 블록 묶음의 높이(px, 마지막 블록의 아래 돌기 포함, 함수 정의 블록이 더 길면 그 높이)
         private bool _withValueBlocks = true;
         private float _scale = 1f;
@@ -119,20 +111,12 @@ namespace DGAIZone.Game.UI
         /// <summary> 떨어졌던 카드가 돌아와 블록이 다시 다 붙기까지 걸리는 시간(초). 값 블록을 쓰는 레벨이면 값 블록이 미끄러져 붙는 시간까지. </summary>
         internal float RestoreDuration => restoreRiseDuration + (_withValueBlocks ? restoreValueSlideDuration : 0f);
 
-        /// <summary> 배치 방식(줄여서 한 화면에/크게 두고 자동 스크롤). 결과 씬이 3_Game 설계창과 같은 방식으로 그릴 때 Initialize 전에 바꿈. </summary>
-        public DesignLayoutMode LayoutMode
-        {
-            get => layoutMode;
-            set => layoutMode = value;
-        }
-
-        /// <summary> 테스트 전용: 인스펙터로 연결하는 블록 content·프리팹·배치 방식과 ScrollRect를 넣음(scroll이 없으면 content의 부모를 보이는 영역으로 쓰고 자동 스크롤은 하지 않음). </summary>
-        internal void SetUpForTest(RectTransform contentRoot, DesignBlockView prefab, DesignLayoutMode mode, ScrollRect scroll = null)
+        /// <summary> 테스트 전용: 인스펙터로 연결하는 블록 content·프리팹과 ScrollRect를 넣음(scroll이 없으면 content의 부모를 보이는 영역으로 쓰고 자동 스크롤은 하지 않음). </summary>
+        internal void SetUpForTest(RectTransform contentRoot, DesignBlockView prefab, ScrollRect scroll = null)
         {
             scrollRect = scroll;
             content = contentRoot;
             blockPrefab = prefab;
-            layoutMode = mode;
         }
 
         /// <summary> VContainer 의존성 주입. 블록 생성용 리졸버와 로거를 할당함. </summary>
@@ -144,25 +128,19 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. plannedShapes(이 레벨의 단계를 모두 쌓았을 때의 단계 모양)로 '줄여서 한 화면에' 방식의
-        /// 배율을 정하고, withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함. 묶음 왼쪽 끝은 레벨과 관계없이 같음.
-        /// 함수 사용 단계가 있으면 오른쪽에 함수 정의 블록이 들어갈 폭도 남김.
+        /// 설계창을 비우고 맨 위에 시작하기 블록만 놓음. withValueBlocks(값 블록을 쓰는 레벨인지)로 블록 묶음이 화면 폭을 넘지 않게 할 폭을 정함.
+        /// 묶음 왼쪽 끝은 레벨과 관계없이 같음. withFunctionDefinition(함수 사용 단계가 있는 레벨인지)이면 오른쪽에 함수 정의 블록이 들어갈 폭도 남김.
         /// </summary>
-        public void Initialize(IReadOnlyList<DesignStepShape> plannedShapes, bool withValueBlocks)
+        public void Initialize(bool withValueBlocks, bool withFunctionDefinition)
         {
             DestroyAll();
             _withValueBlocks = withValueBlocks;
-            _plansFunctionDef = false;
-            for (int i = 0; i < plannedShapes.Count; i++)
-            {
-                if (plannedShapes[i] == DesignStepShape.FunctionCall) _plansFunctionDef = true;
-            }
-            _plannedHeight = Layout(plannedShapes, true, 0f, _positions, _flowInnerHeights, out _); // 높이만 쓰고, 위치는 아래 Relayout이 지금 상태로 다시 채움
+            _plansFunctionDef = withFunctionDefinition;
             UpdateScale();
 
             _startBlock = CreateBlock(DesignBlockKind.Start, StartLabel, null);
             Relayout();
-            if (_startBlock) _startBlock.SnapTo(PositionOf(0));
+            if (_startBlock) _startBlock.SnapTo(PositionOf(0)); // 만들지 못하면 CreateBlock이 경고함
             UpdateContentHeight();
         }
 
@@ -185,7 +163,7 @@ namespace DGAIZone.Game.UI
             }
 
             DesignBlockView block = CreateBlock(KindOf(shape, value), command, value);
-            if (!block) return;
+            if (!block) return; // 만들지 못하면 CreateBlock이 경고함
 
             _steps.Add(block);
             _stepShapes.Add(shape);
@@ -507,7 +485,7 @@ namespace DGAIZone.Game.UI
             return Mathf.Max(DesignBlockView.FunctionDefWidth, innerWidth);
         }
 
-        /// <summary> 배치 방식에 맞춰 블록 배율과 가로 시작 위치를 정함. 화면 폭을 넘지 않도록 두 방식 모두 폭으로도 제한함. </summary>
+        /// <summary> 블록 배율(scrollScale, 화면 폭을 넘지 않도록 폭으로도 제한)과 가로 시작 위치를 정함. </summary>
         private void UpdateScale()
         {
             Rect viewport = ViewportRect();
@@ -521,29 +499,18 @@ namespace DGAIZone.Game.UI
                 widthScale = Mathf.Min(widthScale, available / (StackWidth(_withValueBlocks) + FunctionColumnWidth(_withValueBlocks)));
             }
 
-            if (layoutMode == DesignLayoutMode.FitAll)
-            {
-                float heightScale = (viewport.height - edgePadding * 2f) / _plannedHeight;
-                _scale = Mathf.Min(maxFitScale, heightScale, widthScale);
-            }
-            else
-            {
-                _scale = Mathf.Min(scrollScale, widthScale);
-            }
-
-            _scale = Mathf.Max(0.01f, _scale);
+            _scale = Mathf.Max(0.01f, Mathf.Min(scrollScale, widthScale));
         }
 
         /// <summary>
-        /// 블록 묶음의 기준 왼쪽 여백. 레벨마다 묶음 폭·배율이 달라도 왼쪽 끝이 같도록, 가장 넓은 묶음(값 블록까지 있는 묶음)을 이 배치 방식의
-        /// 최대 배율로 가운데 놓았을 때의 왼쪽 끝을 씀(블록이 적어 최대 배율을 쓰는 레벨 1의 위치와 같음). 어느 레벨이든 오른쪽으로 넘치지 않음.
+        /// 블록 묶음의 기준 왼쪽 여백. 레벨마다 묶음 폭·배율이 달라도 왼쪽 끝이 같도록, 가장 넓은 묶음(값 블록까지 있는 묶음)을 scrollScale
+        /// 배율로 가운데 놓았을 때의 왼쪽 끝을 씀(레벨 1의 위치와 같음). 어느 레벨이든 오른쪽으로 넘치지 않음.
         /// 실제 왼쪽 끝은 여기서 stackShiftLeft만큼 왼쪽(UpdateScale).
         /// </summary>
         private float LeftInset(float viewportWidth)
         {
             float widest = StackWidth(true);
-            float maxScale = layoutMode == DesignLayoutMode.FitAll ? maxFitScale : scrollScale;
-            float scale = Mathf.Min(maxScale, (viewportWidth - edgePadding * 2f) / widest);
+            float scale = Mathf.Min(scrollScale, (viewportWidth - edgePadding * 2f) / widest);
             return (viewportWidth - widest * scale) / 2f;
         }
 
@@ -554,7 +521,7 @@ namespace DGAIZone.Game.UI
             if (content && content.parent is RectTransform parent) return parent.rect;
 
             if (_logger != null) _logger.ZLogWarning($"[DesignPanel] scrollRect·content가 없어 설계창 크기를 알 수 없음. 블록을 원본 크기로 둠.");
-            return new Rect(0f, 0f, StackWidth(_withValueBlocks), _plannedHeight);
+            return new Rect(0f, 0f, StackWidth(_withValueBlocks), _stackHeight);
         }
 
         /// <summary> 지금 놓인 블록(함수 정의 블록 포함)이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). </summary>
@@ -567,12 +534,11 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// '크게 두고 자동 스크롤' 방식에서 새로 놓인 블록이 보이도록 맨 아래로 스크롤하는 연출을 시작하고 반환함(그 방식이 아니거나 scrollRect가
-        /// 없으면 null). 사용자가 드래그로 튕겨 둔 관성은 멈춰 연출과 겹치지 않게 함.
+        /// 새로 놓인 블록이 보이도록 맨 아래로 스크롤하는 연출을 시작하고 반환함(scrollRect가 없으면 null).
+        /// 사용자가 드래그로 튕겨 둔 관성은 멈춰 연출과 겹치지 않게 함.
         /// </summary>
         private Tween ScrollToBottom()
         {
-            if (layoutMode != DesignLayoutMode.ScrollLarge) return null;
             if (!scrollRect)
             {
                 if (_logger != null) _logger.ZLogWarning($"[DesignPanel] scrollRect가 null이라 자동 스크롤을 할 수 없음.");
@@ -586,13 +552,13 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 블록 묶음이 짧아졌을 때(블록을 떨어뜨림) '크게 두고 자동 스크롤' 방식이면 줄어든 묶음의 맨 아래가 보이는 자리까지 부드럽게 올린 뒤 스크롤 범위(content 높이)를
-        /// 줄임. 범위를 먼저 줄이면 ScrollRect(Clamped)가 범위를 벗어난 위치를 한 번에 끌어올려 튐. 그 방식이 아니거나 이미 그 자리보다 위에 있으면 바로 줄임.
+        /// 블록 묶음이 짧아졌을 때(블록을 떨어뜨림) 줄어든 묶음의 맨 아래가 보이는 자리까지 부드럽게 올린 뒤 스크롤 범위(content 높이)를
+        /// 줄임. 범위를 먼저 줄이면 ScrollRect(Clamped)가 범위를 벗어난 위치를 한 번에 끌어올려 튐. scrollRect가 없거나 이미 그 자리보다 위에 있으면 바로 줄임.
         /// content는 위쪽 기준이라 anchoredPosition.y가 아래로 내린 거리임.
         /// </summary>
         private void ShrinkContentToStack()
         {
-            if (layoutMode != DesignLayoutMode.ScrollLarge || !scrollRect || !content)
+            if (!scrollRect || !content)
             {
                 UpdateContentHeight();
                 return;
@@ -612,12 +578,12 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// '크게 두고 자동 스크롤' 방식에서 사용자가 드래그로 위로 올려 둬 맨 아래가 보이지 않는지 여부. 블록 묶음이 보이는 영역보다 짧으면 false.
+        /// 사용자가 드래그로 위로 올려 둬 맨 아래가 보이지 않는지 여부. 블록 묶음이 보이는 영역보다 짧으면 false.
         /// scrollRect가 없으면 false(경고는 이어서 부르는 ScrollToBottom이 남김).
         /// </summary>
         private bool IsScrolledUp()
         {
-            if (layoutMode != DesignLayoutMode.ScrollLarge || !scrollRect || !content) return false;
+            if (!scrollRect || !content) return false;
 
             float overflow = content.rect.height - ViewportRect().height; // 보이는 영역 밖으로 넘친 높이(스크롤 범위)
             return overflow > ScrolledUpEpsilon && scrollRect.verticalNormalizedPosition * overflow > ScrolledUpEpsilon;
@@ -644,7 +610,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 인스펙터에서 배치 방식·배율을 바꾸면 Play 모드 중에도 바로 다시 배치함(기획 확인용 비교). OnValidate 안에서는 RectTransform 크기를
+        /// 인스펙터에서 배율·여백을 바꾸면 Play 모드 중에도 바로 다시 배치함(현장 조정용). OnValidate 안에서는 RectTransform 크기를
         /// 바꾸면 경고가 나므로 다음 에디터 업데이트로 미룸. 에디터에서만 호출되므로 빌드 동작에는 영향이 없음.
         /// </summary>
         private void OnValidate()
@@ -656,7 +622,7 @@ namespace DGAIZone.Game.UI
 #endif
         }
 
-        /// <summary> 지금 배치 방식·배율로 놓인 블록을 모두 연출 없이 다시 배치함. </summary>
+        /// <summary> 지금 배율·여백으로 놓인 블록을 모두 연출 없이 다시 배치함. </summary>
         private void RelayoutAll()
         {
             if (!this || !_startBlock) return; // 그사이 파괴됐거나 아직 시작하기 블록이 없음

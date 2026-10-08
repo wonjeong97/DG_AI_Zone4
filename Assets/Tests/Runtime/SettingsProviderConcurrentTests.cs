@@ -3,7 +3,6 @@ using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game;
-using DGAIZone.Game.Data;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 

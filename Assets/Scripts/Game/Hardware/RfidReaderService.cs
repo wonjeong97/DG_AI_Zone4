@@ -165,7 +165,7 @@ namespace DGAIZone.Game.Hardware
         private void HandleNewClient(TcpClient client)
         {
             string remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-            ReaderSession staleSession = null;
+            ReaderSession staleSession;
 
             lock (_sessionsLock)
             {
@@ -265,6 +265,7 @@ namespace DGAIZone.Game.Hardware
             return $"Unknown_{remoteIp}";
         }
 
+        /// <summary> Windows ARP로 destIp의 MAC 주소를 조회함(iphlpapi.dll, 성공하면 0). </summary>
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         private static extern int SendARP(uint destIp, uint srcIp, byte[] macAddr, ref uint macAddrLen);
 

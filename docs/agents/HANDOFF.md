@@ -13,6 +13,61 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T60
+- 요청(사용자): 끝나면 남은 것이 없는지 다시 한번 점검.
+- 점검(Claude 서브에이전트, T59 파일 제외 전체): 오늘 바뀐 코드에서 새 위반 없음, 높음·중간 없음. UnityEngine.Object null 비교·Keyboard.current·Update 할당·<param> 없음, 지운 개념(DesignLayoutMode·FillPlanned·pollCommand 등) 흔적 없음, JSON 키와 설정 클래스 필드 일치.
+- 변경 파일(낮음 정리, 동작 변화는 아래 두 가지뿐): 쓰이지 않는 using 10곳(레벨 상태 6개 DGAIZone.Data 등), summary 없던 메서드 5곳(스킬 11번은 메서드 대상이라 프로퍼티는 제외), XML 주석 오류 4곳(`<->`, `<size>`), 행동 로그 결과 문구 8곳 `$""` → ZString.Format·PlaceholderFormatter `+` → ZString.Concat(스킬 7번), 이미 다른 곳에서 경고하는 정상 분기·빈 catch에 이유 주석, RfidReaderService 쓰이지 않는 초기값. 동작 변화: `stageReadCounts` 첫 값이 0 이하이면 음수 크기 배열 예외 → 기본값 3(지금 데이터는 모든 레벨에 steps가 있어 쓰이지 않음), `GameSceneSettings` rightArrow 기본값 3개를 3_Game.json 값(0.2·0.5·0.25)과 맞춤(로드 전·실패 때만 차이).
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 189/189, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 지운 using이 확장 메서드·#if·nameof까지 정말 안 쓰임, ZString 치환 8곳 문구·인자·+1 위치 같음, stageReadCounts는 0 이하일 때만 바뀜, '이미 경고함' 주석 5곳 모두 실제로 경고함, 기본값이 JSON과 같음 → 통과. 낮음 반영 — 옮긴 주석이 레벨 3 폴백 범위까지 목적지 설명으로 묶던 것(MissionBoardController), stageReadCounts 0 이하 설명 3곳, ISceneVideoReadiness summary.
+- 남김(사용자 결정 필요 또는 판단): `stageReadCounts` 배열을 int 하나로 줄이거나 키를 빼기(현장 JSON 키 변경), 긴 메서드 나머지(LevelSelectFlowController.SelectLevel 101줄·SwitchToStoryAsync, StoryLineAnimator.AnimateLinesAsync, RfidReaderService.ReadLoop — 스킬 10번 기준이 줄 수가 아니라 한 문장 설명이고 UI 흐름이라 그대로 둠), 레벨 상태 로그의 [IngredientSelectionController] 태그(컨트롤러 로거를 빌려 쓰는 관례), 프로퍼티 summary 누락(규칙 대상 아님), 프로젝트 CLAUDE.md가 제목만 있음.
+- PR wonjeong97/DG_AI_Zone4#58 머지 전(Claude, agy 한도 초과): T23·T57·T23 후속·T58·T59·T60 커밋 6개만 있고 main과 차이 없음(뒤처짐 0), 변경 범위(43파일)가 각 작업 리뷰 범위와 같음, CHANGELOG 미배포 Fixed 5줄을 2026-10-09 섹션으로 옮김 → 통과.
+
+---
+
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T59
+- 요청(사용자): 씬·프리팹·텍스처 UI 설정 점검(스킬 19번).
+- 점검(Claude 서브에이전트, 빌드 씬 6개·프리팹 3개·텍스처 .meta 113개): UI 그래픽 330개 중 Raycast Target 켜짐 97개 — 90개는 클릭을 받아 유지(Button 81·Dim 3·ScrollRect 영역 3 등), 6개 끔, 1개(InputField_Name 이미지)는 코드가 막으므로 유지. UI 스프라이트 밉맵 0건(밉맵 켜진 20개는 참조 없는 NuGet 아이콘). 캔버스 분리 공백 2곳. 전체 화면 투명 차단 이미지 0건.
+- 변경 파일: `Scenes/1_Intro.unity`(TutorialImageMask·TutorialBackImg·PageBackImg Raycast Target 끔), `Prefabs/AdminCanvas.prefab`(NamePanel Board·입력란 Placeholder·Text 끔), `Scenes/3_Game.unity`(Image_Warning·Panel_Level5에 하위 Canvas — 페이드 때 GamePanel 전체가 다시 배칭되지 않게, 아래에 클릭 받는 그래픽이 없어 GraphicRaycaster 없음), `Scenes/3_Game.unity`·`4_Result.unity` 재저장으로 지운 필드 값 정리(DesignPanel layoutMode·maxFitScale, CodingCategoryIndicatorController imageAction 등 — 4_Result의 restore* 두 값은 코드 기본값이 기록된 것), `Admin/VisitorNamePanel.cs`(점검 중 찾은 버그: 이름 입력란 터치 차단이 Awake 뒤 TMP_InputField.OnEnable이 만드는 Caret을 놓쳐 입력란을 누르면 선택됨 → 입력란 CanvasGroup.blocksRaycasts=false로 한꺼번에 막음), 새 테스트 `VisitorNamePanelTests`(수정 전 실패 재현 → 수정 뒤 통과). CHANGELOG Fixed 1줄. 0_Title·2_LevelSelect·5_Outro는 다시 저장해도 변경 없음. 테스트·씬을 열 때 바뀐 TMP 폰트 글리프는 되돌림.
+- 확인: Unity 컴파일·콘솔 오류 0, PlayMode 189/189, 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 클릭 회귀 없음(튜토리얼 슬라이더·이름 창 키·저장·닫기), 하위 Canvas 설정이 기존 하위 Canvas와 같고 연출 영향 없음, CanvasGroup이 Caret까지 막음, 재저장으로 바뀐 값·참조 없음 → 통과.
+- 남김(검토만): Panel_Level4/Image_Grid/CellMarkers 디버그 라벨 16개(CanvasGroup 알파 0, 아이콘 정렬 기준점 — 레벨 4 구현 때 둔 것), 2_LevelSelect ThemeBackground(대기 중 알파 0이지만 보이는 연출), 4_Result VideoPanel 검정 Image(영상 위 1겹) — 비용이 작고 의도가 있어 그대로 둠.
+
+---
+
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T58
+- 요청(사용자): 타이틀·인트로 성능·버그 점검(T54에서 시간 제한으로 끊긴 부분).
+- 변경 파일: `Intro/IntroFlowController.cs`(1_Intro.json storyTextStartDelay가 0이라 스토리 첫 줄이 페이드인 뒤에서 올라오던 것 — 씬 전환이 끝날 때까지 기다린 뒤 시작), `Intro/TutorialImageSlider.cs`(씬 시작 때 7페이지 모두 로드 시작, 실패한 핸들은 캐시에서 빼고 Release해 다음에 다시 로드, 다른 호출이 먼저 해제한 핸들은 읽지 않음), `Title/ScanInputBuffer.cs`(Clear → Restart: 다시 받은 뒤 쉬거나 Enter가 올 때까지 이어서 오는 글자는 앞 스캔의 뒷부분으로 버림, TakeSkippedCount), `Title/TitleFlowController.cs`(StartScanning이 Restart, 버린 글자 수 로그, IsSceneChanging — 씬 전환 중이거나 관리자 레벨 이동 표시가 있으면 QR 무시·서버 확인 결과 미반영·시작하기 대기 초과 때 체험자를 비우지 않음), `Data/TitleSceneSettings.cs`(scanCharGapSeconds 주석), 테스트 `ScanInputBufferTests`(+5). CHANGELOG Fixed 4줄.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 189/189(T59와 함께 실행), 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과): 높음·중간 없음. 낮음 반영 — Enter가 와도 버리기가 끝나지 않아 바로 이어 찍은 스캔(연속 판독 스캐너 포함)이 버려지던 것(TakeAndClear에서 끝냄), 관리자 레벨 클릭부터 전환 시작까지 1프레임 안팎의 빈틈(IsLevelJump도 봄), 같은 핸들을 기다리던 두 번째 호출이 해제된 핸들의 Status를 읽어 예외(IsValid 확인), 버리기 연쇄·늘린 간격·Enter 뒤 이어 찍기 테스트 추가, 주석 3곳. 남김 — 타이틀 가드·인트로 대기·슬라이더 미리 로드는 씬 의존이 커서 자동 테스트 없음(코드 리뷰로 확인), Time.realtimeSinceStartup float 정밀도(수 주 연속 실행 때만, 기존).
+
+---
+
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T23 후속
+- 요청: T23 리뷰 낮음 항목 처리(지난 배치 방식 주석, 쓰이지 않게 된 '가장 길게 쌓인 모양' 계산).
+- 변경 파일: `Game/UI/States/IIngredientSelectionLevelState.cs`(FillPlannedDesignShapes → UsesFunctionDefinition 프로퍼티, UsesValueBlocks 설명 갱신), `IngredientLevel1~5State.cs`(레벨 1~4 false, 레벨 5 true, 레벨 4 FillPlannedShapes 삭제), `Game/UI/DesignPanel.cs`(Initialize(bool withValueBlocks, bool withFunctionDefinition)), `Game/UI/IngredientSelectionController.cs`(_plannedDesignShapes 삭제, 레벨 상태 null 경고 유지), `Result/ResultDesignPlayback.cs`(steps에 함수 사용이 있으면 함수 정의 자리), `Result/ResultAiPanel.cs`·`ResultPlayerPanel.cs`·`Game/UI/DesignBlockView.cs`(주석), 테스트 `DesignPanelTests`(Initialize 인자, 도우미 2개 삭제, 왼쪽 정렬 테스트를 값 블록 유무 2경우로)·`Level4DesignShapeTests`(가장 긴 모양 테스트 삭제)·`Level5RuleTests`(계획 크기 테스트 삭제). 동작 변화 없음, CHANGELOG 항목 없음.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 183/183(T58 반영 뒤 185/185), 실행 뒤 m_EnterPlayModeOptionsEnabled 0.
+- 리뷰(Claude 서브에이전트, agy 한도 초과 — 1시간 30분 뒤 초기화): 레벨 1~5·레벨 상태 null·결과 씬의 함수 정의 자리 판단이 예전과 같음, 지난 개념 참조 없음, Initialize 인자 치환 17곳 모두 예전 결과와 같음 → 통과. 낮음: Level5RuleTests 클래스 설명에 지운 테스트 언급, UsesValueBlocks 설명이 T23 뒤로 맞지 않음 → 둘 다 반영.
+
+---
+
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T57
+- 요청(사용자): T54에서 미룬 것도 필요하면 지금 하기.
+- 판단: 큰 메서드 분리(스킬 10번)·쓰이지 않는 스테이지 인덱스는 함. 주입 실패 Debug.LogError 일괄 추가는 테스트가 로거 없이 컨트롤러를 만들어 Unity 테스트가 오류 로그로 실패하므로 하지 않음. 상태 인터페이스의 안 쓰는 controller 매개변수는 다섯 상태가 같은 모양을 유지하는 설계이고 레벨 5 규칙이 검토 중이라 그대로 둠. 씬에 남은 지운 필드 값은 T59에서 씬을 저장하며 정리.
+- 변경 파일: `Game/UI/IngredientSelectionController.cs`(InitializeWorkflowAsync → ApplyRfidSettings·ResetWorkflowProgress, OnRfidTagReceived → TryRouteToCurrentStep·TryResolveStepCard·ApplyStepCard, 항상 0이던 _currentStageIndex 삭제 — stageReadCounts의 첫 값을 지역 변수로), `Game/Data/RfidMappingData.cs`(stageReadCounts 주석). 동작 변화 없음, CHANGELOG 항목 없음.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 185/185(T23과 함께 실행).
+- 리뷰(Claude, agy 한도 초과): 예전 return 9개가 같은 순서·조건의 false로 옮겨짐, 설정한 단계 카드 변경 뒤 이어지는 경로, out 매개변수, 취소 시 조기 반환, 스테이지 인덱스 동등성 → 통과. 참고(필드를 지역 변수로) 반영.
+
+---
+
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T23
+- 요청(사용자): 설계창 배치 방식은 스크롤로 확정.
+- 변경 파일: `Game/UI/DesignPanel.cs`(DesignLayoutMode·layoutMode·maxFitScale·LayoutMode·_plannedHeight와 계획 높이 계산 삭제, 배율은 scrollScale과 폭 제한만, 자동 스크롤 조건 제거), `App/GameResultStore.cs`(DesignLayoutMode 삭제), `Game/UI/IngredientSelectionController.cs`(결과 저장소에 배치 방식 기록 삭제), `Result/ResultDesignPlayback.cs`(Prepare의 mode 매개변수 삭제), `Result/ResultAiPanel.cs`·`ResultPlayerPanel.cs`(호출부), 테스트 `DesignPanelTests`(한 화면에 전용 2개 삭제·이름 변경 2개·레벨 3 높이 확인 1줄 삭제, 19 → 17개).
+- 동작: 3_Game.unity가 이미 layoutMode 1(자동 스크롤)이었고 결과 화면은 게임 값을 넘겨받아 실행 동작은 그대로(4_Result만 따로 Play할 때만 예전 기본값이 한 화면에였음). 씬에 남은 layoutMode·maxFitScale 키는 Unity가 무시하고 다음 저장 때 지움(T59에서 씬을 저장하며 정리). CHANGELOG 항목 없음.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 185/185(T57과 함께 실행).
+- 리뷰(Claude, agy 한도 초과): 한 화면에 분기 모두 제거·자동 스크롤 경로 예전과 같음, 계획 높이 계산 삭제가 위치에 영향 없음, 결과 화면 배율 같음, 테스트 커버리지 유지 → 통과. 낮음: 배치 방식을 언급하는 지난 주석, 레벨 4·5의 "가장 길게 쌓인 모양" 계산이 이제 함수 정의 자리 판단에만 쓰임 → T23 후속 정리 커밋에서 처리.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T56
 - 요청(사용자): T56 진행 — PR #56 리뷰에서 찾은, `_selectedLevelStore`가 null이면 말없이 레벨 1을 쓰던 7곳에 경고 추가.
 - 변경 파일: `App/SelectedLevelStore.cs`(FallbackLevel 상수, 정적 LevelOrFallback(store, logger, owner) — null이면 `[owner] selectedLevelStore가 null이라 레벨 1로 처리함.` 경고 후 1), `Game/GameFlowController.cs`, `Game/UI/MissionBoardController.cs`(2곳), `Result/ResultAiPanel.cs`, `Result/ResultFlowController.cs`(2곳), `Result/ResultVideoPanel.cs`(예전 MinLevel도 1), T54에서 직접 경고를 넣었던 `Game/UI/IngredientSelectionController.cs`도 같은 헬퍼로 통일. 같은 모양은 이 8곳이 전부(검색으로 확인). 단순 값 반환이라 스킬 13번 기준으로 테스트는 추가하지 않음. CHANGELOG는 관람객·운영자 영향이 없어 적지 않음. 버전은 이미 26.10.9.

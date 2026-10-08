@@ -48,13 +48,13 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultAiPanel] designPanel이 null이라 정답 설계를 표시할 수 없음.");
         }
 
-        /// <summary> 패널·설계창·영상을 숨긴 상태로 시작하고, 3_Game 설계창과 같은 배치 방식·정답 설계 길이로 설계창 배율을 정해 시작하기 블록만 놓아 둠. </summary>
+        /// <summary> 패널·설계창·영상을 숨긴 상태로 시작하고, 정답 설계에 맞춰 설계창 블록 묶음 폭을 정하고 시작하기 블록만 놓아 둠. </summary>
         private void Start()
         {
             PanelFader.ApplyState(panelGroup, false, _logger);
             PanelFader.ApplyState(designGroup, false, _logger);
             PanelFader.ApplyState(videoGroup, false, _logger);
-            if (designPanel) ResultDesignPlayback.Prepare(designPanel, SolutionDesign(), _resultStore != null ? _resultStore.DesignLayoutMode : DesignLayoutMode.FitAll);
+            if (designPanel) ResultDesignPlayback.Prepare(designPanel, SolutionDesign()); // null이면 Construct에서 이미 경고함
         }
 
         /// <summary> 결과 저장소의 정답 설계. 없거나 비어 있으면 경고를 남기고 빈 목록(시작하기·완성하기만 보임)을 반환함. </summary>
