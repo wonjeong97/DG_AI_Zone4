@@ -9,6 +9,7 @@
 
 ## 할 일
 
+- [ ] T56 남은 조용한 대체값에 경고 추가: `_selectedLevelStore`가 null이면 말없이 레벨 1을 쓰는 곳 7곳(GameFlowController·MissionBoardController 2·ResultAiPanel·ResultFlowController 2·ResultVideoPanel). 필수 주입이라 실제로는 테스트에서만 null(PR #56 리뷰에서 찾음) — 담당: Claude / 검증: Antigravity
 - [ ] T23 설계창 배치 방식 확정: 기획 확인 뒤 DesignPanel의 배치 방식 드롭다운('줄여서 한 화면에'/'크게 두고 자동 스크롤')에서 고른 하나만 남기고 나머지 코드·설정값 제거 — 담당: Claude / 검증: Antigravity
 
 ## 완료
