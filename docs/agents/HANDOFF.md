@@ -20,6 +20,7 @@
 - Play 모드 확인(Claude, 저장소 설정 useInactivityTimer false라 메모리에서만 타이머 켜고 2초): 0_Title paused=True, 4초 기다려도 발행·APIManager 로그 없음 → SceneManager.LoadScene(3_Game) 직후 paused=False → 2초 뒤 'Publishing timeout event' 1번·move_idle_timeout(에디터라 전송 건너뜀 로그)·0_Title로 복귀 → paused=True, 4초 더 기다려도 추가 로그 없음. 콘솔 오류·경고 0, Play 모드 종료 뒤 작업 폴더 변경 없음.
 - 테스트: PlayMode 177/177. 실행 뒤 m_EnterPlayModeOptionsEnabled 0으로 되돌림.
 - 확인 요청·결과(agy `gemini-3.8-flash-high`, 2묶음 병렬): (코드) 타이틀 진입 경로별 Pause와 Pause 상태 유지, 다른 씬 Resume과 연출 Pause/Resume 순서, QR 뒤 시작하기 대기 독립 동작, DI·베이스 생명주기·이름 충돌·조용한 실패·문체 → 4/4 통과. (문서) TODO 형식·번호, CHANGELOG 제외 판단, bundleVersion → 3/3 통과. 문제 0건.
+- PR wonjeong97/DG_AI_Zone4#53 머지 전: (Claude Play 모드) 4_Result를 열어 결과 씬이 타이머를 멈춘 상태(timerPaused·_isTimerPaused True)에서 LoadSceneAsync(0_Title) → timerPaused True — 결과 씬 OnDestroy의 Resume이 새 씬 sceneLoaded의 Pause보다 먼저 실행됨을 확인(경고 2건은 결과 씬을 바로 연 탓의 정답 설계 없음·영상 색 정보). (agy 2묶음) 초기화 순서·0_Title이 아닌 씬에서 바로 Play·중복 인스턴스·도메인 리로드·같은 씬 다시 로드·Additive 없음 → 3/3, PR 설명·HANDOFF 사실·TODO·CHANGELOG → 3/3 통과. 문제 0건.
 
 ---
 
