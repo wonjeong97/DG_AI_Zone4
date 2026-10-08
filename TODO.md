@@ -13,6 +13,8 @@
 
 ## 완료
 
+- [x] T48 체험자 서버 JSON 응답 앞뒤 군더더기 무시(1존 현장에서 getUser가 JSON 끝 } 뒤에 ``` 줄을 붙여 보내 모든 체험자가 타이틀에서 막힘, 4존도 같은 서버·같은 코드) — getUser·updateValue는 첫 { ~ 마지막 }만 읽고, getUser 실패 사유에 JsonUtility 오류 문구 포함(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
+
 - [x] T47 레벨 1 핵 추진 엔진 +12 → +15(외계 행성 정답 조합 1가지뿐이라 너무 어려움, 사용자 요청). 달 2·화성 6·외계 행성 3가지(HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
 
 - [x] T46 레벨 5: '그리고'(논리 카드)를 없애고 동작 블록 '연결 통로 코드'를 추가(함수 1·동작 4장, 스토리 문구 네 가지 시스템), 현재 상황 화면 그림(Image_Dome·Rover·Tower·Corridor)을 처음에 숨기고 동작 블록이 함수 정의 블록 안에 들어가 다 붙으면 맞는 그림을 보여 줌. 모든 레벨: 마지막으로 확정한 단계의 카드를 떼면 취소하기로 처리, 리더기 '카드 없음' 오응답 디바운스(RfidMappings.json cardRemovedDebounceMs 1000)(사용자 요청, HANDOFF.md 참고) — 담당: Claude / 검증: Antigravity (2026-10-08)
