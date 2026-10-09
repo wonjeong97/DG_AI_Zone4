@@ -5,6 +5,7 @@ using DGAIZone.Game.UI;
 using DGAIZone.Result;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using VContainer;
@@ -353,6 +354,50 @@ namespace DGAIZone.Tests
             await _panel.AttachEndBlockAsync(default).AwaitWithRealtimeTimeout(5f);
             float s = _panel.Scale;
             Assert.AreEqual((oneSlot - BottomTabHeight) * s, BlockPosition(1).y - LastBlockPosition().y, Tolerance, "완성하기 블록은 줄어든 만약 블록 바로 아래에 놓여야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 손가락으로_끄는_동안에는_자동으로_스크롤하지_않고_손을_떼면_맨_아래로_내린다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(true);
+            _panel.Initialize(true, false);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나길 기다림
+
+            Assert.IsTrue(_root.TryGetComponent(out ScrollDragTracker tracker), "ScrollRect 오브젝트에 끌기 추적 컴포넌트가 붙어야 함");
+            PointerEventData drag = new PointerEventData(null) { button = PointerEventData.InputButton.Left };
+
+            _scrollRect.verticalNormalizedPosition = 1f; // 사용자가 맨 위까지 끌어올린 채 손가락을 대고 있음
+            tracker.OnBeginDrag(drag);
+            _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸"); // 끄는 동안 다른 단계 블록이 붙음
+            await UniTask.Delay(600, DelayType.UnscaledDeltaTime);
+            Assert.AreEqual(1f, _scrollRect.verticalNormalizedPosition, Tolerance, "끄는 동안에는 코드가 스크롤을 움직이지 않아야 함");
+
+            tracker.OnEndDrag(drag);
+            await UniTask.Delay(600, DelayType.UnscaledDeltaTime); // 손을 뗀 뒤 자동 스크롤(0.3초)이 끝나길 기다림
+            Assert.AreEqual(0f, _scrollRect.verticalNormalizedPosition, Tolerance, "손을 떼면 새로 붙은 블록이 보이게 맨 아래로 내려가야 함");
+        });
+
+        [UnityTest]
+        public IEnumerator 손가락으로_끄는_동안_블록이_빠지면_스크롤_범위는_손을_뗀_뒤에_줄어든다() => UniTask.ToCoroutine(async () =>
+        {
+            CreatePanel(true);
+            _panel.Initialize(true, false);
+            for (int i = 0; i < 5; i++) _panel.AddItem(DesignStepShape.Command, "이동하기", "위쪽 한 칸");
+            await UniTask.Delay(1500, DelayType.UnscaledDeltaTime); // 쌓기·자동 스크롤 연출이 끝나길 기다림
+            float fullHeight = _content.sizeDelta.y;
+
+            Assert.IsTrue(_root.TryGetComponent(out ScrollDragTracker tracker), "ScrollRect 오브젝트에 끌기 추적 컴포넌트가 붙어야 함");
+            PointerEventData drag = new PointerEventData(null) { button = PointerEventData.InputButton.Left };
+
+            tracker.OnBeginDrag(drag);
+            _panel.RemoveLastItem(); // 끄는 동안 마지막 카드를 뗌
+            await UniTask.Delay(600, DelayType.UnscaledDeltaTime);
+            Assert.AreEqual(fullHeight, _content.sizeDelta.y, Tolerance, "끄는 동안에는 스크롤 범위를 줄이지 않아야 함(줄이면 화면이 당겨짐)");
+
+            tracker.OnEndDrag(drag);
+            await UniTask.Delay(800, DelayType.UnscaledDeltaTime); // 손을 뗀 뒤 올리기(0.3초)와 범위 줄이기가 끝나길 기다림
+            Assert.Less(_content.sizeDelta.y, fullHeight, "손을 떼면 빠진 블록만큼 스크롤 범위가 줄어야 함");
         });
 
         [UnityTest]
