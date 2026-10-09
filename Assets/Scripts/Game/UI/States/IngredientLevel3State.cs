@@ -128,6 +128,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
         public bool UsesFunctionDefinition => false;
 
+        /// <summary> 추진력 게이지를 쓰지 않음(레벨 1 전용). </summary>
+        public bool UsesThrustGauge => false;
+
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
         public bool UsesValueBlocks => true;
 
@@ -240,6 +243,10 @@ namespace DGAIZone.Game.UI.States
 
             if (controller.Level3ElectricGauge) controller.Level3ElectricGauge.fillAmount = 0f;
             else if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level3ElectricGauge가 null이라 전기 게이지를 초기화할 수 없음.");
+
+            // 아이콘은 게이지를 채울 때까지 쓰이지 않아 정답 블록을 놓기 전에는 누락을 알 수 없으므로 여기서 한 번 경고함
+            if (!controller.Level3OxygenIconCanvasGroup && controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level3OxygenIcon이 없어 산소 아이콘 밝기를 바꿀 수 없음.");
+            if (!controller.Level3ElectricIconCanvasGroup && controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level3ElectricIcon이 없어 전기 아이콘 밝기를 바꿀 수 없음.");
 
             StopLevel3IconInstability(controller);
         }
@@ -368,7 +375,7 @@ namespace DGAIZone.Game.UI.States
             group.alpha = gaugeFill;
         }
 
-        /// <summary> 게이지 충전량에 맞춰 아이콘 알파를 직접 설정함. </summary>
+        /// <summary> 게이지 충전량에 맞춰 아이콘 알파를 직접 설정함(아이콘 누락은 InitializeGauges에서 경고함). </summary>
         private void SyncIconAlphaDirect(CanvasGroup group, float gaugeFill)
         {
             if (group) group.alpha = gaugeFill;

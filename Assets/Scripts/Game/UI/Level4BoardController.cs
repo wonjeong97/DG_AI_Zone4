@@ -282,7 +282,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 이동 시뮬레이션을 재생하고 완료(또는 취소)될 때까지 대기 가능한 UniTask를 반환함. 이미 진행 중인
-        /// 시뮬레이션이 있으면 취소하고 로봇을 시작 위치(Column=0, Row=RobotRow)/기본 시선(왼쪽)으로 되돌린 뒤
+        /// 시뮬레이션이 있으면 취소하고 로봇을 시작 위치(Column=0, Row=RobotRow)/시작 시선(StartFacingLeft — 오른쪽)으로 되돌린 뒤
         /// 처음부터 다시 재생함(연타에 안전함). 스페이스바 디버그 트리거와 '코딩완료' 버튼(재생 후 결과 씬 전환,
         /// IngredientSelectionController) 양쪽에서 공용으로 사용함.
         /// </summary>

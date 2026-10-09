@@ -216,7 +216,7 @@ namespace DGAIZone.Game.UI
                 _functionDefStep = -1;
             }
             Relayout();
-            UpdateContentHeight();
+            ShrinkContentToStack(); // 범위를 바로 줄이면 맨 아래로 스크롤된 상태에서 남은 블록이 한 프레임에 튐(떨어뜨릴 때와 같은 처리)
         }
 
         /// <summary>

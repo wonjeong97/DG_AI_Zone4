@@ -83,6 +83,8 @@ namespace DGAIZone.Game.UI
         internal float Level3GaugeTweenDuration => _sceneSettings.level3GaugeTweenDuration;
         internal float Level3IconBlinkMinAlpha => _sceneSettings.level3IconBlinkMinAlpha;
         internal float Level3IconBlinkDuration => _sceneSettings.level3IconBlinkDuration;
+        internal float Level4ResultHoldDuration => _sceneSettings.level4ResultHoldDuration;
+        internal string[] Level2LaunchTexts => _sceneSettings.level2LaunchTexts;
 
         internal Level4BoardController Level4Board => level4Board;
         internal Level5CityView Level5City => level5City;
@@ -136,6 +138,9 @@ namespace DGAIZone.Game.UI
         // 여기 포함된 가장 이른 스탭부터 뒤쪽 설계창 블록을 임시로 떨어뜨리고, 하나라도 있으면 설정하기·코딩 완료를 막음.
         // 같은 category 카드가 다시 인식되면 해당 인덱스가 제거되고 블록이 다시 붙음.
         private readonly HashSet<int> _idleReaderStepIndices = new HashSet<int>();
+
+        // 지금 처리 중인 카드로 이미 설정한 단계를 되돌렸을 때 그 사실. 카드 한 장의 행동 로그 한 줄(LogCardPlaced)에 함께 남기고 비움
+        private string _rollbackNote;
 
         // R3 반응형 상태 관리
         private readonly ReactiveProperty<string> _currentIngredient = new ReactiveProperty<string>("");
@@ -476,6 +481,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnRfidTagReceived(RfidTagEvent evt)
         {
+            _rollbackNote = null;
             if (!TryRouteToCurrentStep(evt)) return;
             if (!TryResolveStepCard(evt, out RfidStepDefinition ingredient, out RfidMatter[] matters)) return;
 
@@ -497,8 +503,14 @@ namespace DGAIZone.Game.UI
             // (무시하면 카드는 놓였는데 블록은 떨어진 채 남고 설정하기·코딩 완료도 계속 막힘). 결과 화면으로 넘어가는 중에는 처리하지 않음.
             bool returnsMissingCard = !_isBusy && readerStepIndex >= 0 && _idleReaderStepIndices.Contains(readerStepIndex);
 
+            if (!gamePanel)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] gamePanel이 null이라 {evt.ReaderId}의 카드 입력을 처리할 수 없음.");
+                return false;
+            }
+
             // 게임 패널이 활성 상태가 아니면(스토리 화면 등) RFID 입력을 무시함
-            if (!gamePanel || (!gamePanel.interactable && !returnsMissingCard))
+            if (!gamePanel.interactable && !returnsMissingCard)
             {
                 LogCardPlaced(evt, "게임 화면이 아니라 무시함");
                 return false;
@@ -527,7 +539,7 @@ namespace DGAIZone.Game.UI
                     // 그 외(카드를 떼지 않은 채 다른 카드로 교체했거나, 떨어졌다가 다른 category로 바뀐 경우)는
                     // 이미 확정된 스탭을 담당하는 리더기에서 변경이 감지된 것이므로, 그 스탭부터 되돌린 뒤
                     // 아래 로직에서 이 태그를 그 스탭의 새 입력으로 처리함.
-                    HandleConfirmedStepCardChanged(readerStepIndex, evt.Category);
+                    HandleConfirmedStepCardChanged(readerStepIndex);
                 }
                 else if (readerStepIndex > _currentStepIndex)
                 {
@@ -648,7 +660,12 @@ namespace DGAIZone.Game.UI
         /// <summary> 체험자가 리더기에 카드를 올렸을 때 그 처리 결과를 행동 로그 한 줄로 남김. 레벨 상태가 카드를 받지 않을 때도 씀. </summary>
         internal void LogCardPlaced(RfidTagEvent evt, string outcome)
         {
-            if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 {evt.Category} 카드를 올림 — {outcome}.");
+            string rollbackNote = _rollbackNote;
+            _rollbackNote = null;
+            if (_logger == null) return;
+
+            if (rollbackNote != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 {evt.Category} 카드를 올림 — {rollbackNote}, {outcome}.");
+            else _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 {evt.Category} 카드를 올림 — {outcome}.");
         }
 
         /// <summary> 체험자가 리더기에서 카드를 뗐을 때 그 처리 결과를 행동 로그 한 줄로 남김. </summary>
@@ -675,6 +692,19 @@ namespace DGAIZone.Game.UI
             return int.TryParse(readerId.AsSpan(underscoreIndex + 1), out int readerNumber) ? readerNumber - 1 : -1;
         }
 
+        /// <summary> 찍은 카드 분류로 고를 재료 정의를 이 레벨의 categoryIngredients에서 찾음(레벨 4·5 상태가 씀). 없으면 null. </summary>
+        internal RfidStepDefinition FindCategoryIngredient(string category)
+        {
+            if (_categoryIngredients == null) return null; // categoryIngredients 누락은 RfidMappings.json 검증기가 오류로 남김
+
+            foreach (RfidStepDefinition ingredient in _categoryIngredients)
+            {
+                if (ingredient != null && ingredient.AllowsCategory(category)) return ingredient;
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// 이미 확정된 stepIndex번째 스탭을 담당하는 리더기에서 카드가 바뀐 것을 감지했을 때 호출됨.
         /// 같은 category든 다른 category든 처리는 동일함: stepIndex까지 되돌리고(그 뒤 확정된 값은 전부 무효화),
@@ -682,15 +712,12 @@ namespace DGAIZone.Game.UI
         /// (같은 category: 방향/횟수 등 세부 값만 새로 고르면 되므로 사실상 "그대로 재진행"처럼 느껴짐.
         ///  다른 category: 그 스탭 이후 확정 값이 전부 취소되므로 더 크게 되돌아가는 셈.)
         /// </summary>
-        private void HandleConfirmedStepCardChanged(int stepIndex, string newCategory)
+        private void HandleConfirmedStepCardChanged(int stepIndex)
         {
             string previousCategory = (_confirmedCategories != null && stepIndex < _confirmedCategories.Length) ? _confirmedCategories[stepIndex] : null;
-            bool sameCategory = string.Equals(previousCategory, newCategory, StringComparison.Ordinal);
 
-            if (_logger != null)
-            {
-                _logger.ZLogInformation($"[IngredientSelectionController] 이미 확정된 {stepIndex + 1}번째 단계에서 카드 변경 감지({previousCategory} -> {newCategory}). {(sameCategory ? "같은 카테고리라 그대로 재진행" : "다른 카테고리라 이후 단계 전부 무효화")}함.");
-            }
+            // 이 카드의 행동 로그 한 줄(LogCardPlaced)에 함께 남김
+            _rollbackNote = ZString.Format("{0}번째 단계에 설정한 {1} 카드가 바뀌어 그 단계부터 되돌림", stepIndex + 1, previousCategory);
 
             RollbackToStep(stepIndex);
             UpdateCategoryHint();
@@ -866,13 +893,13 @@ namespace DGAIZone.Game.UI
             RfidMatter[] matters = _currentMatters;
             if (matters == null || matters.Length == 0)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 확정할 RFID 태그가 스캔되어 있지 않음.");
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 설정하기를 누름 — 올린 카드가 없어 무시함.");
                 return;
             }
 
             if (_currentStepIndex >= _totalSteps)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] 모든 단계가 이미 완료됨.");
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 설정하기를 누름 — 모든 단계를 이미 마쳐 무시함.");
                 return;
             }
 
@@ -930,9 +957,14 @@ namespace DGAIZone.Game.UI
             if (_currentStepIndex == 0)
             {
                 // 1단계(Reader 1)인 경우 현재 태그된 임시 선택값만 클리어
+                bool hadSelection = _currentMatters != null && _currentMatters.Length > 0;
                 ClearPendingSelection();
                 UpdateCategoryHint();
-                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 취소하기를 누름 — 1번째 단계에서 고르던 값을 비움.");
+                if (_logger != null)
+                {
+                    if (hadSelection) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 취소하기를 누름 — 1번째 단계에서 고르던 값을 비움.");
+                    else _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 취소하기를 누름 — 되돌릴 단계도 고르던 값도 없어 그대로 둠.");
+                }
                 return;
             }
 
@@ -1248,12 +1280,14 @@ namespace DGAIZone.Game.UI
             return state.EvaluateMission(this);
         }
 
-        /// <summary> 확정된 추진력(레벨 1 외에는 0)을 미션보드 진행도(Image_Fill)에 반영함. </summary>
+        /// <summary> 확정된 추진력을 미션보드 진행도(Image_Fill)에 반영함. 추진력 게이지가 없는 레벨(2~5)은 숨은 게이지를 건드리지 않음. </summary>
         private void ApplyProgressToMissionBoard()
         {
+            if (CurrentLevelState == null || !CurrentLevelState.UsesThrustGauge) return; // 레벨 상태 누락은 초기화 때 경고함
+
             if (_missionBoard)
             {
-                _missionBoard.SetProgress(CurrentLevelState != null ? CurrentLevelState.CalculateConfirmedThrust(this) : 0);
+                _missionBoard.SetProgress(CurrentLevelState.CalculateConfirmedThrust(this));
             }
             else if (_logger != null)
             {
@@ -1353,6 +1387,8 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void UpdateProgressPreview()
         {
+            if (CurrentLevelState == null || !CurrentLevelState.UsesThrustGauge) return; // 추진력 게이지가 없는 레벨(2~5) — 레벨 상태 누락은 초기화 때 경고함
+
             if (!_missionBoard)
             {
                 if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] missionBoard가 null이라 미리보기 게이지를 갱신할 수 없음.");

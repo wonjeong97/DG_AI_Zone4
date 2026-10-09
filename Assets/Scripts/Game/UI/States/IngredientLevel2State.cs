@@ -18,7 +18,7 @@ namespace DGAIZone.Game.UI.States
     /// </summary>
     public class IngredientLevel2State : IIngredientSelectionLevelState
     {
-        // 올바른 발사 순서(물질 id). Level2StepBallTexts와 같은 인덱스끼리 짝을 이룸
+        // 올바른 발사 순서(물질 id). 3_Game.json level2LaunchTexts와 같은 인덱스끼리 짝을 이룸
         private static readonly string[] Level2LaunchSequence =
         {
             Constants.RfidIds.Level2.Ignite,
@@ -26,11 +26,6 @@ namespace DGAIZone.Game.UI.States
             Constants.RfidIds.Level2.SeparateStage1,
             Constants.RfidIds.Level2.SeparateStage2,
             Constants.RfidIds.Level2.EnterOrbit
-        };
-
-        private static readonly string[] Level2StepBallTexts =
-        {
-            "점화 시퀀스\n완료", "상승 시퀀스\n준비 완료", "1차 로켓\n준비 완료", "2차 로켓\n준비 완료", "진입 궤도\n계산 완료"
         };
 
         private Tween _level2FillTween;
@@ -128,6 +123,9 @@ namespace DGAIZone.Game.UI.States
 
         /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
         public bool UsesFunctionDefinition => false;
+
+        /// <summary> 추진력 게이지를 쓰지 않음(레벨 1 전용). </summary>
+        public bool UsesThrustGauge => false;
 
         /// <summary> 레벨 2는 값 블록을 쓰지 않음. </summary>
         public bool UsesValueBlocks => false;
@@ -282,7 +280,16 @@ namespace DGAIZone.Game.UI.States
             }
 
             int textIndex = Array.IndexOf(Level2LaunchSequence, matterId);
-            ballText.text = (textIndex >= 0 && textIndex < Level2StepBallTexts.Length) ? Level2StepBallTexts[textIndex] : "";
+            string[] launchTexts = controller.Level2LaunchTexts;
+            if (textIndex >= 0 && launchTexts != null && textIndex < launchTexts.Length)
+            {
+                ballText.text = launchTexts[textIndex];
+                return;
+            }
+
+            ballText.text = "";
+            if (textIndex >= 0 && controller.Logger != null)
+                controller.Logger.ZLogWarning($"[IngredientSelectionController] 3_Game.json level2LaunchTexts에 {textIndex + 1}번째 발사 순서 문구가 없어 스텝 볼 문구를 비움.");
         }
     }
 }

@@ -104,7 +104,8 @@ namespace DGAIZone.Game.UI
 
                 await ShakeAsync(token);
 
-                await UniTask.Delay(TimeSpan.FromSeconds(_sceneSettings.warningHoldDuration), DelayType.UnscaledDeltaTime, cancellationToken: token);
+                // 3_Game.json에 음수를 적으면 Delay가 예외를 내 경고가 사라지지 않고 남으므로 0 이상으로 제한함
+                await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, _sceneSettings.warningHoldDuration)), DelayType.UnscaledDeltaTime, cancellationToken: token);
 
                 await _panel.DOFade(0f, fadeDuration).SetUpdate(true)
                     .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);

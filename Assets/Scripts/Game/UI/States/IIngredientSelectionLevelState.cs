@@ -39,6 +39,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 함수 사용 단계가 있어 설계창 오른쪽에 함수 정의 블록 자리를 남겨야 하는지 여부. </summary>
         bool UsesFunctionDefinition { get; }
 
+        /// <summary> 미션 보드의 추진력 게이지(진행도·미리보기)를 쓰는 레벨인지 여부(레벨 1만). 아니면 게이지를 갱신하지 않음. </summary>
+        bool UsesThrustGauge { get; }
+
         /// <summary> 설계창 블록에 쓸 문구(명령 블록 문구, 값 블록 문구)를 반환. 값 문구가 null이면 값 블록 없는 명령 블록으로 쌓임. </summary>
         (string command, string value) GetDesignBlockTexts(IngredientSelectionController controller, string ingredientName, string matterLabel);
 
