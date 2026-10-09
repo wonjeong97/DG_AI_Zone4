@@ -6,13 +6,13 @@
 
 ## 진행 중
 
-- [ ] T65 관리자 비밀번호 창에서 숫자 버튼을 누르면 그 버튼이 EventSystem 선택으로 남아, 서버 모드에서 QR 스캐너가 보낸 Enter(Submit)가 그 숫자를 한 번 더 입력할 수 있음(코드로만 확인, 이름 입력 창은 ClearSelection으로 막혀 있음. T64 리뷰에서 발견, 1존도 같은 구조) — 담당: Claude / 검증: Antigravity
 
 ## 할 일
 
 
 ## 완료
 
+- [x] T65 QR 스캐너(키보드)의 Enter·글자가 터치로 누른 뒤 선택으로 남은 버튼을 다시 누르거나(Submit) 선택을 옮김(W·A·S·D Move) — 빌드 씬 6개 EventSystem의 Send Navigation Events를 끔, ScannerKeyboardInputTests로 확인. 처음 적은 '비밀번호 숫자가 한 번 더 입력됨'은 키패드가 Navigation None이라 터치로는 일어나지 않고, 실제로 영향받던 것은 Navigation Automatic인 관리자 화면·이름 창 버튼과 게임 화면 버튼(설정하기·좌우·취소 등)(사용자 요청, T64 리뷰에서 발견, 1존도 같은 구조) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T66 쓰지 않는 `StreamingAssets/Videos/Tutorial.mp4`(약 74MB, 코드·씬·문서 참조 0건, 튜토리얼은 Addressables 이미지) 삭제(사용자 요청, 1존과 같게) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T64 관리자 화면 60초 무입력 자동 닫기(이름 입력 창 포함), 1존처럼 빌드 후 바꿀 값을 JSON으로: 관리자 창 자동 닫기 시간·진입 클릭 수(Admin.json, 비밀번호 저장 때 다른 값 유지), 로봇 영상 경로(00_Common.json), 타이틀 안내 문구 7개(0_Title.json)(사용자 요청) — PlayMode 204/204 — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T62 쓰이지 않는 `RfidMappings.json` `stageReadCounts` 삭제(단계 수는 레벨별 steps 개수, 모든 레벨에 정의가 있음) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)

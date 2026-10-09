@@ -56,6 +56,7 @@
 - USB 키보드 방식(uid를 입력한 뒤 Enter). 연결된 키보드를 모두 구독한다.
 - 글자 사이가 `scanCharGapSeconds`(`0_Title.json`, 기본 0.5초)보다 벌어지면 앞 글자를 버린다. QR 입력을 다시 받기 시작한 직후 이어서 들어오는 글자도 앞 스캔의 뒷부분으로 보고 버린다.
 - uid에는 생년월일이 들어 있어 로그에 남기지 않는다.
+- 스캐너는 모든 씬에서 꽂혀 있으므로 빌드 씬 6개의 EventSystem은 Send Navigation Events를 끈다(`m_sendNavigationEvents: 0`, `ScannerKeyboardInputTests`가 확인). 켜 두면 터치로 누른 버튼(Navigation Automatic)이 선택으로 남아 스캐너의 Enter에 한 번 더 눌리고, 글자 W·A·S·D에 선택이 옮겨 간다(T65). 새 씬을 만들 때도 끈다.
 
 ### 체험자 서버 (`Server.json`의 `baseUrl`)
 
