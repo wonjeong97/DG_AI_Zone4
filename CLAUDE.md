@@ -31,8 +31,8 @@
 
 ### 설정 파일 (StreamingAssets, 재빌드 없이 현장 조정)
 
-- `Json/00_Common.json`, `0_Title.json` ~ `4_Result.json`: 씬별 연출 타이밍(페이드, QR 확인 시간, 스캐너 글자 간격 등).
-- `Json/Admin.json`: 관리자 비밀번호(4~6자리, 기본 `0000`).
+- `Json/00_Common.json`, `0_Title.json` ~ `4_Result.json`: 씬별 연출 타이밍(페이드, QR 확인 시간, 스캐너 글자 간격 등). `00_Common.json`의 `robotVideoPath`는 로봇 영상 경로(없는 파일이면 기본 `Videos/robot_0811.webm`), `0_Title.json`에는 하단 안내 문구 7개(이름 자리 `{name}`)도 있다.
+- `Json/Admin.json`: 관리자 비밀번호(4~6자리, 기본 `0000`), 관리자 화면·이름 입력 창 자동 닫기 `idleCloseSeconds`(60초), 비밀번호 창 `passwordIdleCloseSeconds`(10초), 진입 클릭 `entryClickCount`(10회)·`entryClickWindowSeconds`(3초). 시간·횟수가 1보다 작으면 기본값을 쓰고, 비밀번호를 바꿀 때 다른 값은 유지한다.
 - `Json/Server.json`: 체험자 서버 주소·시간 제한·재시도 횟수.
 - `RfidMappings.json`: 리더기, 카드(uid → 분류), 레벨별 블록 목록·단계.
 - `Settings.json`(템플릿): 비활동 타이머(`useInactivityTimer`, `resetTime`), 프레임, 소리 등. `ShutdownSettings.json`(템플릿): 요일별 자동 종료.
@@ -65,7 +65,8 @@
 
 ### 관리자 화면 (타이틀)
 
-- 타이틀 왼쪽 위의 보이지 않는 버튼을 3초 안에 10번 누른 뒤 비밀번호를 입력한다.
+- 타이틀 왼쪽 위의 보이지 않는 버튼을 3초 안에 10번 누른 뒤 비밀번호를 입력한다(횟수·시간은 `Admin.json`).
+- 화면을 누르지 않고 두면 비밀번호 창은 10초, 관리자 화면·이름 입력 창은 60초 뒤 닫힌다(`IdleCloseTimer`, 타이틀은 비활동 타이머가 멈춰 있어 따로 잰다). 이미 바꾼 운영 모드는 반영되고, 입력 중이던 이름·비밀번호만 저장되지 않는다. QR 스캐너 키 입력으로는 시간을 다시 재지 않는다.
 - 로컬·서버 모드 전환, 로컬 모드 체험자 이름(화면 키보드로만 입력), 비밀번호 변경, 레벨 이동(그 판의 결과는 서버에 올리지 않음).
 
 ### 입력·디버그

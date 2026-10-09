@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Data;
@@ -38,8 +37,8 @@ namespace DGAIZone.Admin
 
         [SerializeField] private AdminPanel adminPanel;
 
-        [Tooltip("이 시간(초) 동안 키패드 입력이 없으면 창을 닫음")]
-        [SerializeField, Min(1f)] private float idleTimeout = 10f;
+        // 이 시간(초) 동안 입력이 없으면 창을 닫음 — 열 때마다 Admin.json(passwordIdleCloseSeconds)에서 다시 읽음
+        private float _idleCloseSeconds = Constants.Admin.DefaultPasswordIdleCloseSeconds;
 
         // 지금 받는 입력 — 관리자 진입 비밀번호 확인, 또는 비밀번호 변경의 새 비밀번호·한 번 더 입력
         private enum Step
@@ -52,13 +51,10 @@ namespace DGAIZone.Admin
         // 자릿수별 표시 문자열 — 키를 누를 때마다 문자열을 새로 만들지 않도록 미리 만들어 둠
         private readonly static string[] MaskTexts = CreateMaskTexts();
 
-        private readonly static string SettingsPath =
-            ZString.Concat(Constants.ResourcePaths.SceneSettingsFolder, "/", Constants.Admin.SettingsFileName);
-
         private readonly PasswordInput _input = new();
+        private readonly IdleCloseTimer _idleTimer = new();
         private UnityAction[] _digitActions;
         private string _password = Constants.Admin.DefaultPassword;
-        private float _lastInputTime;
         private Step _step;
         private string _newPassword;
 
@@ -117,17 +113,19 @@ namespace DGAIZone.Admin
             if (closeButton) closeButton.onClick.RemoveListener(OnCloseClicked);
         }
 
-        /// <summary> 관리자 진입용으로 창을 열고, 현장에서 바뀌었을 수 있는 비밀번호를 파일에서 다시 읽음. </summary>
+        /// <summary> 관리자 진입용으로 창을 열고, 현장에서 바뀌었을 수 있는 비밀번호·자동 닫기 시간을 파일에서 다시 읽음. </summary>
         public void Open()
         {
             OpenAt(Step.Verify);
-            LoadPasswordAsync(this.GetCancellationTokenOnDestroy()).Forget();
+            LoadSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
         /// <summary> 비밀번호 변경용으로 창을 엶 — 새 비밀번호를 두 번 입력받음(관리자 화면 위에 뜸). </summary>
         public void OpenForChange()
         {
+            // 관리자 레벨 이동에서 돌아와 비밀번호 확인 없이 열린 경우도 있으므로 자동 닫기 시간을 다시 읽음
             OpenAt(Step.EnterNew);
+            LoadSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
         /// <summary> 입력을 비우고 창을 닫음. </summary>
@@ -143,26 +141,26 @@ namespace DGAIZone.Admin
         {
             _newPassword = null;
             ShowStep(step);
-            _lastInputTime = Time.unscaledTime;
+            _idleTimer.Restart();
             gameObject.SetActive(true);
         }
 
         /// <summary> 마지막 입력 뒤 제한 시간이 지나면 창을 닫음(창이 열려 있을 때만 실행됨). </summary>
         private void Update()
         {
-            if (Time.unscaledTime - _lastInputTime < idleTimeout) return;
+            if (!_idleTimer.HasExpired(_idleCloseSeconds)) return;
 
-            if (_logger != null) _logger.ZLogInformation($"[AdminPasswordPanel] {idleTimeout}초 동안 입력이 없어 비밀번호 창을 닫음.");
+            if (_logger != null) _logger.ZLogInformation($"[AdminPasswordPanel] {_idleCloseSeconds}초 동안 입력이 없어 비밀번호 창을 닫음.");
             Close();
         }
 
-        /// <summary> Admin.json에서 비밀번호를 읽음. 파일이 없거나 키패드로 입력할 수 없는 값이면 기본 비밀번호를 씀. </summary>
-        private async UniTaskVoid LoadPasswordAsync(CancellationToken token)
+        /// <summary> Admin.json에서 비밀번호와 자동 닫기 시간을 읽음. 파일이 없거나 키패드로 입력할 수 없는 비밀번호면 기본 비밀번호를 씀. </summary>
+        private async UniTaskVoid LoadSettingsAsync(CancellationToken token)
         {
             try
             {
-                AdminSettings settings = await JsonLoader.LoadAsync<AdminSettings>(SettingsPath, token, _logger);
-                token.ThrowIfCancellationRequested();
+                AdminSettings settings = await AdminSettings.LoadAsync(token, _logger);
+                _idleCloseSeconds = settings.passwordIdleCloseSeconds;
 
                 if (PasswordInput.IsValidPassword(settings.password))
                 {
@@ -182,7 +180,7 @@ namespace DGAIZone.Admin
         /// <summary> 숫자 한 자리를 입력함. 최대 자릿수를 넘는 입력은 무시함. </summary>
         private void OnDigitClicked(int digit)
         {
-            RegisterKeyPress();
+            PlayKeySound();
             if (!_input.TryAppend(digit)) return;
 
             SetMessage(string.Empty);
@@ -192,7 +190,7 @@ namespace DGAIZone.Admin
         /// <summary> 마지막 한 자리를 지움. </summary>
         private void OnBackspaceClicked()
         {
-            RegisterKeyPress();
+            PlayKeySound();
             _input.RemoveLast();
             RefreshMasked();
         }
@@ -200,7 +198,7 @@ namespace DGAIZone.Admin
         /// <summary> 자릿수를 확인한 뒤 지금 단계에 맞게 처리함 — 진입 확인, 새 비밀번호 받기, 한 번 더 입력한 값 비교. </summary>
         private void OnConfirmClicked()
         {
-            RegisterKeyPress();
+            PlayKeySound();
 
             if (!_input.HasValidLength)
             {
@@ -265,8 +263,18 @@ namespace DGAIZone.Admin
         {
             try
             {
-                await JsonLoader.SaveAsync(SettingsPath, new AdminSettings { password = newPassword }, token, _logger);
-                AdminSettings saved = await JsonLoader.LoadAsync<AdminSettings>(SettingsPath, token, _logger);
+                // 같은 파일의 다른 값(자동 닫기 시간·진입 클릭 수)을 지키도록 파일을 읽어 비밀번호만 바꿔 저장함.
+                // 파일이 깨져 있으면 기본값으로 읽혀 그 값들이 사라지므로 저장하지 않음
+                if (!AdminSettings.TryReadForSave(out AdminSettings current))
+                {
+                    if (_logger != null) _logger.ZLogError($"[AdminPasswordPanel] Admin.json을 읽을 수 없거나 형식이 올바르지 않아 새 비밀번호를 저장하지 않음.");
+                    if (adminPanel) adminPanel.ShowStatus(Constants.Admin.PasswordSaveFailed);
+                    return;
+                }
+
+                current.password = newPassword;
+                await JsonLoader.SaveAsync(AdminSettings.FilePath, current, token, _logger);
+                AdminSettings saved = await JsonLoader.LoadAsync<AdminSettings>(AdminSettings.FilePath, token, _logger);
 
                 // 파일 입출력 뒤 관리자 화면 UI를 고치므로 메인 스레드로 돌아옴
                 await UniTask.SwitchToMainThread(token);
@@ -296,10 +304,9 @@ namespace DGAIZone.Admin
             Close();
         }
 
-        /// <summary> 키 입력 클릭음을 내고 무입력 시간을 처음부터 다시 잼. </summary>
-        private void RegisterKeyPress()
+        /// <summary> 키 입력 클릭음을 냄(무입력 시간은 IdleCloseTimer가 화면 누르기로 다시 잼). </summary>
+        private void PlayKeySound()
         {
-            _lastInputTime = Time.unscaledTime;
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
         }
 

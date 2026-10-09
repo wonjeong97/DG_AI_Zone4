@@ -13,6 +13,27 @@
 
 ---
 
+### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T64
+- 요청(사용자): 관리자 화면을 조작 없이 60초 두면 닫히게, 영상처럼 JSON으로 뺄 수 있는 것은 1존을 보고 같은 것을 뺄 것. 1존 dee6cd1(로봇 영상 경로·관리자 창 시간과 진입 클릭 수·타이틀 안내 문구 JSON화)과 9e9499a의 IdleCloseTimer를 기준으로 옮김. 1존이 그대로 둔 것(스토리·미션 문구 LevelData, 튜토리얼 이미지, 채점 기준, API 경로, 결과 영상 이름 규칙)은 4존도 그대로 둠.
+- 변경 파일:
+  - `Admin/IdleCloseTimer.cs`(새 파일): 화면(Pointer.current)을 누를 때만 다시 재는 무입력 타이머. QR 스캐너 키 입력으로는 다시 재지 않음.
+  - `Admin/AdminPanel.cs`: 열 때 Admin.json idleCloseSeconds(60)를 읽고, 시간이 지나면 이름 입력·비밀번호 창과 함께 닫음(_isLeaving 중 제외). 닫기 버튼과 자동 닫기가 같은 Close()를 써서 모드가 바뀌었으면 타이틀을 다시 불러옴.
+  - `Admin/VisitorNamePanel.cs`: Open(onSaved, idleCloseSeconds)로 같은 시간을 받아 자동으로 닫힘(onSaved는 부르지 않음).
+  - `Admin/AdminPasswordPanel.cs`: 인스펙터 idleTimeout 대신 Admin.json passwordIdleCloseSeconds(10)를 Open·OpenForChange 때 읽음. 비밀번호 저장은 TryReadForSave로 파일을 읽어 비밀번호만 바꿈(예전에는 new AdminSettings로 덮어써 다른 값이 사라졌을 것). 파일을 읽을 수 없거나 깨졌으면 저장하지 않고 안내.
+  - `Admin/AdminTrigger.cs`: 인스펙터 targetClickCount·clickTimeWindow 대신 Admin.json entryClickCount(10)·entryClickWindowSeconds(3)를 Start에서 읽음.
+  - `Data/AdminSettings.cs`: 키 4개, LoadAsync(1보다 작은 값은 경고와 함께 기본값, 취소 전달), TryReadForSave, ClampToValid, FilePath. 기본값은 `Constants.Admin.Default*`.
+  - `Data/CommonSettings.cs`·`App/RobotVideoPanel.cs`: robotVideoPath. 비었거나 파일이 없거나 경로에 쓸 수 없는 문자가 있으면 경고 후 기본 `Constants.Files.RobotVideo`(값을 "Videos/robot_0811.webm"으로 바꿈, 다른 사용처 없음).
+  - `Data/TitleSceneSettings.cs`·`Title/TitleFlowController.cs`: 안내 문구 7개. 설정을 먼저 읽고 첫 안내를 띄움(읽는 중 파괴되면 키보드 구독이 남지 않게 취소 확인). 이름 자리는 `{0}` → `{name}`(PlaceholderFormatter), `StartGuideWithNameFormat` → `StartGuideWithName`.
+  - `AdminCanvas.prefab`: 지운 직렬화 필드 값 3줄 삭제(값은 새 기본값과 같은 10·10·3, 씬 재정의 없음).
+  - JSON 3개, 테스트 `SettingsJsonTests`(새 파일: 8개 설정 JSON 키 대조, 로봇 영상 파일, 예전 Admin.json 기본값, 값 보정, {name}), `AdminLogicTests` 무입력 타이머, `VisitorNamePanelTests` 호출 변경, `CHANGELOG.md`, `CLAUDE.md`, `TODO.md`. 버전은 이미 26.10.9.
+- 확인: Rider 오류 0, Unity 컴파일·콘솔 오류 0, PlayMode 204/204(수정 뒤 다시 204/204), 실행 뒤 EditorSettings 되돌림.
+- Play 모드 확인(Claude, JSON을 잠시 바꾼 뒤 백업으로 되돌림): startGuideText가 타이틀 첫 안내로 나옴, entryClickCount 3으로 3번 눌러 비밀번호 창이 열림, 비밀번호 창 3초·관리자 화면과 위의 이름 입력 창 4초 뒤 함께 닫힘, 비밀번호를 1357로 바꾸자 다른 4개 값이 남음, robotVideoPath를 없는 파일로 바꾸자 경고 후 인트로에서 기본 영상 재생. Play 모드에서 생긴 TMP 폰트 글리프 변경은 버림.
+- 리뷰(Claude 서브에이전트 3개, agy 한도 초과로 대신): 관리자 코드·영상·타이틀·프리팹·JSON·문서·AdminSettings·테스트 모두 확인된 버그 없음. 반영한 지적: 문서의 '관리자 화면이 저장하지 않고 닫힘'이 운영 모드 변경도 취소되는 것처럼 읽혀 문구 수정, 저장 거부 로그를 '읽을 수 없거나 형식이 올바르지 않아'로, robotVideoPath에 경로 문자 오류가 있으면 기본 영상으로, CHANGELOG 긴 항목을 셋으로 나눔. 범위 밖(원래 있던 것): 비밀번호 창 숫자 버튼이 선택으로 남아 QR 스캐너 Enter가 숫자를 한 번 더 입력할 수 있음 → T65로 TODO에 적음. 1존에 있는 비밀번호 읽기 전 확인 막기(_isPasswordLoaded)는 4존에 없지만 터치로는 재현되지 않아 그대로 둠.
+- 남은 확인: 1존처럼 쓰지 않는 영상(`StreamingAssets/Videos/Tutorial.mp4`, 약 74MB, 코드·씬 참조 0건)을 지울지 사용자에게 물음.
+- PR wonjeong97/DG_AI_Zone4#61 머지 전(Claude, agy 한도 초과): main보다 뒤처진 커밋 0, CI 검사 없음. 리뷰 지적 반영 뒤 Rider 오류 0·컴파일 오류 0·PlayMode 204/204, 지적 반영으로 바뀐 것은 문구와 잘못된 영상 경로 처리뿐이라 추가 리뷰 없이 통과. CHANGELOG 미배포 Added 4줄을 2026-10-09 섹션으로 옮김. 사용자 지시: 리뷰 뒤 수정·개선 사항이 없으면 머지하고 main으로 체크아웃.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T63
 - 요청(사용자): 프로젝트 CLAUDE.md 채우기.
 - 변경 파일: `CLAUDE.md`(개요·스택·씬 흐름·레벨 1~5 표·현장 설정 파일, RFID 리더기·QR 스캐너·체험자 서버·서버 로그·관리자 화면·디버그 키, 공통 규칙의 예외 3가지). 전시명·설치 장소는 모르는 정보라 적지 않음.

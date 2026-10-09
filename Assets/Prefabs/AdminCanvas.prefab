@@ -2876,8 +2876,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5973434402d1dbf4fbc3b821c0113b51, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetClickCount: 10
-  clickTimeWindow: 3
   passwordPanel: {fileID: 2587812286588740863}
   adminPanel: {fileID: 4504976182867795516}
 --- !u!222 &8260474092096220254
@@ -7235,7 +7233,6 @@ MonoBehaviour:
   maskedText: {fileID: 784034047479244851}
   messageText: {fileID: 4298105972116140612}
   adminPanel: {fileID: 4504976182867795516}
-  idleTimeout: 10
 --- !u!1 &3004328532943272254
 GameObject:
   m_ObjectHideFlags: 0

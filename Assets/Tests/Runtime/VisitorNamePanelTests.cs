@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using DGAIZone.Admin;
+using DGAIZone.App;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -45,7 +46,7 @@ namespace DGAIZone.Tests
 
             VisitorNamePanel panel = _adminCanvas.GetComponentInChildren<VisitorNamePanel>(true);
             Assert.IsNotNull(panel, "VisitorNamePanel이 없음");
-            panel.Open(null);
+            panel.Open(null, Constants.Admin.DefaultIdleCloseSeconds);
             yield return null; // 레이아웃과 커서 위치가 잡히도록 한 프레임 기다림
 
             TMP_InputField inputField = panel.GetComponentInChildren<TMP_InputField>(true);

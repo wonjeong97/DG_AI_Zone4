@@ -17,14 +17,14 @@ namespace DGAIZone.App
             public const string Outro = "5_Outro";
         }
 
-        /// <summary> 타이틀 씬 하단 안내 문구. 값은 1존과 같음. </summary>
+        /// <summary> 타이틀 씬 하단 안내 기본 문구. 값은 1존과 같고, 현장에서는 0_Title.json(TitleSceneSettings)의 같은 문구를 고쳐 재빌드 없이 바꿈. </summary>
         public static class TitleMessages
         {
             public const string QrGuide = "QR 코드를 인식하여 주세요.";
             public const string StartGuide = "시작하기를 눌러주세요.";
 
-            /// <summary> 서버 모드에서 QR로 확인한 체험자에게 보이는 시작 안내 — {0}에 체험자 이름. </summary>
-            public const string StartGuideWithNameFormat = "{0}님, 시작하기를 눌러주세요.";
+            /// <summary> 서버 모드에서 QR로 확인한 체험자에게 보이는 시작 안내 — {name}에 체험자 이름(VisitorPlaceholder). </summary>
+            public const string StartGuideWithName = "{name}님, 시작하기를 눌러주세요.";
 
             // 서버 모드에서 QR을 찍은 뒤 체험자 확인 결과 안내 — 확인 중을 빼면 잠시 보여 준 뒤 QrGuide로 돌아감
             public const string QrChecking    = "QR 코드를 확인하고 있습니다.";
@@ -63,8 +63,11 @@ namespace DGAIZone.App
         {
             public const string RfidMappings = "RfidMappings.json";
 
-            /// <summary> 인트로/레벨 선택/게임/아웃트로에서 반복 재생하는 로봇 영상 파일명(Videos 폴더 안). </summary>
-            public const string RobotVideo = "robot_0811.webm";
+            /// <summary>
+            /// 인트로/레벨 선택/게임/아웃트로에서 반복 재생하는 로봇 영상의 기본 경로(StreamingAssets 기준).
+            /// 00_Common.json의 robotVideoPath가 비었거나 그 파일이 없을 때 씀.
+            /// </summary>
+            public const string RobotVideo = "Videos/robot_0811.webm";
 
             /// <summary> 결과 영상 파일명 앞자리("{접두어}-{레벨}-{Success|Fail}.mp4"). </summary>
             public const string ResultVideoPrefix = "4";
@@ -102,7 +105,7 @@ namespace DGAIZone.App
         /// <summary> 관리자 화면(타이틀 왼쪽 위 연속 터치 → 비밀번호 키패드). 값과 문구는 1존과 같음. </summary>
         public static class Admin
         {
-            /// <summary> 비밀번호 JSON(StreamingAssets/Json/Admin.json) 파일명 — 파일이 없거나 값이 잘못되면 기본 비밀번호를 씀. </summary>
+            /// <summary> 관리자 설정 JSON(StreamingAssets/Json/Admin.json) 파일명 — 비밀번호·자동 닫기 시간·진입 클릭 수. 파일이 없거나 값이 잘못되면 기본값을 씀. </summary>
             public const string SettingsFileName = "Admin";
             public const string DefaultPassword  = "0000";
 
@@ -127,6 +130,12 @@ namespace DGAIZone.App
 
             /// <summary> 체험자 이름 최대 글자 수 — 인트로·아웃트로 문장 안에 들어가므로 한 줄을 넘지 않게 제한함. </summary>
             public const int VisitorNameMaxLength = 8;
+
+            // Admin.json(AdminSettings)에 값이 없거나 1보다 작을 때 쓰는 기본값
+            public const float DefaultIdleCloseSeconds         = 60f; // 관리자 화면·이름 입력 창 무입력 자동 닫기
+            public const float DefaultPasswordIdleCloseSeconds = 10f; // 비밀번호 창 무입력 자동 닫기
+            public const int   DefaultEntryClickCount          = 10;  // 숨은 버튼 연속 클릭 횟수
+            public const float DefaultEntryClickWindowSeconds  = 3f;  // 연속 클릭으로 인정하는 시간
         }
 
         /// <summary>

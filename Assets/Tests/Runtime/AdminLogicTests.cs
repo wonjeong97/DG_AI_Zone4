@@ -1,6 +1,10 @@
+using System;
+using System.Collections;
+using Cysharp.Threading.Tasks;
 using DGAIZone.Admin;
 using DGAIZone.App;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 namespace DGAIZone.Tests
 {
@@ -111,6 +115,25 @@ namespace DGAIZone.Tests
             Assert.AreEqual("0579", newPassword, "앞자리 0도 그대로 남아야 함");
             Assert.IsTrue(PasswordInput.IsValidPassword(newPassword), "저장한 값을 다음에 다시 읽어도 유효해야 함");
         }
+
+        /// <summary>
+        /// 관리자 창 무입력 타이머는 다시 잰 직후에는 끝나지 않고, 화면을 누르면 다시 재며, 입력 없이 제한 시간이 지나면 끝남.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator 무입력_타이머는_제한_시간이_지나면_끝난다() => UniTask.ToCoroutine(async () =>
+        {
+            const float timeoutSeconds = 0.1f;
+            IdleCloseTimer timer = new IdleCloseTimer();
+            timer.Restart();
+
+            Assert.IsFalse(timer.HasExpired(timeoutSeconds, false), "다시 잰 직후에 끝나면 안 됨");
+
+            await UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds * 2f), DelayType.UnscaledDeltaTime);
+            Assert.IsFalse(timer.HasExpired(timeoutSeconds, true), "누른 프레임에는 다시 재야 하므로 끝나면 안 됨");
+
+            await UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds * 2f), DelayType.UnscaledDeltaTime);
+            Assert.IsTrue(timer.HasExpired(timeoutSeconds, false), "입력 없이 제한 시간이 지났으면 끝나야 함");
+        });
 
         /// <summary>
         /// 체험자 이름은 비었거나 앞뒤가 띄어쓰기면 저장할 수 없음 — 인트로·아웃트로 문장에 어긋난 여백이 생김.
