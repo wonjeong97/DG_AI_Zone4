@@ -3,7 +3,9 @@ using System.Collections;
 using Cysharp.Threading.Tasks;
 using DGAIZone.Admin;
 using DGAIZone.App;
+using DGAIZone.Title;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace DGAIZone.Tests
@@ -148,6 +150,56 @@ namespace DGAIZone.Tests
             Assert.IsFalse(VisitorNamePanel.IsSavableName(" 홍길동"));
             Assert.IsFalse(VisitorNamePanel.IsSavableName("홍길동 "));
             Assert.IsFalse(VisitorNamePanel.IsSavableName("  "));
+        }
+
+        /// <summary>
+        /// 끝 글자가 자음·모음 낱자인 이름은 저장할 수 없음 — 조사(이/가)와 스토리 문구가 어긋남. 가운데 낱자는 그대로 허용.
+        /// </summary>
+        [Test]
+        public void 끝_글자가_낱자인_이름은_저장할_수_없다()
+        {
+            Assert.IsFalse(VisitorNamePanel.IsSavableName("홍길ㄷ"));
+            Assert.IsFalse(VisitorNamePanel.IsSavableName("ㅎ"));
+            Assert.IsFalse(VisitorNamePanel.IsSavableName("홍길도ㅏ"));
+            Assert.IsTrue(VisitorNamePanel.IsSavableName("홍ㄱ동"), "가운데 낱자는 허용");
+        }
+
+        /// <summary>
+        /// 타이틀은 관리자 화면이나 비밀번호 창이 열려(활성) 있는 동안을 관리자 창이 열린 것으로 봄 — 그동안 QR을 확인하지 않고 시작하기 대기도 미룸.
+        /// 컴포넌트가 Awake하지 않도록 꺼 둔 부모 아래에서 창의 활성 상태만 바꿔 봄.
+        /// </summary>
+        [Test]
+        public void 타이틀은_관리자_화면이나_비밀번호_창이_열린_동안을_안다()
+        {
+            GameObject root = new GameObject("AdminCanvas");
+            root.SetActive(false);
+            try
+            {
+                AdminPanel adminPanel = CreateClosedWindow<AdminPanel>(root);
+                AdminPasswordPanel passwordPanel = CreateClosedWindow<AdminPasswordPanel>(root);
+                TitleFlowController title = CreateClosedWindow<TitleFlowController>(root);
+                title.Construct(null, null, null, null, null, null, null, null, adminPanel: adminPanel, adminPasswordPanel: passwordPanel);
+
+                Assert.IsFalse(title.IsAdminOpen, "두 창이 닫혀 있으면 열리지 않은 것");
+                passwordPanel.gameObject.SetActive(true);
+                Assert.IsTrue(title.IsAdminOpen, "비밀번호 창이 열리면 열린 것");
+                passwordPanel.gameObject.SetActive(false);
+                adminPanel.gameObject.SetActive(true);
+                Assert.IsTrue(title.IsAdminOpen, "관리자 화면이 열리면 열린 것");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        /// <summary> parent 아래에 꺼진 오브젝트를 만들어 T를 붙임. </summary>
+        private static T CreateClosedWindow<T>(GameObject parent) where T : Component
+        {
+            GameObject go = new GameObject(typeof(T).Name);
+            go.transform.SetParent(parent.transform, false);
+            go.SetActive(false);
+            return go.AddComponent<T>();
         }
     }
 }

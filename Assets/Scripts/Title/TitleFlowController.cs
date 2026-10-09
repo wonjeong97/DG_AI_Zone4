@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using DGAIZone.Admin;
 using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Network;
@@ -45,6 +46,8 @@ namespace DGAIZone.Title
         private ILogger<TitleFlowController> _logger;
         private SoundManager _soundManager;
         private ApiManagerBase _apiManager;
+        private AdminPanel _adminPanel;
+        private AdminPasswordPanel _adminPasswordPanel;
         private bool _isBusy;
 
         // 무한 반복 깜빡임이라 씬을 떠날 때 직접 Kill함
@@ -63,6 +66,12 @@ namespace DGAIZone.Title
         /// 이 씬으로 들어오는 페이드인 동안의 전환은 떠나는 것이 아니므로 막지 않음(타이틀로 돌아오자마자 찍은 QR이 버려지지 않게).
         /// </summary>
         private bool IsSceneChanging => (_sceneTransition != null && _sceneTransition.IsTransitioning && _incomingTransitionFinished) || (_levelJumpStore != null && _levelJumpStore.IsLevelJump);
+
+        /// <summary>
+        /// 관리자 화면이나 비밀번호 창이 열려 있는지(이름 입력·비밀번호 변경 창은 관리자 화면 위에 뜸). 열린 동안에는 창 뒤에서 체험자가 바뀌지 않게
+        /// 찍은 QR을 확인하지 않고, 시작하기 대기 시간이 다 돼도 창이 닫힐 때까지 기다렸다가 처음부터 다시 잼.
+        /// </summary>
+        internal bool IsAdminOpen => (_adminPanel && _adminPanel.gameObject.activeSelf) || (_adminPasswordPanel && _adminPasswordPanel.gameObject.activeSelf);
 
         // 이 씬으로 들어오는 화면 전환(페이드인)이 끝났는지 — 그 뒤의 IsTransitioning만 떠나는 전환으로 봄
         private bool _incomingTransitionFinished;
@@ -83,11 +92,12 @@ namespace DGAIZone.Title
 
         /// <summary>
         /// VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 관리자 레벨 이동 저장소,
-        /// 체험자 서버 API, 앱 설정(Settings.json) 제공자, 로거, 효과음 매니저, 서버 로그 매니저를 할당함.
+        /// 체험자 서버 API, 앱 설정(Settings.json) 제공자, 로거, 효과음 매니저, 서버 로그 매니저, 관리자 화면·비밀번호 창을 할당함.
         /// </summary>
         [Inject]
         public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, AdminLevelJumpStore levelJumpStore,
-            VisitorApiClient visitorApiClient, AppSettingsProvider settingsProvider, ILogger<TitleFlowController> logger, SoundManager soundManager = null, ApiManagerBase apiManager = null)
+            VisitorApiClient visitorApiClient, AppSettingsProvider settingsProvider, ILogger<TitleFlowController> logger, SoundManager soundManager = null, ApiManagerBase apiManager = null,
+            AdminPanel adminPanel = null, AdminPasswordPanel adminPasswordPanel = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
@@ -99,6 +109,8 @@ namespace DGAIZone.Title
             _logger = logger;
             _soundManager = soundManager;
             _apiManager = apiManager;
+            _adminPanel = adminPanel;
+            _adminPasswordPanel = adminPasswordPanel;
         }
 
         /// <summary>
@@ -317,6 +329,12 @@ namespace DGAIZone.Title
                 return;
             }
 
+            if (IsAdminOpen)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 관리자 창이 열려 있어 찍은 QR을 확인하지 않음(창을 닫은 뒤 다시 찍어야 함).");
+                return;
+            }
+
             // 확인을 마친 체험자가 같은 QR을 다시 찍은 경우(스캐너가 같은 QR을 다시 읽은 경우 포함) — 다시 확인하면 시작 버튼이 사라졌다 다시 떠 누르기 어려움
             if (_confirmedUid != null && string.Equals(code, _confirmedUid, StringComparison.Ordinal))
             {
@@ -484,6 +502,7 @@ namespace DGAIZone.Title
         /// <summary>
         /// 비활동 타이머와 같은 설정(Settings.json의 useInactivityTimer·resetTime)으로, 시작하기를 누르지 않은 채
         /// 그 시간이 지나면 서버에 move_idle_timeout을 보내고 확인한 체험자를 비운 뒤 다시 QR을 기다림. 비활동 타이머가 꺼져 있으면 계속 기다림.
+        /// 그때 관리자 창이 열려 있으면 닫힐 때까지 기다린 뒤 처음부터 다시 잼.
         /// 타이틀에서 난 비활동 타임아웃은 APIManager가 보내지 않으므로, 타이틀의 move_idle_timeout은 이 경우에만 남음.
         /// </summary>
         private async UniTaskVoid ConfirmTimeoutAsync(CancellationTokenSource cts)
@@ -504,6 +523,14 @@ namespace DGAIZone.Title
                 if (settings == null || !settings.useInactivityTimer || settings.resetTime <= 0f) return;
 
                 await UniTask.Delay(TimeSpan.FromSeconds(settings.resetTime), DelayType.UnscaledDeltaTime, cancellationToken: token);
+
+                // 관리자가 창을 열어 둔 동안에는 체험자를 비우지 않고, 창이 닫히면 처음부터 다시 잼
+                while (IsAdminOpen)
+                {
+                    if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 관리자 창이 열려 있어 시작하기 대기 시간이 지나도 확인한 체험자를 비우지 않음 — 창이 닫히면 다시 잼.");
+                    await UniTask.WaitWhile(() => IsAdminOpen, cancellationToken: token);
+                    await UniTask.Delay(TimeSpan.FromSeconds(settings.resetTime), DelayType.UnscaledDeltaTime, cancellationToken: token);
+                }
 
                 // 관리자 레벨 이동 등으로 씬을 떠나는 중이면 그쪽이 정한 해금 레벨을 비우지 않음
                 if (IsSceneChanging)
