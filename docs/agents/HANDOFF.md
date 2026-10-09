@@ -21,6 +21,7 @@
 - 변경 파일: 빌드 씬 6개(`0_Title`~`5_Outro`)의 `m_sendNavigationEvents: 1 → 0`(각 1줄, 열려 있던 3_Game은 에디터를 0_Title로 바꾼 뒤 고치고 다시 엶). InputSystemUIInputModule.ProcessNavigation이 이 값이 꺼져 있으면 Move·Submit·Cancel 전에 return함(com.unity.inputsystem 1.19.0 `InputSystemUIInputModule.cs:812`). 포인터·스크롤 처리는 그대로. 키보드 내비게이션에 기대는 코드 없음(ISubmitHandler 등 0건). 새 테스트 `ScannerKeyboardInputTests`(빌드 씬 파일마다 값 확인), `CLAUDE.md`(QR 스캐너 항목), CHANGELOG Fixed, TODO.
 - 확인: Unity 컴파일·콘솔 오류 0, PlayMode 205/205, 3_Game을 다시 열어 sendNavigationEvents=False 확인, Play 모드 확인 때 잠시 바꾼 Input System 설정(포커스 무시)은 원래대로 되돌림(설정 에셋 없음, 런타임 값만 바뀜), TMP 폰트 글리프 변경은 버림.
 - 리뷰(Claude 서브에이전트, agy 한도 초과로 대신): 타이틀 수정은 안전(터치·스크롤·숨은 버튼·이름 창 영향 없음, 다른 EventSystem 없음, 테스트는 예전 씬에서 실패함), Tutorial.mp4 삭제 안전. 지적 반영: T65 설명의 잘못된 예시 수정, 다른 씬도 같은 위험이라 6개 씬 모두 적용, CHANGELOG 섹션 순서(Removed → Fixed).
+- PR wonjeong97/DG_AI_Zone4#62 머지 전(Claude, agy 한도 초과): main보다 뒤처진 커밋 0, CI 검사 없음. 최종 diff는 씬 6개의 m_sendNavigationEvents 한 줄씩, Tutorial.mp4 LFS 포인터·meta 삭제, 테스트·문서뿐. 다른 씬의 입력란·슬라이더 없음(TMP_InputField는 AdminCanvas 이름 창 하나, 화면 키보드 입력) → 통과. CHANGELOG 미배포 Removed·Fixed 1줄씩을 2026-10-09 섹션으로 옮김. 사용자 지시: 고쳤으면 PR을 만들고 수정·개선 사항이 없으면 머지 후 main으로 체크아웃.
 
 ---
 
