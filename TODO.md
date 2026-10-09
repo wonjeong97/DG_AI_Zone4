@@ -6,12 +6,14 @@
 
 ## 진행 중
 
+- [ ] T69 출시 전 전체 점검(읽기 전용 감사, 수정 범위는 사용자가 정함) — 담당: Claude / 검증: Antigravity·Claude 서브에이전트
 
 ## 할 일
 
 
 ## 완료
 
+- [x] T68 템플릿 26.10.10-1(사용자 업데이트)의 새 단축키 F(창 포커스 복구)가 QR uid의 대문자 F에 눌림 — 템플릿 훅 `ConfigureInputBindings` override로 D·I·M·F를 Ctrl 조합으로(사용자 요청, 출시 전 점검 중 발견) — PlayMode 210/210 — 담당: Claude / 검증: Antigravity (2026-10-10)
 - [x] T67 전체 코드 점검과 수정(사용자: 문제 있으면 전부 고침): RFID 서버 정리·미등록 UID·리더기 재접속·MAC 우선 식별·카드 입력의 비활동 타이머, 미리 올린 카드 이어서 인식(사용자 결정), 레벨 4 자원 없이 기지 도착 실패 연출(사용자 결정), 레벨 1 미리보기·설계창 스크롤·행동 로그, 타이틀 페이드인 중 QR·같은 QR 재확인, 이름 창 한/영 확정, 씬 전환 오류 복구, 아웃트로·결과 연출 순서, 3_Game 로봇 영상 디코딩, 조용한 실패 경고, 설정값 JSON화(레벨 2 문구·레벨 4 시간), 검증기 보강(HANDOFF.md 참고) — PlayMode 209/209 — 담당: Claude / 검증: Claude 서브에이전트(점검 6·리뷰 6, agy 한도 초과로 대신), 최종 점검 Antigravity (2026-10-09)
 - [x] T65 QR 스캐너(키보드)의 Enter·글자가 터치로 누른 뒤 선택으로 남은 버튼을 다시 누르거나(Submit) 선택을 옮김(W·A·S·D Move) — 빌드 씬 6개 EventSystem의 Send Navigation Events를 끔, ScannerKeyboardInputTests로 확인. 처음 적은 '비밀번호 숫자가 한 번 더 입력됨'은 키패드가 Navigation None이라 터치로는 일어나지 않고, 실제로 영향받던 것은 Navigation Automatic인 관리자 화면·이름 창 버튼과 게임 화면 버튼(설정하기·좌우·취소 등)(사용자 요청, T64 리뷰에서 발견, 1존도 같은 구조) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T66 쓰지 않는 `StreamingAssets/Videos/Tutorial.mp4`(약 74MB, 코드·씬·문서 참조 0건, 튜토리얼은 Addressables 이미지) 삭제(사용자 요청, 1존과 같게) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)

@@ -81,5 +81,5 @@
 ## 공통 규칙의 예외
 
 - 세션 상태는 GameSession(ScriptableObject) 대신 루트 스코프 싱글톤 저장소(`SelectedLevelStore`, `UnlockedLevelStore`, `GameResultStore`, `VisitorInfoProvider`, `AdminLevelJumpStore`)에 둔다(2026-10-07 결정).
-- 템플릿 디버그 단축키(D 디버그 창·I 인스펙터·M 마우스 커서)는 QR 스캐너 입력과 겹쳐 `Ctrl+D`·`Ctrl+I`·`Ctrl+M`으로 바꿔 쓴다(`App/DebugShortcutBindings.cs`).
+- 템플릿 단축키(D 디버그 창·I 인스펙터·M 마우스 커서·F 창 포커스 복구)는 QR 스캐너 입력과 겹쳐 `Ctrl+D`·`Ctrl+I`·`Ctrl+M`·`Ctrl+F`로 바꿔 쓴다(`GameLifetimeScope.ConfigureInputBindings` → `App/DebugShortcutBindings.cs`).
 - 레벨 상태(`IngredientLevel1~5State`)는 컨트롤러 로거를 빌려 쓰므로 로그 태그가 `[IngredientSelectionController]`다.

@@ -3,17 +3,17 @@ using UnityEngine.InputSystem;
 namespace DGAIZone.App
 {
     /// <summary>
-    /// 템플릿 디버그 단축키(D 디버그 창·I 인스펙터·M 마우스 커서)를 Ctrl 조합(Ctrl+D·Ctrl+I·Ctrl+M)으로 바꿈.
-    /// 타이틀의 QR 스캐너는 키보드처럼 uid의 영문 대문자를 입력하므로, 단일 문자 키면 스캔 중에 디버그 기능이 켜짐.
+    /// 템플릿 단축키(D 디버그 창·I 인스펙터·M 마우스 커서·F 창 포커스 복구)를 Ctrl 조합(Ctrl+D·Ctrl+I·Ctrl+M·Ctrl+F)으로 바꿈.
+    /// 타이틀의 QR 스캐너는 키보드처럼 uid의 영문 대문자를 입력하므로, 단일 문자 키면 스캔 중에 디버그 기능이 켜지거나 포커스 복구가 꺼짐.
     /// 스캐너는 대문자에 Shift만 붙이고 Ctrl은 보내지 않으므로 Ctrl 조합은 겹치지 않음.
-    /// 템플릿 패키지는 고치지 않고 런타임 바인딩 오버라이드로 바꿈.
+    /// 템플릿 패키지는 고치지 않고 GameLifetimeScope.ConfigureInputBindings에서 런타임 바인딩 오버라이드로 바꿈.
     /// </summary>
     public static class DebugShortcutBindings
     {
         private const string CtrlPath = "<Keyboard>/ctrl";
 
         /// <summary>
-        /// 세 단축키의 단일 키 바인딩을 끄고 같은 키에 Ctrl 조합 바인딩을 추가함.
+        /// 네 단축키의 단일 키 바인딩을 끄고 같은 키에 Ctrl 조합 바인딩을 추가함.
         /// 액션이 이미 켜져 있어도 Input System이 바인딩을 다시 잡으므로 호출 시점은 상관없음.
         /// </summary>
         public static void Apply(TemplateInputActions actions)
@@ -21,6 +21,7 @@ namespace DGAIZone.App
             RequireCtrl(actions.System.ToggleDebug);
             RequireCtrl(actions.System.ToggleInspector);
             RequireCtrl(actions.System.ToggleMouse);
+            RequireCtrl(actions.System.ToggleFocusRestore);
         }
 
         /// <summary> 템플릿 원본 바인딩(첫 번째)을 빈 경로로 덮어써 끄고, 그 키를 Ctrl과 함께 눌러야 하는 조합을 추가함. </summary>

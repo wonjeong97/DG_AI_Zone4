@@ -13,6 +13,15 @@
 
 ---
 
+### [2026-10-10] Claude → Antigravity · T68 템플릿 F 단축키
+- 요청(사용자): 템플릿을 26.10.10-1로 업데이트함(packages-lock 640d05e → c844e1c, 사용자 커밋 따로). 새 단축키 오버라이드 메서드로 D·I·M·F를 처리.
+- 원인: 템플릿 WindowFocusRestorer의 System/ToggleFocusRestore가 F 단일 키. QR uid(예: `440930W1XWQH`)에 대문자 F가 있으면 스캐너의 Shift+F에도 눌려 스캔마다 포커스 복구가 꺼졌다 켜짐.
+- 변경 파일: `App/GameLifetimeScope.cs`(RegisterBuildCallback 삭제 → `ConfigureInputBindings` override, TemplateInputActions가 만들어진 직후·소비자가 켜기 전에 불림), `App/DebugShortcutBindings.cs`(ToggleFocusRestore 추가), `Tests/Runtime/DebugShortcutBindingsTests.cs`(F 케이스), `CLAUDE.md`, `CHANGELOG.md` Fixed, 버전 26.10.10.
+- 확인: Unity 컴파일·콘솔 오류 0, PlayMode 210/210, 실행 뒤 EditorSettings 되돌림. 에디터에서 루트 프리팹 GameLifetimeScope로 훅을 불러 네 액션 모두 원래 키가 빈 경로·Ctrl 조합이 추가됨을 확인. 테스트 때 바뀐 TMP 폰트 글리프는 버림.
+- 결과(Antigravity `gemini-3.8-flash-high`): 2/2 통과 — 훅 호출 시점이 소비자 활성화 전, 빌드 콜백 삭제로 빠지는 동작 없음, 테스트·문서가 동작과 맞음.
+
+---
+
 ### [2026-10-09] Claude · T67 전체 코드 점검과 수정
 - 요청(사용자): 전체 코드 점검(스킬 준수·성능·리팩터링·버그), 이어서 "문제 있으면 전부 고쳐"(자는 동안). 중간 결정: 미리 올린 카드는 이어서 인식, 레벨 4 자원 없이 기지 도착은 실패 연출, 큰 구조 분리는 하지 않음.
 - 점검(Claude 서브에이전트 6, 영역별: RFID·게임 UI·레벨 규칙·앱 기반·타이틀/관리자·흐름 씬, agy 한도 초과): 높음 0. 중간 — 카드 입력이 비활동 타이머를 초기화하지 않아 카드만 다루면 게임 도중 타이틀로 돌아감, 설정 로드 중 씬이 내려가면 RFID 서버가 포트를 붙든 채 남음, 미등록 UID가 끼면 올려 둔 카드가 다시 발행돼 진행이 지워짐, 3_Game 숨은 로봇 영상 디코딩, 아웃트로 스토리가 페이드인 전에 시작, 같은 QR 재스캔 재확인, VContainer `= null` 기본값이 선택 주입이 아님(문서화). 그 밖에 낮음 다수.
