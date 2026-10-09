@@ -35,6 +35,19 @@ namespace DGAIZone.Tests
         }
 
         /// <summary>
+        /// 응답 앞에 UTF-8 BOM(U+FEFF)이 붙어도 무시함 — Trim은 BOM을 지우지 않음.
+        /// </summary>
+        [Test]
+        public void 앞에_붙은_BOM은_무시한다()
+        {
+            CheckActiveResult result = CheckActiveResult.Parse("\uFEFF10,LLL\r\n");
+
+            Assert.AreEqual(CheckActiveStatus.Active, result.Status);
+            Assert.AreEqual(10, result.IdxUser);
+            Assert.AreEqual("LLL", result.Name);
+        }
+
+        /// <summary>
         /// 체험 완료 문구와 NOT_FOUND는 각각 완료·없음으로 나눔.
         /// </summary>
         [TestCase("체험을 완료한 유저입니다", CheckActiveStatus.Completed)]

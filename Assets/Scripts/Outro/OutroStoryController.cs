@@ -31,6 +31,9 @@ namespace DGAIZone.Outro
         private bool _isAnimating;
         private bool _skipRequested;
 
+        // 스킵한 탭 바로 뒤의 다음 탭이 막 켜진 "처음으로" 버튼을 눌러 남은 문구를 읽기 전에 타이틀로 가지 않게 버튼을 늦게 켬
+        private const float HomeButtonDelayAfterSkipSeconds = 0.5f;
+
         // 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private CommonSettings _commonSettings = new CommonSettings();
 
@@ -72,7 +75,7 @@ namespace DGAIZone.Outro
 
         /// <summary>
         /// 00_Common.json 연출 타이밍과 체험자 이름을 적용하고 화면 전환이 끝나기를 기다린 뒤, 공용 유틸로 스토리 텍스트를 한 줄씩 올리는 연출을 실행하고
-        /// 끝나면 홈 버튼을 활성화함. 전환이 끝나기 전에 시작하면 화면이 밝아졌을 때 첫 줄이 이미 다 올라와 있음(인트로와 같은 처리).
+        /// 끝나면 홈 버튼을 활성화함(탭으로 넘겼으면 잠시 뒤에). 전환이 끝나기 전에 시작하면 화면이 밝아졌을 때 첫 줄이 이미 다 올라와 있음(인트로와 같은 처리).
         /// </summary>
         private async UniTaskVoid AnimateStoryAsync(CancellationToken token)
         {
@@ -93,6 +96,8 @@ namespace DGAIZone.Outro
                     _commonSettings.storyLineInterval,
                     _commonSettings.storyLineYOffset,
                     () => _skipRequested, token, _inactivityTimer);
+
+                if (_skipRequested) await UniTask.Delay(TimeSpan.FromSeconds(HomeButtonDelayAfterSkipSeconds), DelayType.UnscaledDeltaTime, cancellationToken: token);
 
                 OnFullyShown();
             }

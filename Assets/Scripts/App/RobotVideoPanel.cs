@@ -70,7 +70,8 @@ namespace DGAIZone.App
                 return;
             }
 
-            if (videoPlayer && videoPlayer.isPrepared && !videoPlayer.isPlaying) videoPlayer.Play(); // 아직 준비 중이면 준비 뒤 PlayVideoAsync가 재생함
+            // 아직 준비 중이면 준비 뒤 PlayVideoAsync가 재생함. 준비에 실패했으면 PlayVideoAsync가 이미 오류를 남겼고 영상 없이 둠
+            if (videoPlayer && videoPlayer.isPrepared && !videoPlayer.isPlaying) videoPlayer.Play();
         }
 
         /// <summary> 패널을 숨길 때 디코딩을 멈춤(마지막 프레임은 RenderTexture에 남아 다시 보일 때 그대로 이어짐). </summary>

@@ -40,6 +40,10 @@ namespace DGAIZone.Admin
         // 지우기 키를 이 시간 이상 누르고 있으면 한 글자 대신 전체를 지움
         private const float DeleteHoldSeconds = 1.5f;
 
+        // 한글 호환 자모(ㄱ~ㆎ) 범위 — 조합되지 않은 자음·모음 낱자
+        private const char HangulCompatibilityJamoFirst = '\u3131';
+        private const char HangulCompatibilityJamoLast = '\u318E';
+
         private readonly static Dictionary<string, char> BaseMap = new()
         {
             { "Button_q", 'ㅂ' }, { "Button_w", 'ㅈ' }, { "Button_e", 'ㄷ' }, { "Button_r", 'ㄱ' }, { "Button_t", 'ㅅ' },
@@ -320,7 +324,11 @@ namespace DGAIZone.Admin
             }
 
             // 최대 글자 수를 넘겨 입력이 무시된 경우엔 화면과 Shift 상태를 그대로 둠
-            if (!accepted) return;
+            if (!accepted)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[VisitorNamePanel] 이름은 최대 {Constants.Admin.VisitorNameMaxLength}자라 '{keyName}' 입력을 무시함.");
+                return;
+            }
 
             RefreshInputField();
             ReleaseOneShotShift();
@@ -329,7 +337,11 @@ namespace DGAIZone.Admin
         /// <summary> 숫자·띄어쓰기처럼 조합하지 않는 문자를 그대로 붙임(조합 중이던 음절은 먼저 확정됨). </summary>
         private void OnRawPressed(char c)
         {
-            if (!_composer.TryAppendRaw(c, Constants.Admin.VisitorNameMaxLength)) return;
+            if (!_composer.TryAppendRaw(c, Constants.Admin.VisitorNameMaxLength))
+            {
+                if (_logger != null) _logger.ZLogInformation($"[VisitorNamePanel] 이름은 최대 {Constants.Admin.VisitorNameMaxLength}자라 '{c}' 입력을 무시함.");
+                return;
+            }
 
             RefreshInputField();
             ReleaseOneShotShift();
@@ -438,13 +450,15 @@ namespace DGAIZone.Admin
 
         /// <summary>
         /// 저장할 수 있는 이름인지 봄. 비었거나 첫 글자·끝 글자가 띄어쓰기면 문장 안에서 어긋난 여백으로 보이므로 막음
-        /// (띄어쓰기만 넣은 이름도 첫 글자가 띄어쓰기라 함께 막힘).
+        /// (띄어쓰기만 넣은 이름도 첫 글자가 띄어쓰기라 함께 막힘). 끝 글자가 자음·모음 낱자(예: 홍길ㄷ)면 조사와 문구가 어긋나므로 막음.
         /// </summary>
         public static bool IsSavableName(string text)
         {
             if (string.IsNullOrEmpty(text)) return false;
 
-            return !char.IsWhiteSpace(text[0]) && !char.IsWhiteSpace(text[text.Length - 1]);
+            char last = text[text.Length - 1];
+            bool endsWithJamo = last >= HangulCompatibilityJamoFirst && last <= HangulCompatibilityJamoLast;
+            return !char.IsWhiteSpace(text[0]) && !char.IsWhiteSpace(last) && !endsWithJamo;
         }
 
         /// <summary> 입력한 이름을 확정해 콜백으로 넘기고 창을 닫음. </summary>
@@ -453,7 +467,12 @@ namespace DGAIZone.Admin
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
 
             string visitorName = _composer.Text;
-            if (!IsSavableName(visitorName)) return;
+            if (!IsSavableName(visitorName))
+            {
+                // 저장 버튼은 저장할 수 없는 이름이면 꺼져 있어 정상 흐름에서는 오지 않음
+                if (_logger != null) _logger.ZLogWarning($"[VisitorNamePanel] 저장할 수 없는 이름이라(비었거나 앞뒤 띄어쓰기·끝 글자 낱자) 저장하지 않음.");
+                return;
+            }
 
             Action<string> onSaved = _onSaved;
             Close();

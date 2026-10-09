@@ -269,7 +269,10 @@ namespace DGAIZone.Game.UI
             MissionDestination[] destinations = level1 ? level1.destinations : null;
             if (destinations != null && destinations.Length > 0)
             {
-                _current = destinations[UnityEngine.Random.Range(0, destinations.Length)];
+                MissionDestination picked = destinations[UnityEngine.Random.Range(0, destinations.Length)];
+                // 목표 거리가 0 이하면 게이지가 차지 않고 추진력 0만 성공이 되므로 기본 목적지로 대신함
+                if (picked != null && picked.targetDistance > 0) _current = picked;
+                else if (_logger != null) _logger.ZLogError($"[MissionBoardController] Level1 LevelData의 목적지 '{picked?.planetName}'의 목표 거리가 {picked?.targetDistance}라(0 이하·비어 있음) 기본 목적지 '{_current.planetName}'를 사용함.");
             }
             else if (_logger != null)
             {
@@ -577,7 +580,7 @@ namespace DGAIZone.Game.UI
         internal float CalculateFillAmount(int totalThrust)
         {
             int target = _current.targetDistance;
-            if (target <= 0) return 0f;
+            if (target <= 0) return 0f; // PickLevel1Destination이 0 이하 목적지를 기본 목적지로 바꾸며 이미 오류를 남김(0으로 나누기 방지)
 
             float ratio = totalThrust <= target
                 ? (float)totalThrust / target
