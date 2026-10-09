@@ -17,6 +17,7 @@ namespace DGAIZone.Admin
     /// 체험자 이름 입력 창 — 키보드가 없는 전시 환경이라 화면 두벌식 키보드(맨 위 숫자열 포함)로 입력받음.
     /// 키 입력을 HangulComposer로 조합해 입력란에 보여 주고, 저장을 누르면 Open에 넘긴 콜백으로 이름을 돌려줌.
     /// 한/영·Shift, 지우기 길게 누르면 전체 삭제, 최대 Constants.Admin.VisitorNameMaxLength자, 빈 이름은 저장할 수 없음.
+    /// 입력 없이 관리자 화면과 같은 시간(Admin.json idleCloseSeconds)이 지나면 저장하지 않고 닫힘.
     /// </summary>
     public class VisitorNamePanel : MonoBehaviour
     {
@@ -70,6 +71,10 @@ namespace DGAIZone.Admin
         }
 
         private readonly HangulComposer _composer = new();
+        private readonly IdleCloseTimer _idleTimer = new();
+
+        // 이 시간(초) 동안 입력이 없으면 저장하지 않고 창을 닫음 — 관리자 화면과 같은 값(Admin.json idleCloseSeconds)을 열 때 받음
+        private float _idleCloseSeconds = Constants.Admin.DefaultIdleCloseSeconds;
         private readonly Dictionary<string, TMP_Text> _keyLabels = new();
         private Image _shiftButtonImage;
         private Color _shiftNormalColor;
@@ -120,12 +125,14 @@ namespace DGAIZone.Admin
             if (closeButton) closeButton.onClick.RemoveListener(OnCloseClicked);
         }
 
-        /// <summary> 입력을 비운 한글 자판으로 창을 엶. 저장하면 입력한 이름으로 onSaved를 부름. </summary>
-        public void Open(Action<string> onSaved)
+        /// <summary> 입력을 비운 한글 자판으로 창을 엶. 저장하면 입력한 이름으로 onSaved를 부르고, idleCloseSeconds 동안 입력이 없으면 닫음. </summary>
+        public void Open(Action<string> onSaved, float idleCloseSeconds)
         {
             _onSaved = onSaved;
+            _idleCloseSeconds = idleCloseSeconds;
             _isEnglish = false;
             gameObject.SetActive(true);
+            _idleTimer.Restart();
             ClearInput();
         }
 
@@ -136,9 +143,19 @@ namespace DGAIZone.Admin
             gameObject.SetActive(false);
         }
 
-        /// <summary> 지우기 키를 정해진 시간 이상 누르고 있으면 입력 전체를 지움(창이 열려 있을 때만 실행됨). </summary>
+        /// <summary>
+        /// 입력 없이 정해진 시간이 지나면 저장하지 않고 창을 닫고, 지우기 키를 정해진 시간 이상 누르고 있으면 입력 전체를 지움
+        /// (창이 열려 있을 때만 실행됨).
+        /// </summary>
         private void Update()
         {
+            if (_idleTimer.HasExpired(_idleCloseSeconds))
+            {
+                if (_logger != null) _logger.ZLogInformation($"[VisitorNamePanel] {_idleCloseSeconds}초 동안 입력이 없어 이름 입력 창을 닫음.");
+                Close();
+                return;
+            }
+
             if (_deletePressTime < 0f || Time.unscaledTime - _deletePressTime < DeleteHoldSeconds) return;
 
             _deletePressTime = -1f;

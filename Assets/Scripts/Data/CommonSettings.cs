@@ -1,9 +1,10 @@
 using System;
+using DGAIZone.App;
 
 namespace DGAIZone.Data
 {
     /// <summary>
-    /// StreamingAssets/Json/00_Common.json 매핑 — 특정 씬에 속하지 않고 여러 씬에서 공유하는 연출 타이밍.
+    /// StreamingAssets/Json/00_Common.json 매핑 — 특정 씬에 속하지 않고 여러 씬에서 공유하는 연출 타이밍과 로봇 영상 경로.
     /// </summary>
     [Serializable]
     public class CommonSettings
@@ -22,5 +23,11 @@ namespace DGAIZone.Data
 
         /// <summary> 스토리 텍스트 한 줄이 올라올 때 시작 Y 오프셋 거리(픽셀). </summary>
         public float storyLineYOffset = 22.0f;
+
+        /// <summary>
+        /// 인트로/레벨 선택/게임/아웃트로 로봇 영상 파일(StreamingAssets 기준 경로) — 영상을 다른 이름의 파일로 바꾸면 여기만 고침.
+        /// 비었거나 파일이 없으면 기본 경로(Constants.Files.RobotVideo)를 씀.
+        /// </summary>
+        public string robotVideoPath = Constants.Files.RobotVideo;
     }
 }

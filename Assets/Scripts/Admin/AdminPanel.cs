@@ -17,6 +17,7 @@ namespace DGAIZone.Admin
     /// <summary>
     /// 비밀번호를 통과하면 열리는 관리자 화면 — 운영 모드(로컬/서버)·체험자 이름·비밀번호를 바꾸고,
     /// 고른 레벨까지 해금한 뒤 2_LevelSelect에서 그 레벨의 스토리를 바로 띄움(관리자 레벨 이동).
+    /// 입력 없이 Admin.json의 idleCloseSeconds(기본 60초)가 지나면 위에 뜬 이름 입력·비밀번호 변경 창과 함께 닫힘.
     /// </summary>
     public class AdminPanel : MonoBehaviour
     {
@@ -46,8 +47,12 @@ namespace DGAIZone.Admin
         [Tooltip("변경 결과 안내 문구")]
         [SerializeField] private TMP_Text statusText;
 
+        // 이 시간(초) 동안 입력이 없으면 관리자 화면을 닫음 — 열 때마다 Admin.json(idleCloseSeconds)에서 다시 읽음
+        private float _idleCloseSeconds = Constants.Admin.DefaultIdleCloseSeconds;
+
+        private readonly IdleCloseTimer _idleTimer = new();
         private UnityAction[] _levelActions;
-        private bool _isLeaving; // 레벨 이동·타이틀 다시 불러오기로 씬을 떠나는 중이면 버튼 입력을 무시함
+        private bool _isLeaving; // 레벨 이동·타이틀 다시 불러오기로 씬을 떠나는 중이면 버튼 입력과 자동 닫기를 무시함
 
         // 관리자 화면을 열 때의 모드 — 닫을 때 달라졌으면 타이틀을 다시 불러 안내(QR·시작하기)에 반영함
         private bool _modeAtOpen;
@@ -140,6 +145,8 @@ namespace DGAIZone.Admin
         public void Open()
         {
             gameObject.SetActive(true);
+            _idleTimer.Restart();
+            LoadIdleCloseSecondsAsync(this.GetCancellationTokenOnDestroy()).Forget();
             if (_logger != null) _logger.ZLogInformation($"[AdminPanel] 관리자 화면을 엶.");
 
             if (_visitorSettings) _modeAtOpen = _visitorSettings.IsServerConnected;
@@ -150,18 +157,49 @@ namespace DGAIZone.Admin
             ShowStatus(string.Empty);
         }
 
+        /// <summary> 현장에서 바뀌었을 수 있는 자동 닫기 시간을 Admin.json에서 다시 읽음. </summary>
+        private async UniTaskVoid LoadIdleCloseSecondsAsync(CancellationToken token)
+        {
+            try
+            {
+                AdminSettings settings = await AdminSettings.LoadAsync(token, _logger);
+                _idleCloseSeconds = settings.idleCloseSeconds;
+            }
+            catch (OperationCanceledException)
+            {
+                // 읽는 도중 씬 전환 등으로 오브젝트가 파괴된 경우 — 정상 종료
+            }
+        }
+
         /// <summary> 변경 결과 안내 문구를 표시함(빈 문자열이면 지움, statusText 누락은 Awake에서 경고함). </summary>
         public void ShowStatus(string message)
         {
             if (statusText) statusText.text = message;
         }
 
-        /// <summary> 클릭음을 내고 관리자 화면을 닫음. 모드가 바뀌었으면 타이틀을 다시 불러 안내에 반영함. </summary>
+        /// <summary> 입력 없이 정해진 시간이 지나면 위에 떠 있는 이름 입력·비밀번호 변경 창까지 함께 닫음(화면이 열려 있을 때만 실행됨). </summary>
+        private void Update()
+        {
+            if (_isLeaving || !_idleTimer.HasExpired(_idleCloseSeconds)) return;
+
+            if (_logger != null) _logger.ZLogInformation($"[AdminPanel] {_idleCloseSeconds}초 동안 입력이 없어 관리자 화면을 닫음.");
+            if (namePanel) namePanel.Close();
+            if (passwordPanel) passwordPanel.Close();
+            Close();
+        }
+
+        /// <summary> 클릭음을 내고 관리자 화면을 닫음. </summary>
         private void OnCloseClicked()
         {
             if (_isLeaving) return;
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
+            Close();
+        }
+
+        /// <summary> 관리자 화면을 닫음. 모드가 바뀌었으면 타이틀을 다시 불러 안내에 반영함. </summary>
+        private void Close()
+        {
             gameObject.SetActive(false);
 
             if (!_visitorSettings || _visitorSettings.IsServerConnected == _modeAtOpen) return;
@@ -217,7 +255,7 @@ namespace DGAIZone.Admin
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             ShowStatus(string.Empty);
 
-            if (namePanel) namePanel.Open(OnVisitorNameSaved);
+            if (namePanel) namePanel.Open(OnVisitorNameSaved, _idleCloseSeconds);
             else if (_logger != null) _logger.ZLogWarning($"[AdminPanel] namePanel이 null이라 이름 입력 창을 열 수 없음.");
         }
 

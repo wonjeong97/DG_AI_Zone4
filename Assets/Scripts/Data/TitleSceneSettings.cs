@@ -1,9 +1,10 @@
 using System;
+using DGAIZone.App;
 
 namespace DGAIZone.Data
 {
     /// <summary>
-    /// StreamingAssets/Json/0_Title.json 매핑 — 0_Title 씬(TitleFlowController)의 연출 타이밍을 재빌드 없이 조정.
+    /// StreamingAssets/Json/0_Title.json 매핑 — 0_Title 씬(TitleFlowController)의 연출 타이밍과 하단 안내 문구를 재빌드 없이 조정.
     /// </summary>
     [Serializable]
     public class TitleSceneSettings
@@ -26,5 +27,16 @@ namespace DGAIZone.Data
         /// 안내가 바뀌어 QR을 다시 받기 시작한 뒤 이 시간 안에 찍은 QR은 앞 스캔의 뒷부분으로 보고 버리므로, 너무 크게 늘리지 않음.
         /// </summary>
         public float scanCharGapSeconds = 0.5f;
+
+        // 하단 안내 문구 — QR 대기, 시작하기(로컬 모드·이름 없음), QR로 확인한 체험자의 시작하기({name}은 체험자 이름)
+        public string qrGuideText = Constants.TitleMessages.QrGuide;
+        public string startGuideText = Constants.TitleMessages.StartGuide;
+        public string startGuideWithNameText = Constants.TitleMessages.StartGuideWithName;
+
+        // 서버 모드 QR 확인 안내 — 확인 중, 이미 체험 완료, 등록되지 않은 QR, 서버 오류(확인 중을 빼면 잠시 보여 준 뒤 QR 대기로 돌아감)
+        public string qrCheckingText = Constants.TitleMessages.QrChecking;
+        public string qrCompletedText = Constants.TitleMessages.QrCompleted;
+        public string qrNotFoundText = Constants.TitleMessages.QrNotFound;
+        public string qrCheckFailedText = Constants.TitleMessages.QrCheckFailed;
     }
 }
