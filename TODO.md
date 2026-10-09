@@ -6,7 +6,7 @@
 
 ## 진행 중
 
-- [ ] T69 출시 전 전체 점검(감사 결과는 HANDOFF.md) — 사용자 결정: M2·L1·L2·L4·L5(관리자 창 열린 동안 QR·대기)·L6·L7·L8 일부·S4·설치 체크리스트 수정, S1(useInactivityTimer)은 사용자가 빌드 PC에서 직접 켬 — 담당: Claude / 검증: Antigravity(한도 초과 시 Claude 서브에이전트)
+- [ ] T69 출시 전 전체 점검(감사 결과는 HANDOFF.md) — 사용자 결정: M2·L1·L2·L4·L5(관리자 창 열린 동안 QR·대기)·L6·L7·L8 일부·S4·설치 체크리스트 수정, S1(useInactivityTimer)은 사용자가 빌드 PC에서 직접 켬. 2차 점검 중 장애 주입(서버·QR·터치) 부분만 남음(HANDOFF.md) — 담당: Claude / 검증: Antigravity(한도 초과 시 Claude 서브에이전트)
 
 ## 할 일
 
