@@ -13,6 +13,8 @@
 
 ## 완료
 
+- [x] T79 등록되지 않은 RFID 장비(옆 PC 리더기의 Target IP 오설정 등)가 리더기 자리를 차지하고 그 카드가 지금 단계에 들어가던 것 — readers가 설정돼 있으면 접속 거부·IP·MAC 경고 한 번(2차 점검 중간, 4존 PC 2대 운용) — PlayMode 222/222 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T80 Settings.json 비활동 타이머가 꺼져 있거나 형식이 깨져 기본값으로 읽히면 릴리스 빌드에서 시작 때 오류 로그(근본 원인은 템플릿 JsonLoader — Template TODO에 기록) — PlayMode 222/222 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
 - [x] T70 레벨 4 연출 시간(3_Game.json level4StepPauseDuration 등)이 음수면 코딩 완료 뒤 멈춤 — 0 아래를 막음(M2) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
 - [x] T71 RfidMappings.json 검증 빈틈: 레벨 4 이동 네 방향, 레벨 5 동작 블록 id 4개(L6) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
 - [x] T72 로그 없이 끝나는 실패 분기에 로그·이유 주석(L7) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
