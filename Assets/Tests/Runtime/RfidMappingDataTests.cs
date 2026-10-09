@@ -335,6 +335,8 @@ namespace DGAIZone.Tests
             _settings.listenPort = 0;
             _settings.readers[1].readerId = "Reader2";
             _settings.readers[2].ipAddress = _settings.readers[0].ipAddress;
+            _settings.readers[3].readerId = "Reader_01";
+            _settings.readers[4].macAddress = "344663D433CD";
             _settings.mappings[1].uid = _settings.mappings[0].uid.ToLowerInvariant();
             _settings.mappings[2].uid = "A1G081736922";
             _settings.mappings[3].category = "동장";
@@ -345,6 +347,8 @@ namespace DGAIZone.Tests
             AssertHasError(errors, "listenPort 0");
             AssertHasError(errors, "'Reader2'", "Reader_1~Reader_5");
             AssertHasError(errors, $"ipAddress '{_settings.readers[0].ipAddress}'", "두 번 이상");
+            AssertHasError(errors, "1번 리더기", "'Reader_01'", "두 번 이상");
+            AssertHasError(errors, "'344663D433CD'", "형식");
             AssertHasError(errors, $"'{_settings.mappings[1].uid}'", "두 번 이상");
             AssertHasError(errors, "'A1G081736922'", "16진수 14자리");
             AssertHasError(errors, "분류 '동장'");

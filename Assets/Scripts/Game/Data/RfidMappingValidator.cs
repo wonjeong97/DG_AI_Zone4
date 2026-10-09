@@ -7,8 +7,8 @@ using UnityEngine;
 namespace DGAIZone.Game.Data
 {
     /// <summary>
-    /// RfidMappings.json의 레벨 1~5 블록 정의를 레벨별 규칙으로 검사해 문제 목록을 돌려주는 검증기. 블록 목록이 비었거나 값이 빠지면
-    /// 게임 중에는 아무 오류 없이 선택지가 비거나 미션을 깰 수 없게 되므로, 로드 직후 호출해 원인을 오류 로그로 남기는 데 씀.
+    /// RfidMappings.json의 서버 포트·리더기·카드 목록과 레벨 1~5 블록 정의를 규칙대로 검사해 문제 목록을 돌려주는 검증기. 블록 목록이 비었거나
+    /// 값이 빠지면 게임 중에는 아무 오류 없이 선택지가 비거나 미션을 깰 수 없게 되므로, 로드 직후 호출해 원인을 오류 로그로 남기는 데 씀.
     /// </summary>
     public static class RfidMappingValidator
     {
@@ -52,7 +52,7 @@ namespace DGAIZone.Game.Data
             List<string> errors = new List<string>();
             if (settings == null)
             {
-                errors.Add("levelMappings가 비어 있어 모든 레벨의 블록 정의가 없음.");
+                errors.Add("RfidMappings.json을 읽지 못해 검사할 수 없음.");
                 return errors;
             }
 
@@ -412,7 +412,7 @@ namespace DGAIZone.Game.Data
 
             if (settings.readers == null) return;
 
-            HashSet<string> readerIds = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<int> readerNumbers = new HashSet<int>();
             HashSet<string> ips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             HashSet<string> macs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (RfidReaderConfig reader in settings.readers)
@@ -425,16 +425,31 @@ namespace DGAIZone.Game.Data
 
                 if (!TryGetReaderNumber(reader.readerId, out int number) || number < 1 || number > MaxReaderNumber)
                     errors.Add($"readers의 readerId '{reader.readerId}'가 Reader_1~Reader_{MaxReaderNumber} 형식이 아니라 단계를 맡지 못함.");
-                else if (!readerIds.Add(reader.readerId))
-                    errors.Add($"readers에 readerId '{reader.readerId}'가 두 번 이상 있음.");
+                else if (!readerNumbers.Add(number))
+                    errors.Add($"readers에 {number}번 리더기(readerId '{reader.readerId}')가 두 번 이상 있음.");
 
                 if (!string.IsNullOrEmpty(reader.ipAddress) && !ips.Add(reader.ipAddress))
                     errors.Add($"readers에 ipAddress '{reader.ipAddress}'가 두 번 이상 있어 리더기를 구분하지 못함.");
 
                 string mac = string.IsNullOrEmpty(reader.macAddress) ? null : reader.macAddress.Replace(":", "-").Replace(" ", "-");
-                if (mac != null && !macs.Add(mac))
+                if (mac != null && !IsMacAddress(mac))
+                    errors.Add($"readers의 macAddress '{reader.macAddress}'가 '34-46-63-D4-33-CD' 형식(16진수 두 자리 6개를 -·:·공백으로 구분)이 아니라 MAC으로 리더기를 찾지 못함.");
+                else if (mac != null && !macs.Add(mac))
                     errors.Add($"readers에 macAddress '{reader.macAddress}'가 두 번 이상 있어 리더기를 구분하지 못함.");
             }
+        }
+
+        /// <summary> 구분자를 -로 바꾼 MAC이 16진수 두 자리 6개("34-46-63-D4-33-CD")인지 봄 — 리더기 서비스가 ARP로 얻는 형식과 같아야 대조됨. </summary>
+        private static bool IsMacAddress(string mac)
+        {
+            string[] parts = mac.Split('-');
+            if (parts.Length != 6) return false;
+
+            foreach (string part in parts)
+            {
+                if (part.Length != 2 || !Uri.IsHexDigit(part[0]) || !Uri.IsHexDigit(part[1])) return false;
+            }
+            return true;
         }
 
         /// <summary> "Reader_N"의 N을 꺼냄(밑줄 뒤가 숫자가 아니면 false) — 게임 화면의 리더기·단계 대응과 같은 규칙. </summary>

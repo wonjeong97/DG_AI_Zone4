@@ -320,7 +320,8 @@ namespace DGAIZone.Title
             // 확인을 마친 체험자가 같은 QR을 다시 찍은 경우(스캐너가 같은 QR을 다시 읽은 경우 포함) — 다시 확인하면 시작 버튼이 사라졌다 다시 떠 누르기 어려움
             if (_confirmedUid != null && string.Equals(code, _confirmedUid, StringComparison.Ordinal))
             {
-                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 같은 QR을 다시 찍음 — 이미 확인돼 그대로 둠.");
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 같은 QR을 다시 찍음 — 이미 확인돼 그대로 두고 시작하기 대기 시간을 다시 잼.");
+                StartConfirmTimeout(); // 체험자가 아직 앞에 있으므로 다시 확인하던 예전처럼 대기 시간을 처음부터 잼
                 return;
             }
 

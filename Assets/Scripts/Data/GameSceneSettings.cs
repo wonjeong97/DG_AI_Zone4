@@ -79,6 +79,12 @@ namespace DGAIZone.Data
         /// <summary> 레벨 4 코딩 완료 뒤 로봇 이동 연출이 끝나고 결과 화면으로 넘어가기 전까지 결과를 보여 주는 시간(초). 0 이하면 바로 넘어감. </summary>
         public float level4ResultHoldDuration = 1.0f;
 
+        /// <summary> 레벨 4 로봇이 자원을 모으지 않고 기지에 닿았을 때 들어가지 못하고 좌우로 흔들리는 시간(초) — 기지로 들어가 사라지는 성공 연출과 구분함. </summary>
+        public float level4HqRejectShakeDuration = 0.5f;
+
+        /// <summary> 위 흔들림의 좌우 폭(픽셀). </summary>
+        public float level4HqRejectShakeStrength = 15.0f;
+
         /// <summary>
         /// 레벨 2 발사 순서 블록(점화·상승·1차 로켓 분리·2차 로켓 분리·궤도 진입 순)을 설정했을 때 그 블록의 스텝 볼에 띄우는 완료 문구.
         /// 줄바꿈은 \n으로 적음(JSON에서도 같음).

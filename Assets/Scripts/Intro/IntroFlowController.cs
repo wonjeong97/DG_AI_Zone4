@@ -335,6 +335,10 @@ namespace DGAIZone.Intro
 
             if (!tutorialPanel.TryGetComponent(out _tutorialCanvas)) _tutorialCanvas = tutorialPanel.gameObject.AddComponent<Canvas>();
             if (!tutorialPanel.TryGetComponent(out GraphicRaycaster _)) tutorialPanel.gameObject.AddComponent<GraphicRaycaster>();
+
+            // TMP는 글자 메시를 만들 때 자기 Canvas에 셰이더 채널을 켜는데, 숨긴 동안(이 Canvas가 꺼져 있을 때) 만든 글자는 이 Canvas에 켜지 못해
+            // 첫 쪽 글자가 흐리게 그려질 수 있으므로 TMP가 쓰는 채널(TexCoord1·Normal·Tangent)을 미리 켬
+            _tutorialCanvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1 | AdditionalCanvasShaderChannels.Normal | AdditionalCanvasShaderChannels.Tangent;
         }
 
         /// <summary>

@@ -22,6 +22,8 @@
   "level4StepPauseDuration": 0.35,
   "level4CollisionScaleDuration": 0.25,
   "level4ResultHoldDuration": 1.0,
+  "level4HqRejectShakeDuration": 0.5,
+  "level4HqRejectShakeStrength": 15.0,
   "level2LaunchTexts": [
     "점화 시퀀스\n완료",
     "상승 시퀀스\n준비 완료",

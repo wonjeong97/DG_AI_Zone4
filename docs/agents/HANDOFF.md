@@ -13,6 +13,22 @@
 
 ---
 
+### [2026-10-09] Claude · T67 전체 코드 점검과 수정
+- 요청(사용자): 전체 코드 점검(스킬 준수·성능·리팩터링·버그), 이어서 "문제 있으면 전부 고쳐"(자는 동안). 중간 결정: 미리 올린 카드는 이어서 인식, 레벨 4 자원 없이 기지 도착은 실패 연출, 큰 구조 분리는 하지 않음.
+- 점검(Claude 서브에이전트 6, 영역별: RFID·게임 UI·레벨 규칙·앱 기반·타이틀/관리자·흐름 씬, agy 한도 초과): 높음 0. 중간 — 카드 입력이 비활동 타이머를 초기화하지 않아 카드만 다루면 게임 도중 타이틀로 돌아감, 설정 로드 중 씬이 내려가면 RFID 서버가 포트를 붙든 채 남음, 미등록 UID가 끼면 올려 둔 카드가 다시 발행돼 진행이 지워짐, 3_Game 숨은 로봇 영상 디코딩, 아웃트로 스토리가 페이드인 전에 시작, 같은 QR 재스캔 재확인, VContainer `= null` 기본값이 선택 주입이 아님(문서화). 그 밖에 낮음 다수.
+- 커밋(브랜치 fix/t67-code-audit):
+  - RFID(a2c92d6): 로드 후 취소 확인·_disposed로 정리 뒤 서버/세션 막음, 세션 추가를 스레드 시작 전으로, 같은 IP·같은 readerId 좀비 교체, 수락 오류 경고와 200ms 쉼, 미등록 UID를 판정 전에 거름(같은 UID 경고 한 번), 카드 올림·뗌 때 InactivityTimer.ResetTimer, 검증기(포트·readerId 형식·IP/MAC·uid 형식/중복·분류), GameFlowController 배열 범위 경고.
+  - 게임 UI(de39737): 확정 연출 중 미리보기 요청을 기억해 연출 뒤 반영, UsesThrustGauge(레벨 1만 게이지), 블록 뺄 때 ShrinkContentToStack, warningHoldDuration ≥0, 행동 로그 한 줄화(_rollbackNote), 누락 경고, 레벨 2 문구·레벨 4 대기를 3_Game.json으로, FindCategoryIngredient 한 곳으로.
+  - 타이틀·관리자(b792116): 들어오는 페이드인 중 QR 받음(_incomingTransitionFinished), 같은 확인 uid 무시(메모리만), 관리자 레벨 이동 때 서버 체험자 비움, 한/영 때 HangulComposer.Commit, Shift 고정 색, 빠진 키 경고, SceneTransitionService.WaitUntilIdleAsync·전환 오류 때 FadeIn, 타임아웃 복귀 페이드 시간.
+  - 흐름·앱(0a8a051): 아웃트로 전환 뒤 스토리, 결과 AI 연출이 블록 쌓기 뒤(WaitUntilStackedAsync), 결과 RT 지움, DecideUpload·ResolveNextScene 테스트, RobotVideoPanel.playOnStart(3_Game만 끔, 스토리 열 때 Play·닫을 때 Pause), 인트로 튜토리얼 하위 Canvas(숨김 동안 그리지 않음), 루트 스코프·폰트·PanelFader(0은 즉시)·Admin.json 읽기 실패 원인 로그, T53 위반 정보 로그 삭제, 주석 정리, RT_TutorialVideo 삭제.
+  - 리뷰 반영·사용자 결정(이 커밋): 미리 올린 카드 이어서 인식(_cardsOnReaders, 설정하기 뒤·되돌린 뒤·게임 화면 복귀 때 ApplyCardOnCurrentReader, 1단계 취소로 비운 값은 다시 채우지 않음), 레벨 4 자원 없이 기지 도착 때 기지 앞에서 흔들림(level4HqRejectShake*), 리더기 식별 IP·MAC이 엇갈리면 MAC 우선(두 리더기가 같은 ID로 서로 끊던 문제 — 리뷰가 찾음), 같은 readerId 다른 IP 교체 경고, 검증기 번호 중복·MAC 형식, 숨긴 로봇 영상은 첫 프레임까지 준비해 두고 멈춤(첫 미션 다시 보기에서 로봇이 늦게 나타나던 것 — 리뷰가 찾음), 같은 QR 재스캔 때 시작하기 대기 다시 잼, 튜토리얼 Canvas TMP 셰이더 채널, 설정하기 검사 순서, 적용 못 한 카드에도 되돌림 로그.
+- 하지 않음(이유): 리더기 라우팅·스캐너 입력 클래스 분리·레벨 상태 기본 클래스(동작 변화 없는 큰 구조 변경, 새 버그 위험), CommonSettingsProvider 완료 Task 동기 반환(여러 씬 시작 타이밍이 바뀜, 얻는 것은 할당 하나), TextHorizontalGradient를 OnPreRenderText로(지금 방식이 동작, 렌더마다 다시 칠할 위험), RfidMappings.json 로드 하나로 합치기(씬 시작 때 두 번 읽는 비용뿐), 레벨 2 볼 글자 캐시(5번 찾는 비용뿐), VContainer `= null` 14곳 리팩터링(모두 루트에 등록됨 — CLAUDE.md에 주의만 적음).
+- 남은 위험(기록): 리더기 TCP가 끊긴 동안 카드를 바꾸면 다시 접속 때 올려 둔 카드가 무시되어 _cardsOnReaders에 옛 카드가 남음(끊김을 떨어짐으로 처리하면 순간 끊김에 단계가 취소돼 더 나쁨). MAC 우선 규칙은 RfidMappings.json의 MAC을 잘못 적으면 엉뚱한 리더기로 식별함(경고 로그 남김).
+- 확인: Unity 컴파일·콘솔 오류 0, PlayMode 209/209(새 테스트 6: 검증기 포트·리더기·카드, 결과 다음 씬·업로드 판단, 한글 확정), Play 모드 — 레벨 1 미리보기 반영, 3_Game 로봇 영상(시작 때 정지·첫 프레임 준비·스토리 열면 재생·닫으면 멈춤), 인트로 튜토리얼 Canvas와 터치, 미리 올린 카드(2번 리더기 → 1단계 설정 뒤 2단계에 이어서 씀, 취소 뒤 1번 카드 다시 씀, 뗀 카드는 잊음, 1단계 취소 뒤 복귀해도 다시 채우지 않음). 타이틀 QR 흐름은 체험자 서버가 없어 리뷰로만 확인.
+- 리뷰(Claude 서브에이전트 6, agy 한도 초과): 커밋 4개 영역별 5 + 리뷰 반영분 1 — 확인된 버그 1(엇갈린 IP로 두 리더기가 서로 끊음, MAC 우선으로 고침)과 UX 1(첫 미션 다시 보기 로봇 지연), 나머지는 로그 정확성·주석·방어 코드로 모두 반영.
+
+---
+
 ### [2026-10-09] Claude (리뷰도 Claude — agy 한도 초과) · T65·T66
 - 요청(사용자): Tutorial.mp4 지우기(T66), T65 고치기.
 - T66: `StreamingAssets/Videos/Tutorial.mp4`(74,262,603B)와 meta 삭제. guid·파일명 참조가 Assets·ProjectSettings·Packages에 없고, 튜토리얼은 Addressables 이미지(Tutorial1~7). CHANGELOG Removed.

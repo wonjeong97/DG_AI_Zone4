@@ -318,6 +318,7 @@ namespace DGAIZone.Result
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             try
             {
+                // 쌓기는 LoadSceneSettingsAsync가 설정을 읽고 전환이 끝난 뒤 Play로 시작함 — 그 경로에 이른 return을 넣으면 여기서 영영 기다리게 되니 주의
                 if (playerPanel) await playerPanel.WaitUntilStackedAsync(token); // 없을 때의 경고는 LoadSceneSettingsAsync가 남김
 
                 float duration = _sceneSettings.panelFadeDuration;

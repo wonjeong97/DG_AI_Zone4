@@ -416,7 +416,7 @@ namespace DGAIZone.Game.UI
                     _progressApplyCts.Dispose();
                     _progressApplyCts = null;
 
-                    // 씬 파괴로 취소됐으면 다시 반영하지 않음(더 최신 확정으로 대체된 경우는 그 시퀀스가 끝날 때 반영함)
+                    // 씬 파괴로 취소됐으면 다시 반영하지 않음(더 최신 확정이 시작되면 그 전의 요청은 이미 확정된 값이라 버려짐)
                     if (completed && _hasPendingPreview)
                     {
                         _hasPendingPreview = false;

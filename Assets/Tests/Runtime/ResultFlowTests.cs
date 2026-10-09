@@ -82,6 +82,7 @@ namespace DGAIZone.Tests
             Assert.AreEqual(ResultFlowController.UploadDecision.LevelJump, ResultFlowController.DecideUpload(true, true, true));
             Assert.AreEqual(ResultFlowController.UploadDecision.NoServerVisitor, ResultFlowController.DecideUpload(true, false, false));
             Assert.AreEqual(ResultFlowController.UploadDecision.LocalMode, ResultFlowController.DecideUpload(false, true, false), "로컬 모드는 다른 조건과 상관없이 올리지 않음");
+            Assert.AreEqual(ResultFlowController.UploadDecision.LevelJump, ResultFlowController.DecideUpload(true, true, false), "관리자 판은 체험자가 없어도 '관리자 판'으로 판정(경고 대신 정보 로그)");
         }
     }
 }

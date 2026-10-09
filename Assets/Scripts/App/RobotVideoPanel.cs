@@ -37,10 +37,20 @@ namespace DGAIZone.App
             _logger = logger;
         }
 
-        /// <summary> 씬 진입 시 로봇 영상 재생 준비를 시작함(playOnStart를 끈 패널은 Play를 부를 때까지 기다림). </summary>
+        /// <summary>
+        /// 씬 진입 시 로봇 영상 재생 준비를 시작함. playOnStart를 끈(처음엔 숨겨 둔) 패널은 첫 프레임까지만 준비해 그려 두고 멈춤 —
+        /// 숨긴 동안 디코딩하지 않으면서, 처음 보여 줄 때 로봇 자리가 비었다가 갑자기 나타나지 않게 함.
+        /// </summary>
         private void Start()
         {
-            if (playOnStart) Play();
+            if (playOnStart)
+            {
+                Play();
+                return;
+            }
+
+            _started = true; // _wantsPlaying이 false라 PlayVideoAsync가 첫 프레임을 그린 뒤 멈춤
+            PlayVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
         /// <summary> 활성화 시 씬 전환 대기 대상으로 레지스트리에 등록함(처음엔 숨겨 두는 패널은 씬 전환이 기다리지 않게 등록하지 않음). </summary>

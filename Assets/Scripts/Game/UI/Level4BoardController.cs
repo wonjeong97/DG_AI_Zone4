@@ -45,6 +45,8 @@ namespace DGAIZone.Game.UI
         private float MoveDuration => _sceneSettings.level4MoveDuration;
         private float StepPauseDuration => _sceneSettings.level4StepPauseDuration;
         private float CollisionScaleDuration => _sceneSettings.level4CollisionScaleDuration;
+        private float HqRejectShakeDuration => _sceneSettings.level4HqRejectShakeDuration;
+        private float HqRejectShakeStrength => _sceneSettings.level4HqRejectShakeStrength;
 
         private const string MoveIngredientId = Constants.RfidIds.Level4.Move;
         private const string RepeatIngredientId = Constants.RfidIds.Level4.Repeat;
@@ -504,8 +506,9 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 로봇이 방금 도착한 셀의 판정 결과에 맞는 연출을 재생함. 자원 셀에 처음 닿았으면 자원 아이콘이 로봇에 빨려들어가듯 스케일 1->0.
-        /// 함정 또는 기지 셀이면 로봇 아이콘 스케일이 1->0으로 사라짐.
-        /// 반환값: 함정 또는 기지 셀에 도착해 로봇이 사라졌으면 true(더 이상 이동하면 안 됨).
+        /// 함정이면 로봇 아이콘 스케일이 1->0으로 사라짐. 기지는 자원을 모았으면 로봇이 기지로 들어가듯 사라지고(성공),
+        /// 모으지 못했으면 들어가지 못하고 그 자리에서 좌우로 흔들림(실패 — 성공과 같은 연출로 보이지 않게).
+        /// 반환값: 함정 또는 기지 셀에 도착했으면 true(더 이상 이동하면 안 됨).
         /// </summary>
         private async UniTask<bool> PlayCellArrivalAsync(Level4StepResult result, CancellationToken token)
         {
@@ -520,12 +523,27 @@ namespace DGAIZone.Game.UI
                     return true;
 
                 case Level4StepResult.Hq:
-                    await AnimateScaleToZeroAsync(robotIcon, token);
+                    if (_resourceCollected) await AnimateScaleToZeroAsync(robotIcon, token);
+                    else await PlayHqRejectedAsync(token);
                     return true;
 
                 default:
                     return false;
             }
+        }
+
+        /// <summary> 자원 없이 기지에 닿은 로봇이 들어가지 못하고 좌우로 흔들린 뒤 그 자리에 남음(3_Game.json level4HqRejectShake*). </summary>
+        private UniTask PlayHqRejectedAsync(CancellationToken token)
+        {
+            if (!robotIcon)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] robotIcon이 null이라 기지 진입 실패 연출을 건너뜀.");
+                return UniTask.CompletedTask;
+            }
+
+            // 3_Game.json에 음수를 적으면 트윈이 바로 끝나므로 0 이상으로 제한함(흔들림이 끝나면 원래 위치로 돌아옴)
+            return robotIcon.DOShakeAnchorPos(Mathf.Max(0f, HqRejectShakeDuration), new Vector2(HqRejectShakeStrength, 0f), 10, 0f, false, true)
+                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
         /// <summary>
