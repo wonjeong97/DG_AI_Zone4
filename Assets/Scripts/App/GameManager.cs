@@ -3,10 +3,12 @@ using Cysharp.Threading.Tasks;
 using DGAIZone.Data;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer;
 using HuliacDev.App;
 using HuliacDev.Core;
+using HuliacDev.Data;
 using ZLogger;
 
 namespace DGAIZone.App
@@ -73,6 +75,20 @@ namespace DGAIZone.App
             base.OnDestroy();
 
             _subscription?.Dispose();
+        }
+
+        /// <summary>
+        /// Settings.json을 읽은 뒤(템플릿 훅) 릴리스 빌드에서 비활동 타이머가 꺼져 있으면 오류 로그를 남김. 끄면 떠난 체험자의 판을 다음 사람이 이어 하거나
+        /// 앞사람 이름으로 시작해 서버 기록이 섞이는데, Settings.json 형식이 깨져도 템플릿이 기본값(꺼짐)으로 읽어 일부러 끈 것과 구별되지 않음.
+        /// 에디터·개발 빌드는 저장소 기본값(꺼짐)으로 시험하므로 남기지 않음.
+        /// </summary>
+        protected override void OnSettingsLoaded(Settings loadedSettings)
+        {
+            base.OnSettingsLoaded(loadedSettings);
+            if (Debug.isDebugBuild) return; // 에디터·개발 빌드는 저장소 기본값으로 시험함(정상)
+            if (loadedSettings.useInactivityTimer && loadedSettings.resetTime > 0f) return;
+
+            if (_logger != null) _logger.ZLogError($"[GameManager] 비활동 타이머가 꺼져 있음(Settings.json의 useInactivityTimer·resetTime, 또는 파일 형식이 깨져 기본값으로 읽음) — 체험자가 떠나도 타이틀로 돌아가지 않아 다음 사람이 앞사람 판을 이어 하거나 서버 기록이 섞일 수 있음.");
         }
 
         /// <summary> 새로 로드된 씬에 맞춰 비활동 타이머를 멈추거나 다시 켬. </summary>
