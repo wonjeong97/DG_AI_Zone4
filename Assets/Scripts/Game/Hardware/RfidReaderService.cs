@@ -46,6 +46,7 @@ namespace DGAIZone.Game.Hardware
 
         private readonly List<ReaderSession> _sessions = new List<ReaderSession>();
         private readonly object _sessionsLock = new object();
+        private readonly HashSet<string> _rejectedIps = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // 등록되지 않아 접속을 거부한 IP(경고는 한 번만, _sessionsLock으로 보호)
         private RfidSettings _settings;
         private RfidMappingItem[] _mappings;
 
@@ -199,7 +200,7 @@ namespace DGAIZone.Game.Hardware
         /// <summary>
         /// 새로 접속한 리더기 클라이언트의 IP를 설정된 리더기 목록과 대조해 readerId를 식별하고, 수신 스레드를 시작함.
         /// 같은 IP나 같은 리더기 ID의 좀비 세션(리더기가 재부팅·전원 차단되거나 DHCP로 IP가 바뀌어 이전 소켓이 아직 정리되지 않은 경우)이
-        /// 남아있으면 그 세션을 먼저 정리하고 새 접속으로 교체함. 그 외에 이미 MaxConcurrentReaders만큼 접속 중이면 거부함.
+        /// 남아있으면 그 세션을 먼저 정리하고 새 접속으로 교체함. 그 외에 이미 MaxConcurrentReaders만큼 접속 중이거나 등록되지 않은 장비면 거부함.
         /// </summary>
         private void HandleNewClient(TcpClient client)
         {
@@ -218,7 +219,18 @@ namespace DGAIZone.Game.Hardware
             }
 
             // ARP 조회로 오래 걸릴 수 있어 잠금 밖에서 먼저 식별함
-            string readerId = ResolveReaderId(remoteIp);
+            string readerId = ResolveReaderId(remoteIp, out string mac);
+            if (readerId == null)
+            {
+                // 거부된 장비는 몇 초마다 다시 접속하므로 같은 IP는 이 서버가 열려 있는 동안 한 번만 알림
+                bool isFirstRejection;
+                lock (_sessionsLock) isFirstRejection = _rejectedIps.Add(remoteIp);
+                if (isFirstRejection && _logger != null)
+                    _logger.ZLogWarning($"[RfidReaderService] {remoteIp}(MAC={(string.IsNullOrEmpty(mac) ? "조회 실패" : mac)})는 RfidMappings.json readers에 등록된 IP·MAC과 맞지 않아 접속을 거부함(다른 장비이거나 현장에서 IP·MAC이 바뀐 리더기면 readers를 고칠 것, 같은 IP는 다시 알리지 않음).");
+                try { client.Close(); } catch (Exception) { /* 이미 닫힌 경우 무시 */ }
+                return;
+            }
+
             ReaderSession session = new ReaderSession
             {
                 ReaderId = readerId,
@@ -286,65 +298,61 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 접속해온 리더기의 readerId를 RfidMappings.json의 readers에서 찾음. IP(readers[].ipAddress)와 ARP로 조회한 MAC(readers[].macAddress)을
-        /// 함께 대조해, 둘이 서로 다른 리더기를 가리키면(현장을 옮기며 DHCP로 IP가 엇갈린 경우) 장비 고유값인 MAC을 따름 — IP만 따르면
-        /// 두 리더기가 같은 ID가 되어 서로의 접속을 끊음. MAC을 조회하지 못하면 IP로, IP가 맞지 않으면 MAC으로 찾음.
-        /// 둘 다 실패하면(테스트 중 미등록 리더기 등) 원시 데이터를 확인할 수 있도록 IP 기반 임시 ID를 부여함.
+        /// 접속해온 리더기의 readerId를 RfidMappings.json의 readers에서 찾음(IP와 ARP로 조회한 MAC을 함께 대조, 규칙은 MatchReaderId).
+        /// readers가 설정돼 있는데 어느 쪽과도 맞지 않으면(다른 존 리더기나 다른 장비가 이 PC로 접속, 현장에서 IP·MAC이 바뀐 리더기) null을 돌려
+        /// 접속을 거부하게 함 — 받으면 리더기 자리를 차지하고 그 카드가 단계 구분 없이 지금 단계에 들어감. readers 설정이 없으면(시험용) IP 기반 임시 ID를 줌.
         /// </summary>
-        private string ResolveReaderId(string remoteIp)
+        private string ResolveReaderId(string remoteIp, out string mac)
         {
-            if (_settings?.readers != null)
+            mac = null;
+            if (_settings?.readers == null || _settings.readers.Length == 0) return $"Unknown_{remoteIp}";
+
+            mac = TryGetMacAddressByArp(remoteIp);
+            string readerId = MatchReaderId(_settings.readers, remoteIp, mac, out string ipMatchedId, out string macMatchedId);
+
+            if (macMatchedId != null && ipMatchedId == null)
             {
-                string ipMatchedId = null;
-                foreach (RfidReaderConfig config in _settings.readers)
-                {
-                    if (config != null && string.Equals(config.ipAddress, remoteIp, StringComparison.OrdinalIgnoreCase))
-                    {
-                        ipMatchedId = config.readerId;
-                        break;
-                    }
-                }
+                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {remoteIp}는 등록된 IP와 다르지만 MAC({mac})으로 {macMatchedId} 식별됨.");
+            }
+            else if (macMatchedId != null && !string.Equals(ipMatchedId, macMatchedId, StringComparison.Ordinal))
+            {
+                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {remoteIp}는 등록 IP로는 {ipMatchedId}이지만 MAC({mac})은 {macMatchedId}의 것이라 MAC을 따라 {macMatchedId}로 식별함(현장 IP가 바뀌었으면 RfidMappings.json readers를 고칠 것).");
+            }
 
-                string mac = TryGetMacAddressByArp(remoteIp);
-                string macMatchedId = null;
-                if (!string.IsNullOrEmpty(mac))
-                {
-                    foreach (RfidReaderConfig config in _settings.readers)
-                    {
-                        if (config != null && string.Equals(NormalizeMac(config.macAddress), mac, StringComparison.OrdinalIgnoreCase))
-                        {
-                            macMatchedId = config.readerId;
-                            break;
-                        }
-                    }
-                }
+            return readerId;
+        }
 
-                if (macMatchedId != null)
-                {
-                    if (ipMatchedId == null)
-                    {
-                        if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {remoteIp}는 등록된 IP와 다르지만 MAC({mac})으로 {macMatchedId} 식별됨.");
-                    }
-                    else if (!string.Equals(ipMatchedId, macMatchedId, StringComparison.Ordinal))
-                    {
-                        if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {remoteIp}는 등록 IP로는 {ipMatchedId}이지만 MAC({mac})은 {macMatchedId}의 것이라 MAC을 따라 {macMatchedId}로 식별함(현장 IP가 바뀌었으면 RfidMappings.json readers를 고칠 것).");
-                    }
-                    return macMatchedId;
-                }
+        /// <summary>
+        /// readers에서 IP가 같은 리더기와 MAC이 같은 리더기를 찾아, 둘이 서로 다른 리더기를 가리키면(현장을 옮기며 IP가 엇갈린 경우) 장비 고유값인 MAC을 따름
+        /// — IP만 따르면 두 리더기가 같은 ID가 되어 서로의 접속을 끊음. MAC을 조회하지 못했거나(mac이 비어 있음) 등록된 MAC이 없으면 IP로 찾고, 둘 다 없으면 null.
+        /// </summary>
+        internal static string MatchReaderId(RfidReaderConfig[] readers, string remoteIp, string mac, out string ipMatchedId, out string macMatchedId)
+        {
+            ipMatchedId = null;
+            macMatchedId = null;
 
-                if (ipMatchedId != null) return ipMatchedId; // MAC을 조회하지 못했거나 등록된 MAC이 없음 — IP로 식별
-
-                if (string.IsNullOrEmpty(mac))
+            foreach (RfidReaderConfig config in readers)
+            {
+                if (config != null && string.Equals(config.ipAddress, remoteIp, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {remoteIp}는 등록되지 않은 IP이고 ARP로 MAC도 조회하지 못함. 임시 ID로 접속을 받음.");
-                }
-                else if (_logger != null)
-                {
-                    _logger.ZLogWarning($"[RfidReaderService] {remoteIp}(MAC={mac})는 등록된 IP/MAC 어느 쪽과도 일치하지 않음. 임시 ID로 접속을 받음.");
+                    ipMatchedId = config.readerId;
+                    break;
                 }
             }
 
-            return $"Unknown_{remoteIp}";
+            if (!string.IsNullOrEmpty(mac))
+            {
+                foreach (RfidReaderConfig config in readers)
+                {
+                    if (config != null && string.Equals(NormalizeMac(config.macAddress), NormalizeMac(mac), StringComparison.OrdinalIgnoreCase))
+                    {
+                        macMatchedId = config.readerId;
+                        break;
+                    }
+                }
+            }
+
+            return macMatchedId ?? ipMatchedId;
         }
 
         /// <summary> Windows ARP로 destIp의 MAC 주소를 조회함(iphlpapi.dll, 성공하면 0). </summary>
