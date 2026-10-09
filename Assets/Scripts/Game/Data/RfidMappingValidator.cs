@@ -29,6 +29,14 @@ namespace DGAIZone.Game.Data
             Constants.RfidIds.Level4.MoveLeft
         };
 
+        private static readonly string[] Level5ActionIds =
+        {
+            Constants.RfidIds.Level5.SpaceStationCode,
+            Constants.RfidIds.Level5.ExplorerRobotCode,
+            Constants.RfidIds.Level5.CommunicationCode,
+            Constants.RfidIds.Level5.ConnectionPassageCode
+        };
+
         private static readonly string[] CardCategories =
         {
             Constants.RfidCategories.Action,
@@ -166,7 +174,7 @@ namespace DGAIZone.Game.Data
         }
 
         /// <summary>
-        /// 레벨 4: 동작 카드로 고르는 이동하기, 제어 카드로 고르는 반복하기 재료가 있고, 이동 방향은 아는 id, 반복 횟수는 1 이상이어야 함.
+        /// 레벨 4: 동작 카드로 고르는 이동하기, 제어 카드로 고르는 반복하기 재료가 있고, 이동 방향은 아는 id로 네 방향이 모두 있어야 하며, 반복 횟수는 1 이상이어야 함.
         /// 보드 배치 규칙에 맞게 단계 수는 카드 수(Constants.Level4Board.MaxCards)와 같고, 반복 횟수 블록에 RequiredRepeatCount가 있어야 하며,
         /// 모든 단계가 동작 카드를, 마지막을 뺀 모든 단계가 제어 카드를 받아야 함.
         /// </summary>
@@ -186,6 +194,12 @@ namespace DGAIZone.Game.Data
                         errors.Add($"레벨 4 이동하기 블록 '{move.id}'는 알 수 없는 방향이라 로봇이 움직이지 않음.");
                     }
                 }
+            }
+
+            // 보드 배치 풀과 정답 탐색은 네 방향을 모두 쓸 수 있다고 보므로, 하나라도 빠지면 그 방향이 필요한 배치는 풀 수 없음
+            foreach (string moveId in Level4MoveIds)
+            {
+                RequireMatterId(moves, moveId, "레벨 4 이동하기(Move)", "그 방향이 필요한 배치를 풀 수 없음", errors);
             }
 
             RequireMinValue(repeats, "레벨 4 반복하기(Repeat)", 1, "반복 횟수로 쓰임", errors);
@@ -224,8 +238,8 @@ namespace DGAIZone.Game.Data
         }
 
         /// <summary>
-        /// 레벨 5: 함수·동작 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이어야 함
-        /// (놓은 블록은 다시 고를 수 없음). 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고 모든 단계가 두 분류 카드를 받아야 함.
+        /// 레벨 5: 함수·동작 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이며
+        /// 현재 상황 그림 4개의 id(돔·로버·통신탑·연결 통로)를 모두 가져야 함(놓은 블록은 다시 고를 수 없음). 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고 모든 단계가 두 분류 카드를 받아야 함.
         /// </summary>
         private static void ValidateLevel5(RfidLevelMapping mapping, List<string> errors)
         {
@@ -237,6 +251,12 @@ namespace DGAIZone.Game.Data
             if (actions != null && actions.Length < Constants.Level5Cards.Action)
             {
                 errors.Add($"레벨 5 동작 블록이 {actions.Length}개라 동작 카드 {Constants.Level5Cards.Action}장을 모두 놓을 수 없음(놓은 블록은 다시 고를 수 없음).");
+            }
+
+            // 현재 상황 그림(Level5CityView)은 동작 블록 id로 그림을 고르므로 id가 다르면 성공해도 그림이 나오지 않음
+            foreach (string actionId in Level5ActionIds)
+            {
+                RequireMatterId(actions, actionId, "레벨 5 동작(Action)", "현재 상황 그림이 나오지 않음", errors);
             }
 
             if (mapping.steps.Length != Constants.Level5Cards.Total)

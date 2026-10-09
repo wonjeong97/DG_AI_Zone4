@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DGAIZone.App;
+using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.UI;
 using NUnit.Framework;
@@ -8,7 +9,7 @@ using UnityEngine;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// Level4BoardController.EvaluateOutcome의 블록 코딩 경로 판정 알고리즘 검증 테스트.
+    /// Level4BoardController.EvaluateOutcome의 블록 코딩 경로 판정 알고리즘과 연출 시간 보정 검증 테스트.
     /// </summary>
     public class Level4OutcomeEvaluationTests
     {
@@ -208,6 +209,26 @@ namespace DGAIZone.Tests
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 3_Game.json의 레벨 4 연출 시간에 음수를 적어도 0으로 씀. 음수가 그대로 UniTask.Delay에 가면 예외로 코딩 완료 연출이 멈춤.
+        /// </summary>
+        [Test]
+        public void 연출_시간이_음수면_0으로_쓴다()
+        {
+            _board.SetSceneSettingsForTest(new GameSceneSettings
+            {
+                level4MoveDuration = -0.1f,
+                level4StepPauseDuration = -0.1f,
+                level4CollisionScaleDuration = -0.1f,
+                level4HqRejectShakeDuration = -0.1f
+            });
+
+            Assert.AreEqual(0f, _board.MoveDuration);
+            Assert.AreEqual(0f, _board.StepPauseDuration);
+            Assert.AreEqual(0f, _board.CollisionScaleDuration);
+            Assert.AreEqual(0f, _board.HqRejectShakeDuration);
         }
     }
 }
