@@ -6,13 +6,14 @@
 
 ## 진행 중
 
+- [ ] T65 관리자 비밀번호 창에서 숫자 버튼을 누르면 그 버튼이 EventSystem 선택으로 남아, 서버 모드에서 QR 스캐너가 보낸 Enter(Submit)가 그 숫자를 한 번 더 입력할 수 있음(코드로만 확인, 이름 입력 창은 ClearSelection으로 막혀 있음. T64 리뷰에서 발견, 1존도 같은 구조) — 담당: Claude / 검증: Antigravity
 
 ## 할 일
 
-- [ ] T65 관리자 비밀번호 창에서 숫자 버튼을 누르면 그 버튼이 EventSystem 선택으로 남아, 서버 모드에서 QR 스캐너가 보낸 Enter(Submit)가 그 숫자를 한 번 더 입력할 수 있음(코드로만 확인, 이름 입력 창은 ClearSelection으로 막혀 있음. T64 리뷰에서 발견, 1존도 같은 구조) — 담당: Claude / 검증: Antigravity
 
 ## 완료
 
+- [x] T66 쓰지 않는 `StreamingAssets/Videos/Tutorial.mp4`(약 74MB, 코드·씬·문서 참조 0건, 튜토리얼은 Addressables 이미지) 삭제(사용자 요청, 1존과 같게) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T64 관리자 화면 60초 무입력 자동 닫기(이름 입력 창 포함), 1존처럼 빌드 후 바꿀 값을 JSON으로: 관리자 창 자동 닫기 시간·진입 클릭 수(Admin.json, 비밀번호 저장 때 다른 값 유지), 로봇 영상 경로(00_Common.json), 타이틀 안내 문구 7개(0_Title.json)(사용자 요청) — PlayMode 204/204 — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T62 쓰이지 않는 `RfidMappings.json` `stageReadCounts` 삭제(단계 수는 레벨별 steps 개수, 모든 레벨에 정의가 있음) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T63 프로젝트 CLAUDE.md 채우기(개요·씬 흐름·레벨, 하드웨어·외부 연동, 공통 규칙의 예외) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)

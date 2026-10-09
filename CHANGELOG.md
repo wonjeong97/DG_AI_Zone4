@@ -5,6 +5,9 @@
 
 ## [Unreleased]
 
+### Removed
+- 쓰지 않던 영상 파일 `Tutorial.mp4`(약 74MB)를 빌드에서 뺌(튜토리얼은 이미지로 보여 줌).
+
 ## [2026-10-09]
 
 ### ⚠ Breaking Changes
