@@ -6,6 +6,7 @@
 
 ## 진행 중
 
+- [ ] T67 전체 코드 점검: 스킬(unity-stack-scaffold·unity-network-protocol) 준수, 성능 최적화, 리팩터링 후보, 버그(사용자 요청, 확인된 것만 보고 후 수정 범위는 사용자 결정) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신)
 
 ## 할 일
 

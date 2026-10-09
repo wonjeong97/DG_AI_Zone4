@@ -29,6 +29,20 @@ namespace DGAIZone.Game.Data
             Constants.RfidIds.Level4.MoveLeft
         };
 
+        private static readonly string[] CardCategories =
+        {
+            Constants.RfidCategories.Action,
+            Constants.RfidCategories.Control,
+            Constants.RfidCategories.Logic,
+            Constants.RfidCategories.Func
+        };
+
+        /// <summary> 리더기 번호(readerId "Reader_N"의 N)의 최댓값 — 리더기 N이 N번째 단계를 맡고 단계는 최대 5개. </summary>
+        private const int MaxReaderNumber = 5;
+
+        /// <summary> 카드 uid 길이 — 연속 읽기 모드의 7바이트 UID를 공백 없는 16진수로 적은 길이. </summary>
+        private const int UidHexLength = 14;
+
         /// <summary>
         /// 레벨 1~5 블록 정의를 검사함. level1Data/level3Data를 넘기면 레벨 1 목적지 거리를 블록 조합으로 만들 수 있는지,
         /// 레벨 3 기준값 범위의 모든 값에 맞는 조건 블록이 있는지도 검사함(null이면 그 검사는 건너뜀). 문제가 없으면 빈 목록을 반환함.
@@ -36,12 +50,22 @@ namespace DGAIZone.Game.Data
         public static List<string> Validate(RfidSettings settings, LevelData level1Data = null, LevelData level3Data = null)
         {
             List<string> errors = new List<string>();
-            if (settings == null || settings.levelMappings == null || settings.levelMappings.Length == 0)
+            if (settings == null)
             {
                 errors.Add("levelMappings가 비어 있어 모든 레벨의 블록 정의가 없음.");
                 return errors;
             }
 
+            ValidateServerAndReaders(settings, errors);
+            ValidateCards(settings.mappings, errors);
+
+            if (settings.levelMappings == null || settings.levelMappings.Length == 0)
+            {
+                errors.Add("levelMappings가 비어 있어 모든 레벨의 블록 정의가 없음.");
+                return errors;
+            }
+
+            ValidateStepCategories(settings.levelMappings, errors);
             ValidateLevel1(settings.FindLevelMapping(1), level1Data, errors);
             ValidateLevel2(settings.FindLevelMapping(2), errors);
             ValidateLevel3(settings.FindLevelMapping(3), level3Data, errors);
@@ -375,6 +399,124 @@ namespace DGAIZone.Game.Data
             }
 
             errors.Add($"{where}에 '{matterId}' 블록이 없어 {consequence}.");
+        }
+
+        /// <summary>
+        /// 서버 포트와 리더기 목록을 검사함. 포트가 범위 밖이면 리더기가 접속할 수 없고, readerId가 "Reader_N"(N은 1~5) 형식이 아니면
+        /// 그 리더기가 단계를 맡지 못해 어느 단계에나 적용되며, readerId·IP·MAC이 겹치면 리더기를 잘못 식별함. 리더기 목록이 비면 검사하지 않음(서버가 경고함).
+        /// </summary>
+        private static void ValidateServerAndReaders(RfidSettings settings, List<string> errors)
+        {
+            if (settings.listenPort < 1 || settings.listenPort > 65535)
+                errors.Add($"listenPort {settings.listenPort}가 1~65535가 아니라 리더기가 접속할 수 없음.");
+
+            if (settings.readers == null) return;
+
+            HashSet<string> readerIds = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> ips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> macs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (RfidReaderConfig reader in settings.readers)
+            {
+                if (reader == null)
+                {
+                    errors.Add("readers에 빈 항목이 있음.");
+                    continue;
+                }
+
+                if (!TryGetReaderNumber(reader.readerId, out int number) || number < 1 || number > MaxReaderNumber)
+                    errors.Add($"readers의 readerId '{reader.readerId}'가 Reader_1~Reader_{MaxReaderNumber} 형식이 아니라 단계를 맡지 못함.");
+                else if (!readerIds.Add(reader.readerId))
+                    errors.Add($"readers에 readerId '{reader.readerId}'가 두 번 이상 있음.");
+
+                if (!string.IsNullOrEmpty(reader.ipAddress) && !ips.Add(reader.ipAddress))
+                    errors.Add($"readers에 ipAddress '{reader.ipAddress}'가 두 번 이상 있어 리더기를 구분하지 못함.");
+
+                string mac = string.IsNullOrEmpty(reader.macAddress) ? null : reader.macAddress.Replace(":", "-").Replace(" ", "-");
+                if (mac != null && !macs.Add(mac))
+                    errors.Add($"readers에 macAddress '{reader.macAddress}'가 두 번 이상 있어 리더기를 구분하지 못함.");
+            }
+        }
+
+        /// <summary> "Reader_N"의 N을 꺼냄(밑줄 뒤가 숫자가 아니면 false) — 게임 화면의 리더기·단계 대응과 같은 규칙. </summary>
+        private static bool TryGetReaderNumber(string readerId, out int number)
+        {
+            number = 0;
+            if (string.IsNullOrEmpty(readerId)) return false;
+
+            int underscoreIndex = readerId.LastIndexOf('_');
+            return underscoreIndex >= 0 && underscoreIndex < readerId.Length - 1 && int.TryParse(readerId.AsSpan(underscoreIndex + 1), out number);
+        }
+
+        /// <summary>
+        /// 카드 목록을 검사함. uid가 16진수 14자리가 아니면 리더기가 보내는 값과 맞지 않아 인식되지 않고, 겹치면 앞의 카드만 쓰이며,
+        /// 분류가 동작·제어·논리·함수가 아니면 어느 단계에서도 쓸 수 없음.
+        /// </summary>
+        private static void ValidateCards(RfidMappingItem[] mappings, List<string> errors)
+        {
+            if (mappings == null || mappings.Length == 0)
+            {
+                errors.Add("mappings에 카드가 없어 어떤 카드도 인식되지 않음.");
+                return;
+            }
+
+            HashSet<string> uids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (RfidMappingItem card in mappings)
+            {
+                if (card == null)
+                {
+                    errors.Add("mappings에 빈 항목이 있음.");
+                    continue;
+                }
+
+                if (!IsHexUid(card.uid))
+                    errors.Add($"카드 uid '{card.uid}'가 공백 없는 16진수 {UidHexLength}자리가 아니라 인식되지 않음.");
+                else if (!uids.Add(card.uid))
+                    errors.Add($"카드 uid '{card.uid}'가 두 번 이상 있어 앞의 카드 분류만 쓰임.");
+
+                if (Array.IndexOf(CardCategories, card.category) < 0)
+                    errors.Add($"카드 uid '{card.uid}'의 분류 '{card.category}'가 동작·제어·논리·함수가 아니라 어느 단계에서도 쓸 수 없음.");
+            }
+        }
+
+        /// <summary> uid가 공백 없는 16진수 UidHexLength자리인지 봄. </summary>
+        private static bool IsHexUid(string uid)
+        {
+            if (uid == null || uid.Length != UidHexLength) return false;
+
+            foreach (char c in uid)
+            {
+                if (!Uri.IsHexDigit(c)) return false;
+            }
+            return true;
+        }
+
+        /// <summary> 모든 레벨 단계·분류별 재료의 categories가 동작·제어·논리·함수 중 하나인지 검사함. 오타가 나면 그 단계를 진행할 카드가 없음. </summary>
+        private static void ValidateStepCategories(RfidLevelMapping[] levelMappings, List<string> errors)
+        {
+            foreach (RfidLevelMapping mapping in levelMappings)
+            {
+                if (mapping == null) continue; // 빈 레벨은 레벨별 검사(ValidateLevelBasics)가 알림
+
+                ValidateCategories(mapping.level, mapping.steps, "steps", errors);
+                ValidateCategories(mapping.level, mapping.categoryIngredients, "categoryIngredients", errors);
+            }
+        }
+
+        /// <summary> 단계 정의 목록의 categories 값을 하나씩 검사함. </summary>
+        private static void ValidateCategories(int level, RfidStepDefinition[] definitions, string where, List<string> errors)
+        {
+            if (definitions == null) return;
+
+            foreach (RfidStepDefinition definition in definitions)
+            {
+                if (definition?.categories == null) continue;
+
+                foreach (string category in definition.categories)
+                {
+                    if (Array.IndexOf(CardCategories, category) < 0)
+                        errors.Add($"레벨 {level} {where}의 '{definition.ingredientName}' 분류 '{category}'가 동작·제어·논리·함수가 아니라 그 카드로 진행할 수 없음.");
+                }
+            }
         }
 
         /// <summary> 기준값 범위(양끝 포함)의 모든 값마다 value가 같은 조건 블록이 있는지 검사함. 없으면 그 기준값이 뽑혔을 때 정답을 고를 수 없음. </summary>

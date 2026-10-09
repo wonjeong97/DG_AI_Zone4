@@ -146,6 +146,9 @@ namespace DGAIZone.Game
                     else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] storyLevels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
                 }
 
+                if ((index < 0 || index >= storyLevels.Length) && _logger != null)
+                    _logger.ZLogWarning($"[GameFlowController] storyLevels가 {storyLevels.Length}개뿐이라 레벨{_selectedLevel} 스토리를 보여 줄 수 없음.");
+
                 ApplyStoryText();
             }
             else if (_logger != null)
@@ -158,7 +161,7 @@ namespace DGAIZone.Game
         private void ApplyStoryText()
         {
             int index = _selectedLevel - 1;
-            if (storyLevels == null || index < 0 || index >= storyLevels.Length || !storyLevels[index]) return;
+            if (storyLevels == null || index < 0 || index >= storyLevels.Length || !storyLevels[index]) return; // 배열 누락·범위·빈 칸은 SetupStoryLevel이 경고함
 
             // levelDataList(LevelData 에셋)에서 스토리 텍스트를 가져옴 — 2_LevelSelect와 같은 에셋을 참조하므로
             // 텍스트를 한 곳만 고치면 두 씬 모두에 반영됨. 할당되지 않았으면 씬에 미리 입력된 텍스트를 그대로 유지함.
@@ -225,6 +228,9 @@ namespace DGAIZone.Game
                 if (situationPanels[i]) situationPanels[i].SetActive(i == index);
                 else if (_logger != null) _logger.ZLogWarning($"[GameFlowController] situationPanels[{i}]가 null이라 활성 상태를 바꿀 수 없음.");
             }
+
+            if ((index < 0 || index >= situationPanels.Length) && _logger != null)
+                _logger.ZLogWarning($"[GameFlowController] situationPanels가 {situationPanels.Length}개뿐이라 레벨{_selectedLevel} 현재 상황 화면을 보여 줄 수 없음.");
         }
 
         /// <summary> Addressables에서 활성화된 레벨의 스토리 이미지를 비동기로 불러와 적용함. </summary>
