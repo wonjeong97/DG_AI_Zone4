@@ -12981,6 +12981,7 @@ MonoBehaviour:
   videoPlayer: {fileID: 2081176778}
   rawImage: {fileID: 1791170209}
   targetTexture: {fileID: 8400000, guid: 9882e088d951fbd47a439404a5300d40, type: 2}
+  playOnStart: 0
 --- !u!328 &2081176778
 VideoPlayer:
   m_ObjectHideFlags: 0

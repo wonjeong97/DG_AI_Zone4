@@ -40,7 +40,7 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 이미 정해진 장수만큼 놓은 분류(함수·동작)의 카드는 받지 않고 경고 연출을 표시함. </summary>
         public bool ValidateTagCategory(IngredientSelectionController controller, RfidTagEvent evt)
         {
-            RfidStepDefinition ingredient = FindCategoryIngredient(controller, evt.Category);
+            RfidStepDefinition ingredient = controller.FindCategoryIngredient(evt.Category);
             if (ingredient == null) return true; // 재료 정의가 없으면 이어지는 ResolveStepCard에서 컨트롤러가 경고를 남기고 무시함
 
             int limit = CardLimitOf(ingredient.ingredientId);
@@ -59,7 +59,7 @@ namespace DGAIZone.Game.UI.States
             List<string> allowed = new List<string>(step.categories.Length);
             foreach (string category in step.categories)
             {
-                RfidStepDefinition ingredient = FindCategoryIngredient(controller, category);
+                RfidStepDefinition ingredient = controller.FindCategoryIngredient(category);
                 if (ingredient == null ||
                     CountConfirmed(controller.ConfirmedIngredients, controller.CurrentStepIndex, ingredient.ingredientId) < CardLimitOf(ingredient.ingredientId))
                 {
@@ -73,7 +73,7 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 찍은 카드 분류(함수/동작)에 맞는 재료를 RfidMappings.json의 categoryIngredients에서 찾음. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
         {
-            return FindCategoryIngredient(controller, category);
+            return controller.FindCategoryIngredient(category);
         }
 
         /// <summary> 이미 놓은 동작 블록은 다시 고를 수 없도록 목록에서 제외함. </summary>
@@ -168,6 +168,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 함수 카드가 함수 사용 블록이 되므로 오른쪽에 함수 정의 블록 자리를 남김. </summary>
         public bool UsesFunctionDefinition => true;
 
+        /// <summary> 추진력 게이지를 쓰지 않음(레벨 1 전용). </summary>
+        public bool UsesThrustGauge => false;
+
         /// <summary> 함수·동작 블록 모두 값 블록을 쓰지 않음. </summary>
         public bool UsesValueBlocks => false;
 
@@ -244,26 +247,12 @@ namespace DGAIZone.Game.UI.States
             }
         }
 
-        /// <summary> 찍은 카드 분류로 고를 재료 정의를 categoryIngredients에서 찾음. 없으면 null. </summary>
-        private static RfidStepDefinition FindCategoryIngredient(IngredientSelectionController controller, string category)
-        {
-            RfidStepDefinition[] ingredients = controller.CategoryIngredients;
-            if (ingredients == null) return null;
-
-            foreach (RfidStepDefinition ingredient in ingredients)
-            {
-                if (ingredient != null && ingredient.AllowsCategory(category)) return ingredient;
-            }
-
-            return null;
-        }
-
         /// <summary> 정답: 함수 사용 → 동작 블록 전부(모든 동작 블록이 함수 정의 블록 안쪽). 블록 정의가 모자라면 경고를 남기고 빈 목록을 반환함. </summary>
         public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)
         {
             List<(RfidStepDefinition ingredient, RfidMatter matter)> solution = new List<(RfidStepDefinition ingredient, RfidMatter matter)>();
-            RfidStepDefinition function = FindCategoryIngredient(controller, Constants.RfidCategories.Func);
-            RfidStepDefinition action = FindCategoryIngredient(controller, Constants.RfidCategories.Action);
+            RfidStepDefinition function = controller.FindCategoryIngredient(Constants.RfidCategories.Func);
+            RfidStepDefinition action = controller.FindCategoryIngredient(Constants.RfidCategories.Action);
             RfidLevelMapping mapping = controller.LevelMapping;
             RfidMatter[] functionMatters = function != null && mapping != null ? mapping.FindMatters(function.matterSetId) : null;
             RfidMatter[] actionMatters = action != null && mapping != null ? mapping.FindMatters(action.matterSetId) : null;

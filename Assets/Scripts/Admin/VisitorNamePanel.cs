@@ -27,8 +27,10 @@ namespace DGAIZone.Admin
         [SerializeField] private TMP_InputField inputField;
         [SerializeField] private Button saveButton;
         [SerializeField] private Button closeButton;
-        [Tooltip("Shift가 켜져 있는 동안 Shift 키 배경색")]
+        [Tooltip("Shift를 한 번 누른 상태(다음 글자 하나만 바뀜)의 Shift 키 배경색")]
         [SerializeField] private Color shiftPressedColor = new(0.55f, 0.7f, 0.95f, 1f);
+        [Tooltip("영어 자판에서 Shift를 두 번 눌러 고정한 상태(계속 대문자)의 Shift 키 배경색 — 한 번 누른 상태와 구분함")]
+        [SerializeField] private Color shiftLockedColor = new(0.3f, 0.45f, 0.85f, 1f);
 
         private const string ShiftKey    = "Button_shift";
         private const string DeleteKey   = "Button_delete";
@@ -183,9 +185,11 @@ namespace DGAIZone.Admin
         /// <summary> keyboardRoot 아래 버튼을 이름으로 찾아 각 역할에 맞는 동작을 연결함. </summary>
         private void BindKeys()
         {
+            HashSet<string> boundKeys = new HashSet<string>(StringComparer.Ordinal);
             foreach (Button button in keyboardRoot.GetComponentsInChildren<Button>(true))
             {
                 string keyName = button.name;
+                boundKeys.Add(keyName);
 
                 if (BaseMap.ContainsKey(keyName))
                 {
@@ -226,6 +230,23 @@ namespace DGAIZone.Admin
 
                 button.onClick.AddListener(OnKeyClicked);
             }
+
+            WarnMissingKeys(boundKeys);
+        }
+
+        /// <summary> 자판 표(BaseMap·NumberMap)와 특수 키 가운데 keyboardRoot에서 찾지 못한 키를 한 번에 경고함 — 버튼 이름이 바뀌면 그 키만 말없이 동작하지 않음. </summary>
+        private void WarnMissingKeys(HashSet<string> boundKeys)
+        {
+            List<string> missing = new List<string>();
+            foreach (string keyName in BaseMap.Keys)
+                if (!boundKeys.Contains(keyName)) missing.Add(keyName);
+            foreach (string keyName in NumberMap.Keys)
+                if (!boundKeys.Contains(keyName)) missing.Add(keyName);
+            foreach (string keyName in new[] { ShiftKey, DeleteKey, LanguageKey, SpaceKey })
+                if (!boundKeys.Contains(keyName)) missing.Add(keyName);
+
+            if (missing.Count > 0 && _logger != null)
+                _logger.ZLogWarning($"[VisitorNamePanel] 화면 키보드에 '{string.Join(", ", missing)}' 키가 없어 그 키는 동작하지 않음.");
         }
 
         /// <summary> 키 효과음을 내고, 클릭 뒤에도 남는 EventSystem 선택을 풀어 버튼이 눌린 색으로 굳지 않게 함. </summary>
@@ -345,9 +366,10 @@ namespace DGAIZone.Admin
             RefreshKeyLabels();
         }
 
-        /// <summary> 한글과 영어 자판을 번갈아 바꾸고 Shift를 끔. </summary>
+        /// <summary> 조합 중인 음절을 확정한 뒤 한글과 영어 자판을 번갈아 바꾸고 Shift를 끔(확정하지 않으면 영어 자판에서 지우기가 자모 단위로 되고, 다시 한글로 오면 조합이 이어짐). </summary>
         private void OnLangPressed()
         {
+            _composer.Commit();
             _isEnglish = !_isEnglish;
             _shiftState = ShiftState.Off;
             RefreshShiftVisual();
@@ -382,13 +404,18 @@ namespace DGAIZone.Admin
             }
         }
 
-        /// <summary> Shift 키 배경색을 눌림/기본 상태에 맞게 바꿈. </summary>
+        /// <summary> Shift 키 배경색을 기본·한 번 눌림·고정 상태에 맞게 바꿈. </summary>
         private void RefreshShiftVisual()
         {
-            // 키를 누를 때마다 도는 자리라, 참조가 없다는 경고는 BindKeys에서 한 번만 남김
+            // 키를 누를 때마다 도는 자리라, 참조가 없다는 경고는 BindKeys에서 한 번만 남김(Shift 키 자체가 없으면 WarnMissingKeys가 남김)
             if (!_shiftButtonImage) return;
 
-            _shiftButtonImage.color = _shiftState != ShiftState.Off ? shiftPressedColor : _shiftNormalColor;
+            _shiftButtonImage.color = _shiftState switch
+            {
+                ShiftState.Once => shiftPressedColor,
+                ShiftState.Lock => shiftLockedColor,
+                _ => _shiftNormalColor
+            };
         }
 
         /// <summary> 조합 상태와 입력란을 모두 비우고 Shift를 끔. </summary>

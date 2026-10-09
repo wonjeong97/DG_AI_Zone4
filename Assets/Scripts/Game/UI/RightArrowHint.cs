@@ -35,9 +35,17 @@ namespace DGAIZone.Game.UI
             InitCanvasGroups();
         }
 
-        /// <summary> 연출 타이밍(3_Game.json)을 불러옴. </summary>
+        /// <summary> 비어 있는 화살표 칸을 경고하고(씬 주입은 Awake 뒤라 로그를 남기도록 Start에서 확인) 연출 타이밍(3_Game.json)을 불러옴. </summary>
         private void Start()
         {
+            if (arrowImages != null)
+            {
+                for (int i = 0; i < arrowImages.Length; i++)
+                {
+                    if (!arrowImages[i] && _logger != null) _logger.ZLogWarning($"[RightArrowHint] arrowImages[{i}]가 비어 있어 그 화살표는 연출에서 빠짐.");
+                }
+            }
+
             LoadSettingsAsync().Forget();
         }
 

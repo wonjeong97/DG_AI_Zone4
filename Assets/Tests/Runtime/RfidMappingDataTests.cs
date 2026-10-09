@@ -329,6 +329,32 @@ namespace DGAIZone.Tests
             AssertHasError(errors, "minOxygenRange", "2에 맞는");
         }
 
+        [Test]
+        public void 검증기는_포트_리더기_카드_분류_설정_오류를_찾아낸다()
+        {
+            _settings.listenPort = 0;
+            _settings.readers[1].readerId = "Reader2";
+            _settings.readers[2].ipAddress = _settings.readers[0].ipAddress;
+            _settings.readers[3].readerId = "Reader_01";
+            _settings.readers[4].macAddress = "344663D433CD";
+            _settings.mappings[1].uid = _settings.mappings[0].uid.ToLowerInvariant();
+            _settings.mappings[2].uid = "A1G081736922";
+            _settings.mappings[3].category = "동장";
+            GetMapping(1).steps[0].categories = new[] { "동작 " };
+
+            List<string> errors = RfidMappingValidator.Validate(_settings);
+
+            AssertHasError(errors, "listenPort 0");
+            AssertHasError(errors, "'Reader2'", "Reader_1~Reader_5");
+            AssertHasError(errors, $"ipAddress '{_settings.readers[0].ipAddress}'", "두 번 이상");
+            AssertHasError(errors, "1번 리더기", "'Reader_01'", "두 번 이상");
+            AssertHasError(errors, "'344663D433CD'", "형식");
+            AssertHasError(errors, $"'{_settings.mappings[1].uid}'", "두 번 이상");
+            AssertHasError(errors, "'A1G081736922'", "16진수 14자리");
+            AssertHasError(errors, "분류 '동장'");
+            AssertHasError(errors, "레벨 1 steps", "분류 '동작 '");
+        }
+
         /// <summary> 모든 조각을 포함하는 오류가 하나라도 있는지 확인함. </summary>
         private static void AssertHasError(List<string> errors, params string[] fragments)
         {

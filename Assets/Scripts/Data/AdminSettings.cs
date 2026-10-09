@@ -52,7 +52,7 @@ namespace DGAIZone.Data
         /// <summary>
         /// 비밀번호를 저장하기 전에 Admin.json을 보정 없이 읽음 — 파일이 있는데 읽을 수 없거나(잠김 등) 형식이 깨졌으면 false를 돌려 다른 값이 기본값으로 덮어써지지 않게 함.
         /// </summary>
-        public static bool TryReadForSave(out AdminSettings settings)
+        public static bool TryReadForSave(out AdminSettings settings, ILogger logger)
         {
             string path = Path.Combine(UnityEngine.Application.streamingAssetsPath, FilePath + ".json");
             if (!File.Exists(path))
@@ -67,8 +67,10 @@ namespace DGAIZone.Data
                 settings = UnityEngine.JsonUtility.FromJson<AdminSettings>(File.ReadAllText(path)) ?? new AdminSettings();
                 return true;
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                // 파일이 잠겼는지(IOException) 형식이 깨졌는지 로그로 구분할 수 있게 원인을 남김(저장 거부는 호출부가 알림)
+                if (logger != null) logger.ZLogWarning($"[AdminSettings] 비밀번호를 저장하기 전에 Admin.json을 읽지 못함: {e.Message}");
                 settings = null;
                 return false;
             }

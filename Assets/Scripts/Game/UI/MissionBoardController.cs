@@ -64,6 +64,11 @@ namespace DGAIZone.Game.UI
         private CancellationTokenSource _progressApplyCts;
         private bool _isApplyingProgress;
 
+        // 확정 시퀀스가 도는 동안 들어온 미리보기 요청 — 시퀀스가 끝나며 미리보기를 끄므로, 버리지 않고 끝난 뒤 다시 반영함
+        // (설정하기 직후 바로 다음 카드를 올리면 미리보기가 좌우 버튼을 누를 때까지 안 보이던 문제)
+        private bool _hasPendingPreview;
+        private int _pendingPreviewThrust;
+
         // 설정하기 확정 전, 조절 중인 미리보기 fillAmount를 R3로 반응형 관리함
         private readonly ReactiveProperty<float> _previewFillAmount = new ReactiveProperty<float>(0f);
         private R3.DisposableBag _disposables = new R3.DisposableBag();
@@ -356,7 +361,9 @@ namespace DGAIZone.Game.UI
             CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
             _progressApplyCts = cts;
             _isApplyingProgress = true;
+            _hasPendingPreview = false; // 이 확정보다 먼저 들어온 미리보기는 이미 확정된 값이라 다시 보일 필요 없음
             CancellationToken token = cts.Token;
+            bool completed = false;
 
             try
             {
@@ -394,6 +401,7 @@ namespace DGAIZone.Game.UI
 
                 if (_previewCanvasGroup) _previewCanvasGroup.alpha = 1f;
                 _previewFillAmount.Value = target;
+                completed = true;
             }
             catch (OperationCanceledException)
             {
@@ -407,6 +415,13 @@ namespace DGAIZone.Game.UI
                     _isApplyingProgress = false;
                     _progressApplyCts.Dispose();
                     _progressApplyCts = null;
+
+                    // 씬 파괴로 취소됐으면 다시 반영하지 않음(더 최신 확정이 시작되면 그 전의 요청은 이미 확정된 값이라 버려짐)
+                    if (completed && _hasPendingPreview)
+                    {
+                        _hasPendingPreview = false;
+                        UpdatePreview(_pendingPreviewThrust);
+                    }
                 }
             }
         }
@@ -436,8 +451,13 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            // 설정하기 페이드아웃/적용 시퀀스가 진행 중이면 트윈 충돌을 막기 위해 무시함
-            if (_isApplyingProgress) return;
+            // 설정하기 페이드아웃/적용 시퀀스가 진행 중이면 트윈 충돌을 막기 위해 지금은 반영하지 않고, 시퀀스가 끝난 뒤 반영함
+            if (_isApplyingProgress)
+            {
+                _hasPendingPreview = true;
+                _pendingPreviewThrust = totalThrust;
+                return;
+            }
 
             if (!previewFillImage.gameObject.activeSelf) previewFillImage.gameObject.SetActive(true);
 
@@ -449,8 +469,13 @@ namespace DGAIZone.Game.UI
         /// <summary> Image_Fill_Preview를 시작 상태(0)로 되돌리고 깜빡임을 멈춤. 조절 대기 중이거나 설정이 확정/취소되었을 때 호출됨. </summary>
         public void ResetPreview()
         {
-            // 설정하기 페이드아웃/적용 시퀀스가 진행 중이면 트윈 충돌을 막기 위해 무시함(시퀀스 자체가 리셋까지 책임짐)
-            if (_isApplyingProgress) return;
+            // 설정하기 페이드아웃/적용 시퀀스가 진행 중이면 트윈 충돌을 막기 위해 무시함(시퀀스 자체가 리셋까지 책임짐).
+            // 그 사이 들어온 미리보기 요청도 지금 조절 중인 값이 없어졌으므로 버림
+            if (_isApplyingProgress)
+            {
+                _hasPendingPreview = false;
+                return;
+            }
 
             StopFuelPreviewBlink();
             if (!previewFillImage)

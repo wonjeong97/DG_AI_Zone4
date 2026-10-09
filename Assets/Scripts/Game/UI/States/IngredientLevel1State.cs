@@ -105,6 +105,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
         public bool UsesFunctionDefinition => false;
 
+        /// <summary> 엔진 출력 + 연료 - 탑재 추진력을 미션 보드 게이지로 보여 줌. </summary>
+        public bool UsesThrustGauge => true;
+
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
         public bool UsesValueBlocks => true;
 
@@ -114,7 +117,7 @@ namespace DGAIZone.Game.UI.States
             return designItemCount >= totalSteps;
         }
 
-        /// <summary> 총 추진력을 계산하고 미션보드의 유효 구간과 대조해 성공 여부를 판정함. </summary>
+        /// <summary> 총 추진력(엔진 출력 + 연료 - 탑재 중량)이 목적지 거리와 정확히 같은지(IsThrustValid)로 성공 여부를 판정함. </summary>
         public bool EvaluateMission(IngredientSelectionController controller)
         {
             int totalThrust = CalculateConfirmedThrust(controller);

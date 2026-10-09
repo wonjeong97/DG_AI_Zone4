@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer;
 using HuliacDev.UI;
@@ -25,6 +27,15 @@ namespace DGAIZone.App
         /// <summary> 현재 씬 전환 진행 중 여부. </summary>
         public bool IsTransitioning => _isTransitioning;
 
+        /// <summary>
+        /// 진행 중인 씬 전환(이 씬으로 들어오는 페이드인 포함)이 끝날 때까지 기다림. 전환 중이 아니면 바로 끝남.
+        /// 씬 연출·입력을 화면이 다 밝아진 뒤에 시작할 때 씀.
+        /// </summary>
+        public UniTask WaitUntilIdleAsync(CancellationToken token)
+        {
+            return _isTransitioning ? UniTask.WaitWhile(() => _isTransitioning, cancellationToken: token) : UniTask.CompletedTask;
+        }
+
         /// <summary> 테스트 전용: 실제 씬을 로드하지 않고 전환 중 상태를 만듦. </summary>
         internal void SetTransitioningForTest(bool transitioning) => _isTransitioning = transitioning;
 
@@ -46,16 +57,39 @@ namespace DGAIZone.App
             }
 
             _isTransitioning = true;
+            bool fadedOut = false;
             try
             {
-                if (_fadeManager) await _fadeManager.FadeOutAsync(fadeDuration);
-                else if (_logger != null) _logger.ZLogWarning($"[SceneTransitionService] fadeManager가 null이라 페이드아웃 없이 {sceneName}을 로드함.");
+                if (_fadeManager)
+                {
+                    await _fadeManager.FadeOutAsync(fadeDuration);
+                    fadedOut = true;
+                }
+                else if (_logger != null)
+                {
+                    _logger.ZLogWarning($"[SceneTransitionService] fadeManager가 null이라 페이드아웃 없이 {sceneName}을 로드함.");
+                }
 
-                await SceneManager.LoadSceneAsync(sceneName).ToUniTask();
-
-                await WaitForSceneVideoReadinessAsync();
+                AsyncOperation loading = SceneManager.LoadSceneAsync(sceneName);
+                if (loading == null)
+                {
+                    // 빌드 설정에 없는 씬 이름 — 지금 씬에 머문 채 화면만 다시 밝힘
+                    if (_logger != null) _logger.ZLogError($"[SceneTransitionService] {sceneName} 씬을 불러올 수 없어(빌드 설정에 없음) 지금 화면에 머묾.");
+                }
+                else
+                {
+                    await loading.ToUniTask();
+                    await WaitForSceneVideoReadinessAsync();
+                }
 
                 if (_fadeManager) await _fadeManager.FadeInAsync(fadeDuration); // 없을 때의 경고는 페이드아웃에서 남김
+            }
+            catch (Exception e)
+            {
+                if (_logger != null) _logger.ZLogError($"[SceneTransitionService] {sceneName}(으)로 전환하는 중 오류가 남: {e.Message}");
+
+                // 페이드아웃한 채로 남으면 검은 화면에 터치까지 막혀 비활동 타임아웃으로만(타이틀이면 그것도 없이) 복구되므로 화면을 다시 밝힘
+                if (fadedOut && _fadeManager) await _fadeManager.FadeInAsync(fadeDuration);
             }
             finally
             {

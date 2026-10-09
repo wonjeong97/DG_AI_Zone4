@@ -145,12 +145,8 @@ namespace DGAIZone.Intro
                 AsyncOperationHandle<Sprite> handle = GetOrLoadHandle(page);
                 Sprite sprite = await handle.Task.AsUniTask().AttachExternalCancellation(this.GetCancellationTokenOnDestroy());
 
-                // 같은 핸들을 기다리던 다른 호출이 로드 실패를 보고 먼저 해제했으면 핸들을 더 읽을 수 없음(경고는 그쪽이 남김)
-                if (!handle.IsValid())
-                {
-                    if (_logger != null) _logger.ZLogInformation($"[TutorialImageSlider] 튜토리얼 이미지 '{AddressPrefix}{page}' 로드 실패를 다른 호출이 먼저 처리해 표시하지 않음.");
-                    return;
-                }
+                // 같은 핸들을 기다리던 다른 호출이 로드 실패를 보고 먼저 해제했으면 핸들을 더 읽을 수 없음(경고는 그쪽이 남겨 여기서는 남기지 않음)
+                if (!handle.IsValid()) return;
 
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {

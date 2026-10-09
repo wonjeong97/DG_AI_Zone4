@@ -45,6 +45,8 @@ namespace DGAIZone.Game.UI
         private float MoveDuration => _sceneSettings.level4MoveDuration;
         private float StepPauseDuration => _sceneSettings.level4StepPauseDuration;
         private float CollisionScaleDuration => _sceneSettings.level4CollisionScaleDuration;
+        private float HqRejectShakeDuration => _sceneSettings.level4HqRejectShakeDuration;
+        private float HqRejectShakeStrength => _sceneSettings.level4HqRejectShakeStrength;
 
         private const string MoveIngredientId = Constants.RfidIds.Level4.Move;
         private const string RepeatIngredientId = Constants.RfidIds.Level4.Repeat;
@@ -282,7 +284,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 이동 시뮬레이션을 재생하고 완료(또는 취소)될 때까지 대기 가능한 UniTask를 반환함. 이미 진행 중인
-        /// 시뮬레이션이 있으면 취소하고 로봇을 시작 위치(Column=0, Row=RobotRow)/기본 시선(왼쪽)으로 되돌린 뒤
+        /// 시뮬레이션이 있으면 취소하고 로봇을 시작 위치(Column=0, Row=RobotRow)/시작 시선(StartFacingLeft — 오른쪽)으로 되돌린 뒤
         /// 처음부터 다시 재생함(연타에 안전함). 스페이스바 디버그 트리거와 '코딩완료' 버튼(재생 후 결과 씬 전환,
         /// IngredientSelectionController) 양쪽에서 공용으로 사용함.
         /// </summary>
@@ -504,8 +506,9 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 로봇이 방금 도착한 셀의 판정 결과에 맞는 연출을 재생함. 자원 셀에 처음 닿았으면 자원 아이콘이 로봇에 빨려들어가듯 스케일 1->0.
-        /// 함정 또는 기지 셀이면 로봇 아이콘 스케일이 1->0으로 사라짐.
-        /// 반환값: 함정 또는 기지 셀에 도착해 로봇이 사라졌으면 true(더 이상 이동하면 안 됨).
+        /// 함정이면 로봇 아이콘 스케일이 1->0으로 사라짐. 기지는 자원을 모았으면 로봇이 기지로 들어가듯 사라지고(성공),
+        /// 모으지 못했으면 들어가지 못하고 그 자리에서 좌우로 흔들림(실패 — 성공과 같은 연출로 보이지 않게).
+        /// 반환값: 함정 또는 기지 셀에 도착했으면 true(더 이상 이동하면 안 됨).
         /// </summary>
         private async UniTask<bool> PlayCellArrivalAsync(Level4StepResult result, CancellationToken token)
         {
@@ -520,12 +523,27 @@ namespace DGAIZone.Game.UI
                     return true;
 
                 case Level4StepResult.Hq:
-                    await AnimateScaleToZeroAsync(robotIcon, token);
+                    if (_resourceCollected) await AnimateScaleToZeroAsync(robotIcon, token);
+                    else await PlayHqRejectedAsync(token);
                     return true;
 
                 default:
                     return false;
             }
+        }
+
+        /// <summary> 자원 없이 기지에 닿은 로봇이 들어가지 못하고 좌우로 흔들린 뒤 그 자리에 남음(3_Game.json level4HqRejectShake*). </summary>
+        private UniTask PlayHqRejectedAsync(CancellationToken token)
+        {
+            if (!robotIcon)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] robotIcon이 null이라 기지 진입 실패 연출을 건너뜀.");
+                return UniTask.CompletedTask;
+            }
+
+            // 3_Game.json에 음수를 적으면 트윈이 바로 끝나므로 0 이상으로 제한함(흔들림이 끝나면 원래 위치로 돌아옴)
+            return robotIcon.DOShakeAnchorPos(Mathf.Max(0f, HqRejectShakeDuration), new Vector2(HqRejectShakeStrength, 0f), 10, 0f, false, true)
+                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 
         /// <summary>

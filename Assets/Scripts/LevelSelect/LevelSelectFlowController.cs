@@ -204,15 +204,8 @@ namespace DGAIZone.LevelSelect
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            // 로드하는 사이 체험자가 이미 레벨을 골랐으면 다시 적용하지 않음(스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 됨)
-            if (_isLevelSelected)
-            {
-                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 설정을 불러오는 사이 레벨을 이미 골라 레벨 잠금을 다시 적용하지 않음.");
-            }
-            else
-            {
-                ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
-            }
+            // 로드하는 사이 체험자가 이미 레벨을 골랐으면 다시 적용하지 않음(스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 됨) — 정상 흐름이라 로그 없음
+            if (!_isLevelSelected) ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
 
             if (_levelJumpStore != null && _levelJumpStore.TryTakePendingStoryLevel(out int level))
                 await SelectAdminJumpLevelAsync(level, token);
@@ -226,7 +219,7 @@ namespace DGAIZone.LevelSelect
         {
             try
             {
-                if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+                if (_sceneTransition != null) await _sceneTransition.WaitUntilIdleAsync(token);
                 else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 관리자 레벨 이동 레벨을 고름.");
             }
             catch (OperationCanceledException)
@@ -337,7 +330,12 @@ namespace DGAIZone.LevelSelect
         private void OnLevelClicked(int index)
         {
             if (_isBusy) return;
-            if (index < 0 || index >= _currentUnlockedCount) return;
+            if (index < 0 || index >= _currentUnlockedCount)
+            {
+                // 잠긴 버튼은 누를 수 없으므로 여기에 오면 버튼 표시와 해금 상태가 어긋난 것
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 열린 레벨이 {_currentUnlockedCount}개인데 {index + 1}레벨 버튼이 눌려 무시함.");
+                return;
+            }
 
             if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} {index + 1}레벨을 고름.");
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);

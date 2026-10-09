@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using R3;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
 using HuliacDev.UI;
@@ -27,6 +28,9 @@ namespace DGAIZone.Intro
         [SerializeField] private CanvasGroup tutorialPanel;
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private TutorialImageSlider tutorialSlider;
+
+        // 튜토리얼 패널의 하위 Canvas — 인트로 스토리 동안 패널을 켜 둔 채(이미지 미리 로드) 그리기만 끄려고 씀
+        private Canvas _tutorialCanvas;
 
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
@@ -77,6 +81,8 @@ namespace DGAIZone.Intro
             // 미리 이미지를 로드해 두도록 함. 크로스페이드 시작 시점에 이미지가 비어 있어 깜빡이는 것을 방지.
             if (tutorialPanel) tutorialPanel.gameObject.SetActive(true);
             ApplyPanelVisibility(tutorialPanel, false);
+            EnsureTutorialCanvas();
+            if (_tutorialCanvas) _tutorialCanvas.enabled = false; // 알파 0이어도 그려지면 인트로 내내 튜토리얼 이미지·글자가 투명하게 겹쳐 그려짐
             _isIntroActive = true;
 
             if (tutorialSlider)
@@ -109,7 +115,7 @@ namespace DGAIZone.Intro
 
                 await ApplyVisitorNameAsync(token);
 
-                if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+                if (_sceneTransition != null) await _sceneTransition.WaitUntilIdleAsync(token);
                 else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 스토리를 시작함.");
 
                 float startDelay = _sceneSettings.storyTextStartDelay;
@@ -204,6 +210,7 @@ namespace DGAIZone.Intro
 
                 if (tutorialPanel)
                 {
+                    if (_tutorialCanvas) _tutorialCanvas.enabled = true;
                     await FadeCanvasGroupAsync(tutorialPanel, 0f, 1f, duration, token);
                     ApplyPanelVisibility(tutorialPanel, true);
                 }
@@ -230,7 +237,11 @@ namespace DGAIZone.Intro
             storyText.ForceMeshUpdate();
 
             TMP_TextInfo textInfo = storyText.textInfo;
-            if (textInfo == null || textInfo.meshInfo == null) return;
+            if (textInfo == null || textInfo.meshInfo == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] storyText의 메시 정보가 없어 글자 정점 알파를 바꾸지 못함(기본 색 알파만 적용함).");
+                return;
+            }
 
             byte byteAlpha = (byte)Mathf.Clamp((int)(alpha * 255f), 0, 255);
             for (int m = 0; m < textInfo.meshInfo.Length; m++)
@@ -312,6 +323,22 @@ namespace DGAIZone.Intro
             group.interactable = visible;
             group.blocksRaycasts = visible;
             group.gameObject.SetActive(visible);
+        }
+
+        /// <summary>
+        /// 튜토리얼 패널에 하위 Canvas가 없으면 붙여 숨김 동안 그리기만 끌 수 있게 함. 패널 안의 슬라이더·버튼이 터치를 받도록
+        /// 같은 오브젝트에 GraphicRaycaster도 붙임(하위 Canvas의 UI는 부모 Canvas의 레이캐스터가 맞히지 않음).
+        /// </summary>
+        private void EnsureTutorialCanvas()
+        {
+            if (!tutorialPanel) return; // 누락 경고는 ApplyPanelVisibility가 남김
+
+            if (!tutorialPanel.TryGetComponent(out _tutorialCanvas)) _tutorialCanvas = tutorialPanel.gameObject.AddComponent<Canvas>();
+            if (!tutorialPanel.TryGetComponent(out GraphicRaycaster _)) tutorialPanel.gameObject.AddComponent<GraphicRaycaster>();
+
+            // TMP는 글자 메시를 만들 때 자기 Canvas에 셰이더 채널을 켜는데, 숨긴 동안(이 Canvas가 꺼져 있을 때) 만든 글자는 이 Canvas에 켜지 못해
+            // 첫 쪽 글자가 흐리게 그려질 수 있으므로 TMP가 쓰는 채널(TexCoord1·Normal·Tangent)을 미리 켬
+            _tutorialCanvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1 | AdditionalCanvasShaderChannels.Normal | AdditionalCanvasShaderChannels.Tangent;
         }
 
         /// <summary>

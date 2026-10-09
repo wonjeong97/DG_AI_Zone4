@@ -49,7 +49,7 @@ namespace DGAIZone.Game.Hardware
         /// <summary> 에디터·개발 빌드에서만 카드 시뮬레이션 디버그 액션을 켬. </summary>
         private void OnEnable()
         {
-            if (!Debug.isDebugBuild) return; // 릴리스 빌드 안내는 Start에서 남김
+            if (!Debug.isDebugBuild) return; // 릴리스 빌드에서는 Start가 이 컴포넌트를 꺼 둠(정상이라 로그 없음)
 
             DebugInputActions.DebugActions actions = _debugInput.Debug;
             actions.SimulateActionCard.Enable();

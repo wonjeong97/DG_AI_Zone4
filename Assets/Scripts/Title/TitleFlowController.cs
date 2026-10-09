@@ -58,10 +58,17 @@ namespace DGAIZone.Title
         private bool _isWaitingForQr;
 
         /// <summary>
-        /// 씬 전환 중이거나 관리자 화면에서 레벨 이동을 눌러 곧 씬을 떠나는지. 이때는 QR로 체험자·해금 레벨을 바꾸지 않아 이동할 씬이 받은 값을
+        /// 이 씬을 떠나는 전환 중이거나 관리자 화면에서 레벨 이동을 눌러 곧 씬을 떠나는지. 이때는 QR로 체험자·해금 레벨을 바꾸지 않아 이동할 씬이 받은 값을
         /// 덮어쓰지 않게 함. 레벨 이동은 설정을 읽은 뒤에야 전환을 시작하므로 그 사이도 막도록 이동 표시(IsLevelJump)도 봄.
+        /// 이 씬으로 들어오는 페이드인 동안의 전환은 떠나는 것이 아니므로 막지 않음(타이틀로 돌아오자마자 찍은 QR이 버려지지 않게).
         /// </summary>
-        private bool IsSceneChanging => (_sceneTransition != null && _sceneTransition.IsTransitioning) || (_levelJumpStore != null && _levelJumpStore.IsLevelJump);
+        private bool IsSceneChanging => (_sceneTransition != null && _sceneTransition.IsTransitioning && _incomingTransitionFinished) || (_levelJumpStore != null && _levelJumpStore.IsLevelJump);
+
+        // 이 씬으로 들어오는 화면 전환(페이드인)이 끝났는지 — 그 뒤의 IsTransitioning만 떠나는 전환으로 봄
+        private bool _incomingTransitionFinished;
+
+        // QR로 확인한 체험자의 uid. 시작하기를 기다리는 동안 같은 QR이 다시 읽혀도 처음부터 다시 확인하지 않게 메모리에만 둠(생년월일이 들어 있어 로그에 남기지 않음)
+        private string _confirmedUid;
 
         // QR로 확인한 체험자가 시작하기를 누르지 않고 기다린 시간 재기 — 시작하기·새 QR·씬 파괴 때 취소함
         private CancellationTokenSource _confirmTimeoutCts;
@@ -131,6 +138,7 @@ namespace DGAIZone.Title
             CancellationToken token = this.GetCancellationTokenOnDestroy();
             ApplyGuideAsync(token).Forget();
             LoadCommonSettingsAsync(token).Forget();
+            WaitForIncomingTransitionAsync(token).Forget();
         }
 
         /// <summary>
@@ -309,6 +317,14 @@ namespace DGAIZone.Title
                 return;
             }
 
+            // 확인을 마친 체험자가 같은 QR을 다시 찍은 경우(스캐너가 같은 QR을 다시 읽은 경우 포함) — 다시 확인하면 시작 버튼이 사라졌다 다시 떠 누르기 어려움
+            if (_confirmedUid != null && string.Equals(code, _confirmedUid, StringComparison.Ordinal))
+            {
+                if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 같은 QR을 다시 찍음 — 이미 확인돼 그대로 두고 시작하기 대기 시간을 다시 잼.");
+                StartConfirmTimeout(); // 체험자가 아직 앞에 있으므로 다시 확인하던 예전처럼 대기 시간을 처음부터 잼
+                return;
+            }
+
             OnQrScanned(code);
         }
 
@@ -347,6 +363,7 @@ namespace DGAIZone.Title
                 if (failMessage == null)
                 {
                     if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} QR을 찍음 — 체험할 수 있음.");
+                    _confirmedUid = uid;
                     await ShowConfirmedVisitorAsync(token);
                     return;
                 }
@@ -437,6 +454,7 @@ namespace DGAIZone.Title
         /// <summary> 확인했던 체험자와 서버 진행도로 연 해금 레벨을 비움 — 다음 사람의 QR로 다시 확인하거나 대기 시간이 지났을 때. </summary>
         private void ClearConfirmedVisitor()
         {
+            _confirmedUid = null;
             if (_visitorInfoProvider != null) _visitorInfoProvider.ClearServerVisitor();
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 확인한 체험자를 비울 수 없음.");
             if (_unlockedLevelStore != null) _unlockedLevelStore.Reset();
@@ -525,6 +543,20 @@ namespace DGAIZone.Title
             _scanKeyboards.Clear();
         }
 
+        /// <summary> 이 씬으로 들어오는 화면 전환(페이드인)이 끝나면 표시함 — 그 뒤의 전환 중 상태만 떠나는 전환으로 봄. </summary>
+        private async UniTaskVoid WaitForIncomingTransitionAsync(CancellationToken token)
+        {
+            try
+            {
+                if (_sceneTransition != null) await _sceneTransition.WaitUntilIdleAsync(token); // null이면 IsSceneChanging이 전환을 보지 않음
+                _incomingTransitionFinished = true;
+            }
+            catch (OperationCanceledException)
+            {
+                // 씬 파괴로 취소된 정상 흐름
+            }
+        }
+
         /// <summary> 00_Common.json(CommonSettings)을 비동기로 로드함. </summary>
         private async UniTaskVoid LoadCommonSettingsAsync(CancellationToken token)
         {
@@ -558,6 +590,7 @@ namespace DGAIZone.Title
             if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 시작하기를 누름.");
             StopWaitingForQr();
             CancelConfirmTimeout();
+            _confirmedUid = null; // 더는 같은 QR을 비교하지 않으므로 생년월일이 든 uid를 바로 비움(체험자 기록은 다음 씬이 쓰므로 그대로 둠)
             SoundEffects.Play(_soundManager, Constants.Sounds.GameStart, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Intro, _commonSettings.sceneTransitionFadeDuration).Forget();
         }

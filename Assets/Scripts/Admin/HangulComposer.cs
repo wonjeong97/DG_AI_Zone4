@@ -285,8 +285,8 @@ namespace DGAIZone.Admin
             }
         }
 
-        /// <summary> 조합 중인 음절을 확정 텍스트에 붙이고 조합 상태를 비움. </summary>
-        private void Commit()
+        /// <summary> 조합 중인 음절을 확정 텍스트에 붙이고 조합 상태를 비움(글자 수는 그대로). 한/영 전환처럼 조합을 끊어야 할 때 밖에서도 부름. </summary>
+        public void Commit()
         {
             char active = RenderActiveChar();
             if (active != NoActiveSyllable) _committed.Append(active);

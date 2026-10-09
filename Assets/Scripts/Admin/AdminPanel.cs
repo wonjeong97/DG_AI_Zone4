@@ -63,9 +63,10 @@ namespace DGAIZone.Admin
         private SelectedLevelStore _selectedLevelStore;
         private AdminLevelJumpStore _levelJumpStore;
         private SceneTransitionService _sceneTransition;
+        private VisitorInfoProvider _visitorInfoProvider;
         private SoundManager _soundManager;
 
-        /// <summary> VContainer 의존성 주입. 로거, 체험자 설정, 해금·선택 레벨 저장소, 관리자 레벨 이동 저장소, 씬 전환 서비스, 효과음 매니저를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 로거, 체험자 설정, 해금·선택 레벨 저장소, 관리자 레벨 이동 저장소, 씬 전환 서비스, 체험자 정보 제공자, 효과음 매니저를 할당함. </summary>
         [Inject]
         public void Construct(
             ILogger<AdminPanel> logger,
@@ -74,6 +75,7 @@ namespace DGAIZone.Admin
             SelectedLevelStore selectedLevelStore,
             AdminLevelJumpStore levelJumpStore,
             SceneTransitionService sceneTransition,
+            VisitorInfoProvider visitorInfoProvider,
             SoundManager soundManager = null)
         {
             _logger = logger;
@@ -82,6 +84,7 @@ namespace DGAIZone.Admin
             _selectedLevelStore = selectedLevelStore;
             _levelJumpStore = levelJumpStore;
             _sceneTransition = sceneTransition;
+            _visitorInfoProvider = visitorInfoProvider;
             _soundManager = soundManager;
         }
 
@@ -303,6 +306,10 @@ namespace DGAIZone.Admin
             _unlockedLevelStore.UnlockedLevelCount = Mathf.Max(_unlockedLevelStore.UnlockedLevelCount, level);
             _selectedLevelStore.SelectedLevel = level;
             _levelJumpStore.Begin(level);
+
+            // 관리자 시험 판이라 QR로 확인해 둔 체험자의 이름이 스토리·게임 화면과 행동 로그에 나오지 않게 비움(결과 업로드는 IsLevelJump로 막혀 있음)
+            if (_visitorInfoProvider != null) _visitorInfoProvider.ClearServerVisitor();
+            else if (_logger != null) _logger.ZLogWarning($"[AdminPanel] visitorInfoProvider가 null이라 QR로 확인한 체험자를 비우지 못하고 레벨{level}로 이동함.");
             if (_logger != null) _logger.ZLogInformation($"[AdminPanel] 레벨{level}까지 해금하고 레벨{level} 스토리로 이동함.");
 
             LoadSceneAsync(Constants.Scenes.LevelSelect, this.GetCancellationTokenOnDestroy()).Forget();

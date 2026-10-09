@@ -13,7 +13,7 @@ namespace DGAIZone.Result
 {
     /// <summary>
     /// 결과 씬 진입 시 선택된 레벨과 게임 결과(성공/실패)에 맞는 영상을 재생함. 파일명은
-    /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4"). 레벨 3처럼 실패 원인별 영상이 있으면
+    /// "{Constants.Files.ResultVideoPrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4"). 레벨 3처럼 실패 원인별 영상이 있으면
     /// GameResultStore.FailVideoSuffix에 따라 "4-3-Fail-O2.mp4"처럼 고름.
     /// 반복 재생은 하지 않으며, 재생이 끝나면 AI 연출(ResultFlowController.PlayAiSequence)로 넘어감.
     /// </summary>
@@ -33,8 +33,8 @@ namespace DGAIZone.Result
         internal static int ClampLevel(int level) => Mathf.Clamp(level, MinLevel, Constants.LastLevel);
 
         /// <summary>
-        /// "{videoFileNamePrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. 실패이고 failSuffix가 있으면 실패 원인별 영상
-        /// "{videoFileNamePrefix}-{레벨}-Fail-{failSuffix}.mp4"(예: "4-3-Fail-O2.mp4"). level은 ClampLevel을 거친 값이어야 함.
+        /// "{Constants.Files.ResultVideoPrefix}-{레벨}-{Success|Fail}.mp4" 규칙의 파일명. 실패이고 failSuffix가 있으면 실패 원인별 영상
+        /// "{Constants.Files.ResultVideoPrefix}-{레벨}-Fail-{failSuffix}.mp4"(예: "4-3-Fail-O2.mp4"). level은 ClampLevel을 거친 값이어야 함.
         /// </summary>
         internal static string GetVideoFileName(int level, bool success, string failSuffix = null) =>
             success || string.IsNullOrEmpty(failSuffix)
@@ -54,7 +54,7 @@ namespace DGAIZone.Result
             _logger = logger;
         }
 
-        /// <summary> 씬 진입 시 무작위 영상 재생을 시작함. </summary>
+        /// <summary> 씬 진입 시 이번 판 결과(레벨·성공 여부·실패 원인)에 맞는 영상 재생을 시작함. </summary>
         private void Start()
         {
             PlayResultVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
@@ -120,6 +120,18 @@ namespace DGAIZone.Result
             return fallback;
         }
 
+        /// <summary> VideoPlayer가 그리는 RenderTexture를 검게 지움(RenderTexture로 그리지 않으면 지울 것이 없어 그대로 둠). </summary>
+        private void ClearTargetTexture()
+        {
+            RenderTexture target = videoPlayer.targetTexture;
+            if (!target) return; // RenderTexture 모드가 아님(정상)
+
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture.active = target;
+            GL.Clear(true, true, Color.black);
+            RenderTexture.active = previousActive;
+        }
+
         /// <summary> 결과 영상을 준비해 끝까지 재생함. videoPlayer가 없거나 준비에 실패하면 로그를 남기고 바로 반환함. </summary>
         private async UniTask PlayVideoToEndAsync(CancellationToken token)
         {
@@ -140,6 +152,9 @@ namespace DGAIZone.Result
 
             string fileName = ResolveVideoFileName(clampedLevel, success, _resultStore != null ? _resultStore.FailVideoSuffix : null);
             if (_logger != null) _logger.ZLogInformation($"[ResultVideoPanel] 레벨={clampedLevel}, 결과={(success ? "성공" : "실패")}. {fileName} 재생 중.");
+
+            // 준비에 실패하거나 늦어져도 앞 체험자 결과 영상의 마지막 프레임이 보이지 않게 먼저 검게 지움
+            ClearTargetTexture();
 
             videoPlayer.source = VideoSource.Url;
             videoPlayer.url = GetVideoPath(fileName);

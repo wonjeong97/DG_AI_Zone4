@@ -9,6 +9,7 @@ using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
+using HuliacDev.Core;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using R3;
@@ -23,7 +24,7 @@ namespace DGAIZone.Game.Hardware
     /// <summary>
     /// 다중 RFID 리더기(최대 5개)의 TCP 통신을 관리하고 태그 인식 시 이벤트를 발행하는 서비스.
     /// 리더기가 클라이언트, PC(이 서비스)가 서버 역할을 함. 한 포트(listenPort)로 모든 리더기의 접속을 받고,
-    /// 접속해온 소켓의 IP를 RfidMappings.json의 readers[].ipAddress와 대조해 readerId를 식별함.
+    /// 접속해온 소켓의 IP와 ARP로 조회한 MAC을 RfidMappings.json의 readers와 대조해 readerId를 식별함(둘이 엇갈리면 MAC을 따름, ResolveReaderId).
     /// </summary>
     public class RfidReaderService : MonoBehaviour
     {
@@ -33,16 +34,24 @@ namespace DGAIZone.Game.Hardware
             public TcpClient Client;
             public Thread ReadThread;
             public volatile bool IsRunning;
+            public string LastUnregisteredUid; // 마지막으로 경고한 미등록 UID — 같은 카드가 올라가 있는 동안 경고를 반복하지 않음(수신 스레드만 씀)
         }
 
         private IPublisher<RfidTagEvent> _publisher;
         private IPublisher<RfidReaderIdleEvent> _idlePublisher;
         private ILogger<RfidReaderService> _logger;
 
+        // 카드 입력은 Input System을 거치지 않아 비활동 타이머가 활동으로 세지 못하므로, 카드를 올리거나 뗄 때 직접 다시 재게 함
+        private InactivityTimer _inactivityTimer;
+
         private readonly List<ReaderSession> _sessions = new List<ReaderSession>();
         private readonly object _sessionsLock = new object();
         private RfidSettings _settings;
         private RfidMappingItem[] _mappings;
+
+        // 등록된 카드 uid(대소문자 무시). 서버를 열기 전에 메인 스레드에서 한 번 만들고 그 뒤로는 수신 스레드가 읽기만 함.
+        // 매핑이 없으면 null이라 거르지 않음(그때는 DispatchTag가 미등록 경고를 남김)
+        private HashSet<string> _registeredUids;
         private readonly Subject<(string readerId, string rawData)> _messageSubject = new Subject<(string readerId, string rawData)>();
         private IDisposable _subscription;
         private readonly Subject<string> _idleSubject = new Subject<string>(); // 카드가 떨어진 리더기 id. 수신 스레드에서 받아 메인 스레드에서 발행함
@@ -52,15 +61,23 @@ namespace DGAIZone.Game.Hardware
         private Thread _acceptThread;
         private volatile bool _serverRunning;
 
+        // OnDestroy가 시작됐는지. 접속 수락 스레드가 정리 뒤에 세션을 추가해 리더기 연결을 붙든 채 남지 않게 _sessionsLock 안에서 확인함
+        private volatile bool _disposed;
+
+        /// <summary> 접속 수락 중 소켓 오류가 나면 다시 받기 전에 쉬는 시간(ms). 같은 오류가 계속될 때 로그와 CPU를 아끼려는 값. </summary>
+        private const int AcceptRetryDelayMs = 200;
+
         /// <summary>
-        /// VContainer 의존성 주입. MessagePipe 발행자(카드 인식/카드 떨어짐)와 로거를 할당함.
+        /// VContainer 의존성 주입. MessagePipe 발행자(카드 인식/카드 떨어짐), 로거, 비활동 타이머를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(IPublisher<RfidTagEvent> publisher, IPublisher<RfidReaderIdleEvent> idlePublisher, ILogger<RfidReaderService> logger)
+        public void Construct(IPublisher<RfidTagEvent> publisher, IPublisher<RfidReaderIdleEvent> idlePublisher, ILogger<RfidReaderService> logger, InactivityTimer inactivityTimer = null)
         {
             _publisher = publisher;
             _idlePublisher = idlePublisher;
             _logger = logger;
+            _inactivityTimer = inactivityTimer;
+            if (!_inactivityTimer && _logger != null) _logger.ZLogWarning($"[RfidReaderService] inactivityTimer가 null이라 카드를 올리고 떼도 비활동 시간을 다시 재지 않음.");
         }
 
         /// <summary>
@@ -78,9 +95,13 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private async UniTaskVoid InitializeAsync()
         {
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
             try
             {
-                _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, this.GetCancellationTokenOnDestroy(), _logger);
+                _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token, _logger);
+
+                // JsonLoader는 취소돼도 기본 설정을 돌려줌 — 읽는 동안 씬이 내려갔으면 OnDestroy 뒤에 서버를 열어 포트를 붙든 채 남지 않게 멈춤
+                token.ThrowIfCancellationRequested();
                 if (_settings == null)
                 {
                     if (_logger != null) _logger.ZLogError($"[RfidReaderService] RfidMappings.json 로드 실패.");
@@ -91,6 +112,14 @@ namespace DGAIZone.Game.Hardware
                 if (_mappings == null || _mappings.Length == 0)
                 {
                     if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] RfidMappings.json에 카드 매핑이 없음.");
+                }
+                else
+                {
+                    _registeredUids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (RfidMappingItem item in _mappings)
+                    {
+                        if (item != null && !string.IsNullOrEmpty(item.uid)) _registeredUids.Add(item.uid);
+                    }
                 }
 
                 if (_settings.readers == null || _settings.readers.Length == 0)
@@ -111,6 +140,12 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private void StartServer(int port)
         {
+            if (_disposed)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] 서버를 정리하는 중이라 TCP 서버를 열지 않음.");
+                return;
+            }
+
             try
             {
                 _listener = new TcpListener(IPAddress.Any, port);
@@ -140,16 +175,20 @@ namespace DGAIZone.Game.Hardware
                     TcpClient client = _listener.AcceptTcpClient();
                     HandleNewClient(client);
                 }
-                catch (SocketException)
+                catch (SocketException e)
                 {
-                    // 서버 종료(_listener.Stop()) 시 발생하는 정상적인 예외. _serverRunning이 false면 루프가 종료됨.
+                    // 서버 종료(_listener.Stop()) 때 나는 예외는 정상이라 남기지 않음. _serverRunning이 false면 루프가 종료됨
+                    if (!_serverRunning) continue;
+
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] 리더기 접속을 받는 중 소켓 오류가 남: {e.Message}");
+                    Thread.Sleep(AcceptRetryDelayMs);
                 }
                 catch (Exception e)
                 {
-                    if (_serverRunning && _logger != null)
-                    {
-                        _logger.ZLogWarning($"[RfidReaderService] 클라이언트 접속 수락 중 예외 발생: {e.Message}");
-                    }
+                    if (!_serverRunning) continue;
+
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] 클라이언트 접속 수락 중 예외 발생: {e.Message}");
+                    Thread.Sleep(AcceptRetryDelayMs);
                 }
             }
         }
@@ -159,17 +198,46 @@ namespace DGAIZone.Game.Hardware
 
         /// <summary>
         /// 새로 접속한 리더기 클라이언트의 IP를 설정된 리더기 목록과 대조해 readerId를 식별하고, 수신 스레드를 시작함.
-        /// 같은 IP의 좀비 세션(리더기가 재부팅되는 등으로 이전 소켓이 아직 정리되지 않은 경우)이 남아있으면
-        /// 그 세션을 먼저 정리하고 새 접속으로 교체함. 그 외에 이미 MaxConcurrentReaders만큼 접속 중이면 거부함.
+        /// 같은 IP나 같은 리더기 ID의 좀비 세션(리더기가 재부팅·전원 차단되거나 DHCP로 IP가 바뀌어 이전 소켓이 아직 정리되지 않은 경우)이
+        /// 남아있으면 그 세션을 먼저 정리하고 새 접속으로 교체함. 그 외에 이미 MaxConcurrentReaders만큼 접속 중이면 거부함.
         /// </summary>
         private void HandleNewClient(TcpClient client)
         {
-            string remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-            ReaderSession staleSession;
+            string remoteIp;
+            try
+            {
+                remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                client.NoDelay = true;
+            }
+            catch (Exception e)
+            {
+                // 접속 직후 끊긴 연결(RST 등)은 주소를 읽거나 설정할 수 없음
+                if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] 접속한 리더기의 주소를 읽지 못해 접속을 닫음: {e.Message}");
+                try { client.Close(); } catch (Exception) { /* 이미 닫힌 경우 무시 */ }
+                return;
+            }
 
+            // ARP 조회로 오래 걸릴 수 있어 잠금 밖에서 먼저 식별함
+            string readerId = ResolveReaderId(remoteIp);
+            ReaderSession session = new ReaderSession
+            {
+                ReaderId = readerId,
+                Client = client,
+                IsRunning = true
+            };
+            session.ReadThread = new Thread(() => ReadLoop(session)) { Priority = System.Threading.ThreadPriority.BelowNormal, IsBackground = true };
+
+            ReaderSession staleSession;
             lock (_sessionsLock)
             {
-                staleSession = _sessions.Find(s => IsSameRemoteIp(s, remoteIp));
+                if (_disposed)
+                {
+                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] 서버를 닫는 중이라 {remoteIp}의 접속을 받지 않음.");
+                    try { client.Close(); } catch (Exception) { /* 이미 닫힌 경우 무시 */ }
+                    return;
+                }
+
+                staleSession = _sessions.Find(s => string.Equals(s.ReaderId, readerId, StringComparison.Ordinal) || IsSameRemoteIp(s, remoteIp));
 
                 if (staleSession == null && _sessions.Count >= MaxConcurrentReaders)
                 {
@@ -179,30 +247,23 @@ namespace DGAIZone.Game.Hardware
                 }
 
                 if (staleSession != null) _sessions.Remove(staleSession);
+
+                // 수신 스레드가 곧바로 끝나 목록에서 지우더라도 그보다 먼저 들어가 있도록 스레드를 시작하기 전에 추가함
+                _sessions.Add(session);
             }
 
             if (staleSession != null)
             {
-                if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {remoteIp}에서 재접속됨. 이전 세션({staleSession.ReaderId})을 정리함.");
+                if (_logger != null)
+                {
+                    if (IsSameRemoteIp(staleSession, remoteIp)) _logger.ZLogInformation($"[RfidReaderService] {readerId}({remoteIp})가 다시 접속함. 이전 세션({staleSession.ReaderId})을 정리함.");
+                    else _logger.ZLogWarning($"[RfidReaderService] {readerId}가 다른 IP({remoteIp})로 다시 접속해 같은 ID의 이전 세션을 정리함(IP가 바뀌었거나 같은 ID로 식별되는 리더기가 둘일 수 있음).");
+                }
                 staleSession.IsRunning = false;
                 try { staleSession.Client.Close(); } catch (Exception) { /* 이미 닫힌 경우 무시 */ }
             }
 
-            string readerId = ResolveReaderId(remoteIp);
-
-            client.NoDelay = true;
-
-            ReaderSession session = new ReaderSession
-            {
-                ReaderId = readerId,
-                Client = client,
-                IsRunning = true
-            };
-
-            session.ReadThread = new Thread(() => ReadLoop(session)) { Priority = System.Threading.ThreadPriority.BelowNormal, IsBackground = true };
             session.ReadThread.Start();
-
-            lock (_sessionsLock) _sessions.Add(session);
 
             if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {readerId} 리더기가 {remoteIp}에서 접속함.");
         }
@@ -225,40 +286,61 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 접속해온 IP를 RfidMappings.json의 readers[].ipAddress와 1순위로 대조해 readerId를 찾음.
-        /// 일치하는 IP가 없으면(DHCP로 IP가 바뀌었거나 설정이 비어있는 경우 등) ARP 테이블에서 그 IP의 MAC
-        /// 주소를 조회해 readers[].macAddress와 2순위로 대조함. 둘 다 실패하면(테스트 중 미등록 리더기 등)
-        /// 원시 데이터를 확인할 수 있도록 IP 기반 임시 ID를 부여함.
+        /// 접속해온 리더기의 readerId를 RfidMappings.json의 readers에서 찾음. IP(readers[].ipAddress)와 ARP로 조회한 MAC(readers[].macAddress)을
+        /// 함께 대조해, 둘이 서로 다른 리더기를 가리키면(현장을 옮기며 DHCP로 IP가 엇갈린 경우) 장비 고유값인 MAC을 따름 — IP만 따르면
+        /// 두 리더기가 같은 ID가 되어 서로의 접속을 끊음. MAC을 조회하지 못하면 IP로, IP가 맞지 않으면 MAC으로 찾음.
+        /// 둘 다 실패하면(테스트 중 미등록 리더기 등) 원시 데이터를 확인할 수 있도록 IP 기반 임시 ID를 부여함.
         /// </summary>
         private string ResolveReaderId(string remoteIp)
         {
             if (_settings?.readers != null)
             {
+                string ipMatchedId = null;
                 foreach (RfidReaderConfig config in _settings.readers)
                 {
                     if (config != null && string.Equals(config.ipAddress, remoteIp, StringComparison.OrdinalIgnoreCase))
                     {
-                        return config.readerId;
+                        ipMatchedId = config.readerId;
+                        break;
                     }
                 }
 
                 string mac = TryGetMacAddressByArp(remoteIp);
+                string macMatchedId = null;
                 if (!string.IsNullOrEmpty(mac))
                 {
                     foreach (RfidReaderConfig config in _settings.readers)
                     {
                         if (config != null && string.Equals(NormalizeMac(config.macAddress), mac, StringComparison.OrdinalIgnoreCase))
                         {
-                            if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {remoteIp}는 등록된 IP와 다르지만 MAC({mac})으로 {config.readerId} 식별됨.");
-                            return config.readerId;
+                            macMatchedId = config.readerId;
+                            break;
                         }
                     }
+                }
 
-                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {remoteIp}(MAC={mac})는 등록된 IP/MAC 어느 쪽과도 일치하지 않음. 임시 ID로 접속을 받음.");
+                if (macMatchedId != null)
+                {
+                    if (ipMatchedId == null)
+                    {
+                        if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {remoteIp}는 등록된 IP와 다르지만 MAC({mac})으로 {macMatchedId} 식별됨.");
+                    }
+                    else if (!string.Equals(ipMatchedId, macMatchedId, StringComparison.Ordinal))
+                    {
+                        if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {remoteIp}는 등록 IP로는 {ipMatchedId}이지만 MAC({mac})은 {macMatchedId}의 것이라 MAC을 따라 {macMatchedId}로 식별함(현장 IP가 바뀌었으면 RfidMappings.json readers를 고칠 것).");
+                    }
+                    return macMatchedId;
+                }
+
+                if (ipMatchedId != null) return ipMatchedId; // MAC을 조회하지 못했거나 등록된 MAC이 없음 — IP로 식별
+
+                if (string.IsNullOrEmpty(mac))
+                {
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {remoteIp}는 등록되지 않은 IP이고 ARP로 MAC도 조회하지 못함. 임시 ID로 접속을 받음.");
                 }
                 else if (_logger != null)
                 {
-                    _logger.ZLogWarning($"[RfidReaderService] {remoteIp}는 등록되지 않은 IP이고 ARP로 MAC도 조회하지 못함. 임시 ID로 접속을 받음.");
+                    _logger.ZLogWarning($"[RfidReaderService] {remoteIp}(MAC={mac})는 등록된 IP/MAC 어느 쪽과도 일치하지 않음. 임시 ID로 접속을 받음.");
                 }
             }
 
@@ -409,11 +491,23 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 받은 UID 문자열로 카드 상태를 갱신하고, 새로 올라온 카드면 메인 스레드로 넘겨 발행되게 함.
+        /// 받은 UID 문자열로 카드 상태를 갱신하고, 새로 올라온 카드면 메인 스레드로 넘겨 발행되게 함(등록되지 않은 UID는 경고만 남기고 무시함).
         /// 카드 인식은 게임 화면(IngredientSelectionController)이 처리 결과와 함께 행동 로그로 남기므로 여기서는 남기지 않음.
         /// </summary>
         private void HandleFrame(ReaderSession session, CardPresenceTracker tracker, string uid, long receivedAtMs)
         {
+            // 등록되지 않은 UID(관람객의 교통카드, 겹쳐 놓은 다른 카드, 어긋나게 묶인 바이트 등)는 카드 판정에 넣지 않음.
+            // 넣으면 올라가 있던 카드가 다시 읽힐 때 새 카드로 발행돼 그 단계부터 진행이 지워짐
+            if (_registeredUids != null && !_registeredUids.Contains(uid))
+            {
+                if (!string.Equals(uid, session.LastUnregisteredUid, StringComparison.Ordinal))
+                {
+                    session.LastUnregisteredUid = uid;
+                    if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {session.ReaderId}에서 등록되지 않은 카드 uid '{uid}'를 받아 무시함.");
+                }
+                return;
+            }
+
             switch (tracker.OnCardFrame(uid, receivedAtMs))
             {
                 case CardPresenceTracker.CardFrameResult.NewCard:
@@ -433,6 +527,7 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private void OnNetworkDataReceived((string readerId, string rawData) data)
         {
+            ResetInactivityTimer();
             using (DispatchTagMarker.Auto())
             {
                 DispatchTag(data);
@@ -442,6 +537,7 @@ namespace DGAIZone.Game.Hardware
         /// <summary> 메인 스레드로 넘어온 카드 떨어짐 알림을 RfidReaderIdleEvent로 발행함. </summary>
         private void PublishReaderIdle(string readerId)
         {
+            ResetInactivityTimer();
             if (_idlePublisher != null)
             {
                 _idlePublisher.Publish(new RfidReaderIdleEvent(readerId));
@@ -450,6 +546,12 @@ namespace DGAIZone.Game.Hardware
             {
                 _logger.ZLogWarning($"[RfidReaderService] idlePublisher가 null이라 {readerId} 카드 떨어짐을 알릴 수 없음.");
             }
+        }
+
+        /// <summary> 관람객이 카드를 올리거나 뗐으므로 비활동 시간을 처음부터 다시 잼(타이머 누락은 Construct에서 경고함). </summary>
+        private void ResetInactivityTimer()
+        {
+            if (_inactivityTimer) _inactivityTimer.ResetTimer();
         }
 
         /// <summary> 수신 uid를 매핑 목록에서 찾아 category를 RfidTagEvent로 발행함. </summary>
@@ -492,6 +594,8 @@ namespace DGAIZone.Game.Hardware
         /// </summary>
         private void OnDestroy()
         {
+            // 접속 수락 스레드가 아래 정리 뒤에 세션을 추가하지 못하게 먼저 표시함(HandleNewClient가 같은 잠금 안에서 확인)
+            lock (_sessionsLock) _disposed = true;
             _serverRunning = false;
 
             try { _listener?.Stop(); } catch (Exception) { /* 이미 정지된 경우 무시 */ }

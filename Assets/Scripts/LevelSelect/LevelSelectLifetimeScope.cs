@@ -6,7 +6,7 @@ namespace DGAIZone.LevelSelect
 {
     /// <summary>
     /// 레벨 선택 씬 전용 LifetimeScope. 0_Title에서부터 DontDestroyOnLoad로 유지되는 GameLifetimeScope(루트)를
-    /// 부모로 직접 찾아 연결하며, 레벨 선택 흐름 컨트롤러를 컨테이너에 등록함.
+    /// 부모로 직접 찾아 연결하며, 레벨 선택 흐름 컨트롤러와 로봇 영상 패널을 컨테이너에 등록함.
     /// </summary>
     public class LevelSelectLifetimeScope : LifetimeScope
     {

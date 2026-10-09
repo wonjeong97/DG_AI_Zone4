@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
+using UnityEngine;
 using ZLogger;
 
 namespace DGAIZone.Game.UI.States
@@ -60,24 +61,10 @@ namespace DGAIZone.Game.UI.States
             return string.Equals(confirmed[previousIndex], Constants.RfidIds.Level4.Repeat, StringComparison.Ordinal);
         }
 
-        /// <summary> 찍은 카드 분류(동작/제어)로 고를 재료 정의를 categoryIngredients에서 찾음. 없으면 null. </summary>
-        private static RfidStepDefinition FindCategoryIngredient(IngredientSelectionController controller, string category)
-        {
-            RfidStepDefinition[] ingredients = controller.CategoryIngredients;
-            if (ingredients == null) return null;
-
-            foreach (RfidStepDefinition ingredient in ingredients)
-            {
-                if (ingredient != null && ingredient.AllowsCategory(category)) return ingredient;
-            }
-
-            return null;
-        }
-
         /// <summary> 스캔된 카드의 카테고리(동작/제어)에 맞는 재료(이동하기/반복하기)를 RfidMappings.json의 categoryIngredients에서 찾음. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)
         {
-            return FindCategoryIngredient(controller, category);
+            return controller.FindCategoryIngredient(category);
         }
 
         /// <summary> 레벨 4는 동일한 동작을 여러 번 사용할 수 있으므로 중복 제외를 적용하지 않음. </summary>
@@ -130,6 +117,9 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 함수 사용 블록을 쓰지 않음. </summary>
         public bool UsesFunctionDefinition => false;
 
+        /// <summary> 추진력 게이지를 쓰지 않음(레벨 1 전용). </summary>
+        public bool UsesThrustGauge => false;
+
         /// <summary> 재료 이름이 있는 단계는 값 블록을 씀. </summary>
         public bool UsesValueBlocks => true;
 
@@ -177,8 +167,8 @@ namespace DGAIZone.Game.UI.States
                 return solution;
             }
 
-            RfidStepDefinition move = FindCategoryIngredient(controller, Constants.RfidCategories.Action);
-            RfidStepDefinition repeat = FindCategoryIngredient(controller, Constants.RfidCategories.Control);
+            RfidStepDefinition move = controller.FindCategoryIngredient(Constants.RfidCategories.Action);
+            RfidStepDefinition repeat = controller.FindCategoryIngredient(Constants.RfidCategories.Control);
             RfidMatter[] moveMatters = move != null ? controller.LevelMapping.FindMatters(move.matterSetId) : null;
             RfidMatter[] repeatMatters = repeat != null ? controller.LevelMapping.FindMatters(repeat.matterSetId) : null;
 
@@ -227,7 +217,9 @@ namespace DGAIZone.Game.UI.States
             if (controller.Level4Board)
             {
                 await controller.Level4Board.PlaySimulationAsync();
-                await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: token);
+
+                // 3_Game.json level4ResultHoldDuration — 음수면 Delay가 예외를 내므로 0 이상으로 제한함
+                await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, controller.Level4ResultHoldDuration)), cancellationToken: token);
             }
             else if (controller.Logger != null)
             {
