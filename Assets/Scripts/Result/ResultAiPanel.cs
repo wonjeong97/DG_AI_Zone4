@@ -17,7 +17,7 @@ namespace DGAIZone.Result
     /// <summary>
     /// 결과 씬 우측 상단의 AI 패널(AI_Panel 프레임). 플레이어 결과 영상과 'AI가 코딩중입니다...' 안내가 끝나면 ResultFlowController가 PlayAsync를 호출함.
     /// 패널이 열리면 이번 판 문제의 정답 설계(GameResultStore.SolutionDesign)를 3_Game 설계창과 같은 블록 이미지로 하나씩 쌓아
-    /// 완성하기까지 붙인 뒤(블록 간격은 4_Result.json의 designBlockInterval), 같은 레벨의 성공 영상("{videoFileNamePrefix}-{레벨}-Success.mp4")을
+    /// 완성하기까지 붙인 뒤(블록 간격은 4_Result.json의 designBlockInterval), 같은 레벨의 성공 영상("{Constants.Files.ResultVideoPrefix}-{레벨}-Success.mp4")을
     /// 처음부터 끝까지 재생함. 패널은 끝난 뒤에도 마지막 프레임으로 남음.
     /// </summary>
     public class ResultAiPanel : MonoBehaviour

@@ -25,6 +25,9 @@ namespace DGAIZone.Result
         private ILogger<ResultPlayerPanel> _logger;
         private SoundManager _soundManager;
 
+        // 블록 쌓기(완성하기까지)가 끝났거나 쌓을 수 없을 때 완료됨 — AI 연출이 이 뒤에 시작해 두 연출이 겹치지 않게 함
+        private readonly UniTaskCompletionSource _stacked = new UniTaskCompletionSource();
+
         /// <summary> VContainer 의존성 주입. 플레이어 설계를 담은 게임 결과 저장소, 로거, 효과음 매니저를 할당하고 설계창에 블록 생성용 리졸버를 주입함. </summary>
         [Inject]
         public void Construct(GameResultStore resultStore, IObjectResolver resolver, ILogger<ResultPlayerPanel> logger, SoundManager soundManager = null)
@@ -45,12 +48,19 @@ namespace DGAIZone.Result
             ResultDesignPlayback.Prepare(designPanel, PlayerDesign());
         }
 
+        /// <summary> 블록 쌓기가 끝날 때까지 기다림(Play 전이면 Play로 시작한 쌓기가 끝날 때까지). </summary>
+        public UniTask WaitUntilStackedAsync(CancellationToken token)
+        {
+            return _stacked.Task.AttachExternalCancellation(token);
+        }
+
         /// <summary> 플레이어 블록을 blockInterval초 간격으로 쌓기 시작함(ResultFlowController가 연출 설정을 불러온 뒤 부름). </summary>
         public void Play(float blockInterval)
         {
             if (!designPanel)
             {
                 if (_logger != null) _logger.ZLogWarning($"[ResultPlayerPanel] designPanel이 null이라 나의 코딩 결과를 쌓을 수 없음.");
+                _stacked.TrySetResult(); // 쌓을 것이 없으니 AI 연출이 기다리지 않게 함
                 return;
             }
 
@@ -75,6 +85,10 @@ namespace DGAIZone.Result
                 await ResultDesignPlayback.StackAsync(designPanel, steps, completed, blockInterval, _soundManager, _logger, token);
             }
             catch (OperationCanceledException) { }
+            finally
+            {
+                _stacked.TrySetResult();
+            }
         }
     }
 }

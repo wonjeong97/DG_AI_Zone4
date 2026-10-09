@@ -28,7 +28,12 @@ namespace DGAIZone.App
                 return;
             }
 
-            if (duration <= 0f) duration = FallbackFadeDuration;
+            if (duration < 0f)
+            {
+                // 0은 즉시 전환으로 그대로 씀(현장에서 페이드를 끄려고 0을 넣는 경우)
+                if (logger != null) logger.ZLogWarning($"[{typeof(T).Name}] 페이드 시간이 음수({duration})라 기본값 {FallbackFadeDuration}초를 씀.");
+                duration = FallbackFadeDuration;
+            }
 
             SetCanvasEnabled(group, true, logger); // 숨김 상태에서 꺼 둔 패널 캔버스를 페이드 동안 다시 켬
             group.alpha = startAlpha;

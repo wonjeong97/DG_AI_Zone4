@@ -46,6 +46,7 @@ namespace DGAIZone.Game
         private bool _isBusy;
         private int _selectedLevel = 1; // SelectedLevelStore에서 읽어온 현재 레벨(1부터)
         private AsyncOperationHandle<Sprite> _storyImageHandle;
+        private RobotVideoPanel _robotVideoPanel; // 스토리 다시 보기 패널의 로봇 영상 — 보여 줄 때만 재생함
         private VisitorInfoProvider _visitorInfoProvider;
         private SoundManager _soundManager;
         private string _visitorName = Constants.DefaultVisitorName;
@@ -55,7 +56,7 @@ namespace DGAIZone.Game
         private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary>
-        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 체험자 정보 제공자, 효과음 매니저를 할당함. debugStartLevel이 설정되어 있으면(1~5)
+        /// VContainer 의존성 주입. 선택된 레벨 저장소와 로거, 로봇 영상 패널, 체험자 정보 제공자, 효과음 매니저를 할당함. debugStartLevel이 설정되어 있으면(1~5)
         /// 다른 컴포넌트들이 레벨을 읽기 전에(모든 컴포넌트의 Start()보다 먼저 실행되는 이 시점에) SelectedLevelStore에 반영해,
         /// 2_LevelSelect를 거치지 않고 3_Game 씬을 바로 실행해도 원하는 레벨로 테스트할 수 있게 함. 에디터·개발 빌드에서만 적용하고,
         /// 현장용(릴리스) 빌드에서는 테스트 값이 씬에 남아 있어도 무시하고 경고만 남김.
@@ -64,11 +65,13 @@ namespace DGAIZone.Game
         public void Construct(
             SelectedLevelStore selectedLevelStore,
             ILogger<GameFlowController> logger,
+            RobotVideoPanel robotVideoPanel,
             VisitorInfoProvider visitorInfoProvider = null,
             SoundManager soundManager = null)
         {
             _selectedLevelStore = selectedLevelStore;
             _logger = logger;
+            _robotVideoPanel = robotVideoPanel;
             _visitorInfoProvider = visitorInfoProvider;
             _soundManager = soundManager;
 
@@ -88,6 +91,7 @@ namespace DGAIZone.Game
         {
             PanelFader.ApplyState(gamePanel, true, _logger);
             PanelFader.ApplyState(storyPanel, false, _logger);
+            if (!_robotVideoPanel && _logger != null) _logger.ZLogWarning($"[GameFlowController] robotVideoPanel이 null이라 스토리 다시 보기에서 로봇 영상을 재생할 수 없음.");
 
             _selectedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(GameFlowController));
 
@@ -280,6 +284,7 @@ namespace DGAIZone.Game
                 {
                     await PanelFader.FadeAsync(storyPanel, 1f, 0f, duration, _logger, token);
                     PanelFader.ApplyState(storyPanel, false, _logger);
+                    if (_robotVideoPanel) _robotVideoPanel.Pause();
                 }
                 else if (_logger != null)
                 {
@@ -329,6 +334,7 @@ namespace DGAIZone.Game
                 if (storyPanel)
                 {
                     ApplyStoryText();
+                    if (_robotVideoPanel) _robotVideoPanel.Play(); // 숨겨 둔 동안은 디코딩하지 않음(누락은 Start에서 경고함)
                     await PanelFader.FadeAsync(storyPanel, 0f, 1f, duration, _logger, token);
                     PanelFader.ApplyState(storyPanel, true, _logger);
                 }

@@ -118,24 +118,49 @@ namespace DGAIZone.Result
                 return;
             }
 
-            if (!_visitorInfoProvider.IsServerConnected) return; // 로컬 모드 — 올릴 서버가 없음(정상)
-
-            if (_levelJumpStore != null && _levelJumpStore.IsLevelJump)
+            bool isLevelJump = _levelJumpStore != null && _levelJumpStore.IsLevelJump;
+            switch (DecideUpload(_visitorInfoProvider.IsServerConnected, isLevelJump, _visitorInfoProvider.HasServerVisitor))
             {
-                if (_logger != null) _logger.ZLogInformation($"[ResultFlowController] 관리자 레벨 이동으로 시작한 판이라 레벨 결과를 올리지 않음.");
-                return;
-            }
+                case UploadDecision.LocalMode:
+                    return; // 로컬 모드 — 올릴 서버가 없음(정상)
 
-            if (!_visitorInfoProvider.HasServerVisitor)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] QR로 확인한 체험자가 없어 레벨 결과를 올리지 않음.");
-                return;
+                case UploadDecision.LevelJump:
+                    if (_logger != null) _logger.ZLogInformation($"[ResultFlowController] 관리자 레벨 이동으로 시작한 판이라 레벨 결과를 올리지 않음.");
+                    return;
+
+                case UploadDecision.NoServerVisitor:
+                    if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] QR로 확인한 체험자가 없어 레벨 결과를 올리지 않음.");
+                    return;
             }
 
             string code = VisitorApiClient.GetLevelCode(playedLevel);
             bool isSuccess = _resultStore.Result == MissionResult.Success;
             _visitorApiClient.UpdateValueAsync(_visitorInfoProvider.VisitorIdx, _visitorInfoProvider.ServerVisitorName, code, isSuccess,
                 CancellationToken.None).Forget();
+        }
+
+        /// <summary> 레벨 결과를 체험자 서버에 올릴지 정한 결과. </summary>
+        internal enum UploadDecision
+        {
+            Upload,          // 올림
+            LocalMode,       // 로컬 모드라 올릴 서버가 없음
+            LevelJump,       // 관리자 레벨 이동 판이라 올리지 않음
+            NoServerVisitor  // 서버 모드인데 QR로 확인한 체험자가 없음
+        }
+
+        /// <summary> 서버 모드이고, 관리자 레벨 이동 판이 아니고, QR로 확인한 체험자가 있을 때만 레벨 결과를 올림. </summary>
+        internal static UploadDecision DecideUpload(bool isServerConnected, bool isLevelJump, bool hasServerVisitor)
+        {
+            if (!isServerConnected) return UploadDecision.LocalMode;
+            if (isLevelJump) return UploadDecision.LevelJump;
+            return hasServerVisitor ? UploadDecision.Upload : UploadDecision.NoServerVisitor;
+        }
+
+        /// <summary> 결과 화면 다음 씬: 관리자 레벨 이동 판이면 타이틀(관리자 화면을 다시 엶), 마지막 레벨이면 아웃트로, 아니면 레벨 선택. </summary>
+        internal static string ResolveNextScene(int playedLevel, bool isLevelJump)
+        {
+            if (isLevelJump) return Constants.Scenes.Title;
+            return playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
         }
 
         /// <summary> completeNextButton의 자식 텍스트를 "종료하기"로 바꿈(마지막 레벨을 완료했을 때만 호출됨). </summary>
@@ -240,7 +265,11 @@ namespace DGAIZone.Result
         /// <summary> 외부 트리거(플레이어 결과 영상 재생 종료, ResultVideoPanel)에서 AI 연출을 재생한 뒤 컴플리트 패널로 전환함. </summary>
         public void PlayAiSequence()
         {
-            if (_isBusy) return;
+            if (_isBusy)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] 이미 AI 연출 중이거나 다음 화면으로 넘어가는 중이라 AI 연출을 다시 시작하지 않음.");
+                return;
+            }
             PlayAiSequenceAsync().Forget();
         }
 
@@ -260,16 +289,16 @@ namespace DGAIZone.Result
             }
 
             int playedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultFlowController));
-            string nextScene = playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
+            bool isLevelJump = _levelJumpStore != null && _levelJumpStore.IsLevelJump;
+            string nextScene = ResolveNextScene(playedLevel, isLevelJump);
 
             if (_levelJumpStore == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] levelJumpStore가 null이라 관리자 레벨 이동 판인지 알 수 없어 {nextScene}(으)로 이동함.");
             }
-            else if (_levelJumpStore.IsLevelJump)
+            else if (isLevelJump)
             {
                 _levelJumpStore.OpenAdminOnTitle = true;
-                nextScene = Constants.Scenes.Title;
                 if (_logger != null) _logger.ZLogInformation($"[ResultFlowController] 관리자 레벨 이동 판이라 타이틀 관리자 화면으로 돌아감.");
             }
 
@@ -279,14 +308,19 @@ namespace DGAIZone.Result
             _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
-        /// <summary> 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널 페이드인(미션 결과 효과음) 순으로 진행함. </summary>
+        /// <summary>
+        /// '나의 코딩 결과' 블록 쌓기가 끝나기를 기다린 뒤 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널
+        /// 페이드인(미션 결과 효과음) 순으로 진행함. 결과 영상이 쌓기보다 먼저 끝나도(레벨 2 영상은 쌓기보다 짧음) 두 연출과 효과음이 겹치지 않게 함.
+        /// </summary>
         private async UniTaskVoid PlayAiSequenceAsync()
         {
             _isBusy = true;
             CancellationToken token = this.GetCancellationTokenOnDestroy();
-            float duration = _sceneSettings.panelFadeDuration;
             try
             {
+                if (playerPanel) await playerPanel.WaitUntilStackedAsync(token); // 없을 때의 경고는 LoadSceneSettingsAsync가 남김
+
+                float duration = _sceneSettings.panelFadeDuration;
                 await PlayAiCodingAsync(duration, token);
 
                 if (aiPanel) await aiPanel.PlayAsync(duration, _sceneSettings.aiDesignHoldDuration, _sceneSettings.designBlockInterval, token);

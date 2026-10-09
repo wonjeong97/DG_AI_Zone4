@@ -265,7 +265,7 @@ namespace DGAIZone.Admin
             {
                 // 같은 파일의 다른 값(자동 닫기 시간·진입 클릭 수)을 지키도록 파일을 읽어 비밀번호만 바꿔 저장함.
                 // 파일이 깨져 있으면 기본값으로 읽혀 그 값들이 사라지므로 저장하지 않음
-                if (!AdminSettings.TryReadForSave(out AdminSettings current))
+                if (!AdminSettings.TryReadForSave(out AdminSettings current, _logger))
                 {
                     if (_logger != null) _logger.ZLogError($"[AdminPasswordPanel] Admin.json을 읽을 수 없거나 형식이 올바르지 않아 새 비밀번호를 저장하지 않음.");
                     if (adminPanel) adminPanel.ShowStatus(Constants.Admin.PasswordSaveFailed);

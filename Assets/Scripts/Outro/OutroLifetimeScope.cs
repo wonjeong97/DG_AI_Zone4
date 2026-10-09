@@ -6,7 +6,7 @@ namespace DGAIZone.Outro
 {
     /// <summary>
     /// 아웃트로 씬 전용 LifetimeScope. 0_Title에서부터 DontDestroyOnLoad로 유지되는 GameLifetimeScope(루트)를
-    /// 부모로 직접 찾아 연결하며, 아웃트로 흐름 컨트롤러를 컨테이너에 등록함.
+    /// 부모로 직접 찾아 연결하며, 아웃트로 흐름·스토리 컨트롤러와 로봇 영상 패널을 컨테이너에 등록함.
     /// </summary>
     public class OutroLifetimeScope : LifetimeScope
     {
@@ -17,7 +17,7 @@ namespace DGAIZone.Outro
         /// </summary>
         protected override LifetimeScope FindParent() => GameLifetimeScope.ResolveAndEnsureBuilt();
 
-        /// <summary> 아웃트로 흐름 컨트롤러와 로봇 영상 패널을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 아웃트로 흐름·스토리 컨트롤러와 로봇 영상 패널을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<OutroFlowController>();

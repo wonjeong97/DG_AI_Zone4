@@ -10,6 +10,7 @@
 - Unity 2022.3.62f3, C# 10(`Assets/csc.rsp`), UI 캔버스·영상만 써서 URP-Performant·카메라 후처리 꺼짐.
 - 스택: VContainer, UniTask, MessagePipe, R3, ZLogger, ZString, DOTween, Addressables, Input System, 공용 템플릿 패키지 `com.huliacdev.template`(`HuliacDev.*`).
 - 어셈블리: 런타임 `DGAIZone` 하나와 테스트 `DGAIZone.Tests`(`InternalsVisibleTo`). 테스트는 PlayMode만 있음.
+- VContainer 1.19는 `Construct`의 `= null` 기본값을 선택 주입으로 보지 않는다(등록이 없으면 예외). 기본값은 테스트에서 직접 부를 때만 쓰이므로 루트 프리팹(GameLifetimeScope)의 InactivityTimer·SoundManager·APIManager 등을 빼지 않는다.
 
 ### 씬 흐름
 

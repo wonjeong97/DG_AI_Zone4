@@ -72,6 +72,9 @@ namespace DGAIZone.App
                 }
             }
             if (Instance && Instance.Container == null) Instance.Build();
+
+            // 컨테이너 구성 전이라 로거를 주입받을 수 없어 Debug로 출력함 — 빌드에서만 생기던 주입 실패(VContainerSettings 스크립트 참조 유실)의 원인 지점
+            if (!Instance) Debug.LogError("[GameLifetimeScope] VContainerSettings 또는 RootLifetimeScope 프리팹을 찾지 못해 루트 스코프를 만들 수 없음. 씬 주입이 모두 실패함.");
             return Instance;
         }
 
@@ -85,6 +88,8 @@ namespace DGAIZone.App
         {
             if (Instance && Instance != this)
             {
+                // 컨테이너 구성 전이라 로거를 주입받을 수 없어 Debug로 출력함
+                Debug.LogWarning($"[GameLifetimeScope] 루트 스코프가 이미 있어 새로 생긴 {name}을(를) 파괴함.");
                 gameObject.SetActive(false);
                 Destroy(gameObject);
                 return;
@@ -162,7 +167,12 @@ namespace DGAIZone.App
                     .LoadAssetsAsync<TMP_FontAsset>(Constants.ResourcePaths.TmpFontLabel, null)
                     .WaitForCompletion();
 
-                if (fonts is null) return;
+                if (fonts is null)
+                {
+                    // 컨테이너 구성 도중이라 로거를 아직 주입받을 수 없어 Debug로 대체 출력함
+                    Debug.LogWarning($"[GameLifetimeScope] '{Constants.ResourcePaths.TmpFontLabel}' 라벨의 TMP 폰트를 찾지 못해 <font> 태그가 해석되지 않음.");
+                    return;
+                }
 
                 foreach (TMP_FontAsset font in fonts)
                     if (font) MaterialReferenceManager.AddFontAsset(font);

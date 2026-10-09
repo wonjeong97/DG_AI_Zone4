@@ -6,7 +6,7 @@ namespace DGAIZone.Intro
 {
     /// <summary>
     /// 인트로 씬 전용 LifetimeScope. 0_Title에서부터 DontDestroyOnLoad로 유지되는 GameLifetimeScope(루트)를
-    /// 부모로 직접 찾아 연결하며, 인트로 흐름 컨트롤러와 로봇 영상 패널을 컨테이너에 등록함.
+    /// 부모로 직접 찾아 연결하며, 인트로 흐름 컨트롤러·로봇 영상 패널·튜토리얼 슬라이더를 컨테이너에 등록함.
     /// </summary>
     public class IntroLifetimeScope : LifetimeScope
     {

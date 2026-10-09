@@ -14,6 +14,7 @@ namespace DGAIZone.App
     /// <summary>
     /// 정적 로봇 이미지 대신 로봇 영상을 반복 재생하는 패널. 씬 진입과 동시에 준비를 시작하되,
     /// RenderTexture에 실제 프레임이 그려진 뒤에야 화면에 노출해 잔상/빈 프레임 노출을 방지함.
+    /// 처음엔 숨겨 두는 패널(3_Game의 스토리 다시 보기)은 playOnStart를 꺼 두고, 보여 줄 때 Play·숨길 때 Pause를 부름.
     /// </summary>
     public class RobotVideoPanel : MonoBehaviour, ISceneVideoReadiness
     {
@@ -21,8 +22,13 @@ namespace DGAIZone.App
         [SerializeField] private RawImage rawImage;
         [SerializeField] private RenderTexture targetTexture;
 
+        [Tooltip("씬이 시작되면 바로 재생할지. 끄면 패널을 보여 줄 때 Play()로 시작하고, 씬 전환이 이 영상을 기다리지 않음(숨긴 패널의 영상을 내내 디코딩하지 않게)")]
+        [SerializeField] private bool playOnStart = true;
+
         private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
         private ILogger<RobotVideoPanel> _logger;
+        private bool _started;       // 준비·재생을 시작했는지
+        private bool _wantsPlaying;  // 지금 보여 줘야 해서 재생해야 하는지(준비 중에 숨기면 준비 뒤 멈춤)
 
         /// <summary> VContainer 의존성 주입. 로거를 할당함. </summary>
         [Inject]
@@ -31,16 +37,37 @@ namespace DGAIZone.App
             _logger = logger;
         }
 
-        /// <summary> 씬 진입 시 로봇 영상 재생 준비를 시작함. </summary>
+        /// <summary> 씬 진입 시 로봇 영상 재생 준비를 시작함(playOnStart를 끈 패널은 Play를 부를 때까지 기다림). </summary>
         private void Start()
         {
-            PlayVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
+            if (playOnStart) Play();
         }
 
-        /// <summary> 활성화 시 씬 전환 대기 대상으로 레지스트리에 등록함. </summary>
+        /// <summary> 활성화 시 씬 전환 대기 대상으로 레지스트리에 등록함(처음엔 숨겨 두는 패널은 씬 전환이 기다리지 않게 등록하지 않음). </summary>
         private void OnEnable()
         {
-            VideoReadinessRegistry.Register(this);
+            if (playOnStart) VideoReadinessRegistry.Register(this);
+        }
+
+        /// <summary> 패널을 보여 줄 때 재생함. 처음이면 준비부터 하고, 멈춰 두었으면 이어서 재생함. </summary>
+        public void Play()
+        {
+            _wantsPlaying = true;
+            if (!_started)
+            {
+                _started = true;
+                PlayVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
+                return;
+            }
+
+            if (videoPlayer && videoPlayer.isPrepared && !videoPlayer.isPlaying) videoPlayer.Play(); // 아직 준비 중이면 준비 뒤 PlayVideoAsync가 재생함
+        }
+
+        /// <summary> 패널을 숨길 때 디코딩을 멈춤(마지막 프레임은 RenderTexture에 남아 다시 보일 때 그대로 이어짐). </summary>
+        public void Pause()
+        {
+            _wantsPlaying = false;
+            if (videoPlayer && videoPlayer.isPlaying) videoPlayer.Pause(); // 준비 중이면 준비 뒤 PlayVideoAsync가 멈춤
         }
 
         /// <summary> 비활성화 시 씬 전환 대기 대상에서 제외함. </summary>
@@ -110,6 +137,8 @@ namespace DGAIZone.App
                 if (rawImage) rawImage.enabled = true;
                 else if (_logger != null) _logger.ZLogWarning($"[RobotVideoPanel] rawImage가 null이라 로봇 영상을 표시할 수 없음.");
                 _readySignal.TrySetResult();
+
+                if (!_wantsPlaying) videoPlayer.Pause(); // 준비하는 사이 패널이 다시 숨겨짐 — 첫 프레임만 남기고 멈춤
             }
             catch (OperationCanceledException)
             {

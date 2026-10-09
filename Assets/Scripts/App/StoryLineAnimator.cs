@@ -11,7 +11,7 @@ namespace DGAIZone.App
 {
     /// <summary>
     /// TMP 텍스트가 한 줄씩 아래에서 위로 올라오며 페이드인되는 연출을 제공하는 공용 유틸.
-    /// 타이틀 씬과 레벨 선택 씬, 아웃트로 씬의 스토리 텍스트 연출이 동일한 로직을 공유함.
+    /// 인트로 씬과 레벨 선택 씬, 아웃트로 씬의 스토리 텍스트 연출이 동일한 로직을 공유함.
     /// </summary>
     public static class StoryLineAnimator
     {
