@@ -201,7 +201,7 @@ namespace DGAIZone.Result
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+            if (_sceneTransition != null) await _sceneTransition.WaitUntilIdleAsync(token);
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 나의 코딩 결과를 쌓음.");
 
             if (playerPanel) playerPanel.Play(_sceneSettings.designBlockInterval);

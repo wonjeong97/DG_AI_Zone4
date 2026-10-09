@@ -21,6 +21,24 @@ namespace DGAIZone.Tests
         }
 
         /// <summary>
+        /// 확정(한/영 전환 때)한 뒤에는 다음 자음이 앞 음절의 받침으로 붙지 않고, 지우기는 확정된 음절을 통째로 지워야 함.
+        /// </summary>
+        [Test]
+        public void 확정한_음절에는_받침이_붙지_않고_통째로_지워진다()
+        {
+            Push("ㄱㅏ");
+            _composer.Commit();
+            Assert.AreEqual("가", _composer.Text, "확정해도 글자는 그대로여야 함");
+
+            Push("ㄴ");
+            Assert.AreEqual("가ㄴ", _composer.Text, "확정한 음절에 받침으로 붙으면 안 됨");
+
+            _composer.Backspace();
+            _composer.Backspace();
+            Assert.AreEqual("", _composer.Text, "확정한 음절은 자모가 아니라 통째로 지워져야 함");
+        }
+
+        /// <summary>
         /// 초성/중성/종성이 하나의 완성형 음절로 합쳐져야 함.
         /// </summary>
         [Test]

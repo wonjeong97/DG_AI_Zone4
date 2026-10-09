@@ -226,7 +226,7 @@ namespace DGAIZone.LevelSelect
         {
             try
             {
-                if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+                if (_sceneTransition != null) await _sceneTransition.WaitUntilIdleAsync(token);
                 else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 관리자 레벨 이동 레벨을 고름.");
             }
             catch (OperationCanceledException)

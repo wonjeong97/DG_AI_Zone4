@@ -109,7 +109,7 @@ namespace DGAIZone.Intro
 
                 await ApplyVisitorNameAsync(token);
 
-                if (_sceneTransition != null) await UniTask.WaitWhile(() => _sceneTransition.IsTransitioning, cancellationToken: token);
+                if (_sceneTransition != null) await _sceneTransition.WaitUntilIdleAsync(token);
                 else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] sceneTransition이 null이라 씬 전환이 끝나기를 기다리지 않고 스토리를 시작함.");
 
                 float startDelay = _sceneSettings.storyTextStartDelay;

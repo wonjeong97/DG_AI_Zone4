@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using DGAIZone.Data;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using UnityEngine.SceneManagement;
@@ -109,7 +110,21 @@ namespace DGAIZone.App
             }
             if (SceneManager.GetActiveScene().name == Constants.Scenes.Title) return;
 
-            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title).Forget();
+            ReturnToTitleAsync().Forget();
+        }
+
+        /// <summary> 다른 화면 전환과 같은 페이드 시간(00_Common.json의 sceneTransitionFadeDuration)으로 타이틀 씬을 불러옴. </summary>
+        private async UniTaskVoid ReturnToTitleAsync()
+        {
+            try
+            {
+                CommonSettings settings = await CommonSettingsProvider.GetAsync(this.GetCancellationTokenOnDestroy());
+                await _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Title, settings.sceneTransitionFadeDuration);
+            }
+            catch (OperationCanceledException)
+            {
+                // 앱 종료로 매니저가 파괴된 경우 — 정상 종료
+            }
         }
     }
 }
