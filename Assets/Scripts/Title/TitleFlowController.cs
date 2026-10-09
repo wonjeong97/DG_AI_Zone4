@@ -590,6 +590,7 @@ namespace DGAIZone.Title
             if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 시작하기를 누름.");
             StopWaitingForQr();
             CancelConfirmTimeout();
+            _confirmedUid = null; // 더는 같은 QR을 비교하지 않으므로 생년월일이 든 uid를 바로 비움(체험자 기록은 다음 씬이 쓰므로 그대로 둠)
             SoundEffects.Play(_soundManager, Constants.Sounds.GameStart, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Intro, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
