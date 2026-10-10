@@ -17,7 +17,7 @@ using ZLogger;
 namespace DGAIZone.Result
 {
     /// <summary>
-    /// 결과 씬의 화면 흐름 제어. 플레이어 결과 영상 재생이 끝나면(ResultVideoPanel) 화면 중앙에 'AI가 코딩중입니다...'를 띄웠다가 지우고,
+    /// 결과 씬의 화면 흐름 제어. 플레이어 결과 영상 재생이 끝나면(ResultVideoPanel) 화면 중앙에 'AI가 코딩 중입니다...'를 띄웠다가 지우고,
     /// 우측 상단 AI 패널(ResultAiPanel)에서 정답 설계창과 성공 영상을 보여 준 뒤 컴플리트 패널로 페이드인함.
     /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 성공!" 또는 "미션 실패!"로 표시함(1존과 같은 문구).
     /// 컴플리트 패널의 "다음 미션" 버튼은 방금 플레이한 레벨이 마지막 레벨이 아니면 2_LevelSelect로(다음 레벨을
@@ -30,7 +30,7 @@ namespace DGAIZone.Result
         [SerializeField] private CanvasGroup completePanel;
         [SerializeField] private Button completeNextButton;
         [SerializeField] private TMP_Text missionResultText; // Text_MissionComplete: 미션 결과에 따라 문구를 바꿈
-        [SerializeField] private CanvasGroup aiCodingPanel; // 화면 중앙 'AI가 코딩중입니다...' 띠
+        [SerializeField] private CanvasGroup aiCodingPanel; // 화면 중앙 'AI가 코딩 중입니다...' 띠
         [SerializeField] private TMP_Text aiCodingText;
         [SerializeField] private ResultAiPanel aiPanel; // 우측 상단 AI 패널(정답 설계창 -> 성공 영상)
         [SerializeField] private ResultPlayerPanel playerPanel; // 좌측 하단 '나의 코딩 결과' 패널
@@ -38,7 +38,7 @@ namespace DGAIZone.Result
         private const string EndButtonText = "종료하기";
         private const string MissionSuccessText = "미션 성공!";
         private const string MissionFailText = "미션 실패!";
-        private const string AiCodingText = "AI가 코딩중입니다";
+        private const string AiCodingText = "AI가 코딩 중입니다";
         private const string AiCodingDots = "..."; // 점 슬롯 3개 — AiCodingDotCycle과 맞춰야 함
         private const int AiCodingDotCycle = 4; // 점 0~3개 반복
 
@@ -309,7 +309,7 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// '나의 코딩 결과' 블록 쌓기가 끝나기를 기다린 뒤 'AI가 코딩중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널
+        /// '나의 코딩 결과' 블록 쌓기가 끝나기를 기다린 뒤 'AI가 코딩 중입니다...' 안내 -> AI 패널(정답 설계창 -> 성공 영상) -> 컴플리트 패널
         /// 페이드인(미션 결과 효과음) 순으로 진행함. 결과 영상이 쌓기보다 먼저 끝나도(레벨 2 영상은 쌓기보다 짧음) 두 연출과 효과음이 겹치지 않게 함.
         /// </summary>
         private async UniTaskVoid PlayAiSequenceAsync()
@@ -346,7 +346,7 @@ namespace DGAIZone.Result
             }
         }
 
-        /// <summary> 화면 중앙 'AI가 코딩중입니다...' 띠를 페이드인 -> aiCodingHoldDuration초 유지(점 0~3개 반복) -> 페이드아웃함. </summary>
+        /// <summary> 화면 중앙 'AI가 코딩 중입니다...' 띠를 페이드인 -> aiCodingHoldDuration초 유지(점 0~3개 반복) -> 페이드아웃함. </summary>
         private async UniTask PlayAiCodingAsync(float fadeDuration, CancellationToken token)
         {
             if (!aiCodingPanel)
@@ -368,7 +368,7 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// 'AI가 코딩중입니다' 뒤 점 개수를 0 -> 3으로 반복함(취소될 때까지). 문자열은 점 3개를 포함한 채로 두고
+        /// 'AI가 코딩 중입니다' 뒤 점 개수를 0 -> 3으로 반복함(취소될 때까지). 문자열은 점 3개를 포함한 채로 두고
         /// 보이는 글자 수만 바꿔 문구가 좌우로 흔들리지 않게 함(Zone1 결과 씬과 같은 방식).
         /// </summary>
         private async UniTaskVoid AnimateAiCodingDotsAsync(CancellationToken token)

@@ -121,7 +121,7 @@
       ],
       "steps": [
         { "ingredientId": "Engine", "ingredientName": "추진체 종류", "matterSetId": "Engine", "categories": [ "동작" ] },
-        { "ingredientId": "Payload", "ingredientName": "탑재 종류", "matterSetId": "Payload", "categories": [ "동작" ] },
+        { "ingredientId": "Payload", "ingredientName": "탑재 장비", "matterSetId": "Payload", "categories": [ "동작" ] },
         { "ingredientId": "Fuel", "ingredientName": "연료량", "matterSetId": "Fuel", "categories": [ "동작" ] }
       ]
     },
@@ -153,17 +153,17 @@
         {
           "id": "ElectricityCondition",
           "matters": [
-            { "id": "Over3", "label": "3 보다 높으면", "value": 3 },
-            { "id": "Over4", "label": "4 보다 높으면", "value": 4 },
-            { "id": "Over5", "label": "5 보다 높으면", "value": 5 }
+            { "id": "Over3", "label": "3보다 많으면", "value": 3 },
+            { "id": "Over4", "label": "4보다 많으면", "value": 4 },
+            { "id": "Over5", "label": "5보다 많으면", "value": 5 }
           ]
         },
         {
           "id": "OxygenCondition",
           "matters": [
-            { "id": "Under3", "label": "3 보다 낮으면", "value": 3 },
-            { "id": "Under4", "label": "4 보다 낮으면", "value": 4 },
-            { "id": "Under5", "label": "5 보다 낮으면", "value": 5 }
+            { "id": "Under3", "label": "3보다 적으면", "value": 3 },
+            { "id": "Under4", "label": "4보다 적으면", "value": 4 },
+            { "id": "Under5", "label": "5보다 적으면", "value": 5 }
           ]
         },
         {
@@ -234,7 +234,7 @@
         {
           "id": "Action",
           "matters": [
-            { "id": "SpaceStationCode", "label": "우주 정거장 코드" },
+            { "id": "SpaceStationCode", "label": "우주정거장 코드" },
             { "id": "ExplorerRobotCode", "label": "탐사 로봇 코드" },
             { "id": "CommunicationCode", "label": "통신 시스템 코드" },
             { "id": "ConnectionPassageCode", "label": "연결 통로 코드" }
@@ -250,7 +250,7 @@
       ],
       "categoryIngredients": [
         { "ingredientId": "Function", "ingredientName": "함수 사용하기", "matterSetId": "Function", "categories": [ "함수" ] },
-        { "ingredientId": "Action", "ingredientName": "사용하기", "matterSetId": "Action", "categories": [ "동작" ] }
+        { "ingredientId": "Action", "ingredientName": "동작 사용하기", "matterSetId": "Action", "categories": [ "동작" ] }
       ]
     }
   ]
