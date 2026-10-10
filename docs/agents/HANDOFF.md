@@ -23,7 +23,8 @@
 - 낮음(기록만): Admin.json 형식 오류면 비밀번호가 조용히 0000(TryLoadAsync로 구분 후보), TitleFlowController 시작하기 `_isBusy` 조용한 return·0_Title.json qrFadeDuration 0 이하 보정 없음, 숨은 동안 떨어졌던 단계에 쓸 수 없는 카드를 올리면 화면 뒤에서 되돌리고 경고음만, 결과 화면 진행 중 올린 카드 로그 문구, 끄는 동안 Shrink를 ToBottom이 덮음(드묾), 결과 영상 앞 약 0.6초가 페이드인 동안 재생, 결과 화면 타이머 정지 상한 없음(참조 누락 때만), 씬 전환 페이드 0 불가(템플릿 FadeManager), 대체 미션 문구의 [동작] 노란색, 주석·테스트의 옛 표기, TMP 폰트가 Addressables·씬 두 벌, 루트 프리팹이 GameCloser를 지우고 다시 붙인 구조, 테스트 — 실시간 의존 2·하네스 복사 테스트·템플릿 StateMachine 테스트·`#if UNITY_EDITOR` 없는 UnityEditor 사용 2·summary 없는 테스트 메서드 약 100, 중요 경로 테스트 빈틈(타이틀 체험자 비우기, 업로드 인자 조립, 관리자 레벨 이동, 미등록 UID 거르기, T68 훅·T77·T81 흐름).
 - 설정·운영 결정: 마지막 로컬 빌드(13:22)가 T82 문구 수정보다 앞섬 → main으로 다시 빌드해 설치, 오른쪽 PC의 서버 로그 장치 값(apiUrl idx_content_device·uid) 따로 받을지 확인, 숨은 종료 버튼(오른쪽 위 3초 10번)을 관람객 연타 위험으로 numToClose를 늘릴지, URP 렌더러 m_IntermediateTextureMode Always(복사 비용만, Auto는 선택).
 - 확인: 컴파일 오류 0, PlayMode 225/225, EditorSettings 되돌림, TMP 폰트 글리프 변경 버림.
-- 리뷰(Antigravity `gemini-3.8-flash-high`, 3요청 88~219줄): 프리팹 오버라이드·테스트 2/2, 카드 교체 수정 2/2 통과. 테스트 묶음 1건 반영 — 관리자 레벨 선택을 기다리다 취소돼도 IsSceneSettingsLoaded가 켜짐 → 취소면 표시하지 않음.
+- 리뷰(Antigravity `gemini-3.8-flash-high`, 3요청 88~219줄): 프리팹 오버라이드·테스트 2/2, 카드 교체 수정 2/2 통과. 테스트 묶음 1건 반영 — 관리자 레벨 선택을 기다리다 취소돼도 IsSceneSettingsLoaded가 켜짐 → 취소면 표시하지 않음.
+- PR wonjeong97/DG_AI_Zone4#66 머지 전: 바뀐 코드만 다시 봄(사용자와 정한 마감 방식) — Claude 서브에이전트 회귀 재확인 2/2 통과(미리 올린 카드·떨어졌다 다시 붙는 카드·T76·설정하기/취소하기/1단계 취소 뒤 경로, 레벨 4·5 거절 때 값 비움이 의도에 맞음, 프리팹 오버라이드가 앵커·피벗·알파만 바꿈), 참고(의도대로) — 쓸 수 없는 카드를 놓아 두면 복귀할 때마다 경고가 다시 뜸. Antigravity 마지막 수정·CHANGELOG 2/2 통과. 중간 이상 0 → 출시 전 점검 마감. main보다 뒤처진 커밋 0, CI 검사 없음, CHANGELOG 미배포 Fixed 2줄을 2026-10-10 섹션으로 옮김.
 
 ---
 
