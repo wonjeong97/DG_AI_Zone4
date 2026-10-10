@@ -209,7 +209,13 @@ namespace DGAIZone.LevelSelect
 
             if (_levelJumpStore != null && _levelJumpStore.TryTakePendingStoryLevel(out int level))
                 await SelectAdminJumpLevelAsync(level, token);
+
+            if (token.IsCancellationRequested) return; // 관리자 레벨 선택을 기다리다 씬을 떠난 경우(정상) — 끝난 것으로 표시하지 않음
+            IsSceneSettingsLoaded = true;
         }
+
+        /// <summary> 설정을 불러와 레벨 잠금을 다시 적용하고(관리자 레벨 이동이면 그 레벨까지 고른 뒤) 끝났는지. 테스트가 실시간 대기 대신 이 시점을 기다림. </summary>
+        internal bool IsSceneSettingsLoaded { get; private set; }
 
         /// <summary>
         /// 관리자 레벨 이동으로 들어온 레벨(1부터)을, 씬 전환 페이드인이 끝나면 그 레벨 버튼을 고른 것처럼 선택해 스토리를 띄움.

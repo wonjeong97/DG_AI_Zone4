@@ -14,6 +14,7 @@ namespace DGAIZone.Tests
     public class AdminLevelJumpTests
     {
         private GameObject _go;
+        private LevelSelectFlowController _controller;
 
         [TearDown]
         public void TearDown()
@@ -50,7 +51,7 @@ namespace DGAIZone.Tests
             jump.Begin(3);
 
             Button[] buttons = CreateController(unlocked, selected, jump);
-            yield return new WaitForSecondsRealtime(0.5f); // Start → 2_LevelSelect.json 로드 → 잠금 다시 적용 → 레벨 선택
+            yield return WaitUntilSettingsLoaded(_controller); // Start → 2_LevelSelect.json 로드 → 잠금 다시 적용 → 레벨 선택
 
             Assert.AreEqual(3, selected.SelectedLevel, "관리자가 고른 레벨이 선택돼야 함");
             Assert.IsFalse(buttons[2].interactable, "고른 레벨 버튼은 스토리 영역으로 옮겨지며 다시 누를 수 없어야 함");
@@ -66,7 +67,7 @@ namespace DGAIZone.Tests
             SelectedLevelStore selected = new SelectedLevelStore();
 
             Button[] buttons = CreateController(unlocked, selected, new AdminLevelJumpStore());
-            yield return new WaitForSecondsRealtime(0.5f);
+            yield return WaitUntilSettingsLoaded(_controller); // 로드가 끝나 잠금을 다시 적용한 뒤에도 고르지 않았는지 봄
 
             Assert.AreEqual(1, selected.SelectedLevel, "레벨을 고르지 않았으니 기본값 그대로여야 함");
             for (int i = 0; i < 3; i++)
@@ -80,6 +81,7 @@ namespace DGAIZone.Tests
             _go.SetActive(false);
             LevelSelectFlowController controller = _go.AddComponent<LevelSelectFlowController>();
             controller.Construct(null, selected, unlocked, null, levelJumpStore: jump);
+            _controller = controller;
 
             Button[] buttons = new Button[Constants.LastLevel];
             for (int i = 0; i < buttons.Length; i++)
@@ -93,6 +95,14 @@ namespace DGAIZone.Tests
             controller.SetLevelButtonsForTest(buttons);
             _go.SetActive(true);
             return buttons;
+        }
+
+        /// <summary> 컨트롤러가 2_LevelSelect.json을 불러와 잠금을 다시 적용할 때까지 기다림(최대 5초, 실시간 고정 대기 대신). </summary>
+        private static IEnumerator WaitUntilSettingsLoaded(LevelSelectFlowController controller)
+        {
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (!controller.IsSceneSettingsLoaded && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.IsTrue(controller.IsSceneSettingsLoaded, "5초 안에 2_LevelSelect.json을 불러와 잠금을 다시 적용하지 못함");
         }
     }
 }

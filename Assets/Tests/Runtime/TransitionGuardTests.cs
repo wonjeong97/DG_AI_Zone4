@@ -1,8 +1,11 @@
+using System;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Intro;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace DGAIZone.Tests
 {
@@ -51,19 +54,24 @@ namespace DGAIZone.Tests
             Assert.IsFalse(_introController.IsBusy, "초기 상태에서는 IsBusy가 false여야 함.");
         }
 
+        /// <summary>
+        /// IsBusy이면 두 번째 클릭이 전환 서비스까지 가지 않음. 서비스는 전환 중이라 실제 씬을 로드하지 않고, 받은 요청마다
+        /// '이미 전환 중이라 무시함' 경고를 남기므로 그 수로 서비스에 간 요청 수를 셈.
+        /// </summary>
         [Test]
         public void IntroFlowController_IsBusy상태일때_클릭요청은_무시된다()
         {
-            // 첫 클릭으로 전환을 시작해 IsBusy 상태로 만듦(서비스는 전환 중이라 실제 씬을 로드하지 않음)
-            SceneTransitionService service = new SceneTransitionService(null, null);
+            CountingLogger<SceneTransitionService> logger = new CountingLogger<SceneTransitionService>();
+            SceneTransitionService service = new SceneTransitionService(null, logger);
             service.SetTransitioningForTest(true);
             _introController.Construct(service, null, null, null);
+
             _introController.OnUnderstandClicked();
             Assert.IsTrue(_introController.IsBusy);
+            Assert.AreEqual(1, logger.Count, "첫 클릭은 전환 서비스에 요청해야 함");
 
-            // 전환 서비스를 빼도 IsBusy이면 null 검사 이전에 즉시 리턴되므로 에러가 발생하지 않음
-            _introController.Construct(null, null, null, null);
-            Assert.DoesNotThrow(() => _introController.OnUnderstandClicked());
+            _introController.OnUnderstandClicked();
+            Assert.AreEqual(1, logger.Count, "IsBusy이면 두 번째 클릭은 전환 서비스에 요청하지 않아야 함");
             Assert.IsTrue(_introController.IsBusy);
         }
 
@@ -78,6 +86,21 @@ namespace DGAIZone.Tests
             _introController.OnUnderstandClicked();
 
             Assert.IsTrue(_introController.IsBusy, "OnUnderstandClicked 호출 후 IsBusy가 true여야 함.");
+        }
+
+        /// <summary> 받은 로그 수만 세는 테스트용 로거. </summary>
+        private sealed class CountingLogger<T> : ILogger<T>
+        {
+            public int Count { get; private set; }
+
+            /// <summary> 범위를 쓰지 않음. </summary>
+            public IDisposable BeginScope<TState>(TState state) => null;
+
+            /// <summary> 모든 수준을 받음. </summary>
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            /// <summary> 로그 한 줄을 셈. </summary>
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter) => Count++;
         }
     }
 }
