@@ -350,5 +350,31 @@ namespace DGAIZone.Tests
             cards.Remove(2); // 카드를 뗀 단계는 떨어짐 처리가 따로 함
             Assert.AreEqual(-1, IngredientSelectionController.FindFirstChangedConfirmedStep(cards, confirmed, 3));
         }
+
+        /// <summary>
+        /// 게임 화면으로 돌아왔을 때 지금 단계 리더기의 카드를 다시 적용하는 조건: 놓인 카드가 있고, 고르던 값이 없거나 고르던 분류와 놓인 카드 분류가 다를 때.
+        /// 숨은 동안 떨어짐 판정 시간 안에 다른 분류 카드로 바꾸면 고르던 값이 앞 카드 것으로 남던 것을 막음.
+        /// </summary>
+        [Test]
+        public void 지금_단계_카드가_고르던_분류와_다르면_다시_적용한다()
+        {
+            string action = Constants.RfidCategories.Action;
+            string control = Constants.RfidCategories.Control;
+
+            Assert.IsTrue(IngredientSelectionController.ShouldReplayCurrentReaderCard(false, null, true, action), "고르던 값이 없으면 놓인 카드를 씀");
+            Assert.IsTrue(IngredientSelectionController.ShouldReplayCurrentReaderCard(true, action, true, control), "고르던 분류와 다르면 새 카드로 다시 고름");
+            Assert.IsFalse(IngredientSelectionController.ShouldReplayCurrentReaderCard(true, action, true, action), "같은 분류면 고르던 값을 그대로 둠");
+            Assert.IsFalse(IngredientSelectionController.ShouldReplayCurrentReaderCard(false, null, false, null), "놓인 카드가 없으면 하지 않음");
+        }
+
+        /// <summary> 지금 단계 리더기에서 온 카드를 적용하지 못하면 앞 카드로 고르던 값을 비움. 다른 리더기·고르던 값 없음이면 그대로 둠. </summary>
+        [Test]
+        public void 지금_단계_리더기의_카드를_쓸_수_없으면_고르던_값을_비운다()
+        {
+            Assert.IsTrue(IngredientSelectionController.ShouldClearPendingForRejectedCard(2, 2, true));
+            Assert.IsFalse(IngredientSelectionController.ShouldClearPendingForRejectedCard(3, 2, true), "다음 단계 리더기의 카드는 지금 고르던 값과 상관없음");
+            Assert.IsFalse(IngredientSelectionController.ShouldClearPendingForRejectedCard(-1, 0, true), "디버그 키보드처럼 단계가 없는 리더기는 비우지 않음");
+            Assert.IsFalse(IngredientSelectionController.ShouldClearPendingForRejectedCard(2, 2, false), "고르던 값이 없으면 비울 것이 없음");
+        }
     }
 }

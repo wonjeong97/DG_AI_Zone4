@@ -28,6 +28,12 @@ namespace DGAIZone.Game
             return _loadTask.AsUniTask().AttachExternalCancellation(cancellationToken);
         }
 
+        /// <summary> 테스트 전용: 캐시한 로드를 비워 다음 GetAsync가 '로드 전 동시 호출' 상황에서 시작하게 함. </summary>
+        internal static void ResetForTest()
+        {
+            _loadTask = null;
+        }
+
         /// <summary> 3_Game.json을 실제로 한 번 로드함. 예외가 새어 나와도 폴백 기본값으로 완료해 대기 중인 호출자가 무한 대기하지 않게 함. </summary>
         private static async UniTask<GameSceneSettings> LoadAsync()
         {

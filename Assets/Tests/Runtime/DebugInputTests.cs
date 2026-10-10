@@ -89,8 +89,16 @@ namespace DGAIZone.Tests
             AssertAllUnlocked(buttons);
 
             // 2_LevelSelect.json 로드가 끝나 잠금이 다시 적용돼도 모두 열려 있어야 함
-            yield return new WaitForSecondsRealtime(0.5f);
+            yield return WaitUntilSettingsLoaded(controller);
             AssertAllUnlocked(buttons);
+        }
+
+        /// <summary> 컨트롤러가 2_LevelSelect.json을 불러와 잠금을 다시 적용할 때까지 기다림(최대 5초, 실시간 고정 대기 대신). </summary>
+        private static IEnumerator WaitUntilSettingsLoaded(LevelSelectFlowController controller)
+        {
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (!controller.IsSceneSettingsLoaded && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.IsTrue(controller.IsSceneSettingsLoaded, "5초 안에 2_LevelSelect.json을 불러와 잠금을 다시 적용하지 못함");
         }
 
         private static void AssertAllUnlocked(Button[] buttons)

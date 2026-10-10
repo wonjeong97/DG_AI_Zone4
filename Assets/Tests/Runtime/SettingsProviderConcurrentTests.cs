@@ -11,10 +11,18 @@ namespace DGAIZone.Tests
     /// <summary>
     /// CommonSettingsProvider와 GameSceneSettingsProvider를 여러 곳에서 동시에 await해도
     /// InvalidOperationException(Already continuation registered) 등의 예외 없이
-    /// 안전하게 결과를 공유받는지 검증하는 테스트.
+    /// 안전하게 결과를 공유받는지 검증하는 테스트. 캐시를 비운 뒤 로드가 끝나기 전에 동시에 부름.
     /// </summary>
     public class SettingsProviderConcurrentTests
     {
+        /// <summary> 앞서 돈 다른 테스트가 채운 정적 캐시를 비워, 매번 '로드가 끝나기 전 동시 await' 상황에서 시작하게 함. </summary>
+        [SetUp]
+        public void SetUp()
+        {
+            CommonSettingsProvider.ResetForTest();
+            GameSceneSettingsProvider.ResetForTest();
+        }
+
         [UnityTest]
         public IEnumerator CommonSettingsProvider_동시_호출_시_예외없이_모두_완료된다() => UniTask.ToCoroutine(async () =>
         {

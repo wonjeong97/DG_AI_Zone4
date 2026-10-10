@@ -13,13 +13,28 @@
 
 ---
 
+### [2026-10-10] Claude → Antigravity · T83 3차 전체 점검과 중간 이상 수정
+- 요청(사용자): PR #65 머지 뒤 다시 한번 전체 점검(이전 지시대로 중간 이상은 바로 고침).
+- 점검(Claude 서브에이전트 6, 영역별로 모든 관점 — 지난 두 번은 관점별): RFID·게임 입력, 타이틀·관리자·서버, 씬 흐름·영상·결과, 앱 기반·템플릿 26.10.10-2 통합, 데이터·씬·설정, 테스트 품질·빈틈(새 관점). 규칙 grep·summary·트윈 수명·끊긴 GUID 재검사(Claude 직접) — 위반 0.
+- 중간(모두 고침):
+  - 템플릿 대체 설정(Settings.json 읽기 실패)에 closeSetting이 없어 숨은 종료 버튼(GameCloser)이 SystemCanvas 기본값(가운데·흰색 150×150, 최상위 정렬)으로 떠 모든 화면 터치를 가리고 가운데 10번 탭에 종료 → 루트 프리팹 `GameLifetimeScope.prefab`에서 앵커·피벗 (1,1)·Image 알파 0 오버라이드(Settings.json closeSetting과 같은 값), 테스트 `RootPrefabDefaultsTests`. Template TODO에 근본 원인 추가(03cbcdb).
+  - 지금 단계 리더기 카드를 1초 안에 바꾸면 (a) 미션 다시 보기 중이면 무시돼 앞 카드로 고르던 값이 남고 (b) 쓸 수 없는 카드면 경고만 뜨고 값이 남아, 설정하면 확정 분류와 놓인 카드가 어긋나 다음 복귀 때 T76이 그 단계부터 되돌림 → `IngredientSelectionController.ApplyCardOnCurrentReader`가 고르던 분류와 놓인 카드 분류가 다르면 다시 적용(ShouldReplayCurrentReaderCard), 지금 단계 리더기의 카드를 적용하지 못하면 고르던 값을 비움(ShouldClearPendingForRejectedCard), 테스트 2.
+  - 테스트 거짓 통과 3: TransitionGuardTests IsBusy(막는 코드가 없어도 통과 → 전환 서비스 로그 수를 셈), SettingsProviderConcurrentTests(정적 캐시가 앞 테스트로 채워져 '로드 전 동시 호출'을 재현 못 함 → ResetForTest), AdminLevelJumpTests·DebugInputTests(0.5초 실시간 대기 → LevelSelectFlowController.IsSceneSettingsLoaded까지 최대 5초).
+- 낮음(기록만): Admin.json 형식 오류면 비밀번호가 조용히 0000(TryLoadAsync로 구분 후보), TitleFlowController 시작하기 `_isBusy` 조용한 return·0_Title.json qrFadeDuration 0 이하 보정 없음, 숨은 동안 떨어졌던 단계에 쓸 수 없는 카드를 올리면 화면 뒤에서 되돌리고 경고음만, 결과 화면 진행 중 올린 카드 로그 문구, 끄는 동안 Shrink를 ToBottom이 덮음(드묾), 결과 영상 앞 약 0.6초가 페이드인 동안 재생, 결과 화면 타이머 정지 상한 없음(참조 누락 때만), 씬 전환 페이드 0 불가(템플릿 FadeManager), 대체 미션 문구의 [동작] 노란색, 주석·테스트의 옛 표기, TMP 폰트가 Addressables·씬 두 벌, 루트 프리팹이 GameCloser를 지우고 다시 붙인 구조, 테스트 — 실시간 의존 2·하네스 복사 테스트·템플릿 StateMachine 테스트·`#if UNITY_EDITOR` 없는 UnityEditor 사용 2·summary 없는 테스트 메서드 약 100, 중요 경로 테스트 빈틈(타이틀 체험자 비우기, 업로드 인자 조립, 관리자 레벨 이동, 미등록 UID 거르기, T68 훅·T77·T81 흐름).
+- 설정·운영 결정: 마지막 로컬 빌드(13:22)가 T82 문구 수정보다 앞섬 → main으로 다시 빌드해 설치, 오른쪽 PC의 서버 로그 장치 값(apiUrl idx_content_device·uid) 따로 받을지 확인, 숨은 종료 버튼(오른쪽 위 3초 10번)을 관람객 연타 위험으로 numToClose를 늘릴지, URP 렌더러 m_IntermediateTextureMode Always(복사 비용만, Auto는 선택).
+- 확인: 컴파일 오류 0, PlayMode 225/225, EditorSettings 되돌림, TMP 폰트 글리프 변경 버림.
+- 리뷰(Antigravity `gemini-3.8-flash-high`, 3요청 88~219줄): 프리팹 오버라이드·테스트 2/2, 카드 교체 수정 2/2 통과. 테스트 묶음 1건 반영 — 관리자 레벨 선택을 기다리다 취소돼도 IsSceneSettingsLoaded가 켜짐 → 취소면 표시하지 않음.
+- PR wonjeong97/DG_AI_Zone4#66 머지 전: 바뀐 코드만 다시 봄(사용자와 정한 마감 방식) — Claude 서브에이전트 회귀 재확인 2/2 통과(미리 올린 카드·떨어졌다 다시 붙는 카드·T76·설정하기/취소하기/1단계 취소 뒤 경로, 레벨 4·5 거절 때 값 비움이 의도에 맞음, 프리팹 오버라이드가 앵커·피벗·알파만 바꿈), 참고(의도대로) — 쓸 수 없는 카드를 놓아 두면 복귀할 때마다 경고가 다시 뜸. Antigravity 마지막 수정·CHANGELOG 2/2 통과. 중간 이상 0 → 출시 전 점검 마감. main보다 뒤처진 커밋 0, CI 검사 없음, CHANGELOG 미배포 Fixed 2줄을 2026-10-10 섹션으로 옮김.
+
+---
+
 ### [2026-10-10] Claude → Antigravity · T82 관람객 문구 통일
 - 요청(사용자): T69 2차 점검의 문구 통일 후보를 정리해서 고침.
 - 변경(전후 목록은 `.claude/review/t82/changes.md`, 로컬 전용): RfidMappings.json(레벨 3 조건 '3보다 많으면/적으면', 레벨 1 '탑재 장비', 레벨 5 '우주정거장 코드'·'동작 사용하기'), 0_Title.json·Constants '눌러 주세요', 3_Game.json·GameSceneSettings 기본값 '1단/2단 로켓 분리 완료', ResultFlowController·ResultSceneSettings·4_Result 'AI가 코딩 중입니다', Level3~5 LevelData(환영해요, 탐사 로봇, 우주정거장, 해 주세요, [함수] 블록 띄어쓰기), 1_Intro(이제 [이름]님은, 튜토리얼 안내 해요체), 3_Game(미션 건너뛰기, GOAL), 5_Outro(모든 우주 미션을 마쳤어요). LevelData·씬은 에디터에서 SerializedObject로 고쳐 저장(씬 diff는 문구 줄만).
 - 손대지 않음: 2_LevelSelect 씬의 레벨별 대체 스토리 문구(LevelData가 연결돼 있으면 안 보임, 옛 표기 남음 — 정리 후보), 스토리 `<color=blue>` 대비(화면 확인 필요), 타이틀 Text_QR 두 줄 잘림(낮음 버그).
 - 확인: 길어진 문구 TMP 측정 — 타이틀 안내(이름 8자) 948/1000px 한 줄, 튜토리얼 안내·결과 '코딩 중' 띠 여유, 인트로 스토리 Overflow. 옛 표기 검색 — LevelData·화면에 나오는 씬·JSON·코드에 없음(대체 문구만 남음). 컴파일 오류 0, PlayMode 222/222, EditorSettings 되돌림, TMP 폰트 글리프 변경 버림.
 - 결과(Antigravity `gemini-3.8-flash-high`): 맞춤법·띄어쓰기, 통일 방향·어투 일관성 2/2 통과.
-- 사용자 결정: 레벨 3·4 스토리의 카드 이름은 '[만약] 블록'·'[반복] 블록' 그대로(처음에 '[제어] 블록(만약)'으로 바꿨다가 되돌림, 괄호 쓰지 않음).
+- 사용자 결정: 레벨 3·4 스토리의 카드 이름은 '[만약] 블록'·'[반복] 블록' 그대로(처음에 '[제어] 블록(만약)'으로 바꿨다가 되돌림, 괄호 쓰지 않음).
 - PR wonjeong97/DG_AI_Zone4#65 머지 전(Antigravity): JSON·C# diff가 전후 목록과 같고 의도하지 않은 변경 없음, CHANGELOG에 '[제어]' 내용 없음 → 2/2 통과. LevelData 최종 값은 에디터에서 다시 확인. main보다 뒤처진 커밋 0, CI 검사 없음. CHANGELOG 미배포 Changed 3줄을 2026-10-10 섹션으로 옮김.
 
 ---
