@@ -13,7 +13,7 @@
 
 ---
 
-### [2026-10-10] Claude · T69 2차 점검(수정 뒤 재점검) — 중단, 다음 세션에서 이어서
+### [2026-10-10] Claude · T69 2차 점검(수정 뒤 재점검) 완료 · T81 템플릿 26.10.10-2
 - 요청(사용자): 수정 뒤 바뀐 코드의 회귀와 1차에서 쓰지 않은 관점으로 다시 점검, 결과 중 중간 이상만 바로 고침. 사용자가 사용량 한도로 중단(다음에 이어서).
 - 운영 전제 추가(사용자): 4존은 PC 2대 — 왼쪽 PC 리더기 .180~.184, 오른쪽 .185~.189, 리더기는 TCP 클라이언트로 각자 PC를 Target IP로 설정(CLAUDE.md·메모리 반영).
 - 끝난 점검(Claude 서브에이전트, agy 한도 초과): 수정 코드 회귀·보안·개인정보·프레임 성능·화면 문구 — 코드 중간 이상은 아래 2건뿐, 모두 고침.
@@ -22,7 +22,11 @@
   - 리뷰(Claude 서브에이전트): T79·T80 통과, 선택 제안(OnSettingsLoaded 훅) 반영. PlayMode 222/222, EditorSettings 되돌림.
 - 낮음으로 판정(기록만): RFID half-open(케이블 뽑힘 → 카드 떨어짐 처리, 다시 붙으면 Baseline — 떼었다 올리면 복구, 끊김 원인 로그 없음), 7바이트 정렬 어긋남(리더기가 조각을 보낼 때만), 포트 사용 중 재시도 없음, Unknown ARP 실패(T79로 거부되며 경고), RfidMappings·Server.json 누락 시 안내(건너뛰기·로그로 원인 확인 가능), 디스크 가득 참·전원 차단 때 Admin.json 잘림(템플릿 TODO), ShutdownScheduler·SoundManager 템플릿 경계, 회귀 낮음 3(두 손가락 끌기 bool 하나, 비밀번호 창 10번 탭만으로 QR 잠시 막힘, 디버그 키로 정한 단계의 카드 비교), 보안 낮음(checkActive 이름 줄바꿈·길이, 서버 원문 로그, 미등록 UID 로그, 스캐너 제어문자 Ctrl 조합), 성능(인트로 튜토리얼 동안 숨은 로봇 영상 디코딩, 레벨 선택 버튼 이동 Canvas 재배치, Reporter 매 프레임 문자열 — 템플릿), 문구 낮음(타이틀 Text_QR 두 줄이면 잘림 — qrCheckFailedText 1238px, 한자·이모지 이름 □).
 - 설정·운영·기획 결정(사용자 확인 필요): 로봇 영상 VP8 알파 960×960 CPU 디코딩 — 현장 PC에서 실측(중간 추정), Server.json baseUrl http(uid 평문) — https 또는 전용망, 이름 로그 30일 보관, Admin.json 재배포 때 보존, 방화벽 10123 원격 IP를 리더기로 한정, Windows 가장자리 스와이프·키오스크 모드, 유지보수 키보드 뺄 것, 문구 통일 후보(“3 보다”→“3보다”, “건너 뛰기”, “코딩중”, “이제[{name}]님”, 우주정거장/우주 정거장, 탐사로봇, 탑재 종류/탑재할 장비, [만약]·[반복] vs [제어], 1차/1단, 사용하기, START/Goal, 환영합니다/해요, 인트로 튜토리얼 반말, 아웃트로 “모든 우주 미션을 성공했어요”가 레벨 5 실패에도 나옴, color=blue 대비).
-- 남은 일(다음 세션): 장애 주입 점검 중 서버·QR·터치 장애 부분은 하위 감사가 끝나기 전에 중단됨 — 이 부분만 다시 점검. 그 결과 중간 이상이 0이면 마감(PR → 리뷰 → 머지) 제안. 브랜치 `fix/t68-focus-restore-shortcut`(T68~T80 커밋, 아직 push 안 함). agy는 2026-10-10 03시대 한도 초과(429).
+- 이어서(같은 날 오후, 사용자 사용량 복구 뒤):
+  - T81 템플릿 26.10.10-1 → 26.10.10-2(사용자 요청, lock 해시 d992584). JsonLoader가 취소 시 예외를 던지게 바뀌어 IngredientSelectionController.InitializeWorkflowAsync에 catch(OperationCanceledException)를 앞에 둠(없으면 취소를 오류로 남기고 파괴 뒤 ResetWorkflowProgress 실행), 비밀번호 저장은 SaveAsync 반환값으로 판정, 낡은 주석 4곳·T80 문구 갱신(읽기 실패는 이제 템플릿이 타이머를 켠 대체 설정 90초를 씀), URP가 URP-Performant-Renderer.asset을 asset version 2로 자동 업그레이드해 저장(기본값). Template TODO에 적었던 JsonLoader 2건은 사용자가 26.10.10-2에서 고침. 4존의 Admin/ConsecutiveClickCounter는 템플릿에도 같은 이름이 생겼지만 네임스페이스가 달라 그대로 둠(정리 후보).
+  - 확인: 컴파일 오류 0, PlayMode 222/222, EditorSettings 되돌림. 리뷰 Antigravity(gemini-3.8-flash-high, 한도 회복): 호출부 11곳을 찾게 한 첫 요청은 시간 초과 → 줄 범위를 정한 두 요청으로 쪼개 2/2 통과.
+  - 장애 주입 중 남았던 서버·QR·터치(Claude 서브에이전트): 높음·중간 0. 낮음 — 유령 터치가 primaryTouch를 잡으면 인트로·3_Game 스토리 넘기기 불가(레벨 선택 대기 건과 같은 원인, 현장 터치스크린에서 확인 권장), QR 확인 중(최대 약 22초) 찍은 QR은 로그 없이 버려짐, updateValue가 200+HTML이면 재시도 없이 실패, CheckVisitorAsync가 OCE 외 예외에 '확인 중'으로 멈출 수 있음(경로 없음), 글자 간격을 처리 시각으로 잼, 끄는 도중 터치 장치가 빠지면 끌기 상태가 남음, 템플릿 ApiRetryUtil 요청 timeout 없음. 운영 — 서버 전면 장애 때 로컬 모드 전환 절차, 스캐너 접미사는 Enter(CR), 유지보수 키보드 Caps Lock.
+- 결론: 2차 점검의 중간 이상은 T79 한 건(고침·리뷰 통과)뿐이고 마지막 점검(서버·QR·터치)은 0건 — 마감(PR → 리뷰 → 머지)을 사용자에게 제안. 브랜치 `fix/t68-focus-restore-shortcut`(T68~T81, 아직 push 안 함).
 
 ---
 
