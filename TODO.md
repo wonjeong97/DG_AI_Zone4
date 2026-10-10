@@ -12,6 +12,20 @@
 
 ## 완료
 
+- [x] T69 출시 전 전체 점검(감사 결과는 HANDOFF.md) — 사용자 결정: M2·L1·L2·L4·L5(관리자 창 열린 동안 QR·대기)·L6·L7·L8 일부·S4·설치 체크리스트 수정, S1(useInactivityTimer)은 사용자가 빌드 PC에서 직접 켬. 1·2차 점검 끝(2차 중간 이상은 T79뿐, 고침), PR #64 리뷰(Antigravity 10/10 통과) 뒤 머지(HANDOFF.md) — 담당: Claude / 검증: Antigravity(한도 초과 시 Claude 서브에이전트) (2026-10-10)
+- [x] T81 템플릿 26.10.10-1 → 26.10.10-2 업데이트(사용자 요청): JsonLoader 취소 예외 전파에 맞춰 IngredientSelectionController 초기화에 취소 catch, 비밀번호 저장은 SaveAsync 반환값으로 판정, 낡은 주석 4곳·T80 문구 갱신, URP 렌더러 에셋 자동 업그레이드 저장 — PlayMode 222/222 — 담당: Claude / 검증: Antigravity (2026-10-10)
+- [x] T79 등록되지 않은 RFID 장비(옆 PC 리더기의 Target IP 오설정 등)가 리더기 자리를 차지하고 그 카드가 지금 단계에 들어가던 것 — readers가 설정돼 있으면 접속 거부·IP·MAC 경고 한 번(2차 점검 중간, 4존 PC 2대 운용) — PlayMode 222/222 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T80 Settings.json 비활동 타이머가 꺼져 있거나 형식이 깨져 기본값으로 읽히면 릴리스 빌드에서 시작 때 오류 로그(근본 원인은 템플릿 JsonLoader — Template TODO에 기록) — PlayMode 222/222 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T70 레벨 4 연출 시간(3_Game.json level4StepPauseDuration 등)이 음수면 코딩 완료 뒤 멈춤 — 0 아래를 막음(M2) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T71 RfidMappings.json 검증 빈틈: 레벨 4 이동 네 방향, 레벨 5 동작 블록 id 4개(L6) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T72 로그 없이 끝나는 실패 분기에 로그·이유 주석(L7) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T73 아웃트로 스킵 직후 '처음으로' 버튼이 바로 눌리지 않게 짧게 늦춤(L4) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T74 checkActive 응답 BOM, 서버 이름 리치 텍스트(noparse), 끝 글자 낱자 이름 저장, 인트로 crossFadeDuration 0(L8) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T75 설계창을 끄는 동안 코드 자동 스크롤을 미룸(L1) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T76 미션 다시 보기 중 설정한 단계의 카드를 다른 분류로 바꾸면 게임 화면 복귀 때 반영(L2) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T77 관리자 창이 열린 동안 QR 입력·시작하기 대기 시간을 멈춤(L5) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T78 Addressables를 플레이어 빌드 때 항상 함께 빌드(S4), 설치·출시 체크리스트를 CLAUDE.md에(S2) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
+- [x] T68 템플릿 26.10.10-1(사용자 업데이트)의 새 단축키 F(창 포커스 복구)가 QR uid의 대문자 F에 눌림 — 템플릿 훅 `ConfigureInputBindings` override로 D·I·M·F를 Ctrl 조합으로(사용자 요청, 출시 전 점검 중 발견) — PlayMode 210/210 — 담당: Claude / 검증: Antigravity (2026-10-10)
 - [x] T67 전체 코드 점검과 수정(사용자: 문제 있으면 전부 고침): RFID 서버 정리·미등록 UID·리더기 재접속·MAC 우선 식별·카드 입력의 비활동 타이머, 미리 올린 카드 이어서 인식(사용자 결정), 레벨 4 자원 없이 기지 도착 실패 연출(사용자 결정), 레벨 1 미리보기·설계창 스크롤·행동 로그, 타이틀 페이드인 중 QR·같은 QR 재확인, 이름 창 한/영 확정, 씬 전환 오류 복구, 아웃트로·결과 연출 순서, 3_Game 로봇 영상 디코딩, 조용한 실패 경고, 설정값 JSON화(레벨 2 문구·레벨 4 시간), 검증기 보강(HANDOFF.md 참고) — PlayMode 209/209 — 담당: Claude / 검증: Claude 서브에이전트(점검 6·리뷰 6, agy 한도 초과로 대신), 최종 점검 Antigravity (2026-10-09)
 - [x] T65 QR 스캐너(키보드)의 Enter·글자가 터치로 누른 뒤 선택으로 남은 버튼을 다시 누르거나(Submit) 선택을 옮김(W·A·S·D Move) — 빌드 씬 6개 EventSystem의 Send Navigation Events를 끔, ScannerKeyboardInputTests로 확인. 처음 적은 '비밀번호 숫자가 한 번 더 입력됨'은 키패드가 Navigation None이라 터치로는 일어나지 않고, 실제로 영향받던 것은 Navigation Automatic인 관리자 화면·이름 창 버튼과 게임 화면 버튼(설정하기·좌우·취소 등)(사용자 요청, T64 리뷰에서 발견, 1존도 같은 구조) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)
 - [x] T66 쓰지 않는 `StreamingAssets/Videos/Tutorial.mp4`(약 74MB, 코드·씬·문서 참조 0건, 튜토리얼은 Addressables 이미지) 삭제(사용자 요청, 1존과 같게) — 담당: Claude / 검증: Claude(agy 한도 초과로 대신) (2026-10-09)

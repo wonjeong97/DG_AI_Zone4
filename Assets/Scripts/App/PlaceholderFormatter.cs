@@ -9,14 +9,28 @@ namespace DGAIZone.App
     /// </summary>
     public static class PlaceholderFormatter
     {
-        /// <summary> text의 {name}을 visitorName으로 치환함. visitorName이 비어 있으면 Constants.DefaultVisitorName을 씀. </summary>
+        /// <summary>
+        /// text의 {name}을 visitorName으로 치환함. visitorName이 비어 있으면 Constants.DefaultVisitorName을 씀.
+        /// 서버에서 받은 이름에 '&lt;'가 있으면 TMP가 리치 텍스트 태그로 읽어 문구가 깨지므로 noparse로 감쌈.
+        /// </summary>
         public static string ReplaceVisitorName(string text, string visitorName)
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
 
             string name = string.IsNullOrEmpty(visitorName) ? Constants.DefaultVisitorName : visitorName;
+            if (name.IndexOf('<') >= 0)
+            {
+                // 이름 안의 닫는 태그가 noparse를 일찍 끝내지 않게 먼저 지움 — 지운 자리에 다시 생기는 경우(</no</noparse>parse>)까지 반복함
+                while (name.IndexOf(NoParseClose, StringComparison.OrdinalIgnoreCase) >= 0)
+                    name = name.Replace(NoParseClose, string.Empty, StringComparison.OrdinalIgnoreCase);
+                name = ZString.Concat(NoParseOpen, name, NoParseClose);
+            }
+
             return text.Replace(Constants.VisitorPlaceholder, name);
         }
+
+        private const string NoParseOpen = "<noparse>";
+        private const string NoParseClose = "</noparse>";
 
         /// <summary>
         /// text의 숫자 자리표시자(예: {distance})를 value로 치환하고, 같은 이름에 조사 접미사를 붙인 자리표시자(예: {distance|이에요})는

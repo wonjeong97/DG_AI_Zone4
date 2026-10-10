@@ -102,8 +102,7 @@ namespace DGAIZone.App
         }
 
         /// <summary>
-        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)·서버 API를 등록하고
-        /// 템플릿 디버그 단축키를 Ctrl 조합으로 바꿈.
+        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)·서버 API를 등록함.
         /// </summary>
         protected override void Configure(IContainerBuilder builder)
         {
@@ -120,15 +119,16 @@ namespace DGAIZone.App
             // 운영 모드·체험자 이름 — 관리자 화면에서 바꾼 값은 PlayerPrefs에 남아 있어 재부팅 후에도 유지됨
             builder.RegisterInstance(LoadVisitorSettings());
 
-            // 템플릿 디버그 단축키(D·I·M)를 Ctrl 조합으로 — QR 스캐너가 입력하는 uid 문자와 겹치지 않게.
-            // GameManagerBase가 주입받는 것과 같은 싱글톤 인스턴스라 그대로 반영됨
-            builder.RegisterBuildCallback(container =>
-                DebugShortcutBindings.Apply(container.Resolve<TemplateInputActions>()));
-
             using (RegisterTmpFontsMarker.Auto())
             {
                 RegisterTmpFonts();
             }
+        }
+
+        /// <summary> 템플릿 단축키(D·I·M·F)를 Ctrl 조합으로 바꿔 QR 스캐너가 입력하는 uid 문자와 겹치지 않게 함. </summary>
+        protected override void ConfigureInputBindings(TemplateInputActions inputActions)
+        {
+            DebugShortcutBindings.Apply(inputActions);
         }
 
         /// <summary>

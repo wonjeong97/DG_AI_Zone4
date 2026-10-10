@@ -13,6 +13,93 @@
 
 ---
 
+### [2026-10-10] Claude → Antigravity · PR wonjeong97/DG_AI_Zone4#64 머지 전 리뷰(T68~T81)
+- 요청(사용자): PR을 만들고 리뷰 뒤 문제가 없으면 머지.
+- 리뷰(Antigravity `gemini-3.8-flash-high`, 한도 회복 뒤 — 그동안 Claude 서브에이전트만 리뷰했던 기능을 다시 봄): 기능별 diff 10묶음(79~208줄, 확인 2개씩, 동시 5개) — g1 레벨 4 시간·검증기, g2a·g2b 설계창 끌기 보류·ScrollDragTracker, g3 게임 화면 로그·바뀐 카드 반영·취소 catch, g4a 아웃트로·BOM·noparse·인트로 페이드, g4b 낱자 이름·조용한 분기·목적지 0, g5 관리자 창 열림 동안 QR·대기, g6a 미등록 리더기 거부, g6b 타이머 경고·비밀번호 저장, g8 CHANGELOG·CLAUDE.md → 10/10 통과(시간 초과 0, 지적 0).
+- 머지 전: main보다 뒤처진 커밋 0, CI 검사 없음, CHANGELOG [Unreleased]를 [2026-10-10] 섹션으로 옮기고 미등록 리더기 거부를 Breaking Changes로 분리.
+
+---
+
+### [2026-10-10] Claude · T69 2차 점검(수정 뒤 재점검) 완료 · T81 템플릿 26.10.10-2
+- 요청(사용자): 수정 뒤 바뀐 코드의 회귀와 1차에서 쓰지 않은 관점으로 다시 점검, 결과 중 중간 이상만 바로 고침. 사용자가 사용량 한도로 중단(다음에 이어서).
+- 운영 전제 추가(사용자): 4존은 PC 2대 — 왼쪽 PC 리더기 .180~.184, 오른쪽 .185~.189, 리더기는 TCP 클라이언트로 각자 PC를 Target IP로 설정(CLAUDE.md·메모리 반영).
+- 끝난 점검(Claude 서브에이전트, agy 한도 초과): 수정 코드 회귀·보안·개인정보·프레임 성능·화면 문구 — 코드 중간 이상은 아래 2건뿐, 모두 고침.
+  - T79(중간, 보안·장애 주입 두 감사가 같이 지적): 등록되지 않은 장비가 `Unknown_{ip}`로 접속해 리더기 자리(5)를 차지하고 그 카드가 지금 단계에 들어감(옆 PC 리더기 Target IP 오설정) → readers가 있으면 거부·IP·MAC 경고 한 번, MatchReaderId 테스트 3개.
+  - T80(설정 감사가 '높음'으로 냈으나 원인은 템플릿 JsonLoader): Settings.json 형식이 깨지면 비활동 타이머가 조용히 꺼짐 → 릴리스 빌드에서 꺼져 있으면 시작 때 오류 로그(GameManager.OnSettingsLoaded), Template 저장소 TODO에 JsonLoader 읽기 실패 기본값·저장 중 잘림 2건 추가(ed1373e, main 직접 push).
+  - 리뷰(Claude 서브에이전트): T79·T80 통과, 선택 제안(OnSettingsLoaded 훅) 반영. PlayMode 222/222, EditorSettings 되돌림.
+- 낮음으로 판정(기록만): RFID half-open(케이블 뽑힘 → 카드 떨어짐 처리, 다시 붙으면 Baseline — 떼었다 올리면 복구, 끊김 원인 로그 없음), 7바이트 정렬 어긋남(리더기가 조각을 보낼 때만), 포트 사용 중 재시도 없음, Unknown ARP 실패(T79로 거부되며 경고), RfidMappings·Server.json 누락 시 안내(건너뛰기·로그로 원인 확인 가능), 디스크 가득 참·전원 차단 때 Admin.json 잘림(템플릿 TODO), ShutdownScheduler·SoundManager 템플릿 경계, 회귀 낮음 3(두 손가락 끌기 bool 하나, 비밀번호 창 10번 탭만으로 QR 잠시 막힘, 디버그 키로 정한 단계의 카드 비교), 보안 낮음(checkActive 이름 줄바꿈·길이, 서버 원문 로그, 미등록 UID 로그, 스캐너 제어문자 Ctrl 조합), 성능(인트로 튜토리얼 동안 숨은 로봇 영상 디코딩, 레벨 선택 버튼 이동 Canvas 재배치, Reporter 매 프레임 문자열 — 템플릿), 문구 낮음(타이틀 Text_QR 두 줄이면 잘림 — qrCheckFailedText 1238px, 한자·이모지 이름 □).
+- 설정·운영·기획 결정(사용자 확인 필요): 로봇 영상 VP8 알파 960×960 CPU 디코딩 — 현장 PC에서 실측(중간 추정), Server.json baseUrl http(uid 평문) — https 또는 전용망, 이름 로그 30일 보관, Admin.json 재배포 때 보존, 방화벽 10123 원격 IP를 리더기로 한정, Windows 가장자리 스와이프·키오스크 모드, 유지보수 키보드 뺄 것, 문구 통일 후보(“3 보다”→“3보다”, “건너 뛰기”, “코딩중”, “이제[{name}]님”, 우주정거장/우주 정거장, 탐사로봇, 탑재 종류/탑재할 장비, [만약]·[반복] vs [제어], 1차/1단, 사용하기, START/Goal, 환영합니다/해요, 인트로 튜토리얼 반말, 아웃트로 “모든 우주 미션을 성공했어요”가 레벨 5 실패에도 나옴, color=blue 대비).
+- 이어서(같은 날 오후, 사용자 사용량 복구 뒤):
+  - T81 템플릿 26.10.10-1 → 26.10.10-2(사용자 요청, lock 해시 d992584). JsonLoader가 취소 시 예외를 던지게 바뀌어 IngredientSelectionController.InitializeWorkflowAsync에 catch(OperationCanceledException)를 앞에 둠(없으면 취소를 오류로 남기고 파괴 뒤 ResetWorkflowProgress 실행), 비밀번호 저장은 SaveAsync 반환값으로 판정, 낡은 주석 4곳·T80 문구 갱신(읽기 실패는 이제 템플릿이 타이머를 켠 대체 설정 90초를 씀), URP가 URP-Performant-Renderer.asset을 asset version 2로 자동 업그레이드해 저장(기본값). Template TODO에 적었던 JsonLoader 2건은 사용자가 26.10.10-2에서 고침. 4존의 Admin/ConsecutiveClickCounter는 템플릿에도 같은 이름이 생겼지만 네임스페이스가 달라 그대로 둠(정리 후보).
+  - 확인: 컴파일 오류 0, PlayMode 222/222, EditorSettings 되돌림. 리뷰 Antigravity(gemini-3.8-flash-high, 한도 회복): 호출부 11곳을 찾게 한 첫 요청은 시간 초과 → 줄 범위를 정한 두 요청으로 쪼개 2/2 통과.
+  - 장애 주입 중 남았던 서버·QR·터치(Claude 서브에이전트): 높음·중간 0. 낮음 — 유령 터치가 primaryTouch를 잡으면 인트로·3_Game 스토리 넘기기 불가(레벨 선택 대기 건과 같은 원인, 현장 터치스크린에서 확인 권장), QR 확인 중(최대 약 22초) 찍은 QR은 로그 없이 버려짐, updateValue가 200+HTML이면 재시도 없이 실패, CheckVisitorAsync가 OCE 외 예외에 '확인 중'으로 멈출 수 있음(경로 없음), 글자 간격을 처리 시각으로 잼, 끄는 도중 터치 장치가 빠지면 끌기 상태가 남음, 템플릿 ApiRetryUtil 요청 timeout 없음. 운영 — 서버 전면 장애 때 로컬 모드 전환 절차, 스캐너 접미사는 Enter(CR), 유지보수 키보드 Caps Lock.
+- 결론: 2차 점검의 중간 이상은 T79 한 건(고침·리뷰 통과)뿐이고 마지막 점검(서버·QR·터치)은 0건 — 마감(PR → 리뷰 → 머지)을 사용자에게 제안. 브랜치 `fix/t68-focus-restore-shortcut`(T68~T81, 아직 push 안 함).
+
+---
+
+### [2026-10-10] Claude (리뷰도 Claude — agy 한도 초과) · T70~T78 출시 전 점검 수정
+- 요청(사용자): T69 감사 결과 중 M2·L1·L2·L4·L5(관리자 창 열린 동안 QR·대기)·L6·L7·L8 일부(BOM·noparse·낱자 이름·crossFade 0)·S4·설치 체크리스트 수정. S1(useInactivityTimer)은 사용자가 빌드 PC에서 직접 켬(저장소 값 그대로, 1존도 false·20초).
+- 변경 파일:
+  - T70 `Game/UI/Level4BoardController.cs`(레벨 4 연출 시간 프로퍼티 4개를 `Mathf.Max(0, …)`·internal, SetSceneSettingsForTest), 테스트 `Level4OutcomeEvaluationTests`.
+  - T71 `Game/Data/RfidMappingValidator.cs`(레벨 4 이동 네 방향·레벨 5 동작 블록 id 4개 RequireMatterId), 테스트 `RfidMappingDataTests`.
+  - T72 조용한 분기 로그: `IngredientSelectionController`(코딩 완료·건너뛰기 _isBusy, 카드 없이 좌우 버튼, 이미 뗀 카드), `DesignPanel`(빼낼 블록 없음·content null), `AdminPanel`(_isLeaving), `VisitorNamePanel`(최대 글자·저장 불가 이름), `MissionBoardController`(목표 거리 0 이하 목적지 → 오류 로그와 기본 목적지), `RobotVideoPanel`(주석).
+  - T73 `Outro/OutroStoryController.cs`(넘기면 처음으로 버튼 0.5초 뒤).
+  - T74 `Network/CheckActiveResult.cs`(BOM), `App/PlaceholderFormatter.cs`(이름에 `<`가 있으면 noparse, 안의 닫는 태그는 반복해 지움), `Admin/VisitorNamePanel.cs`(끝 글자 호환 자모 U+3131~U+318E면 저장 불가), `Intro/IntroFlowController.cs`·`App/PanelFader.cs`(crossFade 0은 즉시, FallbackFadeDuration internal), 테스트 `CheckActiveResultTests`·`PlaceholderFormatterTests`·`AdminLogicTests`.
+  - T75 새 `Game/UI/ScrollDragTracker.cs`(ScrollRect 오브젝트에 런타임으로 붙어 끌기 시작·끝·꺼짐을 알림), `Game/UI/DesignPanel.cs`(끄는 동안 ScrollToBottom·ShrinkContentToStack·범위 줄이기를 미뤘다가 손을 떼면 마지막 요청 하나 처리, 끌기 시작 때 진행 중인 자동 스크롤은 멈추고 뒤로 미룸 — 3_Game·4_Result 설계창 모두), 테스트 `DesignPanelTests` 2개.
+  - T76 `IngredientSelectionController`(게임 화면 복귀 때 FindFirstChangedConfirmedStep로 분류가 바뀐 설정 단계 카드를 다시 처리 → 그 단계부터 되돌림, 처리했으면 지금 단계 카드 재적용 생략, 이어서 쓰는 로그에 되돌림 내용), 테스트 `IngredientFsmStateTests`.
+  - T77 `Title/TitleFlowController.cs`(Construct에 AdminPanel·AdminPasswordPanel, IsAdminOpen이면 QR 확인 안 함, 시작하기 대기가 끝나도 창이 닫힐 때까지 기다린 뒤 처음부터 다시 잼), 테스트 `AdminLogicTests`.
+  - T78 `AddressableAssetSettings.asset`(m_BuildAddressablesWithPlayerBuild 0 → 1), `CLAUDE.md`(설치·출시 체크리스트, 관리자 창 동작, 입력 전제), `CHANGELOG.md`.
+- 확인: Unity 컴파일·콘솔 오류 0, PlayMode 218/218 → 리뷰 반영 뒤 219/219, 실행 뒤 EditorSettings 되돌림, TMP 폰트 글리프 변경 버림. 작업 중 Bash heredoc 안 Python이 `\\uFEFF`·`\\r\\n`을 실제 문자로 바꿔 컴파일 오류 → 메모리의 함정대로 .py 파일과 chr(92)로 고침.
+- 리뷰(Claude 서브에이전트 5 — agy 한도 초과, 기능별 diff 170~300줄·확인 3개): A(T70·T71)·E(T77·T78) 통과. B(T72·T76) 수정 2 — 바뀐 카드를 다시 처리한 뒤 ApplyCardOnCurrentReader가 같은 카드를 또 처리해 잘못된 카드 경고가 두 번(ApplyChangedConfirmedCard가 bool 반환), 이어서 쓰는 로그에 되돌림 내용 빠짐 → 둘 다 반영. C(T72~T74) 통과, 경미 1 — noparse 닫는 태그를 한 번만 지워 다시 생길 수 있음 → 반복 제거·테스트. D(T75) 통과, 권장 반영 — 끄는 동안 범위 줄이기 미룸(UpdateContentHeight), AttachEndBlockAsync 설명, 테스트 TryGetComponent·범위 줄이기 테스트 추가.
+- 테스트 없이 코드 리뷰로만 확인: T73 지연, 인트로 0초 페이드, 목적지 0 이하 대체, T72 로그, T76 컨트롤러 흐름(순수 판정 함수만 테스트, 흐름은 리뷰로 확인).
+
+---
+
+### [2026-10-10] Claude · T69 출시 전 전체 점검(읽기 전용 감사)
+- 요청(사용자): 출시 전 전체 점검. 먼저 읽기 전용 감사, 수정 범위는 사용자가 정함.
+- 운영 전제(사용자 답, 메모리 저장): 전시 PC 매일 껐다 켬, 터치만·사실상 한 손가락(마우스 없음), QR 스캐너·체험자 서버 사용 → 하루 안에 영향 없는 누적·멀티터치 조합은 '낮음'.
+- 점검 방식:
+  - 규칙 grep(Claude 직접): `var`·GetComponent/Find 계열·Camera.main·UnityEngine.Object의 `?.`/`??`/`is null`·Debug.Log·LINQ·float `==`·DOTween 수명(트윈 42개 문장 단위)·메서드 summary(729개) — 위반 0(Debug.Log는 모두 정적 유틸 대체 출력·DI 실패 알림). 씬 6·프리팹·에셋의 끊긴 GUID·빠진 스크립트 0, 빌드 씬 6개 순서·상수 일치, StreamingAssets JSON 11개 형식 정상.
+  - 템플릿: 점검 중 사용자가 26.10.10-1로 올림 → F 단축키 문제 발견, T68로 고침(아래 항목).
+  - 흐름 감사(Claude 서브에이전트 6): 입력·드래그, 씬 사이 공유 상태, 비동기 경합, 장시간 운영, 빌드·에디터 차이, 데이터 정합성.
+  - 파일 감사: Antigravity(`gemini-3.8-flash-high`) 37요청 — 300줄·확인 2개 묶음 12건 중 11건 시간 초과 → 150줄 → 80줄로 쪼갬. 끝난 것: RfidReaderService 전 구간, TitleFlowController 1~450·526~598줄, IngredientSelectionController 1~310·391~465·621~775줄, CardPresenceTracker 등(모두 수정 필요 없음, 지적 2건은 오탐). 셸을 쓰려다 막힌 2건과 시간 초과 1건, 한도 초과(429, 2시간 뒤 초기화) 2건은 Claude가 직접 읽음(Title 451~525, ISC 311~390·466~620·776~930). 나머지 파일은 Claude 서브에이전트 6(A·B·C1~C4)이 agy 대신 감사.
+- 높음: 0(코드). 단 아래 설정·운영 S1은 그대로 출시하면 데이터 오염.
+- 중간(코드, 확정):
+  - M1 (고침, T68) 템플릿 26.10.10-1의 창 포커스 복구 단축키 F가 QR uid 대문자 F에 눌려 스캔마다 포커스 복구가 꺼졌다 켜짐.
+  - M2 `Game/UI/Level4BoardController.cs:502` `level4StepPauseDuration`이 음수면 `UniTask.Delay`가 ArgumentOutOfRangeException → 레벨 4 코딩 완료 뒤 게임 패널 잠긴 채 결과로 못 감(비활동 타임아웃까지). 재현: 3_Game.json 값 -0.1 → 레벨 4 이동 1장 → 코딩 완료. JSON 오입력 때만 생기지만 다른 시간 값(타이틀 scanResultMessageSeconds 등)은 이미 `Mathf.Max(0, …)`로 막는 것과 어긋남. 고칠 방향: 같은 보정, level4MoveDuration·CollisionScaleDuration도 맞춤.
+- 낮음(확정 위주, 재현 순서는 감사 원문 기준):
+  - L1 설계창·결과 설계창을 손가락으로 끄는 동안 코드 자동 스크롤(카드 뗌·블록 쌓기)이 겹치면 화면이 떨리고 손을 뗄 때 튐(`DesignPanel.cs:540-578`, `ResultDesignPlayback.cs:44`) — 표시만.
+  - L2 미션 다시 보기 화면에서 이미 설정한 단계의 카드를 1초 안에 다른 카드로 바꾸면 게임 화면에 돌아와도 반영되지 않음(`IngredientSelectionController.cs:566`, 복귀 때 확정 단계 분류 비교 없음).
+  - L3 건너뛰기 때 임시로 떨어뜨린 블록까지 '나의 코딩 결과'에 붙은 것으로 기록(`IngredientSelectionController.cs:1280`) — 실패 처리라 표시만.
+  - L4 아웃트로 스킵 탭 뒤 다음 프레임에 '처음으로'가 켜져 연타하면 남은 문구를 못 읽고 타이틀로(`OutroStoryController.cs:68-107`, 레벨 선택은 손 뗄 때까지 기다림).
+  - L5 관리자: 씬 전환이 실패·무시되면 `_isLeaving`이 남아 관리자 화면이 닫히지 않음(`AdminPanel.cs:327`, 추정·경로 드묾), 관리자 창이 열린 동안에도 QR 확인·시작하기 대기 시간이 돌아 창 뒤에서 체험자가 바뀌거나 move_idle_timeout이 감(`TitleFlowController.cs:264,489`), 운영 모드 변경 뒤 닫기와 시작하기가 1프레임 겹치는 틈(업로드 오염 없음), Admin.json 로드 직후 진입 클릭 수가 0부터 다시(`AdminTrigger.cs:79`).
+  - L6 설정 검증 빈틈: 레벨 4 이동 블록 네 방향이 다 있는지, 레벨 5 동작 블록 id가 현재 상황 그림 4개와 맞는지 검사 안 함(`RfidMappingValidator.cs:180,230`) — 오타 시 풀 수 없는 배치·그림 없음, 레벨 5 경고 반복.
+  - L7 조용한 실패 분기(규칙 위반): `IngredientSelectionController.cs:1199·1263·1388·1401·836`, `DesignPanel.cs:205·530`, `AdminPanel.cs:197·297`, `VisitorNamePanel.cs:323·332·456`, `MissionBoardController.cs:580`(목적지 거리 0 이하), `RobotVideoPanel.cs:73`(준비 실패 뒤 Play).
+  - L8 그 밖: 이름 입력이 끝 글자 낱자(예: `홍길ㄷ`)도 저장(`VisitorNamePanel.cs:443`), 서버 이름의 `<` 리치 텍스트 해석(`<noparse>` 없음), 튜토리얼 이미지 로드 실패 때 번호만 바뀜, 인트로 crossFadeDuration 0 → 0.4초(PanelFader는 0 허용), checkActive 응답 BOM 미처리, 3_Game 숨은 로봇 영상 첫 프레임 준비 중 Pause면 5초 대기·틀린 경고, 레벨 선택 '손 뗄 때까지' 대기 상한 없음(유령 터치), 결과 화면 비 OCE 예외·짧은 영상 종료 판정(추정, 경로 없음), JsonLoader 기본값 뒤 취소 확인 없음 3곳(앱 종료 때만), 레벨 4 디버그 Space 재시작(개발 빌드만), 관리자 레벨 이동 판 결과 버튼 문구.
+  - L9 장시간: RFID 서버를 판마다 열고 닫음 — Windows Mono TcpListener 기본 ExclusiveAddressUse=false라 TIME_WAIT로 바인드 실패할 가능성은 낮다고 봄(현장 netstat 확인 권장), TMP 동적 아틀라스가 새 이름 음절마다 늘어남(하루 수 MB), realtimeSinceStartup 정밀도(하루 문제없음).
+- 설정·운영 결정:
+  - S1 **`Settings.json` `useInactivityTimer: false`(저장소 값)** — 그대로 빌드하면 비활동 복귀도, QR 확인 뒤 시작하기 대기 제한도 없음 → 떠난 체험자의 판을 다음 사람이 이어 하거나 앞사람 이름으로 시작해 서버 기록이 섞임. 켤 때 `resetTime: 20`초가 짧은지도 정해야 함.
+  - S2 설치 체크리스트: Development Build 끔(켜면 3_Game에서 스캐너 숫자가 디버그 카드 1~4로 잡힘), 첫 실행은 로컬 모드(PlayerPrefs) → 관리자 화면에서 서버 모드로, 관리자 비밀번호 0000 변경(틀린 횟수 제한 없음), 설치 폴더 쓰기 가능(Admin.json 저장), **Windows 방화벽 인바운드 TCP 10123 규칙 미리 등록**(첫 실행 경고 창을 포커스 복구가 3초 뒤 가려 터치만으로는 허용 불가), 유지보수 때 키보드 연결(포커스 복구 끄기 Ctrl+F).
+  - S3 업로드 정책(서버 담당 확인): 같은 레벨을 다시 하면 0이 1을 덮어씀, 업로드 재시도(최대 약 60초) 중 같은 레벨을 다시 하면 앞판 값이 나중에 덮을 수 있음, 전부 실패하면 그 판 기록 유실. 해금은 0·1 모두 '기록 있음'이라 진행도엔 영향 없음.
+  - S4 `AddressableAssetSettings` `m_BuildAddressablesWithPlayerBuild: 0`(에디터 환경 설정 따름) → 1로 고정할지. 노트북 환경 설정은 미확인.
+  - S5 `2_LevelSelect.json` `unlockedLevelCount`는 서버 모드에서 1로 둠(크면 서버 기록과 상관없이 해금).
+  - S6 비활동 타이머는 모든 장치 입력(다음 사람의 QR 포함)으로 다시 잼(템플릿) — 그대로 둘지.
+  - S7 RFID 서버를 루트 스코프로 옮겨 판마다 리더기 재접속을 없앨지(구조 변경, 출시 후 후보).
+  - S8 출시 전 빌드로 100판 이상 반복해 프로세스 메모리 추이 확인(VideoPlayer 네이티브 메모리는 코드로 확인 불가), 에디터를 서버 모드로 시험하면 실제 서버에 업로드됨, 에디터에서 비밀번호를 바꾸면 git 추적 Admin.json이 바뀜.
+- 템플릿(Template 저장소 TODO 후보): JsonLoader.SaveAsync가 임시 파일 없이 덮어써 저장 중 전원이 꺼지면 Admin.json이 잘림.
+- 오탐(코드로 확인): CardPresenceTracker 접속 직후 판정 창(수신 루프가 약 10ms마다 CheckRemoved로 닫음), TitleFlowController UniTaskVoid 취소 예외(UniTask 기본이 무시), StoryLineAnimator finally Resume(스토리 도중 씬을 떠나는 경로 없음), 드래그 짝(프로젝트에 드래그 핸들러 없음), GameResultStore 이전 판 값(3_Game이 모든 경로에서 덮어씀), Result Pause/Resume 짝, Addressables 해제·구독 해제·정적 상태·DOTween 무한 트윈, 스트리핑(Mono·Disabled), 데이터 정합성(카드 53장·id·레벨 1~5 정답 손 계산·영상 12개·효과음 8개·씬 참조 198개 빈 칸 0).
+
+---
+
+### [2026-10-10] Claude → Antigravity · T68 템플릿 F 단축키
+- 요청(사용자): 템플릿을 26.10.10-1로 업데이트함(packages-lock 640d05e → c844e1c, 사용자 커밋 따로). 새 단축키 오버라이드 메서드로 D·I·M·F를 처리.
+- 원인: 템플릿 WindowFocusRestorer의 System/ToggleFocusRestore가 F 단일 키. QR uid(예: `440930W1XWQH`)에 대문자 F가 있으면 스캐너의 Shift+F에도 눌려 스캔마다 포커스 복구가 꺼졌다 켜짐.
+- 변경 파일: `App/GameLifetimeScope.cs`(RegisterBuildCallback 삭제 → `ConfigureInputBindings` override, TemplateInputActions가 만들어진 직후·소비자가 켜기 전에 불림), `App/DebugShortcutBindings.cs`(ToggleFocusRestore 추가), `Tests/Runtime/DebugShortcutBindingsTests.cs`(F 케이스), `CLAUDE.md`, `CHANGELOG.md` Fixed, 버전 26.10.10.
+- 확인: Unity 컴파일·콘솔 오류 0, PlayMode 210/210, 실행 뒤 EditorSettings 되돌림. 에디터에서 루트 프리팹 GameLifetimeScope로 훅을 불러 네 액션 모두 원래 키가 빈 경로·Ctrl 조합이 추가됨을 확인. 테스트 때 바뀐 TMP 폰트 글리프는 버림.
+- 결과(Antigravity `gemini-3.8-flash-high`): 2/2 통과 — 훅 호출 시점이 소비자 활성화 전, 빌드 콜백 삭제로 빠지는 동작 없음, 테스트·문서가 동작과 맞음.
+
+---
+
 ### [2026-10-09] Claude · T67 전체 코드 점검과 수정
 - 요청(사용자): 전체 코드 점검(스킬 준수·성능·리팩터링·버그), 이어서 "문제 있으면 전부 고쳐"(자는 동안). 중간 결정: 미리 올린 카드는 이어서 인식, 레벨 4 자원 없이 기지 도착은 실패 연출, 큰 구조 분리는 하지 않음.
 - 점검(Claude 서브에이전트 6, 영역별: RFID·게임 UI·레벨 규칙·앱 기반·타이틀/관리자·흐름 씬, agy 한도 초과): 높음 0. 중간 — 카드 입력이 비활동 타이머를 초기화하지 않아 카드만 다루면 게임 도중 타이틀로 돌아감, 설정 로드 중 씬이 내려가면 RFID 서버가 포트를 붙든 채 남음, 미등록 UID가 끼면 올려 둔 카드가 다시 발행돼 진행이 지워짐, 3_Game 숨은 로봇 영상 디코딩, 아웃트로 스토리가 페이드인 전에 시작, 같은 QR 재스캔 재확인, VContainer `= null` 기본값이 선택 주입이 아님(문서화). 그 밖에 낮음 다수.

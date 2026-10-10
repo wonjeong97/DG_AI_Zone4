@@ -14,7 +14,7 @@ namespace DGAIZone.App
     /// </summary>
     public static class PanelFader
     {
-        private const float FallbackFadeDuration = 0.4f;
+        internal const float FallbackFadeDuration = 0.4f;
 
         /// <summary>
         /// DOTween으로 CanvasGroup 알파를 startAlpha에서 endAlpha로 보간함. 페이드 동안에는 상호작용을 막고,

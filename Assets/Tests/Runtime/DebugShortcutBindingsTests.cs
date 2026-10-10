@@ -7,8 +7,8 @@ using UnityEngine.InputSystem.LowLevel;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 템플릿 디버그 단축키가 문자 키 하나로는 실행되지 않고 Ctrl 조합으로만 실행되는지 검증함.
-    /// QR 스캐너가 uid의 영문 대문자(D·I·M 포함)를 키보드 입력으로 보내므로 문자 키 하나로 실행되면 안 됨.
+    /// 템플릿 단축키가 문자 키 하나로는 실행되지 않고 Ctrl 조합으로만 실행되는지 검증함.
+    /// QR 스캐너가 uid의 영문 대문자(D·I·M·F 포함)를 키보드 입력으로 보내므로 문자 키 하나로 실행되면 안 됨.
     /// </summary>
     public class DebugShortcutBindingsTests
     {
@@ -55,6 +55,7 @@ namespace DGAIZone.Tests
         [TestCase("ToggleDebug", Key.D)]
         [TestCase("ToggleInspector", Key.I)]
         [TestCase("ToggleMouse", Key.M)]
+        [TestCase("ToggleFocusRestore", Key.F)]
         public void 문자_키만으로는_실행되지_않고_Ctrl_조합으로_실행된다(string actionName, Key key)
         {
             int performedCount = 0;

@@ -312,6 +312,20 @@ namespace DGAIZone.Tests
         }
 
         [Test]
+        public void 검증기는_레벨4_이동_방향이나_레벨5_그림_블록이_빠지면_찾아낸다()
+        {
+            RfidMatterSet moveSet = GetMapping(4).matterSets.First(s => s.id == Constants.RfidIds.Level4.Move);
+            moveSet.matters = moveSet.matters.Where(m => m.id != Constants.RfidIds.Level4.MoveLeft).ToArray();
+            RfidMatterSet actionSet = GetMapping(5).matterSets.First(s => s.id == Constants.RfidIds.Level5.Action);
+            actionSet.matters.First(m => m.id == Constants.RfidIds.Level5.CommunicationCode).id = "CommunicationCod";
+
+            List<string> errors = RfidMappingValidator.Validate(_settings);
+
+            AssertHasError(errors, "레벨 4 이동하기", $"'{Constants.RfidIds.Level4.MoveLeft}'");
+            AssertHasError(errors, "레벨 5 동작", $"'{Constants.RfidIds.Level5.CommunicationCode}'", "그림");
+        }
+
+        [Test]
         public void 검증기는_도달할_수_없는_목적지와_맞지_않는_기준값_범위를_찾아낸다()
         {
             LevelData level1Data = ScriptableObject.CreateInstance<LevelData>();

@@ -43,9 +43,10 @@
 
 ### RFID 리더기 (KA-LAN-754 × 5)
 
+- 4존은 PC 2대로 운용한다. 왼쪽 PC는 리더기 IP `.180`~`.184`, 오른쪽 PC는 `.185`~`.189`를 쓰고, PC마다 `RfidMappings.json`의 `readers`가 다르다(저장소 파일은 왼쪽 PC용).
 - `Reader_1` ~ `Reader_5`가 단계 1 ~ 5에 대응한다.
 - 리더기가 TCP 클라이언트로 Unity PC(서버, 포트 `listenPort` 10123)에 접속한다. 리더기의 Target IP는 Unity PC의 IP여야 한다.
-- 리더기 식별: 접속한 IP를 `readers[].ipAddress`와, ARP로 조회한 MAC을 `macAddress`와 대조한다. 둘이 서로 다른 리더기를 가리키면 MAC을 따르고(현장 이동으로 IP가 엇갈린 경우, 경고 로그), 한쪽만 맞으면 그쪽으로 식별한다.
+- 리더기 식별: 접속한 IP를 `readers[].ipAddress`와, ARP로 조회한 MAC을 `macAddress`와 대조한다. 둘이 서로 다른 리더기를 가리키면 MAC을 따르고(현장 이동으로 IP가 엇갈린 경우, 경고 로그), 한쪽만 맞으면 그쪽으로 식별한다. 어느 쪽과도 맞지 않으면(옆 PC의 리더기가 Target IP를 잘못 가리킴 등) 접속을 거부하고 IP·MAC을 경고로 한 번 남긴다(`readers`가 비어 있을 때만 시험용 임시 ID로 받음).
 - **연속 읽기 모드로 설정해야 한다.** 카드가 올라가 있는 동안 구분자 없는 원시 7바이트 UID를 계속 보낸다(0x0D가 섞일 수 있음).
   - `mappings[].uid`는 공백 없는 16진수 14자리(예: `81736922E51D04`)다. 1회 읽기 모드 응답 `A1G0` + 14자리 + 2자리의 가운데 14자리와 같다.
   - 같은 UID가 반복되면 한 번만 처리한다. UID가 `cardRemovedDebounceMs`(기본 1000ms) 동안 오지 않으면 카드를 뗀 것으로 본다.
@@ -72,14 +73,27 @@
 - 타이틀 왼쪽 위의 보이지 않는 버튼을 3초 안에 10번 누른 뒤 비밀번호를 입력한다(횟수·시간은 `Admin.json`).
 - 화면을 누르지 않고 두면 비밀번호 창은 10초, 관리자 화면·이름 입력 창은 60초 뒤 닫힌다(`IdleCloseTimer`, 타이틀은 비활동 타이머가 멈춰 있어 따로 잰다). 이미 바꾼 운영 모드는 반영되고, 입력 중이던 이름·비밀번호만 저장되지 않는다. QR 스캐너 키 입력으로는 시간을 다시 재지 않는다.
 - 로컬·서버 모드 전환, 로컬 모드 체험자 이름(화면 키보드로만 입력), 비밀번호 변경, 레벨 이동(그 판의 결과는 서버에 올리지 않음).
+- 관리자 화면·비밀번호 창이 열린 동안에는 찍은 QR을 확인하지 않고, 시작하기 대기 시간이 지나도 확인한 체험자를 비우지 않는다(창이 닫히면 처음부터 다시 잰다).
 
 ### 입력·디버그
 
-- 터치스크린. 화면 아무 곳이나 누르는 판정은 `Pointer.current`로 한다.
+- 터치스크린(운영은 사실상 한 손가락, 마우스 없음). 화면 아무 곳이나 누르는 판정은 `Pointer.current`로 한다.
 - 디버그 키(에디터·개발 빌드만, `App/DebugInputActions.inputactions`의 Debug 맵): `1`~`4`는 동작·제어·논리·함수 카드 흉내(`KeyboardRfidSimulator`), `Space`는 레벨 4 시뮬레이션·전체 레벨 해금.
+
+### 설치·출시 체크리스트
+
+전시 PC는 매일 껐다 켠다. 빌드·설치할 때 확인한다.
+
+- Development Build를 끈다. 켜 두면 3_Game에서 QR 스캐너의 숫자가 디버그 카드 키 `1`~`4`로 잡히고 서버 로그도 보내지 않는다.
+- `Settings.json`의 `useInactivityTimer`를 `true`로, `resetTime`을 현장 값으로 바꾼다(저장소 값은 개발용 `false`). 끄면 떠난 체험자의 판을 다음 사람이 이어 하거나 앞사람 이름으로 시작해 서버 기록이 섞인다.
+- 설치 폴더는 쓰기 가능한 곳에 둔다(Program Files 금지). 관리자 비밀번호를 `Admin.json`에 저장한다.
+- 첫 실행은 로컬 모드다(운영 모드는 PlayerPrefs). 관리자 화면에서 서버 모드로 바꾸고, 기본 비밀번호 `0000`을 바꾼다.
+- Windows 방화벽에 인바운드 TCP `listenPort`(10123) 허용 규칙을 미리 등록한다. 첫 실행 때 뜨는 허용 창은 창 포커스 복구가 3초 뒤 앱으로 가려 터치만으로는 누를 수 없다.
+- 유지보수(JSON 수정 등) 때는 키보드를 연결해 `Ctrl+F`로 창 포커스 복구를 끄거나 앱을 종료한다.
+- Addressables는 플레이어 빌드 때 함께 빌드된다(`AddressableAssetSettings`의 Build Addressables on Player Build = 항상).
 
 ## 공통 규칙의 예외
 
 - 세션 상태는 GameSession(ScriptableObject) 대신 루트 스코프 싱글톤 저장소(`SelectedLevelStore`, `UnlockedLevelStore`, `GameResultStore`, `VisitorInfoProvider`, `AdminLevelJumpStore`)에 둔다(2026-10-07 결정).
-- 템플릿 디버그 단축키(D 디버그 창·I 인스펙터·M 마우스 커서)는 QR 스캐너 입력과 겹쳐 `Ctrl+D`·`Ctrl+I`·`Ctrl+M`으로 바꿔 쓴다(`App/DebugShortcutBindings.cs`).
+- 템플릿 단축키(D 디버그 창·I 인스펙터·M 마우스 커서·F 창 포커스 복구)는 QR 스캐너 입력과 겹쳐 `Ctrl+D`·`Ctrl+I`·`Ctrl+M`·`Ctrl+F`로 바꿔 쓴다(`GameLifetimeScope.ConfigureInputBindings` → `App/DebugShortcutBindings.cs`).
 - 레벨 상태(`IngredientLevel1~5State`)는 컨트롤러 로거를 빌려 쓰므로 로그 태그가 `[IngredientSelectionController]`다.

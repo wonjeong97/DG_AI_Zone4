@@ -194,7 +194,11 @@ namespace DGAIZone.Admin
         /// <summary> 클릭음을 내고 관리자 화면을 닫음. </summary>
         private void OnCloseClicked()
         {
-            if (_isLeaving) return;
+            if (_isLeaving)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[AdminPanel] 이미 화면을 떠나는 중이라 닫기를 무시함.");
+                return;
+            }
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             Close();
@@ -294,7 +298,11 @@ namespace DGAIZone.Admin
         /// </summary>
         private void OnLevelClicked(int level)
         {
-            if (_isLeaving) return;
+            if (_isLeaving)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[AdminPanel] 이미 화면을 떠나는 중이라 레벨 {level} 이동을 무시함.");
+                return;
+            }
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             if (_levelJumpStore == null || _unlockedLevelStore == null || _selectedLevelStore == null)

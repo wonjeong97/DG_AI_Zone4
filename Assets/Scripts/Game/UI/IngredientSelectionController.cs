@@ -274,8 +274,9 @@ namespace DGAIZone.Game.UI
             _currentIngredient.Subscribe(UpdateIngredientText).AddTo(ref _disposables);
             _currentMatterIndex.Subscribe(_ => { UpdateMatterText(); UpdateProgressPreview(); }).AddTo(ref _disposables);
 
-            // 미션 다시 보기 등으로 게임 화면이 잠시 비활성인 동안 올린 카드는 무시되므로, 게임 화면으로 돌아오면 지금 단계 리더기에 놓인 카드를 이어서 씀
-            if (gamePanel) Observable.EveryValueChanged(gamePanel, panel => panel.interactable).Where(interactable => interactable).Subscribe(_ => ApplyCardOnCurrentReader()).AddTo(ref _disposables);
+            // 미션 다시 보기 등으로 게임 화면이 잠시 비활성인 동안 올린 카드는 무시되므로, 게임 화면으로 돌아오면 설정한 단계에서 바뀐 카드와
+            // 지금 단계 리더기에 놓인 카드를 이어서 씀
+            if (gamePanel) Observable.EveryValueChanged(gamePanel, panel => panel.interactable).Where(interactable => interactable).Subscribe(_ => OnGamePanelReturned()).AddTo(ref _disposables);
             // gamePanel 누락은 카드를 받을 때 경고함(TryRouteToCurrentStep)
 
             UpdateCodingCompleteButton();
@@ -312,12 +313,13 @@ namespace DGAIZone.Game.UI
             try
             {
                 RfidSettings settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token, _logger);
-
-                // 로드 중에 씬을 떠나 이 오브젝트가 파괴됨. JsonLoader는 취소돼도 예외 없이 기본값을 돌려주므로 여기서 멈춤
-                // (계속하면 이미 해제된 상태 머신·참조를 건드려 ObjectDisposedException과 null 경고가 이어짐)
-                if (token.IsCancellationRequested) return;
-
                 ApplyRfidSettings(settings);
+            }
+            catch (OperationCanceledException)
+            {
+                // 로드 중에 씬을 떠나 이 오브젝트가 파괴됨(템플릿 26.10.10-2부터 JsonLoader가 취소를 던짐) — 여기서 멈춤.
+                // 계속하면 이미 해제된 상태 머신·참조를 건드려 ObjectDisposedException과 null 경고가 이어짐
+                return;
             }
             catch (Exception e)
             {
@@ -516,6 +518,54 @@ namespace DGAIZone.Game.UI
             }
 
             ApplyStepCard(evt, ingredient, matters);
+        }
+
+        /// <summary> 게임 화면으로 돌아왔을 때, 숨어 있던 동안 바뀐 카드를 반영함(설정한 단계의 분류가 바뀐 카드 → 지금 단계에 놓인 카드 순서). </summary>
+        private void OnGamePanelReturned()
+        {
+            // 바뀐 카드로 그 단계를 되돌렸으면 그 카드가 곧 지금 단계 카드이므로 다시 쓰지 않음(쓸 수 없는 카드면 경고가 두 번 나옴)
+            if (ApplyChangedConfirmedCard()) return;
+            ApplyCardOnCurrentReader();
+        }
+
+        /// <summary>
+        /// 게임 화면이 아닐 때(미션 다시 보기 등) 이미 설정한 단계의 리더기에서 카드가 다른 분류의 카드로 바로 바뀌었으면(떨어짐 판정 시간 안에 교체해
+        /// 떨어짐이 없었음) 그 카드를 방금 올린 것처럼 처리해 그 단계부터 되돌림. 같은 분류면 설정한 값이 그대로 유효하므로 둠. 처리했으면 true.
+        /// </summary>
+        private bool ApplyChangedConfirmedCard()
+        {
+            if (_confirmedCategories == null || _readerCount <= 1 || _isBusy) return false; // 초기화 전·리더기 1대 구성·결과 화면으로 넘어가는 중(정상)
+
+            int changedStep = FindFirstChangedConfirmedStep(_cardsOnReaders, _confirmedCategories, _currentStepIndex);
+            if (changedStep < 0) return false; // 바뀐 카드 없음(정상)
+
+            _isReplayingCard = true;
+            try
+            {
+                OnRfidTagReceived(_cardsOnReaders[changedStep]);
+            }
+            finally
+            {
+                _isReplayingCard = false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 설정을 마친 단계(confirmedCount 앞) 중 리더기에 놓인 카드의 분류가 설정할 때와 다른 가장 앞 단계 번호를 돌려줌. 없으면 -1.
+        /// 카드를 뗀 단계는 cardsOnReaders에 없으므로 대상이 아님(떨어짐 처리가 따로 함).
+        /// </summary>
+        internal static int FindFirstChangedConfirmedStep(IReadOnlyDictionary<int, RfidTagEvent> cardsOnReaders, string[] confirmedCategories, int confirmedCount)
+        {
+            int count = Math.Min(confirmedCount, confirmedCategories.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (!cardsOnReaders.TryGetValue(i, out RfidTagEvent card)) continue;
+                if (!string.Equals(card.Category, confirmedCategories[i], StringComparison.Ordinal)) return i;
+            }
+
+            return -1;
         }
 
         /// <summary>
@@ -719,7 +769,8 @@ namespace DGAIZone.Game.UI
             _rollbackNote = null;
             if (_logger == null) return;
 
-            if (_isReplayingCard) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 올려 둔 {evt.Category} 카드를 이어서 씀 — {outcome}.");
+            if (_isReplayingCard && rollbackNote != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 올려 둔 {evt.Category} 카드를 이어서 씀 — {rollbackNote}, {outcome}.");
+            else if (_isReplayingCard) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 올려 둔 {evt.Category} 카드를 이어서 씀 — {outcome}.");
             else if (rollbackNote != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 {evt.Category} 카드를 올림 — {rollbackNote}, {outcome}.");
             else _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}에 {evt.Category} 카드를 올림 — {outcome}.");
         }
@@ -837,6 +888,10 @@ namespace DGAIZone.Game.UI
             {
                 LogCardRemoved(evt.ReaderId, ZString.Format("{0}번째 단계부터 블록을 잠시 떼고 설정하기·코딩 완료를 막음", stepIndex + 1));
                 RefreshMissingCards();
+            }
+            else
+            {
+                LogCardRemoved(evt.ReaderId, ZString.Format("{0}번째 단계 카드는 이미 뗀 것으로 처리돼 있어 그대로 둠", stepIndex + 1));
             }
         }
 
@@ -1196,7 +1251,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnCodingCompleteClicked()
         {
-            if (_isBusy) return;
+            if (_isBusy)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 코딩 완료를 누름 — 이미 결과 화면으로 넘어가는 중이라 무시함.");
+                return;
+            }
 
             if (_sceneTransition == null)
             {
@@ -1260,7 +1319,11 @@ namespace DGAIZone.Game.UI
         /// </summary>
         private void OnSkipButtonClicked()
         {
-            if (_isBusy) return;
+            if (_isBusy)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 건너뛰기를 누름 — 이미 결과 화면으로 넘어가는 중이라 무시함.");
+                return;
+            }
 
             if (_sceneTransition == null)
             {
@@ -1385,7 +1448,11 @@ namespace DGAIZone.Game.UI
         private void OnLeftButtonClicked()
         {
             RfidMatter[] matters = _currentMatters;
-            if (matters == null || matters.Length == 0) return;
+            if (matters == null || matters.Length == 0)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 왼쪽 버튼을 누름 — 지금 단계에 카드를 올리기 전이라 고를 블록이 없음.");
+                return;
+            }
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             int len = matters.Length;
@@ -1398,7 +1465,11 @@ namespace DGAIZone.Game.UI
         private void OnRightButtonClicked()
         {
             RfidMatter[] matters = _currentMatters;
-            if (matters == null || matters.Length == 0) return;
+            if (matters == null || matters.Length == 0)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} 오른쪽 버튼을 누름 — 지금 단계에 카드를 올리기 전이라 고를 블록이 없음.");
+                return;
+            }
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             int len = matters.Length;

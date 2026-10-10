@@ -295,10 +295,11 @@ namespace DGAIZone.Intro
                 if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 CanvasGroup이 null이라 페이드를 건너뜀.");
                 return;
             }
-            if (duration <= 0f)
+            if (duration < 0f)
             {
-                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 페이드 시간이 {duration}초라 0.4초로 대신함.");
-                duration = 0.4f;
+                // 0은 즉시 전환으로 그대로 씀(PanelFader와 같은 규칙, 현장에서 페이드를 끄려고 0을 넣는 경우)
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] 패널 페이드 시간이 음수({duration})라 기본값 {PanelFader.FallbackFadeDuration}초를 씀.");
+                duration = PanelFader.FallbackFadeDuration;
             }
 
             group.alpha = startAlpha;

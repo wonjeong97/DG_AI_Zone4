@@ -42,7 +42,8 @@ namespace DGAIZone.Network
         /// </summary>
         public static CheckActiveResult Parse(string body)
         {
-            string text = body == null ? string.Empty : body.Trim();
+            // UTF-8 BOM(U+FEFF)은 Trim이 지우지 않아 함께 지움(붙어 오면 모든 응답이 해석 불가가 됨)
+            string text = body == null ? string.Empty : body.Trim().Trim('\uFEFF').Trim();
 
             if (text == Constants.VisitorApi.NotFoundResponse) return new(CheckActiveStatus.NotFound);
             if (text == Constants.VisitorApi.CompletedResponse) return new(CheckActiveStatus.Completed);

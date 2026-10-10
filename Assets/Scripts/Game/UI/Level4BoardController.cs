@@ -40,12 +40,13 @@ namespace DGAIZone.Game.UI
         private const float GridHeight = 234f; // Image_Grid(Grid.png) sizeDelta.y
         private const float OutOfBoundsPeekFraction = 0.5f; // 그리드 밖으로 나갈 때, 나가려던 방향으로 한 칸의 이 비율만큼만 더 이동하며 사라짐
 
-        // 3_Game.json(GameSceneSettings) 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
+        // 3_Game.json(GameSceneSettings) 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀.
+        // 시간 값은 0 이상으로 제한함: 음수를 적으면 UniTask.Delay가 예외를 내 코딩 완료 연출이 멈추고 결과 화면으로 넘어가지 못함
         private GameSceneSettings _sceneSettings = new GameSceneSettings();
-        private float MoveDuration => _sceneSettings.level4MoveDuration;
-        private float StepPauseDuration => _sceneSettings.level4StepPauseDuration;
-        private float CollisionScaleDuration => _sceneSettings.level4CollisionScaleDuration;
-        private float HqRejectShakeDuration => _sceneSettings.level4HqRejectShakeDuration;
+        internal float MoveDuration => Mathf.Max(0f, _sceneSettings.level4MoveDuration);
+        internal float StepPauseDuration => Mathf.Max(0f, _sceneSettings.level4StepPauseDuration);
+        internal float CollisionScaleDuration => Mathf.Max(0f, _sceneSettings.level4CollisionScaleDuration);
+        internal float HqRejectShakeDuration => Mathf.Max(0f, _sceneSettings.level4HqRejectShakeDuration);
         private float HqRejectShakeStrength => _sceneSettings.level4HqRejectShakeStrength;
 
         private const string MoveIngredientId = Constants.RfidIds.Level4.Move;
@@ -81,6 +82,12 @@ namespace DGAIZone.Game.UI
             ResourceRow = resourceRow;
             TrapRow = trapRow;
             HqRow = hqRow;
+        }
+
+        /// <summary> 유닛 테스트용: 3_Game.json을 읽지 않고 연출 시간 설정을 직접 넣음. </summary>
+        internal void SetSceneSettingsForTest(GameSceneSettings settings)
+        {
+            _sceneSettings = settings;
         }
 
         // 스페이스바 시뮬레이션 중 로봇의 실시간 위치(보드 시작 위치인 RobotRow/Column=0과는 별개로 매 스텝 갱신됨)
@@ -541,8 +548,8 @@ namespace DGAIZone.Game.UI
                 return UniTask.CompletedTask;
             }
 
-            // 3_Game.json에 음수를 적으면 트윈이 바로 끝나므로 0 이상으로 제한함(흔들림이 끝나면 원래 위치로 돌아옴)
-            return robotIcon.DOShakeAnchorPos(Mathf.Max(0f, HqRejectShakeDuration), new Vector2(HqRejectShakeStrength, 0f), 10, 0f, false, true)
+            // 흔들림이 끝나면 원래 위치로 돌아옴(시간은 HqRejectShakeDuration이 0 이상으로 제한함)
+            return robotIcon.DOShakeAnchorPos(HqRejectShakeDuration, new Vector2(HqRejectShakeStrength, 0f), 10, 0f, false, true)
                 .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
         }
 

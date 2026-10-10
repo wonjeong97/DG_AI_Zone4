@@ -1,6 +1,8 @@
 using System.Collections;
+using System.Collections.Generic;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
+using DGAIZone.Game.Events;
 using DGAIZone.Game.UI;
 using DGAIZone.Game.UI.States;
 using HuliacDev.Core;
@@ -326,6 +328,27 @@ namespace DGAIZone.Tests
             (string command, string value) = l1.GetDesignBlockTexts(_controller, "연료량", "5");
             Assert.AreEqual("연료량", command, "레벨 1은 재료 이름을 명령 블록에 써야 함");
             Assert.AreEqual("5", value, "레벨 1은 고른 값을 값 블록에 써야 함");
+        }
+
+        /// <summary>
+        /// 게임 화면이 숨어 있던 동안 설정한 단계의 카드가 다른 분류로 바뀌었으면 그 가장 앞 단계를 찾음. 같은 분류·카드를 뗀 단계·아직 설정하지 않은 단계는 대상이 아님.
+        /// </summary>
+        [Test]
+        public void 설정한_단계에서_분류가_바뀐_가장_앞_카드를_찾는다()
+        {
+            string[] confirmed = { Constants.RfidCategories.Control, Constants.RfidCategories.Action, Constants.RfidCategories.Logic, null, null };
+            Dictionary<int, RfidTagEvent> cards = new Dictionary<int, RfidTagEvent>
+            {
+                { 0, new RfidTagEvent("Reader_1", Constants.RfidCategories.Control) },  // 같은 분류
+                { 2, new RfidTagEvent("Reader_3", Constants.RfidCategories.Control) },  // 논리 → 제어로 바뀜
+                { 3, new RfidTagEvent("Reader_4", Constants.RfidCategories.Action) }    // 아직 설정하지 않은 단계(미리 올린 카드)
+            };
+
+            Assert.AreEqual(2, IngredientSelectionController.FindFirstChangedConfirmedStep(cards, confirmed, 3));
+            Assert.AreEqual(-1, IngredientSelectionController.FindFirstChangedConfirmedStep(cards, confirmed, 2), "바뀐 단계가 설정 범위 밖이면 없음");
+
+            cards.Remove(2); // 카드를 뗀 단계는 떨어짐 처리가 따로 함
+            Assert.AreEqual(-1, IngredientSelectionController.FindFirstChangedConfirmedStep(cards, confirmed, 3));
         }
     }
 }

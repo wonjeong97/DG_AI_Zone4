@@ -31,6 +31,16 @@ namespace DGAIZone.Tests
             Assert.AreEqual(string.Empty, PlaceholderFormatter.ReplaceVisitorName(null, "홍길동"));
         }
 
+        /// <summary> 서버 이름에 '&lt;'가 있으면 TMP가 태그로 읽지 않게 noparse로 감싸고, 이름 안의 닫는 태그는 지움. </summary>
+        [Test]
+        public void 이름에_꺾쇠가_있으면_noparse로_감싼다()
+        {
+            Assert.AreEqual("[<noparse><b>홍</noparse>]님", PlaceholderFormatter.ReplaceVisitorName("[{name}]님", "<b>홍"));
+            Assert.AreEqual("[<noparse><b>홍</noparse>]님", PlaceholderFormatter.ReplaceVisitorName("[{name}]님", "<b></NoParse>홍"));
+            Assert.AreEqual("[<noparse><b>홍</noparse>]님", PlaceholderFormatter.ReplaceVisitorName("[{name}]님", "<b></no</noparse>parse>홍"), "지운 자리에 다시 생긴 닫는 태그도 지움");
+            Assert.AreEqual("[a>b]님", PlaceholderFormatter.ReplaceVisitorName("[{name}]님", "a>b"), "여는 꺾쇠가 없으면 그대로");
+        }
+
         /// <summary> 행동 로그 주어는 받침이 있으면 "이", 없으면 "가"를 붙이고, 한글로 끝나지 않으면 "이(가)"를 붙여야 함. </summary>
         [Test]
         public void 주격_조사는_받침에_맞게_붙는다()

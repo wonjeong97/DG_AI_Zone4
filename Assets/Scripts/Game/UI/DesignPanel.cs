@@ -93,8 +93,22 @@ namespace DGAIZone.Game.UI
         private float _offsetX;
         private float _shiftX; // 기준 위치에서 실제로 왼쪽으로 옮긴 거리(stackShiftLeft를 왼쪽 여백에 맞춰 줄인 값)
         private Tween _scrollTween;
+        private bool _scrollTweenShrinks; // 진행 중인 스크롤 연출이 범위 줄이기(ShrinkContentToStack)인지 — 사용자가 끌기 시작해 끊으면 손을 뗀 뒤 다시 함
+        private ScrollDragTracker _dragTracker; // 사용자가 설계창을 끄는 동안에는 자동 스크롤을 미루고 손을 떼면 처리함
+        private PendingScroll _pendingScroll;
         private IObjectResolver _resolver;
         private ILogger<DesignPanel> _logger;
+
+        /// <summary> 사용자가 끄는 동안 미뤄 둔 스크롤 연출. 마지막으로 요청한 것 하나만 손을 뗄 때 처리함. </summary>
+        private enum PendingScroll
+        {
+            None,
+            ToBottom, // 새로 붙은 블록이 보이게 맨 아래로(ScrollToBottom)
+            Shrink    // 짧아진 묶음에 맞춰 올린 뒤 범위 줄이기(ShrinkContentToStack)
+        }
+
+        /// <summary> 사용자가 지금 설계창을 손가락으로 끄는 중인지 여부. </summary>
+        private bool IsUserDragging => _dragTracker && _dragTracker.IsDragging;
 
         /// <summary> 지금 설계창에 쌓인 단계 블록 수(시작하기·완성하기 제외). </summary>
         public int Count => _steps.Count;
@@ -117,6 +131,52 @@ namespace DGAIZone.Game.UI
             scrollRect = scroll;
             content = contentRoot;
             blockPrefab = prefab;
+            AttachDragTracker();
+        }
+
+        /// <summary> 인스펙터로 연결한 ScrollRect에 끌기 추적을 붙임. </summary>
+        private void Awake()
+        {
+            AttachDragTracker();
+        }
+
+        /// <summary>
+        /// ScrollRect 오브젝트에 ScrollDragTracker를 붙이고(없으면 추가) 끌기 시작·끝을 구독함. scrollRect가 없으면 자동 스크롤도 하지 않으므로
+        /// 붙이지 않음(자동 스크롤 때 ScrollToBottom이 경고함).
+        /// </summary>
+        private void AttachDragTracker()
+        {
+            if (_dragTracker || !scrollRect) return;
+
+            if (!scrollRect.TryGetComponent(out _dragTracker)) _dragTracker = scrollRect.gameObject.AddComponent<ScrollDragTracker>();
+            _dragTracker.DragStarted += OnUserDragStarted;
+            _dragTracker.DragEnded += OnUserDragEnded;
+        }
+
+        /// <summary> 사용자가 끌기 시작하면 진행 중인 자동 스크롤을 멈추고(손가락이 이김) 손을 뗀 뒤 다시 하도록 기억함. </summary>
+        private void OnUserDragStarted()
+        {
+            if (_scrollTween == null || !_scrollTween.IsActive()) return; // 진행 중인 자동 스크롤이 없음(정상)
+
+            _scrollTween.Kill();
+            _scrollTween = null;
+            _pendingScroll = _scrollTweenShrinks ? PendingScroll.Shrink : PendingScroll.ToBottom;
+        }
+
+        /// <summary> 손을 떼면 끄는 동안 미뤄 둔 자동 스크롤을 처리함. </summary>
+        private void OnUserDragEnded()
+        {
+            PendingScroll pending = _pendingScroll;
+            _pendingScroll = PendingScroll.None;
+            if (pending == PendingScroll.ToBottom)
+            {
+                UpdateContentHeight(); // 끄는 동안 미뤄 둔 범위 줄이기가 있었으면 함께 맞춤
+                ScrollToBottom();
+            }
+            else if (pending == PendingScroll.Shrink)
+            {
+                ShrinkContentToStack();
+            }
         }
 
         /// <summary> VContainer 의존성 주입. 블록 생성용 리졸버와 로거를 할당함. </summary>
@@ -202,7 +262,11 @@ namespace DGAIZone.Game.UI
         /// <summary> 마지막으로 쌓은 단계 블록을 뺌(가라앉으며 사라지는 연출 뒤 파괴). </summary>
         public void RemoveLastItem()
         {
-            if (_steps.Count == 0) return;
+            if (_steps.Count == 0)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[DesignPanel] 쌓인 단계 블록이 없어 뺄 블록이 없음.");
+                return;
+            }
 
             int lastIndex = _steps.Count - 1;
             DesignBlockView last = _steps[lastIndex];
@@ -221,7 +285,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 맨 아래에 완성하기 블록을 붙이고, 맞물리는 연출과 잠깐의 대기가 끝날 때까지 기다림. 사용자가 드래그로 위로 올려 둔 상태면 먼저 맨 아래로
-        /// 부드럽게 내린 뒤 붙임. 이미 붙어 있으면 바로 끝남.
+        /// 부드럽게 내린 뒤 붙임(아직 손가락으로 끄는 중이면 기다리지 않고 붙이고, 맨 아래로는 손을 뗀 뒤 내림). 이미 붙어 있으면 바로 끝남.
         /// </summary>
         public async UniTask AttachEndBlockAsync(CancellationToken token)
         {
@@ -524,17 +588,30 @@ namespace DGAIZone.Game.UI
             return new Rect(0f, 0f, StackWidth(_withValueBlocks), _stackHeight);
         }
 
-        /// <summary> 지금 놓인 블록(함수 정의 블록 포함)이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). </summary>
+        /// <summary>
+        /// 지금 놓인 블록(함수 정의 블록 포함)이 모두 들어가도록 content 높이를 맞춤(스크롤 범위). 사용자가 끄는 동안에는 늘리기만 하고,
+        /// 줄이기는 손을 뗀 뒤로 미룸(끄는 중에 줄이면 Clamped가 화면을 한 번에 당김).
+        /// </summary>
         private void UpdateContentHeight()
         {
-            if (!content) return;
+            if (!content)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[DesignPanel] content가 null이라 스크롤 범위를 맞출 수 없음.");
+                return;
+            }
 
             float height = edgePadding * 2f + _stackHeight * _scale;
+            if (IsUserDragging && height < content.sizeDelta.y)
+            {
+                _pendingScroll = PendingScroll.Shrink;
+                return;
+            }
+
             content.sizeDelta = new Vector2(content.sizeDelta.x, height);
         }
 
         /// <summary>
-        /// 새로 놓인 블록이 보이도록 맨 아래로 스크롤하는 연출을 시작하고 반환함(scrollRect가 없으면 null).
+        /// 새로 놓인 블록이 보이도록 맨 아래로 스크롤하는 연출을 시작하고 반환함(scrollRect가 없거나 사용자가 끄는 중이면 null — 끄는 중이면 손을 뗀 뒤 내림).
         /// 사용자가 드래그로 튕겨 둔 관성은 멈춰 연출과 겹치지 않게 함.
         /// </summary>
         private Tween ScrollToBottom()
@@ -545,15 +622,24 @@ namespace DGAIZone.Game.UI
                 return null;
             }
 
+            if (IsUserDragging)
+            {
+                // 끄는 동안 코드가 스크롤을 움직이면 ScrollRect의 드래그 계산과 겹쳐 떨리므로 손을 뗀 뒤 내림
+                _pendingScroll = PendingScroll.ToBottom;
+                return null;
+            }
+
             scrollRect.StopMovement();
             _scrollTween?.Kill();
+            _scrollTweenShrinks = false;
             _scrollTween = scrollRect.DOVerticalNormalizedPos(0f, scrollDuration).SetEase(Ease.OutQuad).SetUpdate(true).SetLink(gameObject);
             return _scrollTween;
         }
 
         /// <summary>
         /// 블록 묶음이 짧아졌을 때(블록을 떨어뜨림) 줄어든 묶음의 맨 아래가 보이는 자리까지 부드럽게 올린 뒤 스크롤 범위(content 높이)를
-        /// 줄임. 범위를 먼저 줄이면 ScrollRect(Clamped)가 범위를 벗어난 위치를 한 번에 끌어올려 튐. scrollRect가 없거나 이미 그 자리보다 위에 있으면 바로 줄임.
+        /// 줄임. 범위를 먼저 줄이면 ScrollRect(Clamped)가 범위를 벗어난 위치를 한 번에 끌어올려 튐. scrollRect가 없거나 이미 그 자리보다 위에 있으면 바로 줄이고,
+        /// 사용자가 끄는 중이면 손을 뗀 뒤에 함.
         /// content는 위쪽 기준이라 anchoredPosition.y가 아래로 내린 거리임.
         /// </summary>
         private void ShrinkContentToStack()
@@ -561,6 +647,13 @@ namespace DGAIZone.Game.UI
             if (!scrollRect || !content)
             {
                 UpdateContentHeight();
+                return;
+            }
+
+            if (IsUserDragging)
+            {
+                // 끄는 동안 범위를 줄이면 손을 뗄 때 Clamped가 한 번에 끌어올려 튀므로 손을 뗀 뒤 줄임
+                _pendingScroll = PendingScroll.Shrink;
                 return;
             }
 
@@ -573,6 +666,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
+            _scrollTweenShrinks = true;
             _scrollTween = content.DOAnchorPosY(maxScroll, scrollDuration).SetEase(Ease.OutQuad).SetUpdate(true).SetLink(gameObject)
                 .OnComplete(UpdateContentHeight);
         }
@@ -650,10 +744,15 @@ namespace DGAIZone.Game.UI
             UpdateContentHeight();
         }
 
-        /// <summary> 오브젝트 파괴 시 스크롤 연출을 정리함. </summary>
+        /// <summary> 오브젝트 파괴 시 스크롤 연출과 끌기 구독을 정리함. </summary>
         private void OnDestroy()
         {
             _scrollTween?.Kill();
+            if (_dragTracker)
+            {
+                _dragTracker.DragStarted -= OnUserDragStarted;
+                _dragTracker.DragEnded -= OnUserDragEnded;
+            }
         }
     }
 }
