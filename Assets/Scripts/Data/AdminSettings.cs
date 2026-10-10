@@ -42,7 +42,7 @@ namespace DGAIZone.Data
         {
             AdminSettings settings = await JsonLoader.LoadAsync<AdminSettings>(FilePath, token, logger);
 
-            // JsonLoader는 취소돼도 기본값을 돌려주므로, 파괴된 창에 기본 비밀번호·시간을 넣지 않도록 여기서 취소를 전달함
+            // 로드가 끝난 직후 취소된 경우에도 파괴된 창에 비밀번호·시간을 넣지 않도록 취소를 전달함(로드 중 취소는 JsonLoader가 던짐)
             token.ThrowIfCancellationRequested();
             if (settings.ClampToValid() && logger != null)
                 logger.ZLogWarning($"[AdminSettings] Admin.json의 시간·횟수 값이 1보다 작아 그 값은 기본값을 씀.");

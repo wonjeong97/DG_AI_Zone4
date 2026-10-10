@@ -122,7 +122,7 @@ namespace DGAIZone.Network
         private async UniTask<ServerSettings> LoadSettingsAsync(CancellationToken cancellationToken)
         {
             ServerSettings settings = await JsonLoader.LoadAsync<ServerSettings>(SettingsPath, cancellationToken, _logger);
-            cancellationToken.ThrowIfCancellationRequested(); // JsonLoader는 취소돼도 기본값을 돌려주므로 여기서 취소를 전달함
+            cancellationToken.ThrowIfCancellationRequested(); // 로드가 끝난 직후 취소된 경우도 전달함(로드 중 취소는 JsonLoader가 던짐)
             if (!string.IsNullOrEmpty(settings.baseUrl)) return settings;
 
             if (_logger != null) _logger.ZLogError($"[VisitorApiClient] Server.json의 baseUrl이 비어 있어 서버를 호출할 수 없음.");

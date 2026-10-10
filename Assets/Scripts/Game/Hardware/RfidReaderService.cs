@@ -101,7 +101,7 @@ namespace DGAIZone.Game.Hardware
             {
                 _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token, _logger);
 
-                // JsonLoader는 취소돼도 기본 설정을 돌려줌 — 읽는 동안 씬이 내려갔으면 OnDestroy 뒤에 서버를 열어 포트를 붙든 채 남지 않게 멈춤
+                // 로드가 끝난 직후 씬이 내려갔어도 OnDestroy 뒤에 서버를 열어 포트를 붙든 채 남지 않게 멈춤(로드 중 취소는 JsonLoader가 던짐)
                 token.ThrowIfCancellationRequested();
                 if (_settings == null)
                 {

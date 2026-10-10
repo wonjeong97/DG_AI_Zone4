@@ -257,7 +257,7 @@ namespace DGAIZone.Admin
 
         /// <summary>
         /// 새 비밀번호를 Admin.json에 저장하고 결과를 관리자 화면에 알림.
-        /// JsonLoader.SaveAsync는 실패를 로그로만 남기므로, 다시 읽어 실제로 저장됐는지 확인함.
+        /// 저장 성공 여부는 JsonLoader.SaveAsync의 반환값으로 판단함(임시 파일에 쓴 뒤 바꾸므로 실패하면 기존 파일이 그대로 남음).
         /// </summary>
         private async UniTaskVoid SavePasswordAsync(string newPassword, CancellationToken token)
         {
@@ -273,13 +273,11 @@ namespace DGAIZone.Admin
                 }
 
                 current.password = newPassword;
-                await JsonLoader.SaveAsync(AdminSettings.FilePath, current, token, _logger);
-                AdminSettings saved = await JsonLoader.LoadAsync<AdminSettings>(AdminSettings.FilePath, token, _logger);
+                bool isSaved = await JsonLoader.SaveAsync(AdminSettings.FilePath, current, token, _logger);
 
                 // 파일 입출력 뒤 관리자 화면 UI를 고치므로 메인 스레드로 돌아옴
                 await UniTask.SwitchToMainThread(token);
 
-                bool isSaved = saved.password == newPassword;
                 if (isSaved) _password = newPassword; // 다시 열 때 파일을 읽기 전에 입력을 마쳐도 새 비밀번호로 확인함
 
                 if (_logger != null)

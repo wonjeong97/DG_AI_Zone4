@@ -13,6 +13,7 @@
 
 ## 완료
 
+- [x] T81 템플릿 26.10.10-1 → 26.10.10-2 업데이트(사용자 요청): JsonLoader 취소 예외 전파에 맞춰 IngredientSelectionController 초기화에 취소 catch, 비밀번호 저장은 SaveAsync 반환값으로 판정, 낡은 주석 4곳·T80 문구 갱신, URP 렌더러 에셋 자동 업그레이드 저장 — PlayMode 222/222 — 담당: Claude / 검증: Antigravity (2026-10-10)
 - [x] T79 등록되지 않은 RFID 장비(옆 PC 리더기의 Target IP 오설정 등)가 리더기 자리를 차지하고 그 카드가 지금 단계에 들어가던 것 — readers가 설정돼 있으면 접속 거부·IP·MAC 경고 한 번(2차 점검 중간, 4존 PC 2대 운용) — PlayMode 222/222 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
 - [x] T80 Settings.json 비활동 타이머가 꺼져 있거나 형식이 깨져 기본값으로 읽히면 릴리스 빌드에서 시작 때 오류 로그(근본 원인은 템플릿 JsonLoader — Template TODO에 기록) — PlayMode 222/222 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)
 - [x] T70 레벨 4 연출 시간(3_Game.json level4StepPauseDuration 등)이 음수면 코딩 완료 뒤 멈춤 — 0 아래를 막음(M2) — PlayMode 219/219 — 담당: Claude / 검증: Claude 서브에이전트(agy 한도 초과로 대신) (2026-10-10)

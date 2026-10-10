@@ -164,7 +164,7 @@ namespace DGAIZone.Title
                 // 첫 안내부터 0_Title.json의 문구로 보이도록 설정을 먼저 읽음 — 안내가 없어도 QR 확인·스캐너 값은 써야 하므로 항상 읽음
                 string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Title}";
                 _sceneSettings = await JsonLoader.LoadAsync<TitleSceneSettings>(path, token, _logger);
-                token.ThrowIfCancellationRequested(); // JsonLoader는 취소돼도 기본값을 돌려주므로 파괴된 화면을 고치지 않게 여기서 멈춤
+                token.ThrowIfCancellationRequested(); // 로드가 끝난 직후 취소된 경우에도 파괴된 화면을 고치지 않게 멈춤(로드 중 취소는 JsonLoader가 던짐)
                 ApplyScanCharGap();
 
                 bool isServerConnected = false;
