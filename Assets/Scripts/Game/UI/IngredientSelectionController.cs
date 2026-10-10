@@ -499,14 +499,11 @@ namespace DGAIZone.Game.UI
         private void OnRfidTagReceived(RfidTagEvent evt)
         {
             _rollbackNote = null;
-            if (_readerCount > 1)
+            int readerStepIndex = _readerCount > 1 ? GetStepIndexForReader(evt.ReaderId) : -1;
+            if (readerStepIndex >= 0)
             {
-                int readerStepIndex = GetStepIndexForReader(evt.ReaderId);
-                if (readerStepIndex >= 0)
-                {
-                    _cardsOnReaders[readerStepIndex] = evt;
-                    if (!_isReplayingCard && readerStepIndex == _replaySuppressedStep) _replaySuppressedStep = -1; // 카드를 새로 올렸으니 다시 이어서 써도 됨
-                }
+                _cardsOnReaders[readerStepIndex] = evt;
+                if (!_isReplayingCard && readerStepIndex == _replaySuppressedStep) _replaySuppressedStep = -1; // 카드를 새로 올렸으니 다시 이어서 써도 됨
             }
 
             if (!TryRouteToCurrentStep(evt)) return;
@@ -514,6 +511,15 @@ namespace DGAIZone.Game.UI
             {
                 // 설정 오류로 적용하지 못한 경로(경고만 남김)에서도 이 카드로 되돌린 사실은 행동 로그에 남김
                 if (_rollbackNote != null) LogCardPlaced(evt, "이 단계에 적용하지 못함(위 경고 참고)");
+
+                // 지금 단계 리더기의 카드를 쓸 수 없는 카드로 바꿨으면(떨어짐 판정 시간 안에 교체) 앞 카드로 고르던 값이 남아 그대로 설정되지 않게 비움.
+                // 남겨 두면 확정 분류와 실제 놓인 카드가 어긋나 미션 다시 보기에서 돌아올 때 그 단계부터 되돌려짐
+                if (ShouldClearPendingForRejectedCard(readerStepIndex, _currentStepIndex, _currentMatters != null && _currentMatters.Length > 0))
+                {
+                    if (_logger != null) _logger.ZLogInformation($"[IngredientSelectionController] {PlayerSubject} {ReaderLabel(evt.ReaderId)}의 카드를 쓸 수 없는 카드로 바꿔 고르던 값을 비움.");
+                    ClearPendingSelection();
+                    UpdateCategoryHint();
+                }
                 return;
             }
 
@@ -552,6 +558,19 @@ namespace DGAIZone.Game.UI
             return true;
         }
 
+        /// <summary> 지금 단계 리더기에 놓인 카드를 다시 적용할지 정함: 카드가 있고, 고르던 값이 없거나 고르던 분류가 놓인 카드 분류와 다를 때. </summary>
+        internal static bool ShouldReplayCurrentReaderCard(bool hasPending, string pendingCategory, bool hasCard, string cardCategory)
+        {
+            if (!hasCard) return false;
+            return !hasPending || !string.Equals(pendingCategory, cardCategory, StringComparison.Ordinal);
+        }
+
+        /// <summary> 적용하지 못한 카드가 지금 단계 리더기에서 온 것이고 고르던 값이 있으면, 그 값은 앞 카드 것이라 비워야 함. </summary>
+        internal static bool ShouldClearPendingForRejectedCard(int readerStepIndex, int currentStepIndex, bool hasPending)
+        {
+            return hasPending && readerStepIndex >= 0 && readerStepIndex == currentStepIndex;
+        }
+
         /// <summary>
         /// 설정을 마친 단계(confirmedCount 앞) 중 리더기에 놓인 카드의 분류가 설정할 때와 다른 가장 앞 단계 번호를 돌려줌. 없으면 -1.
         /// 카드를 뗀 단계는 cardsOnReaders에 없으므로 대상이 아님(떨어짐 처리가 따로 함).
@@ -570,15 +589,18 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 지금 단계의 리더기에 카드가 이미 올려져 있으면(차례가 오기 전에 미리 올렸거나, 단계를 되돌린 뒤에도 놓여 있는 카드) 방금 올린 것처럼 이어서 씀.
-        /// 설정하기로 다음 단계로 넘어갔거나 확정한 단계를 되돌린 뒤 부름. 리더기가 1대뿐이거나, 모든 단계를 마쳤거나, 이미 고르는 값이 있으면 하지 않음(정상).
+        /// 설정하기로 다음 단계로 넘어갔거나 확정한 단계를 되돌린 뒤, 게임 화면으로 돌아왔을 때 부름. 이미 고르는 값이 있어도 놓인 카드의 분류가 다르면
+        /// (게임 화면이 숨은 동안 떨어짐 판정 시간 안에 바꿈) 새 카드로 다시 고름. 리더기가 1대뿐이거나, 모든 단계를 마쳤거나, 놓인 카드가 없거나 고르던 값이 그 카드 것이면 하지 않음(정상).
         /// </summary>
         private void ApplyCardOnCurrentReader()
         {
             if (_confirmedMatters == null || _readerCount <= 1 || _currentStepIndex >= _totalSteps) return; // 초기화 전이거나 리더기 1대 구성·모두 마침
             if (_isBusy) return; // 결과 화면으로 넘어가는 중
-            if (_currentMatters != null && _currentMatters.Length > 0) return;
             if (_currentStepIndex == _replaySuppressedStep) return; // 1단계 취소하기로 비운 값을 다시 채우지 않음
-            if (!_cardsOnReaders.TryGetValue(_currentStepIndex, out RfidTagEvent card)) return;
+
+            bool hasCard = _cardsOnReaders.TryGetValue(_currentStepIndex, out RfidTagEvent card);
+            bool hasPending = _currentMatters != null && _currentMatters.Length > 0;
+            if (!ShouldReplayCurrentReaderCard(hasPending, _currentCategory, hasCard, card.Category)) return; // 놓인 카드가 없거나 고르던 값이 그 카드 것(정상)
 
             _isReplayingCard = true;
             try
