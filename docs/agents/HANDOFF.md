@@ -15,10 +15,11 @@
 
 ### [2026-10-10] Claude → Antigravity · T82 관람객 문구 통일
 - 요청(사용자): T69 2차 점검의 문구 통일 후보를 정리해서 고침.
-- 변경(전후 목록은 `.claude/review/t82/changes.md`, 로컬 전용): RfidMappings.json(레벨 3 조건 '3보다 많으면/적으면', 레벨 1 '탑재 장비', 레벨 5 '우주정거장 코드'·'동작 사용하기'), 0_Title.json·Constants '눌러 주세요', 3_Game.json·GameSceneSettings 기본값 '1단/2단 로켓 분리 완료', ResultFlowController·ResultSceneSettings·4_Result 'AI가 코딩 중입니다', Level3~5 LevelData(환영해요, [제어] 블록(만약)/(반복하기), 탐사 로봇, 우주정거장, 해 주세요, [함수] 블록 띄어쓰기), 1_Intro(이제 [이름]님은, 튜토리얼 안내 해요체), 3_Game(미션 건너뛰기, GOAL), 5_Outro(모든 우주 미션을 마쳤어요). LevelData·씬은 에디터에서 SerializedObject로 고쳐 저장(씬 diff는 문구 줄만).
+- 변경(전후 목록은 `.claude/review/t82/changes.md`, 로컬 전용): RfidMappings.json(레벨 3 조건 '3보다 많으면/적으면', 레벨 1 '탑재 장비', 레벨 5 '우주정거장 코드'·'동작 사용하기'), 0_Title.json·Constants '눌러 주세요', 3_Game.json·GameSceneSettings 기본값 '1단/2단 로켓 분리 완료', ResultFlowController·ResultSceneSettings·4_Result 'AI가 코딩 중입니다', Level3~5 LevelData(환영해요, 탐사 로봇, 우주정거장, 해 주세요, [함수] 블록 띄어쓰기), 1_Intro(이제 [이름]님은, 튜토리얼 안내 해요체), 3_Game(미션 건너뛰기, GOAL), 5_Outro(모든 우주 미션을 마쳤어요). LevelData·씬은 에디터에서 SerializedObject로 고쳐 저장(씬 diff는 문구 줄만).
 - 손대지 않음: 2_LevelSelect 씬의 레벨별 대체 스토리 문구(LevelData가 연결돼 있으면 안 보임, 옛 표기 남음 — 정리 후보), 스토리 `<color=blue>` 대비(화면 확인 필요), 타이틀 Text_QR 두 줄 잘림(낮음 버그).
 - 확인: 길어진 문구 TMP 측정 — 타이틀 안내(이름 8자) 948/1000px 한 줄, 튜토리얼 안내·결과 '코딩 중' 띠 여유, 인트로 스토리 Overflow. 옛 표기 검색 — LevelData·화면에 나오는 씬·JSON·코드에 없음(대체 문구만 남음). 컴파일 오류 0, PlayMode 222/222, EditorSettings 되돌림, TMP 폰트 글리프 변경 버림.
 - 결과(Antigravity `gemini-3.8-flash-high`): 맞춤법·띄어쓰기, 통일 방향·어투 일관성 2/2 통과.
+- 사용자 결정: 레벨 3·4 스토리의 카드 이름은 '[만약] 블록'·'[반복] 블록' 그대로(처음에 '[제어] 블록(만약)'으로 바꿨다가 되돌림, 괄호 쓰지 않음).
 
 ---
 
