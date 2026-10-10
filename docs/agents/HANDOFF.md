@@ -13,6 +13,17 @@
 
 ---
 
+### [2026-10-10] Claude → Antigravity · T82 관람객 문구 통일
+- 요청(사용자): T69 2차 점검의 문구 통일 후보를 정리해서 고침.
+- 변경(전후 목록은 `.claude/review/t82/changes.md`, 로컬 전용): RfidMappings.json(레벨 3 조건 '3보다 많으면/적으면', 레벨 1 '탑재 장비', 레벨 5 '우주정거장 코드'·'동작 사용하기'), 0_Title.json·Constants '눌러 주세요', 3_Game.json·GameSceneSettings 기본값 '1단/2단 로켓 분리 완료', ResultFlowController·ResultSceneSettings·4_Result 'AI가 코딩 중입니다', Level3~5 LevelData(환영해요, 탐사 로봇, 우주정거장, 해 주세요, [함수] 블록 띄어쓰기), 1_Intro(이제 [이름]님은, 튜토리얼 안내 해요체), 3_Game(미션 건너뛰기, GOAL), 5_Outro(모든 우주 미션을 마쳤어요). LevelData·씬은 에디터에서 SerializedObject로 고쳐 저장(씬 diff는 문구 줄만).
+- 손대지 않음: 2_LevelSelect 씬의 레벨별 대체 스토리 문구(LevelData가 연결돼 있으면 안 보임, 옛 표기 남음 — 정리 후보), 스토리 `<color=blue>` 대비(화면 확인 필요), 타이틀 Text_QR 두 줄 잘림(낮음 버그).
+- 확인: 길어진 문구 TMP 측정 — 타이틀 안내(이름 8자) 948/1000px 한 줄, 튜토리얼 안내·결과 '코딩 중' 띠 여유, 인트로 스토리 Overflow. 옛 표기 검색 — LevelData·화면에 나오는 씬·JSON·코드에 없음(대체 문구만 남음). 컴파일 오류 0, PlayMode 222/222, EditorSettings 되돌림, TMP 폰트 글리프 변경 버림.
+- 결과(Antigravity `gemini-3.8-flash-high`): 맞춤법·띄어쓰기, 통일 방향·어투 일관성 2/2 통과.
+- 사용자 결정: 레벨 3·4 스토리의 카드 이름은 '[만약] 블록'·'[반복] 블록' 그대로(처음에 '[제어] 블록(만약)'으로 바꿨다가 되돌림, 괄호 쓰지 않음).
+- PR wonjeong97/DG_AI_Zone4#65 머지 전(Antigravity): JSON·C# diff가 전후 목록과 같고 의도하지 않은 변경 없음, CHANGELOG에 '[제어]' 내용 없음 → 2/2 통과. LevelData 최종 값은 에디터에서 다시 확인. main보다 뒤처진 커밋 0, CI 검사 없음. CHANGELOG 미배포 Changed 3줄을 2026-10-10 섹션으로 옮김.
+
+---
+
 ### [2026-10-10] Claude → Antigravity · PR wonjeong97/DG_AI_Zone4#64 머지 전 리뷰(T68~T81)
 - 요청(사용자): PR을 만들고 리뷰 뒤 문제가 없으면 머지.
 - 리뷰(Antigravity `gemini-3.8-flash-high`, 한도 회복 뒤 — 그동안 Claude 서브에이전트만 리뷰했던 기능을 다시 봄): 기능별 diff 10묶음(79~208줄, 확인 2개씩, 동시 5개) — g1 레벨 4 시간·검증기, g2a·g2b 설계창 끌기 보류·ScrollDragTracker, g3 게임 화면 로그·바뀐 카드 반영·취소 catch, g4a 아웃트로·BOM·noparse·인트로 페이드, g4b 낱자 이름·조용한 분기·목적지 0, g5 관리자 창 열림 동안 QR·대기, g6a 미등록 리더기 거부, g6b 타이머 경고·비밀번호 저장, g8 CHANGELOG·CLAUDE.md → 10/10 통과(시간 초과 0, 지적 0).

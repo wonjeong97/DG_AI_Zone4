@@ -38,7 +38,7 @@ namespace DGAIZone.Game.Data
 
     /// <summary>
     /// 워크플로우 진행 순서상 한 단계에 해당하는 재료 정의 직렬화 클래스. 고를 블록 목록은 같은 레벨의 matterSets에서 matterSetId로 찾음.
-    /// RFID 카드는 category만 알려주므로, 실제 재료 순서(추진체 종류 -> 탑재 종류 -> 연료량)는
+    /// RFID 카드는 category만 알려주므로, 실제 재료 순서(추진체 종류 -> 탑재 장비 -> 연료량)는
     /// 카드와 무관하게 이 목록의 순서로 진행됨.
     /// </summary>
     [Serializable]

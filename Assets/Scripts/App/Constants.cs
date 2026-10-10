@@ -21,10 +21,10 @@ namespace DGAIZone.App
         public static class TitleMessages
         {
             public const string QrGuide = "QR 코드를 인식하여 주세요.";
-            public const string StartGuide = "시작하기를 눌러주세요.";
+            public const string StartGuide = "시작하기를 눌러 주세요.";
 
             /// <summary> 서버 모드에서 QR로 확인한 체험자에게 보이는 시작 안내 — {name}에 체험자 이름(VisitorPlaceholder). </summary>
-            public const string StartGuideWithName = "{name}님, 시작하기를 눌러주세요.";
+            public const string StartGuideWithName = "{name}님, 시작하기를 눌러 주세요.";
 
             // 서버 모드에서 QR을 찍은 뒤 체험자 확인 결과 안내 — 확인 중을 빼면 잠시 보여 준 뒤 QrGuide로 돌아감
             public const string QrChecking    = "QR 코드를 확인하고 있습니다.";
