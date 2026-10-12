@@ -77,6 +77,7 @@ namespace DGAIZone.Tests
             CardPresenceTracker tracker = new CardPresenceTracker(1000, 0);
 
             Assert.AreEqual(CardPresenceTracker.CardFrameResult.Baseline, tracker.OnCardFrame(CardA, 50));
+            Assert.AreEqual(CardA, tracker.CurrentCard, "알리지 않아도 놓인 카드로 기억해야 게임 씬이 들어올 때 이어서 씀");
             Assert.AreEqual(CardPresenceTracker.CardFrameResult.Repeat, tracker.OnCardFrame(CardA, 2000), "계속 올라가 있으면 판정 시간이 지나도 알리지 않음");
             Assert.IsTrue(tracker.CheckRemoved(3000), "접속 때 올려져 있던 카드도 떼면 떨어짐으로 봄");
             Assert.AreEqual(CardPresenceTracker.CardFrameResult.NewCard, tracker.OnCardFrame(CardA, 3500));

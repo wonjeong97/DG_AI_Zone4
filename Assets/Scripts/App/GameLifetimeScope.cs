@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using DGAIZone.Data;
+using DGAIZone.Game.Events;
+using DGAIZone.Game.Hardware;
 using DGAIZone.Network;
+using MessagePipe;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -102,12 +105,13 @@ namespace DGAIZone.App
         }
 
         /// <summary>
-        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)·서버 API를 등록함.
+        /// 템플릿 기본 구성을 먼저 적용한 뒤 게임 매니저, RFID 리더기 서버, 씬 전환 서비스, 게임 결과·레벨·관리자 레벨 이동 저장소, 체험자 설정(SO)·서버 API를 등록함.
         /// </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             base.Configure(builder);
             builder.RegisterComponentInHierarchy<GameManager>();
+            builder.RegisterComponentInHierarchy<RfidReaderService>(); // 앱이 켜져 있는 동안 리더기 접속을 유지함(클래스 주석 참고)
             builder.Register<SceneTransitionService>(Lifetime.Singleton);
             builder.Register<GameResultStore>(Lifetime.Singleton);
             builder.Register<SelectedLevelStore>(Lifetime.Singleton);
@@ -123,6 +127,15 @@ namespace DGAIZone.App
             {
                 RegisterTmpFonts();
             }
+        }
+
+        /// <summary>
+        /// 템플릿 전역 브로커에 RFID 카드 인식·떨어짐 브로커를 더함. RFID 서버가 루트에 있어 브로커도 루트에 두고, 게임 씬(구독자·키보드 시뮬레이터)은 이 브로커를 씀.
+        /// </summary>
+        protected override void ConfigureProjectMessageBrokers(IContainerBuilder builder, MessagePipeOptions options)
+        {
+            builder.RegisterMessageBroker<RfidTagEvent>(options);
+            builder.RegisterMessageBroker<RfidReaderIdleEvent>(options);
         }
 
         /// <summary> 템플릿 단축키(D·I·M·F)를 Ctrl 조합으로 바꿔 QR 스캐너가 입력하는 uid 문자와 겹치지 않게 함. </summary>

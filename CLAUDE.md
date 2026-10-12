@@ -35,7 +35,7 @@
 - `Json/00_Common.json`, `0_Title.json` ~ `4_Result.json`: 씬별 연출 타이밍(페이드, QR 확인 시간, 스캐너 글자 간격 등). `00_Common.json`의 `robotVideoPath`는 로봇 영상 경로(없는 파일이면 기본 `Videos/robot_0811.webm`), `0_Title.json`에는 하단 안내 문구 7개(이름 자리 `{name}`)도 있다.
 - `Json/Admin.json`: 관리자 비밀번호(4~6자리, 기본 `0000`), 관리자 화면·이름 입력 창 자동 닫기 `idleCloseSeconds`(60초), 비밀번호 창 `passwordIdleCloseSeconds`(10초), 진입 클릭 `entryClickCount`(10회)·`entryClickWindowSeconds`(3초). 시간·횟수가 1보다 작으면 기본값을 쓰고, 비밀번호를 바꿀 때 다른 값은 유지한다.
 - `Json/Server.json`: 체험자 서버 주소·시간 제한·재시도 횟수.
-- `RfidMappings.json`: 리더기, 카드(uid → 분류), 레벨별 블록 목록·단계.
+- `RfidMappings.json`: 리더기, 카드(uid → 분류), 레벨별 블록 목록·단계. 리더기·카드·`listenPort`·`cardRemovedDebounceMs`는 RFID 서버가 앱을 켤 때 한 번만 읽으므로 고치면 앱을 다시 켠다(레벨별 블록·단계는 게임 씬마다 다시 읽음).
 - `Settings.json`(템플릿): 비활동 타이머(`useInactivityTimer`, `resetTime`), 프레임, 소리 등. `ShutdownSettings.json`(템플릿): 요일별 자동 종료.
 - `Videos/4-{레벨}-Success.mp4`, `4-{레벨}-Fail[-원인].mp4`: 결과 영상(레벨 3만 원인별 실패 영상 `Electricity`·`O2`가 있음).
 
@@ -46,13 +46,15 @@
 - 4존은 PC 2대로 운용한다. 왼쪽 PC는 리더기 IP `.180`~`.184`, 오른쪽 PC는 `.185`~`.189`를 쓰고, PC마다 `RfidMappings.json`의 `readers`가 다르다(저장소 파일은 왼쪽 PC용).
 - `Reader_1` ~ `Reader_5`가 단계 1 ~ 5에 대응한다.
 - 리더기가 TCP 클라이언트로 Unity PC(서버, 포트 `listenPort` 10123)에 접속한다. 리더기의 Target IP는 Unity PC의 IP여야 한다.
+- 서버(`RfidReaderService`)는 루트 프리팹 `GameLifetimeScope`에 있어 앱이 켜져 있는 동안 계속 열려 있다(게임 씬마다 열고 닫으면 다시 접속할 때까지 카드를 받지 못함). 카드 인식·떨어짐 브로커도 루트에 있다.
 - 리더기 식별: 접속한 IP를 `readers[].ipAddress`와, ARP로 조회한 MAC을 `macAddress`와 대조한다. 둘이 서로 다른 리더기를 가리키면 MAC을 따르고(현장 이동으로 IP가 엇갈린 경우, 경고 로그), 한쪽만 맞으면 그쪽으로 식별한다. 어느 쪽과도 맞지 않으면(옆 PC의 리더기가 Target IP를 잘못 가리킴 등) 접속을 거부하고 IP·MAC을 경고로 한 번 남긴다(`readers`가 비어 있을 때만 시험용 임시 ID로 받음).
 - **연속 읽기 모드로 설정해야 한다.** 카드가 올라가 있는 동안 구분자 없는 원시 7바이트 UID를 계속 보낸다(0x0D가 섞일 수 있음).
   - `mappings[].uid`는 공백 없는 16진수 14자리(예: `81736922E51D04`)다. 1회 읽기 모드 응답 `A1G0` + 14자리 + 2자리의 가운데 14자리와 같다.
   - 같은 UID가 반복되면 한 번만 처리한다. UID가 `cardRemovedDebounceMs`(기본 1000ms) 동안 오지 않으면 카드를 뗀 것으로 본다.
-  - 접속 직후 이미 올려져 있던 카드는 떼었다 다시 올릴 때까지 무시한다.
+  - 접속 직후 이미 올려져 있던 카드는 새 카드로 알리지 않는다(게임 중 리더기가 다시 접속해도 설정한 단계가 되돌려지지 않게). 놓인 카드로는 기억한다.
   - 등록되지 않은 UID(교통카드·겹친 카드 등)는 카드 판정에 넣지 않는다(올려 둔 카드가 새 카드로 다시 발행되지 않게).
   - 게임 화면은 리더기마다 올려져 있는 카드를 기억한다. 차례가 아닌 리더기에 미리 올린 카드나 되돌린 뒤에도 놓인 카드는 그 단계가 되면 이어서 쓰고, 카드를 떼면 잊는다.
+  - 게임 씬에 들어오면 그때 놓여 있는 카드(앞 판에서 두고 간 카드, 접속 때부터 놓여 있던 카드 포함)를 `RfidReaderService.GetCardsOnReaders`로 받아 방금 올린 카드처럼 이어서 쓴다(1단계 카드는 바로, 쓸 수 없는 카드면 경고).
 - 카드 53장: 동작 28·제어 16·논리 5·함수 4. 카드는 분류만 알려 주고, 블록 값은 화면의 좌우 버튼으로 고른다.
 
 ### QR 스캐너 (타이틀)

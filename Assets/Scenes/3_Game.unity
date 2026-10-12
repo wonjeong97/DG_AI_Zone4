@@ -8240,7 +8240,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1256388730}
   - component: {fileID: 1256388731}
-  - component: {fileID: 1256388732}
   - component: {fileID: 1256388733}
   - component: {fileID: 1256388735}
   - component: {fileID: 1256388734}
@@ -8291,18 +8290,6 @@ CanvasGroup:
   m_Interactable: 0
   m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
---- !u!114 &1256388732
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1256388729}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 64bbfb1b1676e4b46b3c364de9512952, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1256388733
 MonoBehaviour:
   m_ObjectHideFlags: 0

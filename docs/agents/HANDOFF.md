@@ -13,6 +13,17 @@
 
 ---
 
+### [2026-10-12] Claude → Antigravity · T84 RFID 서버 상시 유지·입장 때 놓인 카드 처리, T85 템플릿 26.10.12-1
+- 요청(사용자): RFID 서버를 계속 열어 두고, 현장 플레이에서 앞 판 카드를 그대로 두고 다음 레벨로 가는 경우가 많으니 게임 씬 입장 뒤 첫 입력(놓여 있는 카드)을 처리. 이어서 템플릿 업데이트.
+- 변경 파일(T84): `RfidReaderService.cs`(세션별 `CardUid`, `GetCardsOnReaders`, `FindMapping`), `GameLifetimeScope.cs`(서비스 등록, `ConfigureProjectMessageBrokers`로 RFID 브로커), `GameSceneLifetimeScope.cs`(서비스·`RegisterMessagePipe`·브로커 제거), `IngredientSelectionController.cs`(`RestoreCardsOnReaders`·`RememberCardsOnReaders`, `Construct` 끝에 선택 인자), `GameLifetimeScope.prefab`(RfidReaderService 자식), `3_Game.unity`(GamePanel에서 컴포넌트 제거), 테스트(CardPresenceTrackerTests 보강, IngredientFsmStateTests 1건).
+- 변경 파일(T85): `packages-lock.json`(d992584 → 1c5e127). Breaking 영향 없음 — `GetTextWithRetryAsync` 미사용, 숨은 종료 버튼은 루트 프리팹 오버라이드·`Settings.json`으로 오른쪽 위(왼쪽 위 관리자 진입 버튼과 안 겹침), `JsonLoader` 호출부 모두 취소 처리.
+- 확인: Rider 오류 0, 컴파일 오류 0, PlayMode 226/226(템플릿 전후 두 번), Play 확인 — 서버는 루트(DontDestroyOnLoad)에서 한 번 열리고 3_Game을 다시 불러와도 다시 열지 않음, 컨트롤러가 같은 서비스를 주입받음. EditorSettings 되돌림, TMP 폰트 글리프 변경 버림.
+- 리뷰(Antigravity `gemini-3.8-flash-high`, 8요청): 카드 상태 기록·스레드 안전 2/2, 루트 등록·구독 해제 2/2, 입장 때 카드 적용·실패 경로 2/2, 씬 컴포넌트 제거 1/1, 프리팹 자식 1/1, 템플릿 Breaking·JsonLoader 호출부 통과. 끊긴 2건(씬·프리팹 묶음, JsonLoader 호출부)은 나눠서 다시 맡겼고, 다시 끊긴 AdminSettings·AdminPasswordPanel 3곳은 Claude가 직접 확인(모두 `catch (OperationCanceledException)`) → 통과.
+- 낮음(기록만): 게임 씬이 설정을 읽는 수십 ms 사이에 카드를 올리면 '단계 정의가 없어 태그를 무시함' 경고가 한 줄 남음(초기화 뒤 놓인 카드로 다시 처리돼 화면 영향 없음). 서버가 모든 씬에서 열려 있어 레벨 선택·결과 화면에서 카드를 올리고 떼도 비활동 시간을 다시 잼(관람객 활동으로 봄).
+- 남은 것: 실제 리더기로 앞 판 카드를 둔 채 다음 레벨에 들어가 1단계가 바로 잡히는지 현장 확인(사용자). 사용자의 `RfidMappings.json` MAC 변경은 커밋하지 않음.
+
+---
+
 ### [2026-10-10] Claude → Antigravity · T83 3차 전체 점검과 중간 이상 수정
 - 요청(사용자): PR #65 머지 뒤 다시 한번 전체 점검(이전 지시대로 중간 이상은 바로 고침).
 - 점검(Claude 서브에이전트 6, 영역별로 모든 관점 — 지난 두 번은 관점별): RFID·게임 입력, 타이틀·관리자·서버, 씬 흐름·영상·결과, 앱 기반·템플릿 26.10.10-2 통합, 데이터·씬·설정, 테스트 품질·빈틈(새 관점). 규칙 grep·summary·트윈 수명·끊긴 GUID 재검사(Claude 직접) — 위반 0.
