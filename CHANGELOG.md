@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [2026-10-12]
+
 ### ⚠ Breaking Changes
 - `RfidMappings.json`의 리더기(`readers`)·카드(`mappings`)·포트(`listenPort`)·떨어짐 판정 시간(`cardRemovedDebounceMs`)은 이제 앱을 켤 때 한 번만 읽으므로, 현장에서 고친 뒤에는 앱을 다시 켜야 함(예전에는 게임 화면에 들어올 때마다 다시 읽음).
 

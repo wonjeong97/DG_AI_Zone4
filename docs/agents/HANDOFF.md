@@ -21,6 +21,7 @@
 - 리뷰(Antigravity `gemini-3.8-flash-high`, 8요청): 카드 상태 기록·스레드 안전 2/2, 루트 등록·구독 해제 2/2, 입장 때 카드 적용·실패 경로 2/2, 씬 컴포넌트 제거 1/1, 프리팹 자식 1/1, 템플릿 Breaking·JsonLoader 호출부 통과. 끊긴 2건(씬·프리팹 묶음, JsonLoader 호출부)은 나눠서 다시 맡겼고, 다시 끊긴 AdminSettings·AdminPasswordPanel 3곳은 Claude가 직접 확인(모두 `catch (OperationCanceledException)`) → 통과.
 - 낮음(기록만): 게임 씬이 설정을 읽는 수십 ms 사이에 카드를 올리면 '단계 정의가 없어 태그를 무시함' 경고가 한 줄 남음(초기화 뒤 놓인 카드로 다시 처리돼 화면 영향 없음). 서버가 모든 씬에서 열려 있어 레벨 선택·결과 화면에서 카드를 올리고 떼도 비활동 시간을 다시 잼(관람객 활동으로 봄).
 - 남은 것: 실제 리더기로 앞 판 카드를 둔 채 다음 레벨에 들어가 1단계가 바로 잡히는지 현장 확인(사용자). 사용자의 `RfidMappings.json` MAC 변경은 커밋하지 않음.
+- PR wonjeong97/DG_AI_Zone4#67 머지 전: 코드·씬·프리팹·패키지는 PR 전에 리뷰한 커밋 그대로라 문서만 다시 봄 — Antigravity 문서 리뷰(CHANGELOG·CLAUDE.md·TODO가 코드 동작과 맞는지) 2/2 통과, 수정 0. CI 검사 없음, CHANGELOG [Unreleased]를 2026-10-12 섹션으로 옮김.
 
 ---
 
