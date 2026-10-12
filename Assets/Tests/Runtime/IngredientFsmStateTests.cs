@@ -367,6 +367,31 @@ namespace DGAIZone.Tests
             Assert.IsFalse(IngredientSelectionController.ShouldReplayCurrentReaderCard(false, null, false, null), "놓인 카드가 없으면 하지 않음");
         }
 
+        /// <summary>
+        /// 게임 씬에 들어올 때 리더기에 놓여 있던 카드를 그 리더기 단계 번호로 기억함(앞 판에서 두고 간 카드를 이어서 씀). 단계가 없는 리더기는 넘기고,
+        /// 이미 기억한 단계는 지금 놓인 카드로 바꿈.
+        /// </summary>
+        [Test]
+        public void 들어올_때_놓여_있던_카드를_리더기_단계로_기억한다()
+        {
+            Dictionary<int, RfidTagEvent> cardsOnReaders = new Dictionary<int, RfidTagEvent>
+            {
+                { 0, new RfidTagEvent("Reader_1", Constants.RfidCategories.Action) }
+            };
+            List<RfidTagEvent> cards = new List<RfidTagEvent>
+            {
+                new RfidTagEvent("Reader_1", Constants.RfidCategories.Control),
+                new RfidTagEvent("Reader_3", Constants.RfidCategories.Logic),
+                new RfidTagEvent("Unknown_192.168.0.99", Constants.RfidCategories.Action)
+            };
+
+            IngredientSelectionController.RememberCardsOnReaders(cards, cardsOnReaders);
+
+            Assert.AreEqual(2, cardsOnReaders.Count, "단계가 없는 리더기의 카드는 기억하지 않음");
+            Assert.AreEqual(Constants.RfidCategories.Control, cardsOnReaders[0].Category, "지금 놓인 카드로 바꿔 기억함");
+            Assert.AreEqual(Constants.RfidCategories.Logic, cardsOnReaders[2].Category);
+        }
+
         /// <summary> 지금 단계 리더기에서 온 카드를 적용하지 못하면 앞 카드로 고르던 값을 비움. 다른 리더기·고르던 값 없음이면 그대로 둠. </summary>
         [Test]
         public void 지금_단계_리더기의_카드를_쓸_수_없으면_고르던_값을_비운다()

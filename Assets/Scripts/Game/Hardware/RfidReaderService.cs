@@ -25,6 +25,8 @@ namespace DGAIZone.Game.Hardware
     /// 다중 RFID 리더기(최대 5개)의 TCP 통신을 관리하고 태그 인식 시 이벤트를 발행하는 서비스.
     /// 리더기가 클라이언트, PC(이 서비스)가 서버 역할을 함. 한 포트(listenPort)로 모든 리더기의 접속을 받고,
     /// 접속해온 소켓의 IP와 ARP로 조회한 MAC을 RfidMappings.json의 readers와 대조해 readerId를 식별함(둘이 엇갈리면 MAC을 따름, ResolveReaderId).
+    /// 루트 프리팹(GameLifetimeScope)에 있어 앱이 켜져 있는 동안 서버를 계속 열어 둠 — 게임 씬마다 열고 닫으면 리더기가 다시 접속하기 전까지
+    /// 카드를 받지 못하고, 앞 판에서 두고 간 카드를 접속 때 올려져 있던 카드로 보고 무시함. 게임 씬은 들어올 때 GetCardsOnReaders로 놓여 있는 카드를 이어서 씀.
     /// </summary>
     public class RfidReaderService : MonoBehaviour
     {
@@ -35,6 +37,7 @@ namespace DGAIZone.Game.Hardware
             public Thread ReadThread;
             public volatile bool IsRunning;
             public string LastUnregisteredUid; // 마지막으로 경고한 미등록 UID — 같은 카드가 올라가 있는 동안 경고를 반복하지 않음(수신 스레드만 씀)
+            public volatile string CardUid; // 지금 올라가 있다고 보는 등록된 카드 UID(접속 때부터 놓여 있던 카드 포함). 수신 스레드가 쓰고 GetCardsOnReaders가 읽음
         }
 
         private IPublisher<RfidTagEvent> _publisher;
@@ -82,7 +85,8 @@ namespace DGAIZone.Game.Hardware
         }
 
         /// <summary>
-        /// 씬 시작 시 수신 이벤트 구독을 연결하고 설정 로드를 비동기(UniTask)로 시작함.
+        /// 앱 시작 시(루트 프리팹 생성) 수신 이벤트 구독을 연결하고 설정 로드를 비동기(UniTask)로 시작함.
+        /// RfidMappings.json의 readers·mappings·listenPort·cardRemovedDebounceMs는 이때 한 번만 읽으므로 고치면 앱을 다시 켜야 함.
         /// </summary>
         private void Start()
         {
@@ -101,7 +105,7 @@ namespace DGAIZone.Game.Hardware
             {
                 _settings = await JsonLoader.LoadAsync<RfidSettings>(Constants.Files.RfidMappings, token, _logger);
 
-                // 로드가 끝난 직후 씬이 내려갔어도 OnDestroy 뒤에 서버를 열어 포트를 붙든 채 남지 않게 멈춤(로드 중 취소는 JsonLoader가 던짐)
+                // 로드가 끝난 직후 이 오브젝트가 파괴됐어도(앱 종료) OnDestroy 뒤에 서버를 열어 포트를 붙든 채 남지 않게 멈춤(로드 중 취소는 JsonLoader가 던짐)
                 token.ThrowIfCancellationRequested();
                 if (_settings == null)
                 {
@@ -474,6 +478,7 @@ namespace DGAIZone.Game.Hardware
                     string removedCard = tracker.CurrentCard;
                     if (tracker.CheckRemoved(nowMs))
                     {
+                        session.CardUid = null;
                         if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 카드가 떨어짐({removedTimeoutMs}ms 동안 UID 없음, 올라가 있던 동안 UID 간격 최대 {tracker.MaxFrameGapMs}ms): {removedCard}");
                         _idleSubject.OnNext(session.ReaderId); // 구독자가 UI를 바꾸므로 이 수신 스레드에서 바로 발행하지 않음
                     }
@@ -516,14 +521,17 @@ namespace DGAIZone.Game.Hardware
                 return;
             }
 
-            switch (tracker.OnCardFrame(uid, receivedAtMs))
+            CardPresenceTracker.CardFrameResult result = tracker.OnCardFrame(uid, receivedAtMs);
+            session.CardUid = tracker.CurrentCard;
+            switch (result)
             {
                 case CardPresenceTracker.CardFrameResult.NewCard:
                     _messageSubject.OnNext((session.ReaderId, uid));
                     break;
 
+                // 접속 때 놓여 있던 카드를 새 카드로 알리면 게임 중 리더기가 다시 접속했을 때 설정한 단계가 되돌려짐. 게임 씬은 들어올 때 GetCardsOnReaders로 이어서 씀
                 case CardPresenceTracker.CardFrameResult.Baseline:
-                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 접속 때 이미 올려져 있던 카드라 무시함(떼었다 다시 올리면 인식): {uid}");
+                    if (_logger != null) _logger.ZLogInformation($"[RfidReaderService] {session.ReaderId} 접속 때 이미 올려져 있던 카드라 새 카드로 알리지 않음(게임 화면에 들어오면 이어서 씀): {uid}");
                     break;
 
                 // Repeat: 올라가 있는 카드가 반복해서 보낸 UID라 다시 발행하지 않음(매번 로그를 남기면 스팸)
@@ -571,16 +579,7 @@ namespace DGAIZone.Game.Hardware
                 return;
             }
 
-            RfidMappingItem matchedItem = null;
-            foreach (RfidMappingItem item in _mappings)
-            {
-                if (item != null && string.Equals(item.uid, data.rawData, StringComparison.OrdinalIgnoreCase))
-                {
-                    matchedItem = item;
-                    break;
-                }
-            }
-
+            RfidMappingItem matchedItem = FindMapping(data.rawData);
             if (matchedItem == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {data.readerId}에서 등록되지 않은 카드 uid '{data.rawData}' 수신. 무시함.");
@@ -597,8 +596,48 @@ namespace DGAIZone.Game.Hardware
             }
         }
 
+        /// <summary> uid에 맞는 카드 매핑을 찾음(대소문자 무시). 매핑이 로드되지 않았거나 없으면 null. </summary>
+        private RfidMappingItem FindMapping(string uid)
+        {
+            if (_mappings == null) return null;
+
+            foreach (RfidMappingItem item in _mappings)
+            {
+                if (item != null && string.Equals(item.uid, uid, StringComparison.OrdinalIgnoreCase)) return item;
+            }
+
+            return null;
+        }
+
         /// <summary>
-        /// 씬 종료 및 파괴 시 TCP 서버와 모든 리더기 접속, 스레드, R3 리소스를 해제함.
+        /// 지금 리더기마다 올라가 있는 카드를 results에 채움(results는 먼저 비움, 접속 때부터 놓여 있던 카드 포함). 서버를 앱 내내 열어 두어
+        /// 놓여 있던 카드는 새로 알리지 않으므로, 게임 씬이 들어올 때 이것으로 앞 판에서 두고 간 카드를 이어서 씀.
+        /// </summary>
+        public void GetCardsOnReaders(List<RfidTagEvent> results)
+        {
+            results.Clear();
+            lock (_sessionsLock)
+            {
+                foreach (ReaderSession session in _sessions)
+                {
+                    string uid = session.CardUid;
+                    if (uid == null) continue; // 카드가 없는 리더기(정상)
+
+                    RfidMappingItem item = FindMapping(uid);
+                    if (item == null)
+                    {
+                        // 매핑이 비어 등록 카드로 거르지 못한 경우뿐(RfidMappings.json mappings 누락은 서버를 열 때 경고함)
+                        if (_logger != null) _logger.ZLogWarning($"[RfidReaderService] {session.ReaderId}에 놓인 카드 uid '{uid}'가 등록되지 않아 이어서 쓰지 않음.");
+                        continue;
+                    }
+
+                    results.Add(new RfidTagEvent(session.ReaderId, item.category));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 앱 종료 때(루트 프리팹 파괴) TCP 서버와 모든 리더기 접속, 스레드, R3 리소스를 해제함.
         /// </summary>
         private void OnDestroy()
         {

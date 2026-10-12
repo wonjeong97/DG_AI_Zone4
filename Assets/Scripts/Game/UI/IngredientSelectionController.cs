@@ -7,6 +7,7 @@ using DGAIZone.App;
 using DGAIZone.Data;
 using DGAIZone.Game.Data;
 using DGAIZone.Game.Events;
+using DGAIZone.Game.Hardware;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using R3;
@@ -113,6 +114,7 @@ namespace DGAIZone.Game.UI
         private ILogger<IngredientSelectionController> _logger;
         private SoundManager _soundManager;
         private VisitorInfoProvider _visitorInfoProvider;
+        private RfidReaderService _rfidReaderService;
         private bool _isBusy;
 
         private int _selectedLevel = 1;     // 현재 레벨 (디자인 항목 표시 형식 분기 등에 사용)
@@ -216,11 +218,12 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// VContainer 의존성 주입. MessagePipe 구독자(카드 인식/카드 떨어짐), 씬 전환 서비스, 미션 보드·카테고리 안내·결과 저장소,
-        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거, 효과음 매니저, 행동 로그 주어를 줄 체험자 정보를 할당함.
+        /// 화살표 안내·잘못된 카드 경고·설계창 컴포넌트, 로거, 효과음 매니저, 행동 로그 주어를 줄 체험자 정보, 들어올 때 놓여 있는 카드를 알려 줄 RFID 서버를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger, SoundManager soundManager = null, VisitorInfoProvider visitorInfoProvider = null)
+        public void Construct(ISubscriber<RfidTagEvent> subscriber, ISubscriber<RfidReaderIdleEvent> idleSubscriber, SelectedLevelStore selectedLevelStore, SceneTransitionService sceneTransition, MissionBoardController missionBoard, CodingCategoryIndicatorController codingCategoryIndicator, GameResultStore resultStore, RightArrowHint rightArrowHint, InvalidCardWarning invalidCardWarning, DesignPanel designPanel, ILogger<IngredientSelectionController> logger, SoundManager soundManager = null, VisitorInfoProvider visitorInfoProvider = null, RfidReaderService rfidReaderService = null)
         {
+            _rfidReaderService = rfidReaderService;
             _subscriber = subscriber;
             _idleSubscriber = idleSubscriber;
             _selectedLevelStore = selectedLevelStore;
@@ -327,6 +330,39 @@ namespace DGAIZone.Game.UI
             }
 
             ResetWorkflowProgress();
+            RestoreCardsOnReaders();
+        }
+
+        /// <summary>
+        /// 게임 씬에 들어올 때 리더기에 이미 놓여 있는 카드(앞 판에서 두고 간 카드 등)를 방금 올린 카드처럼 이어서 씀. RFID 서버는 앱 내내 열려 있어
+        /// 놓여 있던 카드를 다시 알리지 않으므로, 하지 않으면 떼었다 다시 올려야 인식됨. 지금 단계 카드는 바로 쓰고(게임 화면은 씬 시작 때 켜져 있음),
+        /// 다른 단계 카드는 기억해 두었다가 그 단계가 되면 씀. 리더기가 1대뿐이면 리더기별 카드를 기억하지 않으므로 하지 않음(정상).
+        /// </summary>
+        private void RestoreCardsOnReaders()
+        {
+            if (_readerCount <= 1) return;
+            if (_rfidReaderService == null)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] rfidReaderService가 null이라 리더기에 놓여 있던 카드를 이어서 쓸 수 없음(떼었다 다시 올려야 인식됨).");
+                return;
+            }
+
+            List<RfidTagEvent> cards = new List<RfidTagEvent>();
+            _rfidReaderService.GetCardsOnReaders(cards);
+            RememberCardsOnReaders(cards, _cardsOnReaders);
+
+            // 게임 화면이 아직 켜지지 않았으면 켜질 때 OnGamePanelReturned가 씀(켜지지 않은 채 쓰면 '게임 화면이 아니라 쓰지 않음'으로 버려짐)
+            if (gamePanel && gamePanel.interactable) ApplyCardOnCurrentReader();
+        }
+
+        /// <summary> 리더기마다 놓여 있는 카드를 그 리더기 단계 번호로 cardsOnReaders에 기록함. "Reader_N" 형식이 아닌 리더기(시험용 임시 ID 등)는 단계가 없어 넘김. </summary>
+        internal static void RememberCardsOnReaders(IReadOnlyList<RfidTagEvent> cards, IDictionary<int, RfidTagEvent> cardsOnReaders)
+        {
+            foreach (RfidTagEvent card in cards)
+            {
+                int stepIndex = GetStepIndexForReader(card.ReaderId);
+                if (stepIndex >= 0) cardsOnReaders[stepIndex] = card;
+            }
         }
 
         /// <summary>
