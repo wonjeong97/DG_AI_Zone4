@@ -144,7 +144,8 @@ Packages/packages-lock.json linguist-generated
 *.zip                   lfs
 
 # Compiled Dynamic Library
-*.dll                   lfs
+# DLLs stay out of LFS: GitHub "Download ZIP" ships LFS pointers, which breaks NuGet/DOTween assemblies
+*.dll                   binary
 *.pdb                   lfs
 *.so                    lfs
 
@@ -169,3 +170,11 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+# Third-party files stay out of LFS so GitHub "Download ZIP" ships the real files
+Assets/Packages/**/*.png                !filter binary
+Assets/Plugins/**/*.png                 !filter binary
+Assets/Plugins/**/*.jpg                 !filter binary
+Assets/TextMesh[[:space:]]Pro/**/*.png  !filter binary
+Assets/TextMesh[[:space:]]Pro/**/*.ttf  !filter binary
+Assets/TextMesh[[:space:]]Pro/**/*.pdf  !filter binary
