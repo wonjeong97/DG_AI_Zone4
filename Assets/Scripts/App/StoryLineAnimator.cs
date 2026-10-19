@@ -66,7 +66,7 @@ namespace DGAIZone.App
 
         /// <summary>
         /// 줄 단위 정점 캐싱 후 한 줄씩 Y 오프셋과 알파를 보간해 올리는 연출 핵심 로직. paragraphStartTimes가 있으면 글 줄마다 그 시각까지 기다렸다가
-        /// 올리고(줄 사이 간격은 쓰지 않음), 없으면 줄마다 lineInterval 간격으로 올림.
+        /// 올리고(시각이 모자란 글 줄만 lineInterval 간격), 없으면 줄마다 lineInterval 간격으로 올림.
         /// </summary>
         private static async UniTask AnimateLinesAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset, Func<bool> skipRequested, CancellationToken token,
             IReadOnlyList<float> paragraphStartTimes)

@@ -18,7 +18,10 @@ namespace DGAIZone.Data
         /// <summary> 스토리 텍스트 각 줄이 아래에서 위로 올라오는 이동/페이드 연출 시간(초). </summary>
         public float storyLineMoveDuration = 0.7f;
 
-        /// <summary> 스토리 텍스트 다음 줄 연출 시작 전 대기 간격(초). </summary>
+        /// <summary>
+        /// 스토리 텍스트 다음 줄 연출 시작 전 대기 간격(초). 인트로는 1_Intro.json의 storyLineStartTimes가 있으면 그 시각을 따르고,
+        /// 시각이 모자란 글 줄에만 이 간격을 씀.
+        /// </summary>
         public float storyLineInterval = 0.35f;
 
         /// <summary> 스토리 텍스트 한 줄이 올라올 때 시작 Y 오프셋 거리(픽셀). </summary>
