@@ -259,6 +259,12 @@ namespace DGAIZone.App
             /// RfidMappings.json 반복하기 블록에 이 value가 꼭 있어야 함.
             /// </summary>
             public const int RequiredRepeatCount = 3;
+
+            /// <summary>
+            /// AI 정답(단계별 칸·결과 화면 AI 설계창)이 쓰는 반복 횟수. 같은 방향으로 이 칸 수만큼 가는 구간은 '반복하기(횟수) + 이동하기'로 안내해
+            /// 반복 블록을 우선 씀(Level4Rules.FindShortestSolution). RfidMappings.json 반복하기 블록에 모두 있어야 함.
+            /// </summary>
+            public static readonly int[] AnswerRepeatCounts = { 2, RequiredRepeatCount };
         }
 
         /// <summary>

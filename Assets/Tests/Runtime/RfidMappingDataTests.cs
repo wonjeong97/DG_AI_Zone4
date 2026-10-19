@@ -298,6 +298,17 @@ namespace DGAIZone.Tests
         }
 
         [Test]
+        public void 검증기는_AI_정답이_쓰는_반복_횟수_블록이_없으면_찾아낸다()
+        {
+            RfidMatterSet repeatSet = GetMapping(4).matterSets.First(s => s.id == Constants.RfidIds.Level4.Repeat);
+            repeatSet.matters = repeatSet.matters.Where(m => m.value != 2).ToArray();
+
+            List<string> errors = RfidMappingValidator.Validate(_settings);
+
+            AssertHasError(errors, "레벨 4 반복하기", "2회");
+        }
+
+        [Test]
         public void 검증기는_레벨4_단계가_제어나_동작_카드를_받지_않으면_찾아낸다()
         {
             RfidLevelMapping level4 = GetMapping(4);

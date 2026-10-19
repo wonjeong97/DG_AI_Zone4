@@ -73,7 +73,8 @@ namespace DGAIZone.Tests
 
         /// <summary> 레벨 4는 이번 판 배치의 AI 정답 경로 순서대로 칸을 만들고, 정답 블록(결과 화면 AI 설계창)과 칸이 하나씩 맞아야 함. </summary>
         [TestCase(0, 0, 1, 3, new[] { Control, Action, Control, Action }, TestName = "레벨4_칸은_정답_경로를_따른다_4칸_배치")]
-        [TestCase(0, 2, 0, 1, new[] { Action, Action, Control, Action, Action }, TestName = "레벨4_칸은_정답_경로를_따른다_5칸_배치")]
+        [TestCase(0, 2, 0, 1, new[] { Control, Action, Control, Action, Action }, TestName = "레벨4_칸은_정답_경로를_따른다_같은_방향_두_칸은_반복_2회")]
+        [TestCase(0, 0, 0, 3, new[] { Action, Control, Action, Control, Action }, TestName = "레벨4_칸은_정답_경로를_따른다_반복을_더_쓰는_경로")]
         public void 레벨4_칸은_정답_경로를_따른다(int robotRow, int resourceRow, int trapRow, int hqRow, string[] expected)
         {
             IngredientSelectionController controller = CreateController(4);
@@ -92,12 +93,83 @@ namespace DGAIZone.Tests
         }
 
         [Test]
+        public void 레벨4_정답은_가장_적은_장수_중_반복하기를_가장_많이_쓴다()
+        {
+            Assert.IsNotEmpty(Level4Rules.PlacementPool, "배치 후보가 비어 있으면 아무것도 확인하지 않고 통과함");
+            foreach (Level4Layout layout in Level4Rules.PlacementPool)
+            {
+                List<(int moves, string directionId)> path = Level4Rules.FindShortestSolution(layout, Constants.Level4Board.MaxCards, Constants.Level4Board.AnswerRepeatCounts);
+                Assert.IsNotNull(path, $"{layout}: 정답 경로가 없음");
+                Assert.IsTrue(Solves(layout, path), $"{layout}: 정답 경로가 마지막 칸에서 기지에 정확히 닿지 않음");
+
+                // 탐색 코드와 따로, 카드 제한 안의 모든 구간 조합을 걸어 보아 정답인 조합의 (장수, 반복하기 수)를 모음
+                List<(int cards, int repeats)> found = new List<(int cards, int repeats)>();
+                EnumerateSolutions(layout, new List<(int moves, string directionId)>(), 0, found);
+                int fewestCards = found.Min(f => f.cards);
+                int mostRepeats = found.Where(f => f.cards == fewestCards).Max(f => f.repeats);
+
+                Assert.AreEqual(fewestCards, path.Sum(s => s.moves > 1 ? 2 : 1), $"{layout}: 가장 적은 장수가 아님");
+                Assert.AreEqual(mostRepeats, path.Count(s => s.moves > 1), $"{layout}: 같은 장수 중 반복하기를 가장 많이 쓰지 않음");
+            }
+        }
+
+        // 이동하기 한 장, AI 정답이 쓰는 반복 횟수마다 반복하기+이동하기 두 장
+        private static readonly (int moves, int cost)[] SegmentOptions =
+            new[] { (1, 1) }.Concat(Constants.Level4Board.AnswerRepeatCounts.Select(count => (count, 2))).ToArray();
+
+        private static readonly string[] Level4Directions =
+        {
+            Constants.RfidIds.Level4.MoveUp, Constants.RfidIds.Level4.MoveDown, Constants.RfidIds.Level4.MoveRight, Constants.RfidIds.Level4.MoveLeft
+        };
+
+        /// <summary> 한 칸 이동(1장)·반복 이동(2장) 구간을 네 방향으로 카드 제한까지 이어 붙이며, 정답(Solves)인 조합의 장수와 반복하기 수를 found에 담음. </summary>
+        private static void EnumerateSolutions(Level4Layout layout, List<(int moves, string directionId)> segments, int cards, List<(int cards, int repeats)> found)
+        {
+            if (segments.Count > 0 && Solves(layout, segments)) found.Add((cards, segments.Count(s => s.moves > 1)));
+
+            foreach (string direction in Level4Directions)
+            {
+                foreach ((int moves, int cost) in SegmentOptions)
+                {
+                    if (cards + cost > Constants.Level4Board.MaxCards) continue;
+                    segments.Add((moves, direction));
+                    EnumerateSolutions(layout, segments, cards + cost, found);
+                    segments.RemoveAt(segments.Count - 1);
+                }
+            }
+        }
+
+        /// <summary> 구간을 Step으로 한 칸씩 걸어, 그리드 밖·함정 없이 마지막 한 칸에서 자원을 모은 채 기지에 닿으면 정답(기지에 더 일찍 닿으면 정답 아님). </summary>
+        private static bool Solves(Level4Layout layout, List<(int moves, string directionId)> segments)
+        {
+            int column = Level4Rules.RobotColumn;
+            int row = layout.RobotRow;
+            bool collected = false;
+            int totalSteps = segments.Sum(s => s.moves);
+            int taken = 0;
+
+            foreach ((int moves, string directionId) in segments)
+            {
+                if (!Level4Rules.TryGetMoveStep(directionId, out Level4MoveStep step)) Assert.Fail($"알 수 없는 방향 {directionId}");
+                for (int i = 0; i < moves; i++)
+                {
+                    taken++;
+                    Level4StepResult result = Level4Rules.Step(layout, ref column, ref row, ref collected, step);
+                    if (result == Level4StepResult.OutOfBounds || result == Level4StepResult.Trap) return false;
+                    if (result == Level4StepResult.Hq) return collected && taken == totalSteps;
+                }
+            }
+
+            return false;
+        }
+
+        [Test]
         public void 레벨4_모든_배치는_4칸이나_5칸이고_반복_다음은_동작이다()
         {
             Assert.IsNotEmpty(Level4Rules.PlacementPool, "배치 후보가 비어 있으면 아무것도 확인하지 않고 통과함");
             foreach (Level4Layout layout in Level4Rules.PlacementPool)
             {
-                List<(int moves, string directionId)> path = Level4Rules.FindShortestSolution(layout, Constants.Level4Board.MaxCards, Constants.Level4Board.RequiredRepeatCount);
+                List<(int moves, string directionId)> path = Level4Rules.FindShortestSolution(layout, Constants.Level4Board.MaxCards, Constants.Level4Board.AnswerRepeatCounts);
                 Assert.IsNotNull(path, $"{layout}: 정답 경로가 없음");
 
                 string[] categories = IngredientLevel4State.StepCategoriesOf(path);

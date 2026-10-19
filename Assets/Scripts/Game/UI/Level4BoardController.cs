@@ -231,11 +231,14 @@ namespace DGAIZone.Game.UI
             ApplyRowBasedDrawOrder();
         }
 
-        /// <summary> 이번 판 배치를 가장 적은 카드(최대 MaxCommands장, 반복 RequiredRepeatCount회)로 푸는 경로. 아직 배치하지 않았으면 먼저 배치함. 풀 수 없으면 null. </summary>
+        /// <summary>
+        /// 이번 판 배치를 가장 적은 카드(최대 MaxCommands장, 반복 Constants.Level4Board.AnswerRepeatCounts회)로 기지에 정확히 닿는 경로
+        /// (같은 장수면 반복하기를 많이 쓰는 경로). 아직 배치하지 않았으면 먼저 배치함. 풀 수 없으면 null.
+        /// </summary>
         internal List<(int moves, string directionId)> FindSolution()
         {
             EnsurePlaced();
-            return Level4Rules.FindShortestSolution(Layout, MaxCommands, RequiredRepeatCount);
+            return Level4Rules.FindShortestSolution(Layout, MaxCommands, Constants.Level4Board.AnswerRepeatCounts);
         }
 
         /// <summary>
