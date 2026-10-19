@@ -13,6 +13,10 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
   - 정답 고르기 규칙·경로 목록 관리·배치 후보 판정 불변 → 둘 다 통과
   - 반복 2회와 BuildSolution·칸·판정·검증기 → 둘 다 통과
   - 탐색 비용(최악 CollectRun 약 5,700번, 1ms 안팎) → 둘 다 통과
+- PR wonjeong97/DG_AI_Zone4#71 리뷰(사용자 요청 — 바로 머지하지 말고 리뷰 후 머지, 2026-10-19 12:25):
+  - agy (gemini-4-argon-high, 1묶음): 문서 정합성(CHANGELOG·CLAUDE.md·TODO·HANDOFF, 예시) → 통과
+  - 서브에이전트 (1묶음): 정리(쓸모없어진 코드·낡은 주석, 단순화) → 낮음 1건(검증기 ValidateLevel4 summary에 반복 2회 요구가 빠짐) → 고침. 반복 횟수 1 이하 가지치기 조건은 결과가 같아 그대로 둠(낮음)
+  - 교차 검증 (1묶음): 레벨 4 흐름(1단계 반복 칸·값 선택·반복 다음 동작·설계창 ㄷ자, 결과 화면 AI 정답 반복 2회·판정·이동 연출, 다른 레벨·정답 없음) → 둘 다 통과. 서브에이전트가 물은 커밋된 RfidMappings.json의 반복 2회 블록 → 있음(작업 트리 변경은 MAC뿐)
 - 남은 것: 사용자가 3_Game의 GameFlowController.debugStartLevel을 4로 바꿔 저장해 둠(커밋하지 않음, 출시 전 0으로).
 
 ---

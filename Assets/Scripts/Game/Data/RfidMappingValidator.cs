@@ -175,7 +175,8 @@ namespace DGAIZone.Game.Data
 
         /// <summary>
         /// 레벨 4: 동작 카드로 고르는 이동하기, 제어 카드로 고르는 반복하기 재료가 있고, 이동 방향은 아는 id로 네 방향이 모두 있어야 하며, 반복 횟수는 1 이상이어야 함.
-        /// 보드 배치 규칙에 맞게 단계 수는 카드 수(Constants.Level4Board.MaxCards)와 같고, 반복 횟수 블록에 RequiredRepeatCount가 있어야 하며,
+        /// 보드 배치 규칙에 맞게 단계 수는 카드 수(Constants.Level4Board.MaxCards)와 같고, 반복 횟수 블록에 RequiredRepeatCount와 AI 정답이 쓰는
+        /// AnswerRepeatCounts의 횟수가 모두 있어야 하며,
         /// 모든 단계가 동작 카드를, 마지막을 뺀 모든 단계가 제어 카드를 받아야 함.
         /// </summary>
         private static void ValidateLevel4(RfidLevelMapping mapping, List<string> errors)
