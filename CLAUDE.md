@@ -38,7 +38,7 @@
 - `Json/Admin.json`: 관리자 비밀번호(4~6자리, 기본 `0000`), 관리자 화면·이름 입력 창 자동 닫기 `idleCloseSeconds`(60초), 비밀번호 창 `passwordIdleCloseSeconds`(10초), 진입 클릭 `entryClickCount`(10회)·`entryClickWindowSeconds`(3초). 시간·횟수가 1보다 작으면 기본값을 쓰고, 비밀번호를 바꿀 때 다른 값은 유지한다.
 - `Json/Server.json`: 체험자 서버 주소·시간 제한·재시도 횟수.
 - `RfidMappings.json`: 리더기, 카드(uid → 분류), 레벨별 블록 목록·단계. 리더기·카드·`listenPort`·`cardRemovedDebounceMs`는 RFID 서버가 앱을 켤 때 한 번만 읽으므로 고치면 앱을 다시 켠다(레벨별 블록·단계는 게임 씬마다 다시 읽음).
-- `Settings.json`(템플릿): 비활동 타이머(`useInactivityTimer`, `resetTime`), 프레임, 소리 등. `ShutdownSettings.json`(템플릿): 요일별 자동 종료.
+- `Settings.json`(템플릿): 비활동 타이머(`useInactivityTimer`, `resetTime`), 프레임, 소리, 창 항상 위(`alwaysOnTop`, 생략하면 끔 — 켜면 작업 관리자·오류 창도 가려지므로 점검 때 `Ctrl+F`로 포커스 복구와 함께 끔) 등. `ShutdownSettings.json`(템플릿): 요일별 자동 종료.
 - `Videos/4-{레벨}-Success.mp4`, `4-{레벨}-Fail[-원인].mp4`: 결과 영상(레벨 3만 원인별 실패 영상 `Electricity`·`O2`가 있음).
 
 ## 하드웨어·외부 연동
