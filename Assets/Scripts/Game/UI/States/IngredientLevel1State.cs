@@ -43,11 +43,14 @@ namespace DGAIZone.Game.UI.States
             return true;
         }
 
-        /// <summary> 정의된 단계별 허용 카테고리를 그대로 반환함. </summary>
-        public string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step)
+        /// <summary> 단계 정의마다 받는 분류(동작)를 그대로 씀. </summary>
+        public string[] BuildStepCategories(IngredientSelectionController controller)
         {
-            return step.categories;
+            return controller.StepCategoriesFromDefinitions();
         }
+
+        /// <summary> 제어 카드를 쓰지 않는 레벨이라 분류 이름을 씀. </summary>
+        public string ControlSlotLabel => Constants.RfidCategories.Control;
 
         /// <summary> JSON에 정의된 단계별 고정 재료/물질을 그대로 사용함. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)

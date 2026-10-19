@@ -11,8 +11,8 @@ using ZLogger;
 namespace DGAIZone.Game.UI.States
 {
     /// <summary>
-    /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 함수·동작 카드를 Constants.Level5Cards 장수만큼 어느 순서로든 놓을 수
-    /// 있고(다 쓴 분류의 카드는 받지 않음), 5장을 모두 놓으면 코딩 완료를 누를 수 있으며, 동작 블록이 모두 함수 정의 블록 안쪽(함수 카드 뒤)에
+    /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 함수 카드 1장 다음 동작 카드 4장 순서로 놓고(BuildStepCategories,
+    /// 다 쓴 분류의 카드는 받지 않음), 5장을 모두 놓으면 코딩 완료를 누를 수 있으며, 동작 블록이 모두 함수 정의 블록 안쪽(함수 카드 뒤)에
     /// 들어가 있으면 성공.
     /// 함수 카드는 설계창에 함수 사용 블록(시작하기 아래 줄)과 함수 정의 블록(오른쪽)으로 쌓이고, 함수 카드 뒤에 놓은 동작 블록은 함수 정의
     /// 블록 안쪽에, 앞에 놓은 블록은 시작하기 아래 줄에 놓은 순서대로 쌓임. 함수 정의 블록 안쪽에 보이는 동작 블록마다 현재 상황 화면에
@@ -51,24 +51,20 @@ namespace DGAIZone.Game.UI.States
             return false;
         }
 
-        /// <summary> 단계가 받는 분류 중 아직 정해진 장수를 다 놓지 않은 분류만 안내함. </summary>
-        public string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step)
+        /// <summary> 함수 카드 다음에 동작 카드를 놓는 순서로 고정함(함수 1장 → 동작 4장, Constants.Level5Cards). </summary>
+        public string[] BuildStepCategories(IngredientSelectionController controller)
         {
-            if (step.categories == null) return Array.Empty<string>();
-
-            List<string> allowed = new List<string>(step.categories.Length);
-            foreach (string category in step.categories)
+            string[] categories = new string[Constants.Level5Cards.Total];
+            for (int i = 0; i < categories.Length; i++)
             {
-                RfidStepDefinition ingredient = controller.FindCategoryIngredient(category);
-                if (ingredient == null ||
-                    CountConfirmed(controller.ConfirmedIngredients, controller.CurrentStepIndex, ingredient.ingredientId) < CardLimitOf(ingredient.ingredientId))
-                {
-                    allowed.Add(category);
-                }
+                categories[i] = i < Constants.Level5Cards.Function ? Constants.RfidCategories.Func : Constants.RfidCategories.Action;
             }
 
-            return allowed.ToArray();
+            return categories;
         }
+
+        /// <summary> 제어 카드를 쓰지 않는 레벨이라 분류 이름을 씀. </summary>
+        public string ControlSlotLabel => Constants.RfidCategories.Control;
 
         /// <summary> 찍은 카드 분류(함수/동작)에 맞는 재료를 RfidMappings.json의 categoryIngredients에서 찾음. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)

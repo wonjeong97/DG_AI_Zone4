@@ -15,8 +15,14 @@ namespace DGAIZone.Game.UI.States
         /// <summary> 수신된 RFID 태그 카테고리가 해당 레벨 규칙에 맞는지 검증. </summary>
         bool ValidateTagCategory(IngredientSelectionController controller, RfidTagEvent evt);
 
-        /// <summary> 해당 단계에서 리더기가 안내할 허용 카테고리 목록을 반환. </summary>
-        string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step);
+        /// <summary>
+        /// 이번 판 단계마다 받을 카드 분류 하나씩을 순서대로 반환(길이가 이번 판 단계 수). CodingCategories 칸과 카드 판정에 쓰임.
+        /// 레벨 시작 때 한 번 부르며, 만들 수 없으면 경고를 남기고 null을 반환(단계 정의의 categories로만 판정하고 칸은 표시하지 않음).
+        /// </summary>
+        string[] BuildStepCategories(IngredientSelectionController controller);
+
+        /// <summary> CodingCategories 칸에서 제어 카드 칸에 쓸 이름(레벨 3은 "만약", 레벨 4는 "반복"). 제어 카드를 쓰지 않는 레벨은 분류 이름. </summary>
+        string ControlSlotLabel { get; }
 
         /// <summary> 스캔된 카드 정보로부터 실제 사용할 재료(id, 이름, 물질 목록)를 해석. 해석할 수 없으면 null. </summary>
         RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category);

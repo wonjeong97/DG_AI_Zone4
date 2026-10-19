@@ -1,15 +1,19 @@
 # HANDOFF
 
-에이전트 간 인계 기록. 새 항목을 맨 위에 추가한다.
+Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록. 새 항목을 맨 위에 추가한다. 항목 형식은 공통 스킬 `handoff` 를 따른다.
 
-## 항목 형식
+---
 
-```
-### [YYYY-MM-DD HH:MM] <보낸 쪽> → <받는 쪽> · <TASKS ID>
-- 변경 파일:
-- 확인 요청:
-- 결과: (받는 쪽이 작성 — 통과/실패와 근거)
-```
+### [2026-10-19 11:15] Claude → Antigravity + 서브에이전트 · T87 CodingCategories 레벨별 단계 칸 (feat/t87-coding-category-slots)
+- 요청: 게임 화면 CodingCategories를 레벨마다 단계별 칸으로(레벨 1 동작×3, 2 동작×5, 3 만약>동작>논리>만약>동작, 4 문제에 따라 동작/반복, 5 함수>동작…). 레벨 5는 5칸 순서 강제, 레벨 4는 AI 정답 순서 강제, 확정한 칸은 색 유지(사용자 결정).
+- 변경: 레벨 상태의 GetAllowedCategories를 BuildStepCategories·ControlSlotLabel로 바꾸고, 컨트롤러가 단계 수·카드 판정을 단계별 분류로 함. CodingCategoryIndicatorController를 칸 5개 방식으로 다시 쓰고 3_Game CodingCategories를 Slot_1~5 + HorizontalLayoutGroup으로, 레벨 5 검증기는 순서 규칙으로. 테스트 9개(CodingCategorySlotTests).
+- Claude 확인: Rider 오류 0, 컴파일 오류 0, PlayMode 235/235. Play 확인 — 레벨 1 동작 3칸, 3 만약>동작>논리>만약>동작, 4 배치(로봇 R3·자원 R2·함정 R3·기지 R0)에서 동작>반복>동작>동작>동작(정답 경로와 같음), 5 함수>동작×4, 1단계에 틀린 분류 카드는 경고·맞는 분류는 적용(레벨 3·4·5). 씬 변경은 CodingCategories 아래뿐(지운 fileID 참조 0). EditorSettings 되돌림, TMP 글리프 변경 버림.
+- agy (gemini-4-argon-high, 1묶음): 칸 표시기 범위·트윈 정리·null 경고, 콘솔 → 통과
+- 서브에이전트 (1묶음): 씬 연결(바뀐 범위, slots 참조 순서, 레이아웃·RaycastTarget) → 통과(칸을 켠 뒤 다시 배치되는지는 Claude가 Play로 확인)
+- 교차 검증 (agy gemini-4-argon-high + 서브에이전트, 2묶음):
+  - 레벨별 분류(레벨 4 칸 = AI 정답, 남은 레벨 4·5 규칙과 모순 없음, 레벨 5 검증기) → 둘 다 통과
+  - 컨트롤러 판정(단계 수 4일 때 배열·Reader_5·완료, 되돌리기·이어 쓰기·복귀 경로, 칸 표시 호출) → 둘 다 통과(agy가 범위 밖이라 못 본 카드 교체 되돌리기·카드 떨어짐은 서브에이전트와 Claude가 확인)
+- 남은 것: 레벨 5는 순서 고정으로 5장을 다 놓으면 항상 성공(실패 영상 없음)·레벨 4는 최단 정답과 다른 경로를 받지 않음 — 둘 다 사용자 결정. 앞 단계 카드를 떼면 블록은 잠시 떨어지지만 칸은 색으로 남음(사양 밖, 기록만). 레벨 5 순서는 코드라 오른쪽 PC JSON 수정 불필요. 사용자의 `RfidMappings.json` MAC 변경은 커밋하지 않음.
 
 ---
 
