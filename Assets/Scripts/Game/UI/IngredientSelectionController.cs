@@ -99,6 +99,7 @@ namespace DGAIZone.Game.UI
         internal RfidStepDefinition[] StepDefinitions => _stepDefinitions;
         internal int CurrentStepIndex => _currentStepIndex;
         internal int TotalSteps => _totalSteps;
+        internal string[] StepCategories => _stepCategories;
         internal string CurrentIngredientId => _currentIngredientId;
 
         private ISubscriber<RfidTagEvent> _subscriber;
@@ -124,6 +125,7 @@ namespace DGAIZone.Game.UI
         private RfidLevelMapping _levelMapping; // 현재 레벨의 블록 목록(matterSets)·단계 정의. 단계가 고를 블록은 matterSetId로 여기서 찾음
         private RfidStepDefinition[] _stepDefinitions; // "동작" 카드를 찍을 때마다 순서대로 진행되는 재료 목록 (추진체 종류 -> 탑재 종류 -> 연료량)
         private RfidStepDefinition[] _categoryIngredients; // 카드 분류로 재료가 정해지는 레벨(레벨 4)의 분류별 재료 정의
+        private string[] _stepCategories; // 이번 판 단계마다 받을 카드 분류(레벨 상태가 정함, CodingCategories 칸과 같음). null이면 단계 정의의 categories로만 판정함
         private RfidMatter[] _confirmedMatters;
         private string[] _confirmedIngredients; // 각 스탭에서 확정된 재료의 ingredientId
         private string _currentIngredientId; // 현재 대기 중인(아직 확정 안 된) 재료의 ingredientId. 화면 표시용 이름은 _currentIngredient
@@ -366,10 +368,11 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// RfidMappings.json 설정으로 리더기 수, 레벨 상태, 이 레벨의 블록 목록·단계 정의, 총 단계 수를 정함.
-        /// 단계 수는 이 레벨의 단계(steps) 정의 개수이고, 정의가 없으면(설정 오류) 기본 단계 수로 진행하고 경고를 남김.
+        /// RfidMappings.json 설정으로 리더기 수, 레벨 상태, 이 레벨의 블록 목록·단계 정의, 이번 판 단계별 카드 분류와 총 단계 수를 정하고 CodingCategories 칸을 만듦.
+        /// 단계 수는 레벨 상태가 정한 단계별 분류 개수(레벨 4는 이번 판 정답 경로에 따라 4 또는 5)이고, 분류를 정하지 못하면 단계(steps) 정의 개수,
+        /// 정의도 없으면(설정 오류) 기본 단계 수로 두고 경고를 남김(단계 정의가 없으면 카드는 받지 않음).
         /// </summary>
-        private void ApplyRfidSettings(RfidSettings settings)
+        internal void ApplyRfidSettings(RfidSettings settings)
         {
             _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
 
@@ -379,12 +382,42 @@ namespace DGAIZone.Game.UI
             ApplyLevelMapping(settings != null ? settings.FindLevelMapping(level) : null);
 
             bool hasStepDefinitions = _stepDefinitions != null && _stepDefinitions.Length > 0;
-            _totalSteps = hasStepDefinitions ? _stepDefinitions.Length : DefaultFallbackStepCount;
+            _stepCategories = CurrentLevelState?.BuildStepCategories(this);
+            bool hasStepCategories = _stepCategories != null && _stepCategories.Length > 0;
+            _totalSteps = hasStepCategories ? _stepCategories.Length
+                : hasStepDefinitions ? _stepDefinitions.Length
+                : DefaultFallbackStepCount;
 
             if (!hasStepDefinitions && _logger != null)
             {
-                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 기본 {_totalSteps}단계로 진행함.");
+                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 카드를 받을 수 없음({_totalSteps}단계로 둠).");
             }
+
+            if (_codingCategoryIndicator) _codingCategoryIndicator.SetSlots(_stepCategories, CurrentLevelState?.ControlSlotLabel);
+            else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] codingCategoryIndicator가 null이라 단계별 카드 칸을 만들 수 없음.");
+        }
+
+        /// <summary>
+        /// 단계 정의(steps)마다 받는 분류를 차례로 담아 반환함(레벨 1~3처럼 단계마다 받는 분류가 하나로 정해진 레벨이 씀). 단계 정의가 없으면 null.
+        /// categories가 빈 단계는 null 칸(단계 정의 검증이 오류로 남김), 분류가 둘 이상인 단계는 첫 분류만 받으므로 경고를 남김.
+        /// </summary>
+        internal string[] StepCategoriesFromDefinitions()
+        {
+            if (_stepDefinitions == null || _stepDefinitions.Length == 0) return null; // 단계 정의 누락은 ApplyRfidSettings가 경고함
+
+            string[] categories = new string[_stepDefinitions.Length];
+            for (int i = 0; i < categories.Length; i++)
+            {
+                string[] stepCategories = _stepDefinitions[i]?.categories;
+                categories[i] = stepCategories != null && stepCategories.Length > 0 ? stepCategories[0] : null;
+
+                if (stepCategories != null && stepCategories.Length > 1 && _logger != null)
+                {
+                    _logger.ZLogWarning($"[IngredientSelectionController] {_selectedLevel}레벨 {i + 1}번째 단계에 분류가 {stepCategories.Length}개라 첫 분류 '{categories[i]}' 카드만 받음.");
+                }
+            }
+
+            return categories;
         }
 
         /// <summary> 확정 기록과 떨어진 카드 표시를 비우고, 설계창·설정하기/코딩 완료 막힘·스텝 볼·분류 안내를 처음 상태로 둠. </summary>
@@ -460,9 +493,8 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 현재 단계(_currentStepIndex)가 허용하는 category 목록을 CodingCategoryIndicatorController에 전달해
-        /// 다음에 찍어야 할 카테고리 아이콘이 부드럽게 페이드하며 안내되도록 함. 모든 단계가 끝났으면 힌트를 멈춤.
-        /// 레벨 4에서 바로 이전 단계가 "반복하기"였다면(동작 카드만 허용됨) "제어"는 힌트에서 제외함.
+        /// CodingCategories 칸을 지금 단계(_currentStepIndex)에 맞춤: 설정을 마친 앞 칸은 색으로, 지금 단계 칸은 흑백으로 두었다가 카드가 올라오지 않으면
+        /// 부드럽게 페이드하며 안내하고, 뒤 칸은 흑백으로 둠. 모든 단계를 마쳤으면 안내 없이 모든 칸을 색으로 둠.
         /// </summary>
         private void UpdateCategoryHint()
         {
@@ -472,19 +504,7 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            if (_stepDefinitions != null && _currentStepIndex < _totalSteps && _currentStepIndex < _stepDefinitions.Length && _stepDefinitions[_currentStepIndex] != null)
-            {
-                RfidStepDefinition step = _stepDefinitions[_currentStepIndex];
-                string[] categories = CurrentLevelState != null
-                    ? CurrentLevelState.GetAllowedCategories(this, step)
-                    : step.categories;
-
-                _codingCategoryIndicator.ShowNextHint(categories);
-            }
-            else
-            {
-                _codingCategoryIndicator.StopHint();
-            }
+            _codingCategoryIndicator.ShowStep(_currentStepIndex);
         }
 
         /// <summary>
@@ -528,8 +548,8 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// RFID 태그(또는 디버그 키) 이벤트 수신 시, 현재 단계(_currentStepIndex)가 허용하는 category와 일치하면
         /// 해당 단계의 재료로 진행함. 카드는 더 이상 재료 이름을 알려주지 않으므로, 진행 순서(추진체 종류 -> 탑재 종류 -> 연료량)는
-        /// _currentStepIndex에 대응하는 _stepDefinitions 항목으로 결정됨. 단계별로 허용 category가 다를 수 있음
-        /// (예: 레벨 1은 모든 단계가 "동작"만 허용, 레벨 4는 "동작"/"제어"를 유동적으로 허용).
+        /// _currentStepIndex에 대응하는 _stepDefinitions 항목으로 결정됨. 단계마다 받는 category는 레벨 상태가 정한 _stepCategories를 따름
+        /// (예: 레벨 1은 모든 단계가 "동작", 레벨 4는 이번 판 정답 경로에 따라 단계마다 "동작" 또는 "제어").
         /// 리더기 라우팅·무시 판정(TryRouteToCurrentStep) → 단계와 카드 확인(TryResolveStepCard) → 선택 상태 적용(ApplyStepCard) 순서로 처리함.
         /// </summary>
         private void OnRfidTagReceived(RfidTagEvent evt)
@@ -724,7 +744,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 지금 단계의 정의와 카드 분류를 확인해, 이 카드로 고를 재료(ingredient)와 블록 목록(matters)을 찾음. 단계 정의·재료·블록 목록이 없으면 경고를,
-        /// 이 단계에서 쓸 수 없는 분류면 잘못된 카드 경고를 띄우고 false. 레벨 상태가 받지 않는 카드(레벨 4·5 규칙)도 false.
+        /// 이 단계에서 쓸 수 없는 분류면 잘못된 카드 경고를 띄우고 false. 레벨 상태가 받지 않는 카드(레벨 4 규칙)도 false.
         /// </summary>
         private bool TryResolveStepCard(RfidTagEvent evt, out RfidStepDefinition ingredient, out RfidMatter[] matters)
         {
@@ -742,7 +762,7 @@ namespace DGAIZone.Game.UI
 
             RfidStepDefinition step = _stepDefinitions[_currentStepIndex];
 
-            if (!step.AllowsCategory(evt.Category))
+            if (!AcceptsStepCard(step, _stepCategories, _currentStepIndex, evt.Category))
             {
                 LogCardPlaced(evt, ZString.Format("{0}번째 단계에서 쓸 수 없는 카드라 경고를 띄움", _currentStepIndex + 1));
                 ShowInvalidCardWarning();
@@ -780,6 +800,22 @@ namespace DGAIZone.Game.UI
             return true;
         }
 
+        /// <summary> stepIndex 단계에서 category 카드를 받을지: 단계 정의(step)가 받는 분류이면서 이번 판 단계별 분류(MatchesStepCategory)와도 맞아야 함. </summary>
+        internal static bool AcceptsStepCard(RfidStepDefinition step, string[] stepCategories, int stepIndex, string category)
+        {
+            return step.AllowsCategory(category) && MatchesStepCategory(stepCategories, stepIndex, category);
+        }
+
+        /// <summary>
+        /// 이번 판 단계별 분류(stepCategories)가 정해져 있으면 stepIndex 단계의 분류와 같은 카드만 받음. 정해지지 않았거나 그 단계 칸이 없으면
+        /// 단계 정의(steps)의 categories로만 판정하므로 true.
+        /// </summary>
+        internal static bool MatchesStepCategory(string[] stepCategories, int stepIndex, string category)
+        {
+            if (stepCategories == null || stepIndex < 0 || stepIndex >= stepCategories.Length || stepCategories[stepIndex] == null) return true;
+            return string.Equals(stepCategories[stepIndex], category, StringComparison.Ordinal);
+        }
+
         /// <summary> 확인된 카드로 지금 단계의 재료와 고를 블록 목록을 정하고, 분류 강조·값 표시·미리보기를 갱신함(행동 로그 포함). </summary>
         private void ApplyStepCard(RfidTagEvent evt, RfidStepDefinition ingredient, RfidMatter[] matters)
         {
@@ -787,8 +823,8 @@ namespace DGAIZone.Game.UI
                 ? ZString.Concat(_currentStepIndex + 1, "번째 단계에 적용함")
                 : ZString.Concat(_currentStepIndex + 1, "번째 단계 '", ingredient.ingredientName, "'에 적용함"));
 
-            // 현재 단계에 허용된 카드로 확인된 경우에만 CodingCategories 강조를 갱신함(허용되지 않으면 흑백 상태가 그대로 유지됨)
-            if (_codingCategoryIndicator) _codingCategoryIndicator.HighlightCategory(evt.Category);
+            // 현재 단계에 허용된 카드로 확인된 경우에만 지금 단계 칸을 색으로 바꿈(허용되지 않으면 흑백 상태가 그대로 유지됨)
+            if (_codingCategoryIndicator) _codingCategoryIndicator.HighlightStep(_currentStepIndex);
             else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] codingCategoryIndicator가 null이라 카테고리 강조를 갱신할 수 없음.");
 
             _currentIngredient.Value = ingredient.ingredientName ?? "";
@@ -1110,8 +1146,7 @@ namespace DGAIZone.Game.UI
             _replaySuppressedStep = -1;
             UpdateCodingCompleteButton();
 
-            // 다음 단계가 남아있으면 그 단계의 카테고리 힌트를 다시 페이드로 안내하고, 없으면 힌트를 멈춤
-            // (동작 확정으로 켜졌던 CodingCategories 강조도 여기서 함께 흑백으로 정리됨)
+            // 설정한 단계 칸은 색으로 남기고, 다음 단계가 남아있으면 그 칸을 다시 페이드로 안내함(없으면 안내를 멈춤)
             UpdateCategoryHint();
 
             // 다음 단계 리더기에 카드를 미리 올려 두었으면 이어서 씀

@@ -60,11 +60,14 @@ namespace DGAIZone.Game.UI.States
             return true;
         }
 
-        /// <summary> 정의된 단계별 허용 카테고리를 그대로 반환함. </summary>
-        public string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step)
+        /// <summary> 단계 정의마다 받는 분류(만약 > 동작 > 논리 > 만약 > 동작)를 그대로 씀. </summary>
+        public string[] BuildStepCategories(IngredientSelectionController controller)
         {
-            return step.categories;
+            return controller.StepCategoriesFromDefinitions();
         }
+
+        /// <summary> 레벨 3의 제어 카드는 [만약] 블록. </summary>
+        public string ControlSlotLabel => "만약";
 
         /// <summary> JSON에 정의된 단계별 고정 재료/물질을 그대로 사용함. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)

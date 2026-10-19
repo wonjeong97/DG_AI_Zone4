@@ -239,7 +239,8 @@ namespace DGAIZone.Game.Data
 
         /// <summary>
         /// 레벨 5: 함수·동작 카드로 고르는 재료가 있어야 하고, 동작 블록은 놓을 동작 카드 수(Constants.Level5Cards.Action) 이상이며
-        /// 현재 상황 그림 4개의 id(돔·로버·통신탑·연결 통로)를 모두 가져야 함(놓은 블록은 다시 고를 수 없음). 카드를 순서 없이 놓으므로 단계 수는 카드 수 합과 같고 모든 단계가 두 분류 카드를 받아야 함.
+        /// 현재 상황 그림 4개의 id(돔·로버·통신탑·연결 통로)를 모두 가져야 함(놓은 블록은 다시 고를 수 없음). 함수 카드 다음 동작 카드 순서로 놓으므로
+        /// (IngredientLevel5State.BuildStepCategories) 단계 수는 카드 수 합과 같고, 앞 단계는 함수 카드를, 나머지 단계는 동작 카드를 받아야 함.
         /// </summary>
         private static void ValidateLevel5(RfidLevelMapping mapping, List<string> errors)
         {
@@ -264,18 +265,15 @@ namespace DGAIZone.Game.Data
                 errors.Add($"레벨 5 단계 수가 {mapping.steps.Length}개라 놓을 카드 수 합 {Constants.Level5Cards.Total}장과 맞지 않음.");
             }
 
-            string[] required = { Constants.RfidCategories.Func, Constants.RfidCategories.Action };
             for (int i = 0; i < mapping.steps.Length; i++)
             {
                 string[] categories = mapping.steps[i]?.categories;
                 if (categories == null) continue; // ValidateLevelBasics가 이미 오류로 남김
 
-                foreach (string category in required)
+                string required = i < Constants.Level5Cards.Function ? Constants.RfidCategories.Func : Constants.RfidCategories.Action;
+                if (Array.IndexOf(categories, required) < 0)
                 {
-                    if (Array.IndexOf(categories, category) < 0)
-                    {
-                        errors.Add($"레벨 5 {i + 1}번째 단계가 '{category}' 카드를 받지 않아 카드를 순서 없이 놓을 수 없음.");
-                    }
+                    errors.Add($"레벨 5 {i + 1}번째 단계가 '{required}' 카드를 받지 않아 함수 카드 다음 동작 카드 순서로 놓을 수 없음.");
                 }
             }
         }

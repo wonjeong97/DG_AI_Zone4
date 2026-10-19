@@ -16,8 +16,6 @@ namespace DGAIZone.Game.UI.States
     /// </summary>
     public class IngredientLevel4State : IIngredientSelectionLevelState
     {
-        private static readonly string[] Level4RepeatFollowUpCategories = { Constants.RfidCategories.Action };
-
         /// <summary> 상태 진입 시 초기화. </summary>
         public void Enter(IngredientSelectionController context)
         {
@@ -33,7 +31,10 @@ namespace DGAIZone.Game.UI.States
         {
         }
 
-        /// <summary> 직전 단계가 '반복하기'인 경우 '동작' 카드만 허용하며 위반 시 경고 연출을 표시함. </summary>
+        /// <summary>
+        /// 직전 단계가 '반복하기'인 경우 '동작' 카드만 허용하며 위반 시 경고 연출을 표시함. 단계별 분류(BuildStepCategories)를 정했으면
+        /// 정답 경로에서 반복하기 뒤는 늘 이동하기라 컨트롤러가 먼저 걸러 내고, 정하지 못했을 때(보드·정답 경로 없음) 이 규칙만 남음.
+        /// </summary>
         public bool ValidateTagCategory(IngredientSelectionController controller, RfidTagEvent evt)
         {
             if (IsRepeatFollowUpRequired(controller) && !string.Equals(evt.Category, Constants.RfidCategories.Action, StringComparison.Ordinal))
@@ -46,11 +47,43 @@ namespace DGAIZone.Game.UI.States
             return true;
         }
 
-        /// <summary> 직전 단계가 '반복하기'이면 '동작'만, 아니면 단계 정의 카테고리를 안내함. </summary>
-        public string[] GetAllowedCategories(IngredientSelectionController controller, RfidStepDefinition step)
+        /// <summary>
+        /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(결과 화면 AI 정답과 같은 경로)를 단계별 분류로 바꿔 반환함. 배치에 따라 4단계 또는 5단계가 됨.
+        /// 보드의 Start보다 먼저 불려도 FindSolution이 먼저 배치하므로 화면 보드와 같은 배치를 씀.
+        /// </summary>
+        public string[] BuildStepCategories(IngredientSelectionController controller)
         {
-            return IsRepeatFollowUpRequired(controller) ? Level4RepeatFollowUpCategories : step.categories;
+            if (!controller.Level4Board)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] level4Board가 null이라 레벨 4 단계별 카드 분류를 정할 수 없음. 단계마다 동작·제어 카드를 모두 받음.");
+                return null;
+            }
+
+            List<(int moves, string directionId)> path = controller.Level4Board.FindSolution();
+            if (path == null)
+            {
+                if (controller.Logger != null) controller.Logger.ZLogWarning($"[IngredientSelectionController] 이번 레벨 4 배치를 카드 {Constants.Level4Board.MaxCards}장 안에 푸는 경로가 없어 단계별 카드 분류를 정할 수 없음. 단계마다 동작·제어 카드를 모두 받음.");
+                return null;
+            }
+
+            return StepCategoriesOf(path);
         }
+
+        /// <summary> 정답 경로의 구간(이동 칸 수, 방향)을 단계별 분류로 바꿈. 여러 칸 이동은 반복하기(제어) + 이동하기(동작) 두 단계, 한 칸 이동은 이동하기(동작) 한 단계. </summary>
+        internal static string[] StepCategoriesOf(IReadOnlyList<(int moves, string directionId)> path)
+        {
+            List<string> categories = new List<string>(Constants.Level4Board.MaxCards);
+            for (int i = 0; i < path.Count; i++)
+            {
+                if (path[i].moves > 1) categories.Add(Constants.RfidCategories.Control);
+                categories.Add(Constants.RfidCategories.Action);
+            }
+
+            return categories.ToArray();
+        }
+
+        /// <summary> 레벨 4의 제어 카드는 [반복] 블록. </summary>
+        public string ControlSlotLabel => "반복";
 
         /// <summary> 바로 이전 단계에서 확정한 재료가 "반복하기"(제어, 횟수 카드)였다면, 이번 단계는 반드시 "이동하기"(동작)여야 함. </summary>
         private static bool IsRepeatFollowUpRequired(IngredientSelectionController controller)
