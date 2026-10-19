@@ -370,9 +370,9 @@ namespace DGAIZone.Game.UI
         /// <summary>
         /// RfidMappings.json 설정으로 리더기 수, 레벨 상태, 이 레벨의 블록 목록·단계 정의, 이번 판 단계별 카드 분류와 총 단계 수를 정하고 CodingCategories 칸을 만듦.
         /// 단계 수는 레벨 상태가 정한 단계별 분류 개수(레벨 4는 이번 판 정답 경로에 따라 4 또는 5)이고, 분류를 정하지 못하면 단계(steps) 정의 개수,
-        /// 정의도 없으면(설정 오류) 기본 단계 수로 진행하고 경고를 남김.
+        /// 정의도 없으면(설정 오류) 기본 단계 수로 두고 경고를 남김(단계 정의가 없으면 카드는 받지 않음).
         /// </summary>
-        private void ApplyRfidSettings(RfidSettings settings)
+        internal void ApplyRfidSettings(RfidSettings settings)
         {
             _readerCount = (settings?.readers != null && settings.readers.Length > 0) ? settings.readers.Length : 1;
 
@@ -390,7 +390,7 @@ namespace DGAIZone.Game.UI
 
             if (!hasStepDefinitions && _logger != null)
             {
-                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 기본 {_totalSteps}단계로 진행함.");
+                _logger.ZLogWarning($"[IngredientSelectionController] RfidMappings.json에 {level}레벨 단계(steps) 정의가 없어 카드를 받을 수 없음({_totalSteps}단계로 둠).");
             }
 
             if (_codingCategoryIndicator) _codingCategoryIndicator.SetSlots(_stepCategories, CurrentLevelState?.ControlSlotLabel);
@@ -744,7 +744,7 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// 지금 단계의 정의와 카드 분류를 확인해, 이 카드로 고를 재료(ingredient)와 블록 목록(matters)을 찾음. 단계 정의·재료·블록 목록이 없으면 경고를,
-        /// 이 단계에서 쓸 수 없는 분류면 잘못된 카드 경고를 띄우고 false. 레벨 상태가 받지 않는 카드(레벨 4·5 규칙)도 false.
+        /// 이 단계에서 쓸 수 없는 분류면 잘못된 카드 경고를 띄우고 false. 레벨 상태가 받지 않는 카드(레벨 4 규칙)도 false.
         /// </summary>
         private bool TryResolveStepCard(RfidTagEvent evt, out RfidStepDefinition ingredient, out RfidMatter[] matters)
         {
@@ -762,7 +762,7 @@ namespace DGAIZone.Game.UI
 
             RfidStepDefinition step = _stepDefinitions[_currentStepIndex];
 
-            if (!step.AllowsCategory(evt.Category) || !MatchesStepCategory(_stepCategories, _currentStepIndex, evt.Category))
+            if (!AcceptsStepCard(step, _stepCategories, _currentStepIndex, evt.Category))
             {
                 LogCardPlaced(evt, ZString.Format("{0}번째 단계에서 쓸 수 없는 카드라 경고를 띄움", _currentStepIndex + 1));
                 ShowInvalidCardWarning();
@@ -798,6 +798,12 @@ namespace DGAIZone.Game.UI
             }
 
             return true;
+        }
+
+        /// <summary> stepIndex 단계에서 category 카드를 받을지: 단계 정의(step)가 받는 분류이면서 이번 판 단계별 분류(MatchesStepCategory)와도 맞아야 함. </summary>
+        internal static bool AcceptsStepCard(RfidStepDefinition step, string[] stepCategories, int stepIndex, string category)
+        {
+            return step.AllowsCategory(category) && MatchesStepCategory(stepCategories, stepIndex, category);
         }
 
         /// <summary>

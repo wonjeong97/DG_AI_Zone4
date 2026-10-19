@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using DGAIZone.App;
 using DGAIZone.Game.Data;
@@ -11,12 +10,10 @@ using ZLogger;
 namespace DGAIZone.Game.UI.States
 {
     /// <summary>
-    /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 함수 카드 1장 다음 동작 카드 4장 순서로 놓고(BuildStepCategories,
-    /// 다 쓴 분류의 카드는 받지 않음), 5장을 모두 놓으면 코딩 완료를 누를 수 있으며, 동작 블록이 모두 함수 정의 블록 안쪽(함수 카드 뒤)에
-    /// 들어가 있으면 성공.
+    /// 레벨 5(우주 도시, 함수 블록) 워크플로우를 담당하는 상태 클래스. 함수 카드 1장 다음 동작 카드 4장 순서로 놓고(BuildStepCategories),
+    /// 5장을 모두 놓으면 코딩 완료를 누를 수 있으며, 동작 블록이 모두 함수 정의 블록 안쪽(함수 카드 뒤)에 들어가 있으면 성공(순서가 고정이라 늘 성공).
     /// 함수 카드는 설계창에 함수 사용 블록(시작하기 아래 줄)과 함수 정의 블록(오른쪽)으로 쌓이고, 함수 카드 뒤에 놓은 동작 블록은 함수 정의
-    /// 블록 안쪽에, 앞에 놓은 블록은 시작하기 아래 줄에 놓은 순서대로 쌓임. 함수 정의 블록 안쪽에 보이는 동작 블록마다 현재 상황 화면에
-    /// 맞는 그림(Level5CityView)이 나타남.
+    /// 블록 안쪽에 놓은 순서대로 쌓임. 함수 정의 블록 안쪽에 보이는 동작 블록마다 현재 상황 화면에 맞는 그림(Level5CityView)이 나타남.
     /// </summary>
     public class IngredientLevel5State : IIngredientSelectionLevelState
     {
@@ -37,18 +34,10 @@ namespace DGAIZone.Game.UI.States
         {
         }
 
-        /// <summary> 이미 정해진 장수만큼 놓은 분류(함수·동작)의 카드는 받지 않고 경고 연출을 표시함. </summary>
+        /// <summary> 단계마다 받을 분류(BuildStepCategories)를 컨트롤러가 먼저 거르므로 레벨 5에서 더 막을 카드가 없음. </summary>
         public bool ValidateTagCategory(IngredientSelectionController controller, RfidTagEvent evt)
         {
-            RfidStepDefinition ingredient = controller.FindCategoryIngredient(evt.Category);
-            if (ingredient == null) return true; // 재료 정의가 없으면 이어지는 ResolveStepCard에서 컨트롤러가 경고를 남기고 무시함
-
-            int limit = CardLimitOf(ingredient.ingredientId);
-            if (CountConfirmed(controller.ConfirmedIngredients, controller.CurrentStepIndex, ingredient.ingredientId) < limit) return true;
-
-            controller.LogCardPlaced(evt, ZString.Format("{0} 카드는 {1}장까지라 경고를 띄움", evt.Category, limit));
-            controller.ShowInvalidCardWarning();
-            return false;
+            return true;
         }
 
         /// <summary> 함수 카드 다음에 동작 카드를 놓는 순서로 고정함(함수 1장 → 동작 4장, Constants.Level5Cards). </summary>
@@ -178,7 +167,8 @@ namespace DGAIZone.Game.UI.States
 
         /// <summary>
         /// 동작 블록이 정해진 장수(Constants.Level5Cards.Action)만큼 모두 함수 정의 블록 안쪽(함수 카드 뒤)에 들어가 있으면 성공.
-        /// 함수 카드가 없거나, 함수 카드보다 먼저 놓아 시작하기 줄에 있는 동작 블록이 있거나, 동작 블록을 다 놓지 않았으면 실패.
+        /// 함수 카드가 없거나, 함수 카드보다 먼저 놓아 시작하기 줄에 있는 동작 블록이 있거나, 동작 블록을 다 놓지 않았으면 실패
+        /// (카드 순서를 함수 → 동작으로 고정해 실제 플레이에서는 실패가 나오지 않음).
         /// </summary>
         public bool EvaluateMission(IngredientSelectionController controller)
         {
@@ -230,17 +220,6 @@ namespace DGAIZone.Game.UI.States
             }
 
             return found;
-        }
-
-        /// <summary> 재료별로 놓을 수 있는 카드 수. 레벨 5 재료가 아니면 0. </summary>
-        private static int CardLimitOf(string ingredientId)
-        {
-            switch (ingredientId)
-            {
-                case Constants.RfidIds.Level5.Function: return Constants.Level5Cards.Function;
-                case Constants.RfidIds.Level5.Action: return Constants.Level5Cards.Action;
-                default: return 0;
-            }
         }
 
         /// <summary> 정답: 함수 사용 → 동작 블록 전부(모든 동작 블록이 함수 정의 블록 안쪽). 블록 정의가 모자라면 경고를 남기고 빈 목록을 반환함. </summary>

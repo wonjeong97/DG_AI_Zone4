@@ -78,6 +78,7 @@ namespace DGAIZone.Game.UI
         /// </summary>
         internal void SetPlacementForTest(int robotRow, int resourceRow, int trapRow, int hqRow)
         {
+            _placed = true; // 정답 경로(FindSolution)를 물어도 무작위로 다시 배치하지 않게 함
             RobotRow = robotRow;
             ResourceRow = resourceRow;
             TrapRow = trapRow;
@@ -98,6 +99,7 @@ namespace DGAIZone.Game.UI
         private Vector3 _robotBaseScale = Vector3.one; // robotIcon의 원래 스케일(y/z 보존용). x는 시선 방향에 따라 부호만 바뀜.
         private Vector3 _resourceBaseScale = Vector3.one; // resourceIcon의 원래 스케일(흡수 연출 후 복원용)
         private bool _resourceCollected; // 이번 시뮬레이션에서 로봇이 자원 셀에 이미 도착해 흡수 연출을 재생했는지
+        private bool _placed; // 이번 판 배치를 정했는지(EnsurePlaced, 테스트는 SetPlacementForTest)
 
         private SelectedLevelStore _selectedLevelStore;
         private IngredientSelectionController _ingredientSelection;
@@ -135,7 +137,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 레벨 4일 때만 보드를 무작위로 배치하고 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억함.
+        /// 레벨 4일 때만 보드를 배치하고(EnsurePlaced) 3_Game.json 연출 시간을 불러옴.
         /// 이동 시뮬레이션 디버그 액션은 레벨 4의 에디터·개발 빌드에서만 켬.
         /// </summary>
         private void Start()
@@ -143,6 +145,20 @@ namespace DGAIZone.Game.UI
             _acceptsSimulationInput = IsLevel4() && Debug.isDebugBuild;
             if (_acceptsSimulationInput) _debugInput.Debug.PlayLevel4Simulation.Enable();
             if (!IsLevel4()) return;
+
+            EnsurePlaced();
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        /// <summary>
+        /// 이번 판 보드를 아직 배치하지 않았으면 로봇/자원 아이콘의 원래 스케일(좌우 반전, 소멸 연출 복원 기준)을 기억하고 무작위로 배치함.
+        /// Start와 정답 경로(FindSolution) 중 먼저 부르는 쪽에서 한 번만 배치하므로, 컨트롤러가 게임 시작 때 단계별 칸을 정하려고
+        /// 이 컴포넌트의 Start보다 먼저 정답 경로를 물어도 화면 보드와 같은 배치를 씀.
+        /// </summary>
+        private void EnsurePlaced()
+        {
+            if (_placed) return; // 이미 배치함(정상)
+            _placed = true;
 
             if (robotIcon)
             {
@@ -158,7 +174,6 @@ namespace DGAIZone.Game.UI
             else if (_logger != null) _logger.ZLogWarning($"[Level4BoardController] resourceIcon이 null이라 자원 원래 스케일을 기억할 수 없음.");
 
             RandomizePlacement();
-            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
         /// <summary> 3_Game.json(GameSceneSettings)을 비동기로 로드함(3_Game 씬 내 다른 컨트롤러와 로드를 공유함). </summary>
@@ -216,9 +231,10 @@ namespace DGAIZone.Game.UI
             ApplyRowBasedDrawOrder();
         }
 
-        /// <summary> 이번 판 배치를 가장 적은 카드(최대 MaxCommands장, 반복 RequiredRepeatCount회)로 푸는 경로. 풀 수 없으면 null. </summary>
+        /// <summary> 이번 판 배치를 가장 적은 카드(최대 MaxCommands장, 반복 RequiredRepeatCount회)로 푸는 경로. 아직 배치하지 않았으면 먼저 배치함. 풀 수 없으면 null. </summary>
         internal List<(int moves, string directionId)> FindSolution()
         {
+            EnsurePlaced();
             return Level4Rules.FindShortestSolution(Layout, MaxCommands, RequiredRepeatCount);
         }
 

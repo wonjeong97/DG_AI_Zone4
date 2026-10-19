@@ -49,7 +49,7 @@ namespace DGAIZone.Game.UI.States
 
         /// <summary>
         /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(결과 화면 AI 정답과 같은 경로)를 단계별 분류로 바꿔 반환함. 배치에 따라 4단계 또는 5단계가 됨.
-        /// 보드 배치(Level4BoardController.Start)가 끝난 뒤에 불러야 함 — 컨트롤러는 RfidMappings.json을 비동기로 읽은 뒤에 부르므로 그 전에 배치가 끝남.
+        /// 보드의 Start보다 먼저 불려도 FindSolution이 먼저 배치하므로 화면 보드와 같은 배치를 씀.
         /// </summary>
         public string[] BuildStepCategories(IngredientSelectionController controller)
         {
