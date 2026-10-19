@@ -12,6 +12,7 @@
 
 ## 완료
 
+- [x] T88 템플릿 26.10.12-1 → 26.10.16-1 업데이트(사용자 요청, packages-lock.json 고정 커밋 1c5e127 → a036657): 새 `Settings.json` 옵션 `alwaysOnTop`(창 항상 위, 기본 꺼짐)만 추가돼 Breaking 영향 없음 — PlayMode 237/237 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
 - [x] T87 게임 화면 CodingCategories를 레벨별 단계 칸으로: 레벨 1 동작 3칸, 레벨 2 동작 5칸, 레벨 3 만약 > 동작 > 논리 > 만약 > 동작, 레벨 4 이번 판 AI 정답 순서(동작/반복, 4~5칸, 그 순서의 카드만 받음), 레벨 5 함수 > 동작 4(순서 고정, 5장을 다 놓으면 항상 성공), 설정한 칸은 색 유지(사용자 요청·결정), PR #69 리뷰 반영(레벨 4 보드 배치 순서, 레벨 5 장수 제한 정리, 테스트 보강) — PlayMode 237/237 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
 - [x] T86 DLL·서드파티 파일(NuGet 패키지, DOTween, TextMesh Pro)을 Git LFS에서 빼서 GitHub "Download ZIP"으로 받아도 스크립트 에러가 나지 않게 함(`.gitattributes` 의 `*.dll lfs` → `binary`, 서드파티 폴더 예외 추가, 파일 내용은 LFS 원본과 SHA-256 동일). 프로젝트 자체 이미지·영상·폰트는 계속 LFS라 ZIP으로 받으면 깨지므로 git clone으로 받아야 함 — 담당: Claude / 검증: Antigravity (2026-10-13)
 - [x] T84 RFID 서버를 앱이 켜져 있는 동안 계속 열어 두고(게임 씬마다 열고 닫던 것, 루트 프리팹으로 옮김), 게임 씬에 들어올 때 리더기에 이미 놓여 있는 카드(앞 판에서 두고 간 카드)를 방금 올린 카드처럼 처리 — 예전에는 접속 때 놓여 있던 카드라 떼었다 다시 올려야 인식됨(사용자 요청, 현장 플레이에서 카드를 그대로 두고 다음 레벨로 가는 경우가 많음). RfidMappings.json의 리더기·카드·포트는 이제 앱을 켤 때만 읽음 — PlayMode 226/226 — 담당: Claude / 검증: Antigravity (2026-10-12)

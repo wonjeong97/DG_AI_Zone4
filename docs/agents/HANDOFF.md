@@ -4,6 +4,18 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-19 11:50] Claude → Antigravity + 서브에이전트 · T88 템플릿 26.10.16-1 업데이트 (chore/template-26.10.16-1)
+- 요청: 템플릿도 업데이트.
+- 변경: packages-lock.json 템플릿 커밋 1c5e127 → a036657(26.10.12-1 → 26.10.16-1, 의존 패키지 같음). 새 `Settings.json` 옵션 `alwaysOnTop`(창 항상 위, 기본 꺼짐)을 CLAUDE.md 설정 설명과 CHANGELOG에 적음.
+- Claude 확인: 컴파일 오류·경고 0, PlayMode 237/237, Play 확인(시작 로그 오류·경고 없음, 에디터에서는 포커스 복구를 건너뜀). EditorSettings 되돌림.
+- 교차 검증 (agy gemini-4-argon-high + 서브에이전트, 1묶음):
+  - 프로젝트 영향(GameLifetimeScope override 4개, Settings.json에 키가 없으면 꺼짐, Ctrl+F 토글·화면 문구) → 둘 다 통과
+  - alwaysOnTop이 꺼진 상태의 동작·비용(주기 작업·새 로그 없음, 시작 로그 끝에 문구만 덧붙음) → 둘 다 통과
+  - 콘솔(agy) → 통과
+- 남은 것: 현장 PC에서 다른 프로그램 창이 앱을 가리면 `Settings.json`에 `alwaysOnTop: true`를 적어 쓸 수 있음(운영자 결정, 지금은 끔).
+
+---
+
 ### [2026-10-19 11:15] Claude → Antigravity + 서브에이전트 · T87 CodingCategories 레벨별 단계 칸 (feat/t87-coding-category-slots)
 - 요청: 게임 화면 CodingCategories를 레벨마다 단계별 칸으로(레벨 1 동작×3, 2 동작×5, 3 만약>동작>논리>만약>동작, 4 문제에 따라 동작/반복, 5 함수>동작…). 레벨 5는 5칸 순서 강제, 레벨 4는 AI 정답 순서 강제, 확정한 칸은 색 유지(사용자 결정).
 - 변경: 레벨 상태의 GetAllowedCategories를 BuildStepCategories·ControlSlotLabel로 바꾸고, 컨트롤러가 단계 수·카드 판정을 단계별 분류로 함. CodingCategoryIndicatorController를 칸 5개 방식으로 다시 쓰고 3_Game CodingCategories를 Slot_1~5 + HorizontalLayoutGroup으로, 레벨 5 검증기는 순서 규칙으로. 테스트 9개(CodingCategorySlotTests).
