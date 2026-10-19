@@ -35,6 +35,7 @@
 ### 설정 파일 (StreamingAssets, 재빌드 없이 현장 조정)
 
 - `Json/00_Common.json`, `0_Title.json` ~ `4_Result.json`: 씬별 연출 타이밍(페이드, QR 확인 시간, 스캐너 글자 간격 등). `00_Common.json`의 `robotVideoPath`는 로봇 영상 경로(없는 파일이면 기본 `Videos/robot_0811.webm`), `0_Title.json`에는 하단 안내 문구 7개(이름 자리 `{name}`)도 있다.
+- 인트로 나레이션: `Sounds/Zone_4_Episode_Narration.mp3`(효과음 키 `episodeNarration`)를 스토리 글이 올라오기 시작할 때 틀고, 튜토리얼로 넘어가거나 씬을 떠나면 멈춘다. 스토리 글 줄(빈 줄을 뺀 줄)은 `1_Intro.json`의 `storyLineStartTimes`(나레이션 시작 뒤 초) 시각에 올라온다. 나레이션 파일을 바꾸면 이 시각도 맞춘다(비우면 줄 간격으로 올라옴).
 - `Json/Admin.json`: 관리자 비밀번호(4~6자리, 기본 `0000`), 관리자 화면·이름 입력 창 자동 닫기 `idleCloseSeconds`(60초), 비밀번호 창 `passwordIdleCloseSeconds`(10초), 진입 클릭 `entryClickCount`(10회)·`entryClickWindowSeconds`(3초). 시간·횟수가 1보다 작으면 기본값을 쓰고, 비밀번호를 바꿀 때 다른 값은 유지한다.
 - `Json/Server.json`: 체험자 서버 주소·시간 제한·재시도 횟수.
 - `RfidMappings.json`: 리더기, 카드(uid → 분류), 레벨별 블록 목록·단계. 리더기·카드·`listenPort`·`cardRemovedDebounceMs`는 RFID 서버가 앱을 켤 때 한 번만 읽으므로 고치면 앱을 다시 켠다(레벨별 블록·단계는 게임 씬마다 다시 읽음).
@@ -90,6 +91,7 @@
 
 - Development Build를 끈다. 켜 두면 3_Game에서 QR 스캐너의 숫자가 디버그 카드 키 `1`~`4`로 잡히고 서버 로그도 보내지 않는다.
 - `Settings.json`의 `useInactivityTimer`를 `true`로, `resetTime`을 현장 값으로 바꾼다(저장소 값은 개발용 `false`). 끄면 떠난 체험자의 판을 다음 사람이 이어 하거나 앞사람 이름으로 시작해 서버 기록이 섞인다.
+- 현장에서 따로 고친 `Settings.json`을 새 빌드에 덮어쓰면 `sounds`에 저장소의 새 항목(예: 인트로 나레이션 `episodeNarration`)이 있는지 확인한다. 없으면 그 소리만 경고 로그를 남기고 빠진다.
 - 설치 폴더는 쓰기 가능한 곳에 둔다(Program Files 금지). 관리자 비밀번호를 `Admin.json`에 저장한다.
 - 첫 실행은 로컬 모드다(운영 모드는 PlayerPrefs). 관리자 화면에서 서버 모드로 바꾸고, 기본 비밀번호 `0000`을 바꾼다.
 - Windows 방화벽에 인바운드 TCP `listenPort`(10123) 허용 규칙을 미리 등록한다. 첫 실행 때 뜨는 허용 창은 창 포커스 복구가 3초 뒤 앱으로 가려 터치만으로는 누를 수 없다.

@@ -21,6 +21,8 @@ namespace DGAIZone.Intro
     /// 인트로 씬의 화면 흐름 제어. 인트로 패널에서 스토리 텍스트가 한 줄씩 올라오듯 순차 표시된 뒤 화면을 클릭하면
     /// 튜토리얼 패널로 크로스페이드함. 연출 중 터치 시 즉시 전체 텍스트가 노출되고, 연출 완료/스킵 후 터치 시 크로스페이드함.
     /// 튜토리얼(체험 방법) 마지막 페이지(7/7)에서 우측 영역 터치 시 화면 페이드와 함께 레벨 선택 씬으로 전환함.
+    /// 스토리 글이 올라오기 시작할 때 에피소드 나레이션(효과음 키 EpisodeNarration)을 틀고, 튜토리얼로 넘어가거나 씬을 떠나면 멈춤.
+    /// 나레이션은 씬에 들어오자마자 미리 불러 두어 스토리 글과 같은 순간에 시작되게 함.
     /// </summary>
     public class IntroFlowController : MonoBehaviour
     {
@@ -45,6 +47,7 @@ namespace DGAIZone.Intro
         private bool _isStoryStarted; // 스토리 줄 연출을 시작했는지. 그 전(설정·이름을 불러오는 중)의 터치는 스토리를 건너뛰지 않게 무시함
         private IDisposable _tutorialCompletedSubscription;
         private bool _skipStoryRequested;
+        private bool _isNarrationPlaying; // 나레이션을 틀었고 아직 멈추지 않았는지 — 튜토리얼로 넘어가거나 씬을 떠날 때 멈춤
         private Color _originalStoryColor;
 
         // 1_Intro.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
@@ -94,7 +97,32 @@ namespace DGAIZone.Intro
                 _logger.ZLogWarning($"[IntroFlowController] tutorialSlider가 null임.");
             }
 
-            InitializeStoryTextAsync(this.GetCancellationTokenOnDestroy()).Forget();
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
+            PreloadNarrationAsync(token).Forget();
+            InitializeStoryTextAsync(token).Forget();
+        }
+
+        /// <summary>
+        /// 나레이션 클립을 미리 불러 두어, 스토리 글이 올라오기 시작할 때 읽기를 기다리지 않고 바로 재생되게 함. 스토리 시작을 막지 않도록
+        /// 따로 돌리며, 불러오지 못하면 처음 재생할 때 읽으므로(조금 늦게 시작) 경고만 남김.
+        /// </summary>
+        private async UniTaskVoid PreloadNarrationAsync(CancellationToken token)
+        {
+            if (!_soundManager)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] SoundManager가 null이라 나레이션을 미리 불러올 수 없음.");
+                return;
+            }
+
+            try
+            {
+                bool loaded = await _soundManager.PreloadAsync(Constants.Sounds.EpisodeNarration, token);
+                if (!loaded && _logger != null) _logger.ZLogWarning($"[IntroFlowController] 나레이션을 미리 불러오지 못함(재생할 때 다시 읽어 조금 늦게 시작할 수 있음, 원인은 SoundManager 로그 참고).");
+            }
+            catch (OperationCanceledException)
+            {
+                // 씬을 떠나 이 오브젝트가 파괴됨 — 미리 불러오기를 기다리지 않고 끝냄(정상)
+            }
         }
 
         /// <summary>
@@ -156,16 +184,33 @@ namespace DGAIZone.Intro
                 }
                 else
                 {
+                    StopNarration(); // 클릭음보다 먼저 멈춤(효과음 채널을 함께 멈추므로)
                     SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
                     SwitchToTutorialAsync().Forget();
                 }
             }
         }
 
-        /// <summary> 튜토리얼 완료 구독 해제. </summary>
+        /// <summary> 튜토리얼 완료 구독을 해제하고, 튜토리얼로 넘어가지 않고 씬을 떠나면(비활동 등) 나레이션을 멈춤. </summary>
         private void OnDestroy()
         {
             _tutorialCompletedSubscription?.Dispose();
+
+            // 앱 종료로 루트의 SoundManager가 먼저 파괴됐으면 멈출 소리도 없음(정상)
+            if (_soundManager) StopNarration();
+        }
+
+        /// <summary>
+        /// 틀어 둔 나레이션을 멈춤. SoundManager는 효과음 채널 하나로 재생하므로 그 채널을 멈추며, 불러오는 중이던 나레이션도 뒤늦게 재생되지 않음.
+        /// 나레이션을 틀지 않았거나 이미 멈췄으면 아무것도 하지 않음(정상).
+        /// </summary>
+        private void StopNarration()
+        {
+            if (!_isNarrationPlaying) return;
+            _isNarrationPlaying = false;
+
+            if (_soundManager) _soundManager.StopSFX();
+            else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] SoundManager가 null이라 나레이션을 멈출 수 없음.");
         }
 
         /// <summary> 튜토리얼(체험 방법) 마지막 페이지에서 다음 터치 시 레벨 선택 씬으로 전환함. </summary>
@@ -256,10 +301,14 @@ namespace DGAIZone.Intro
             storyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
         }
 
-        /// <summary> 텍스트 한 줄씩 올라오는 연출을 시작함. </summary>
+        /// <summary> 나레이션을 틀고 텍스트 한 줄씩 올라오는 연출을 시작함. </summary>
         private void StartTextAnimation(CancellationToken token)
         {
             _isStoryStarted = true; // 연출을 못 하더라도 터치로 튜토리얼에 넘어갈 수 있게 먼저 표시함
+
+            // 스토리 글과 함께 나레이션을 시작함(글 연출을 건너뛰어도 나레이션은 이어짐)
+            SoundEffects.Play(_soundManager, Constants.Sounds.EpisodeNarration, _logger);
+            _isNarrationPlaying = _soundManager;
 
             if (!storyText)
             {
@@ -271,17 +320,22 @@ namespace DGAIZone.Intro
             AnimateStoryAsync(token).Forget();
         }
 
-        /// <summary> 공용 유틸로 스토리 텍스트를 한 줄씩 올리는 연출을 실행함. 연출 중 화면 클릭 시 즉시 전체 표시함. </summary>
+        /// <summary>
+        /// 공용 유틸로 스토리 텍스트를 한 줄씩 올리는 연출을 실행함. 글 줄마다 1_Intro.json의 storyLineStartTimes 시각(나레이션과 같은 순간에 시작한 뒤의 시간)에
+        /// 올라오게 하고, 시각을 비워 두면 줄 간격으로 올림. 연출 중 화면 클릭 시 즉시 전체 표시함.
+        /// </summary>
         private async UniTaskVoid AnimateStoryAsync(CancellationToken token)
         {
             _isTextAnimating = true;
+            float[] lineStartTimes = _sceneSettings.storyLineStartTimes;
             try
             {
                 await StoryLineAnimator.AnimateAsync(storyText,
                     _commonSettings.storyLineMoveDuration,
                     _commonSettings.storyLineInterval,
                     _commonSettings.storyLineYOffset,
-                    () => _skipStoryRequested, token, _inactivityTimer);
+                    () => _skipStoryRequested, token, _inactivityTimer,
+                    lineStartTimes != null && lineStartTimes.Length > 0 ? lineStartTimes : null);
             }
             catch (OperationCanceledException) { }
             finally { _isTextAnimating = false; }
