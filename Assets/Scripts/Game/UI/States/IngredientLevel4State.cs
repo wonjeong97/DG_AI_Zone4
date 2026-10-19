@@ -48,7 +48,8 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary>
-        /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(결과 화면 AI 정답과 같은 경로)를 단계별 분류로 바꿔 반환함. 배치에 따라 4단계 또는 5단계가 됨.
+        /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(같은 장수면 반복하기를 많이 쓰는 경로, 결과 화면 AI 정답과 같은 경로)를 단계별 분류로 바꿔 반환함.
+        /// 배치에 따라 4단계 또는 5단계가 됨.
         /// 보드의 Start보다 먼저 불려도 FindSolution이 먼저 배치하므로 화면 보드와 같은 배치를 씀.
         /// </summary>
         public string[] BuildStepCategories(IngredientSelectionController controller)
@@ -181,7 +182,7 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary>
-        /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(Level4BoardController.FindSolution)를 블록으로 바꿔 반환함.
+        /// 이번 판 보드 배치를 가장 적은 카드로 푸는 경로(같은 장수면 반복하기를 많이 쓰는 경로, Level4BoardController.FindSolution)를 블록으로 바꿔 반환함.
         /// 한 칸 이동은 '이동하기', 여러 칸 이동은 '반복하기(칸 수) + 이동하기'가 됨.
         /// </summary>
         public List<(RfidStepDefinition ingredient, RfidMatter matter)> BuildSolution(IngredientSelectionController controller)

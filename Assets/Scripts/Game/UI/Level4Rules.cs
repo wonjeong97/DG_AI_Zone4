@@ -138,67 +138,133 @@ namespace DGAIZone.Game.UI
         /// </summary>
         internal static bool CanClearWithin(Level4Layout layout, int maxCards, int repeatCount)
         {
-            return CanClearFrom(layout, RobotColumn, layout.RobotRow, false, maxCards, repeatCount, null);
+            return CanClearFrom(layout, RobotColumn, layout.RobotRow, false, maxCards, repeatCount);
         }
 
         /// <summary>
-        /// 이 배치를 가장 적은 카드로 푸는 경로를 찾음(카드 1장부터 maxCards장까지 늘려 가며 CanClearWithin과 같은 규칙으로 탐색).
+        /// AI 정답(단계별 칸·결과 화면 AI 설계창)으로 쓸, 이 배치를 가장 적은 카드로 푸는 경로를 찾음(카드 1장부터 maxCards장까지 늘려 가며 탐색).
+        /// 이동하기 한 장 외에 repeatCounts의 횟수마다 '반복하기(횟수) + 이동하기' 두 장 묶음을 쓰고, 마지막 구간의 마지막 칸에서 자원을 모은 채
+        /// 기지에 정확히 닿는 경로만 정답으로 봄(반복 도중 기지에 먼저 닿아 남은 이동을 하지 않는 경로는 정답으로 안내하지 않음).
+        /// 같은 장수로 푸는 경로가 여럿이면 반복하기를 가장 많이 쓰는 경로를 고르고(반복 블록을 우선 안내), 반복하기 수까지 같으면
+        /// 탐색 순서(위·아래·오른쪽·왼쪽, 방향마다 이동하기 한 장 → repeatCounts 순서)로 먼저 찾은 경로를 씀.
         /// 반환하는 구간 하나는 (이동 칸 수, 이동 방향 id)이며, 칸 수가 1이면 이동하기 한 장, 그보다 크면 '반복하기(칸 수) + 이동하기' 두 장임.
         /// maxCards장 안에 풀 수 없으면 null.
         /// </summary>
-        internal static List<(int moves, string directionId)> FindShortestSolution(Level4Layout layout, int maxCards, int repeatCount)
+        internal static List<(int moves, string directionId)> FindShortestSolution(Level4Layout layout, int maxCards, IReadOnlyList<int> repeatCounts)
         {
             List<(int moves, string directionId)> path = new List<(int moves, string directionId)>();
+            List<(int moves, string directionId)> best = new List<(int moves, string directionId)>();
             for (int cards = 1; cards <= maxCards; cards++)
             {
-                path.Clear();
-                if (CanClearFrom(layout, RobotColumn, layout.RobotRow, false, cards, repeatCount, path)) return path;
+                int bestRepeats = -1;
+                CollectMostRepeats(layout, RobotColumn, layout.RobotRow, false, cards, repeatCounts, path, best, ref bestRepeats);
+                if (bestRepeats >= 0) return best; // 더 적은 장수로는 못 풀었으므로 찾은 경로는 모두 이 장수를 씀
             }
 
             return null;
         }
 
-        /// <summary>
-        /// 현재 칸에서 이동하기 한 장 또는 반복하기+이동하기 두 장을 방향마다 놓아 보며, 남은 카드로 성공할 수 있는지 재귀로 찾음.
-        /// path가 있으면 성공한 경로의 구간(이동 칸 수, 방향 id)을 순서대로 남김.
-        /// </summary>
-        private static bool CanClearFrom(Level4Layout layout, int column, int row, bool collected, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
+        /// <summary> 현재 칸에서 이동하기 한 장 또는 반복하기+이동하기 두 장을 방향마다 놓아 보며, 남은 카드로 성공할 수 있는지 재귀로 찾음(하나만 찾으면 멈춤). </summary>
+        private static bool CanClearFrom(Level4Layout layout, int column, int row, bool collected, int cardsLeft, int repeatCount)
         {
             for (int d = 0; d < DirectionSteps.Length; d++)
             {
-                if (cardsLeft >= 1 && TryRun(layout, column, row, collected, d, 1, cardsLeft - 1, repeatCount, path)) return true;
-                if (repeatCount > 1 && cardsLeft >= 2 && TryRun(layout, column, row, collected, d, repeatCount, cardsLeft - 2, repeatCount, path)) return true;
+                if (cardsLeft >= 1 && RunSucceeds(layout, column, row, collected, DirectionSteps[d], 1, cardsLeft - 1, repeatCount)) return true;
+                if (repeatCount > 1 && cardsLeft >= 2 && RunSucceeds(layout, column, row, collected, DirectionSteps[d], repeatCount, cardsLeft - 2, repeatCount)) return true;
             }
 
-            return false;
-        }
-
-        /// <summary> 구간 하나(directionIndex 방향으로 moves칸)를 경로에 넣고 놓아 보며, 실패하면 경로에서 다시 뺌. </summary>
-        private static bool TryRun(Level4Layout layout, int column, int row, bool collected, int directionIndex, int moves, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
-        {
-            path?.Add((moves, DirectionIds[directionIndex]));
-            if (RunSucceeds(layout, column, row, collected, DirectionSteps[directionIndex], moves, cardsLeft, repeatCount, path)) return true;
-
-            path?.RemoveAt(path.Count - 1);
             return false;
         }
 
         /// <summary> direction으로 moves칸 가 봄. 기지에 닿으면 자원을 먼저 모았는지가 곧 결과이고, 그리드 밖·함정이면 실패, 그 외에는 남은 카드로 이어서 찾음. </summary>
-        private static bool RunSucceeds(Level4Layout layout, int column, int row, bool collected, Level4MoveStep direction, int moves, int cardsLeft, int repeatCount, List<(int moves, string directionId)> path)
+        private static bool RunSucceeds(Level4Layout layout, int column, int row, bool collected, Level4MoveStep direction, int moves, int cardsLeft, int repeatCount)
+        {
+            switch (Walk(layout, ref column, ref row, ref collected, direction, moves, out _))
+            {
+                case Level4StepResult.OutOfBounds:
+                case Level4StepResult.Trap:
+                    return false;
+                case Level4StepResult.Hq:
+                    return collected;
+                default:
+                    return cardsLeft > 0 && CanClearFrom(layout, column, row, collected, cardsLeft, repeatCount);
+            }
+        }
+
+        /// <summary>
+        /// 현재 칸에서 이동하기 한 장, 또는 repeatCounts의 횟수마다 반복하기+이동하기 두 장을 방향마다 놓아 보며 남은 카드로 기지에 정확히 닿는 경로를
+        /// 모두 따져, 반복하기를 가장 많이 쓰는 경로를 best에 남김(bestRepeats는 그 반복하기 수, 아직 없으면 -1). 반복하기 수가 같으면 먼저 찾은 경로를 둠.
+        /// </summary>
+        private static void CollectMostRepeats(Level4Layout layout, int column, int row, bool collected, int cardsLeft, IReadOnlyList<int> repeatCounts,
+            List<(int moves, string directionId)> path, List<(int moves, string directionId)> best, ref int bestRepeats)
+        {
+            for (int d = 0; d < DirectionSteps.Length; d++)
+            {
+                if (cardsLeft >= 1) CollectRun(layout, column, row, collected, d, 1, cardsLeft - 1, repeatCounts, path, best, ref bestRepeats);
+                if (cardsLeft < 2) continue; // 반복하기+이동하기 두 장을 놓을 카드가 없음(정상)
+
+                for (int r = 0; r < repeatCounts.Count; r++)
+                {
+                    if (repeatCounts[r] > 1) CollectRun(layout, column, row, collected, d, repeatCounts[r], cardsLeft - 2, repeatCounts, path, best, ref bestRepeats);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 구간 하나(directionIndex 방향으로 moves칸)를 경로에 넣고 가 봄. 이 구간의 마지막 칸에서 자원을 모은 채 기지에 닿으면 후보로 비교하고,
+        /// 기지·그리드 밖·함정 없이 끝났으면 남은 카드로 이어서 찾은 뒤 경로에서 다시 뺌. 구간 도중에 기지에 닿으면 정답으로 보지 않음.
+        /// </summary>
+        private static void CollectRun(Level4Layout layout, int column, int row, bool collected, int directionIndex, int moves, int cardsLeft, IReadOnlyList<int> repeatCounts,
+            List<(int moves, string directionId)> path, List<(int moves, string directionId)> best, ref int bestRepeats)
+        {
+            path.Add((moves, DirectionIds[directionIndex]));
+            switch (Walk(layout, ref column, ref row, ref collected, DirectionSteps[directionIndex], moves, out int stepsTaken))
+            {
+                case Level4StepResult.Hq:
+                    if (collected && stepsTaken == moves) KeepIfMoreRepeats(path, best, ref bestRepeats);
+                    break;
+                case Level4StepResult.Moved:
+                    if (cardsLeft > 0) CollectMostRepeats(layout, column, row, collected, cardsLeft, repeatCounts, path, best, ref bestRepeats);
+                    break;
+            }
+
+            path.RemoveAt(path.Count - 1);
+        }
+
+        /// <summary> path의 반복하기 수(이동 칸 수가 1보다 큰 구간 수)가 bestRepeats보다 많으면 best를 path로 바꿈. </summary>
+        private static void KeepIfMoreRepeats(List<(int moves, string directionId)> path, List<(int moves, string directionId)> best, ref int bestRepeats)
+        {
+            int repeats = 0;
+            for (int i = 0; i < path.Count; i++)
+            {
+                if (path[i].moves > 1) repeats++;
+            }
+
+            if (repeats <= bestRepeats) return; // 같으면 먼저 찾은 경로를 둠(정상)
+
+            bestRepeats = repeats;
+            best.Clear();
+            best.AddRange(path);
+        }
+
+        /// <summary>
+        /// direction으로 moves칸을 Step으로 한 칸씩 가 봄. 그리드 밖·함정·기지에 닿으면 그 결과를 바로 돌려주고(기지면 성공 여부는 collected로 판단),
+        /// 끝까지 갔으면 Moved. column·row·collected는 마지막으로 간 칸 기준으로 바뀌고, stepsTaken은 결과가 난 칸까지 간 칸 수.
+        /// </summary>
+        private static Level4StepResult Walk(in Level4Layout layout, ref int column, ref int row, ref bool collected, Level4MoveStep direction, int moves, out int stepsTaken)
         {
             for (int i = 0; i < moves; i++)
             {
-                switch (Step(layout, ref column, ref row, ref collected, direction))
+                Level4StepResult result = Step(layout, ref column, ref row, ref collected, direction);
+                if (result == Level4StepResult.OutOfBounds || result == Level4StepResult.Trap || result == Level4StepResult.Hq)
                 {
-                    case Level4StepResult.OutOfBounds:
-                    case Level4StepResult.Trap:
-                        return false;
-                    case Level4StepResult.Hq:
-                        return collected;
+                    stepsTaken = i + 1;
+                    return result;
                 }
             }
 
-            return cardsLeft > 0 && CanClearFrom(layout, column, row, collected, cardsLeft, repeatCount, path);
+            stepsTaken = moves;
+            return Level4StepResult.Moved;
         }
     }
 

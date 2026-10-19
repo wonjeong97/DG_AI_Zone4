@@ -12,6 +12,7 @@
 
 ## 완료
 
+- [x] T89 레벨 4 칸·AI 정답에서 반복 블록 우선: 반복 2회·3회를 모두 쓰고, 기지에 마지막 이동으로 정확히 닿는 경로 중 가장 적은 장수·반복 최다를 고름(사용자 결정 — 반복 3회만 쓰고 기지에서 멈추는 경로는 제외), 배치 66가지 중 42가지가 바뀌고 장수는 그대로 — PlayMode 240/240 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
 - [x] T88 템플릿 26.10.12-1 → 26.10.16-1 업데이트(사용자 요청, packages-lock.json 고정 커밋 1c5e127 → a036657): 새 `Settings.json` 옵션 `alwaysOnTop`(창 항상 위, 기본 꺼짐)만 추가돼 Breaking 영향 없음 — PlayMode 237/237 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
 - [x] T87 게임 화면 CodingCategories를 레벨별 단계 칸으로: 레벨 1 동작 3칸, 레벨 2 동작 5칸, 레벨 3 만약 > 동작 > 논리 > 만약 > 동작, 레벨 4 이번 판 AI 정답 순서(동작/반복, 4~5칸, 그 순서의 카드만 받음), 레벨 5 함수 > 동작 4(순서 고정, 5장을 다 놓으면 항상 성공), 설정한 칸은 색 유지(사용자 요청·결정), PR #69 리뷰 반영(레벨 4 보드 배치 순서, 레벨 5 장수 제한 정리, 테스트 보강) — PlayMode 237/237 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
 - [x] T86 DLL·서드파티 파일(NuGet 패키지, DOTween, TextMesh Pro)을 Git LFS에서 빼서 GitHub "Download ZIP"으로 받아도 스크립트 에러가 나지 않게 함(`.gitattributes` 의 `*.dll lfs` → `binary`, 서드파티 폴더 예외 추가, 파일 내용은 LFS 원본과 SHA-256 동일). 프로젝트 자체 이미지·영상·폰트는 계속 LFS라 ZIP으로 받으면 깨지므로 git clone으로 받아야 함 — 담당: Claude / 검증: Antigravity (2026-10-13)
