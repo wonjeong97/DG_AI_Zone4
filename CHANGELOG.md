@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+### Added
+- 인트로 화면에서 스토리 글이 올라오기 시작할 때 4존 에피소드 나레이션을 틀고, 튜토리얼로 넘어가거나 화면을 떠나면 멈춤(현장 PC의 `Settings.json`을 따로 쓰면 `sounds`에 `episodeNarration` 줄을 더해야 함).
+
+### Changed
+- 인트로 스토리 글이 나레이션에 맞춰 한 줄씩 올라옴(줄마다 시작 시각은 `1_Intro.json`의 `storyLineStartTimes`에서 고침).
+
 ## [2026-10-19]
 
 ### Added

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using TMPro;
@@ -38,9 +39,12 @@ namespace DGAIZone.App
         /// 연출과 대기 없이 즉시 통과함. skipRequested가 true를 반환하면 남은 줄까지 전체를 즉시 표시하고 종료함.
         /// token 취소(오브젝트 파괴 등) 시 OperationCanceledException을 그대로 전파하므로 호출부에서 처리해야 함.
         /// inactivityTimer를 넘기면 연출이 진행되는 동안 비활동 타이머를 멈추고(Pause), 연출이 끝나면 재개(Resume)하여 카운트를 처음부터 시작함.
+        /// paragraphStartTimes를 넘기면 줄 사이 간격 대신, 글 줄(text의 줄바꿈 단위 중 보이는 문자가 있는 줄)마다 연출 시작부터 실제로 흐른 시간이 그 시각(초)이 되면
+        /// 올라오게 함(나레이션에 맞출 때 씀). 한 글 줄이 자동 줄바꿈으로 여러 줄이 되면 뒷줄은 앞줄이 다 올라온 뒤 바로 이어서 올라오고,
+        /// 시각이 이미 지났으면 바로 올라오며, 시각이 모자란 글 줄은 앞줄 뒤 lineInterval 간격으로 올라옴(경고 한 번).
         /// </summary>
         public static async UniTask AnimateAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset,
-            Func<bool> skipRequested, CancellationToken token, InactivityTimer inactivityTimer = null)
+            Func<bool> skipRequested, CancellationToken token, InactivityTimer inactivityTimer = null, IReadOnlyList<float> paragraphStartTimes = null)
         {
             if (!text)
             {
@@ -52,7 +56,7 @@ namespace DGAIZone.App
             if (inactivityTimer) inactivityTimer.Pause();
             try
             {
-                await AnimateLinesAsync(text, lineMoveDuration, lineInterval, lineYOffset, skipRequested, token);
+                await AnimateLinesAsync(text, lineMoveDuration, lineInterval, lineYOffset, skipRequested, token, paragraphStartTimes);
             }
             finally
             {
@@ -60,8 +64,12 @@ namespace DGAIZone.App
             }
         }
 
-        /// <summary> 줄 단위 정점 캐싱 후 한 줄씩 Y 오프셋과 알파를 보간해 올리는 연출 핵심 로직. </summary>
-        private static async UniTask AnimateLinesAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset, Func<bool> skipRequested, CancellationToken token)
+        /// <summary>
+        /// 줄 단위 정점 캐싱 후 한 줄씩 Y 오프셋과 알파를 보간해 올리는 연출 핵심 로직. paragraphStartTimes가 있으면 글 줄마다 그 시각까지 기다렸다가
+        /// 올리고(줄 사이 간격은 쓰지 않음), 없으면 줄마다 lineInterval 간격으로 올림.
+        /// </summary>
+        private static async UniTask AnimateLinesAsync(TMP_Text text, float lineMoveDuration, float lineInterval, float lineYOffset, Func<bool> skipRequested, CancellationToken token,
+            IReadOnlyList<float> paragraphStartTimes)
         {
             // 호출부에서 미리 숨겨 둔 경우(maxVisibleCharacters=0)를 대비해 전체 노출로 되돌린 뒤 메쉬를 갱신함
             text.maxVisibleCharacters = int.MaxValue;
@@ -102,6 +110,13 @@ namespace DGAIZone.App
             text.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
 
             bool skipped = false;
+            bool timed = paragraphStartTimes != null;
+            // 연출을 시작한 실제 시각. 글 줄 시작 시각(paragraphStartTimes)은 실제 흐른 시간과 비교함 — 나레이션은 실제 시간으로 흐르는데,
+            // Time.deltaTime은 긴 프레임에서 최대 시간으로 잘려 누적하면 나레이션보다 늦어짐
+            double startRealtime = Time.realtimeSinceStartupAsDouble;
+            int paragraph = -1;        // 지금 줄이 속한 글 줄 번호(보이는 문자가 있는 줄바꿈 단위, 0부터)
+            int lastSourceLine = -1;   // 앞줄이 속한 줄바꿈 단위 번호 — 같으면 자동 줄바꿈으로 이어진 줄
+            bool warnedMissingTime = false;
 
             // 라인별로 하나씩 올라오는 연출 진행
             for (int l = 0; l < totalLines && !skipped; l++)
@@ -110,6 +125,42 @@ namespace DGAIZone.App
 
                 // 보이는 문자가 없는 줄(간격용 빈 줄/스페이스)은 연출과 대기 없이 즉시 통과함
                 if (!LineHasVisibleChar(textInfo, lineInfo)) continue;
+
+                if (timed)
+                {
+                    int sourceLine = CountLineFeedsBefore(textInfo, lineInfo.firstCharacterIndex);
+                    if (sourceLine != lastSourceLine)
+                    {
+                        // 새 글 줄의 첫 줄: 그 글 줄의 시작 시각까지 기다림(자동 줄바꿈으로 이어진 뒷줄은 기다리지 않고 바로 이어서 올라옴)
+                        lastSourceLine = sourceLine;
+                        paragraph++;
+
+                        float startTime;
+                        if (paragraph < paragraphStartTimes.Count)
+                        {
+                            startTime = paragraphStartTimes[paragraph];
+                        }
+                        else
+                        {
+                            if (!warnedMissingTime)
+                            {
+                                // 정적 유틸이라 로거를 주입받을 수 없어 Debug로 대체 출력함
+                                Debug.LogWarning($"[StoryLineAnimator] 글 줄 시작 시각이 {paragraphStartTimes.Count}개뿐이라 {paragraph + 1}번째 글 줄부터는 줄 간격({lineInterval}초)으로 올림.");
+                                warnedMissingTime = true;
+                            }
+                            startTime = ElapsedSince(startRealtime) + lineInterval;
+                        }
+
+                        while (ElapsedSince(startRealtime) < startTime)
+                        {
+                            if (skipRequested != null && skipRequested()) { skipped = true; break; }
+
+                            await UniTask.Yield(PlayerLoopTiming.Update, token);
+                        }
+
+                        if (skipped) break;
+                    }
+                }
 
                 float elapsed = 0f;
                 while (elapsed < lineMoveDuration)
@@ -134,7 +185,8 @@ namespace DGAIZone.App
                 ApplyLineVertices(textInfo, lineInfo, cachedVertices, cachedColors, 0f, 255);
                 text.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
 
-                if (!skipped && l < totalLines - 1)
+                // 시각을 맞추는 연출은 줄 사이 간격을 쓰지 않음(다음 글 줄은 위에서 그 시각까지 기다림)
+                if (!skipped && !timed && l < totalLines - 1)
                 {
                     // 줄 사이를 기다리는 동안 누른 넘기기도 받도록 Delay 대신 프레임마다 확인함(간격이 0 이하면 기다리지 않음)
                     float waited = 0f;
@@ -154,6 +206,20 @@ namespace DGAIZone.App
                 text.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
                 text.ForceMeshUpdate();
             }
+        }
+
+        /// <summary> startRealtime(Time.realtimeSinceStartupAsDouble)부터 실제로 흐른 시간(초). </summary>
+        private static float ElapsedSince(double startRealtime) => (float)(Time.realtimeSinceStartupAsDouble - startRealtime);
+
+        /// <summary> characterIndex 앞에 있는 줄바꿈 문자 수(그 문자가 원문의 몇 번째 줄바꿈 단위에 있는지). 자동 줄바꿈은 세지 않음. </summary>
+        private static int CountLineFeedsBefore(TMP_TextInfo textInfo, int characterIndex)
+        {
+            int count = 0;
+            for (int c = 0; c < characterIndex && c < textInfo.characterCount; c++)
+            {
+                if (textInfo.characterInfo[c].character == '\n') count++;
+            }
+            return count;
         }
 
         /// <summary> 해당 줄에 렌더링되는(스페이스가 아닌) 문자가 하나라도 있는지 반환함. </summary>

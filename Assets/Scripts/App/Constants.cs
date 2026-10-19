@@ -289,6 +289,7 @@ namespace DGAIZone.App
             public const string HintEpisode    = "hintEpisode";    // 미션 다시 보기 버튼
             public const string MissionFailed  = "missonFailed";   // 결과 완료 화면 '미션 실패!'
             public const string MissionSuccess = "missonSuccess";  // 결과 완료 화면 '미션 성공!'
+            public const string EpisodeNarration = "episodeNarration"; // 인트로 스토리 나레이션(스토리 글이 올라오기 시작할 때, 튜토리얼로 넘어가거나 씬을 떠나면 멈춤)
         }
     }
 }

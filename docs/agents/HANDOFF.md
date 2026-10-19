@@ -4,6 +4,19 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-19 18:10] Claude → Antigravity + 서브에이전트 · T90 인트로 나레이션·줄 시각, T91 템플릿 26.10.19-1 (feat/intro-narration)
+- 요청: 사용자가 넣은 4존 에피소드 나레이션(StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3)을 인트로에서 재생, 스토리 줄을 나레이션에 맞춰 올림, 템플릿 업데이트.
+- 변경: 템플릿 26.10.16-1 → 26.10.19-1(SoundManager.PreloadAsync, 로드 중 StopSFX 뒤 재생 막음). IntroFlowController가 씬 진입 때 나레이션을 미리 불러 두고 스토리 글 시작 때 효과음 채널로 재생, 튜토리얼로 넘어갈 때(클릭음보다 먼저)·씬을 떠날 때 StopSFX. Settings.json에 episodeNarration. StoryLineAnimator에 글 줄 시작 시각(paragraphStartTimes, 실제 흐른 시간 기준) 모드 추가, 인트로는 1_Intro.json storyLineStartTimes [0.5, 6.7, 15.0, 21.3, 25.4](ffmpeg silencedetect로 잰 값), 레벨 선택·아웃트로는 그대로. 테스트 3개.
+- Claude 확인: Rider·컴파일 오류 0, PlayMode 243/243. Play 확인 — 나레이션 29.2초 미리 불러옴, 스토리 시작과 함께 재생, StopNarration으로 멈춤, 인트로→레벨 선택 이동 때 효과음 채널 정지, 글 줄이 설정 시각대로 올라옴(2번째 6.7초·5번째 25.4초 기준 일치), 콘솔 오류·경고 0.
+- agy (1묶음): 템플릿 26.10.19-1 영향(바뀐 StopSFX 규칙으로 효과음이 빠지는 곳) → gemini-4-argon-high 시간 제한(빈 결과)으로 항목을 줄여 gemini-3.8-flash-high에 맡김 → 통과. 콘솔은 Claude가 확인.
+- 교차 검증 (agy gemini-4-argon-high + 서브에이전트, 2묶음):
+  - 나레이션 재생·멈춤·미리 불러오기·Settings.json → 둘 다 통과. 서브에이전트만 지적(낮음): 현장 PC의 Settings.json을 덮어쓰면 나레이션 줄이 빠짐 → CLAUDE.md 설치 체크리스트에 추가
+  - 글 줄 시각 연출(대기·건너뛰기·글 줄 번호·기존 호출 불변·테스트) → 둘 다 통과. 서브에이전트만 지적(낮음) 2건: 시각을 deltaTime 누적으로 재 긴 프레임에서 늦어짐 → 실제 흐른 시간 기준으로 고침, 시각이 모자란 줄 테스트가 항상 통과 → 끝나기 전 B·C 알파로 확인하게 고침. 재검증은 아래.
+- 수정 재검증 (서브에이전트): 실제 시간 기준 대기·기존 줄 간격 모드 불변·남은 코드 없음 → 통과. 고친 테스트 시간 여유가 좁음(낮음) → 줄 간격 1초·확인 1.5초로 넓힘, PlayMode 243/243.
+- 남은 것: 나레이션 파일이 인트로가 아니라 레벨 1 스토리를 읽음(사용자 확인) → TODO T92(파일 교체 뒤 storyLineStartTimes 다시 잼). 글을 건너뛰면 나레이션이 남은 동안 비활동 시간이 흐름(현장 resetTime이 28초보다 짧을 때만 문제, 기록만).
+
+---
+
 ### [2026-10-19 12:11] Claude → Antigravity + 서브에이전트 · T89 레벨 4 반복 블록 우선 (feat/level4-prefer-repeat)
 - 요청: 레벨 4에서 카테고리(단계 칸)를 정할 때 반복 블록을 우선 사용. 사용자 결정: 반복 2회·3회를 모두 쓰고 기지에 정확히 도착하는 경로만(반복 3회만 쓰고 기지에서 멈추는 경로는 제외).
 - 변경: Level4Rules.FindShortestSolution이 가장 적은 장수 → 마지막 칸에서 정확히 도착 → 반복하기 최다 → 탐색 순서로 고름(반복 횟수는 Constants.Level4Board.AnswerRepeatCounts {2, 3}). 배치 후보 판정은 그대로. 검증기가 반복 2회 블록도 요구. 66가지 중 42가지 배치의 칸·AI 정답이 바뀌고 장수는 그대로(4가지 배치는 반복 2개짜리 순서가 둘이라 탐색 순서로 고정).
