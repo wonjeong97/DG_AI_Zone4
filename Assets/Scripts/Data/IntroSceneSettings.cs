@@ -19,6 +19,6 @@ namespace DGAIZone.Data
         /// (기본값은 Zone_4_Episode_Narration.mp3의 쉬는 구간으로 잰 값). 비우면([]) 줄마다 00_Common.json의 storyLineInterval 간격으로 올라오고,
         /// 글 줄이 더 많으면 나머지 줄은 그 간격으로 올라옴.
         /// </summary>
-        public float[] storyLineStartTimes = { 0.5f, 6.7f, 15.0f, 21.3f, 25.4f };
+        public float[] storyLineStartTimes = { 0.5f, 7.0f, 14.0f, 18.4f, 24.7f };
     }
 }
