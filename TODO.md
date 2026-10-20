@@ -9,10 +9,11 @@
 
 ## 할 일
 
-- [ ] T92 인트로 나레이션 파일 교체: 지금 `StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3`는 인트로 스토리 글이 아니라 레벨 1 스토리 글을 읽고 있음(사용자 확인, 2026-10-19). 인트로 글을 읽는 나레이션으로 바꾸고, 바꾼 파일의 문장 시작 시각에 맞춰 `1_Intro.json`의 `storyLineStartTimes`를 다시 잼(지금 값 [0.5, 6.7, 15.0, 21.3, 25.4]는 이 파일의 쉬는 구간으로 잰 것이라 인트로 글과 맞지 않음). 지금 파일을 레벨 1 스토리(2_LevelSelect)에 쓸지도 정함 — 담당: Claude / 검증: Antigravity
+- [ ] T93 레벨 1 스토리 나레이션: T92 전의 `Zone_4_Episode_Narration.mp3`(커밋 0302c48, 레벨 1 스토리 글을 읽음)를 레벨 1 스토리(2_LevelSelect)에 쓸지 정함 — 사용자 결정 대기
 
 ## 완료
 
+- [x] T92 인트로 나레이션 파일 교체: 사용자가 인트로 스토리 글을 읽는 녹음으로 `StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3`를 바꿈(길이 28.44초 그대로). 새 녹음의 문장 시작 시각(쉬는 구간 끝, 음성 인식으로 줄 대응 확인)에 맞춰 `1_Intro.json`의 `storyLineStartTimes`를 [0.5, 6.7, 15.0, 21.3, 25.4] → [0.5, 7.0, 14.0, 18.4, 24.7]로 다시 잼(키가 없을 때 쓰는 IntroSceneSettings 기본값도 같은 값으로), PR #73 리뷰 반영 — PlayMode 243/243 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-20)
 - [x] T90 인트로 에피소드 나레이션(StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3, 사용자 추가): 스토리 글이 올라오기 시작할 때 재생(미리 불러 둠), 튜토리얼로 넘어가거나 씬을 떠나면 멈춤, 스토리 글 줄이 나레이션 시각(1_Intro.json storyLineStartTimes, 쉬는 구간으로 잰 값)에 맞춰 올라옴(사용자 요청) — PlayMode 243/243 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
 - [x] T91 템플릿 26.10.16-1 → 26.10.19-1 업데이트(사용자 요청, packages-lock.json 고정 커밋 a036657 → 7fbccfe): SoundManager.PreloadAsync 추가·로드 중 StopSFX 뒤 재생 막음, Breaking 없음 — PlayMode 243/243 — 담당: Claude / 검증: Antigravity (2026-10-19)
 - [x] T89 레벨 4 칸·AI 정답에서 반복 블록 우선: 반복 2회·3회를 모두 쓰고, 기지에 마지막 이동으로 정확히 닿는 경로 중 가장 적은 장수·반복 최다를 고름(사용자 결정 — 반복 3회만 쓰고 기지에서 멈추는 경로는 제외), 배치 66가지 중 42가지가 바뀌고 장수는 그대로 — PlayMode 240/240 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
