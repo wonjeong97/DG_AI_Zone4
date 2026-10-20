@@ -4,6 +4,13 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-20 10:30] Claude → Antigravity · T92 인트로 나레이션 교체·줄 시각 (fix/intro-narration-replace)
+- 요청: 사용자가 인트로 나레이션(StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3)을 다시 넣음.
+- 변경: 새 녹음(길이 28.44초 그대로)에 맞춰 1_Intro.json storyLineStartTimes [0.5, 6.7, 15.0, 21.3, 25.4] → [0.5, 7.0, 14.0, 18.4, 24.7], bundleVersion 26.10.20, CHANGELOG Fixed. 이전 녹음의 레벨 1 스토리 활용 여부는 TODO T93으로 나눔.
+- Claude 확인: faster-whisper 음성 인식으로 이전 녹음은 레벨 1 스토리 글, 새 녹음은 씬 storyText와 같은 인트로 글을 읽는 것을 확인. 글 줄(보이는 글자가 있는 줄바꿈 단위) 5개의 말 시작을 ffmpeg silencedetect(-35dB·-45dB)의 쉬는 구간 끝으로 재고 이전 값과 같은 0.1초 반올림. 에디터 PlayerSettings.bundleVersion 26.10.20 반영, 콘솔 오류·경고 0. 코드 변경이 없어 PlayMode 테스트·Play 확인은 하지 않음(소리와 글이 맞는지는 귀로 확인하지 못함).
+- agy gemini-4-argon-high (1묶음, 설정·문서): 글 줄 5개와 값 5개·말 시작 대응(2번 글 줄 '이제' 뒤 1.65초 쉼은 글 줄 안의 쉼) → 통과. 앞 글 줄 올림 연출(줄당 0.7초)이 다음 시각을 넘길 가능성(가장 짧은 간격 4.4초) → 통과. CHANGELOG·TODO 문장과 bundleVersion → 통과.
+- 남은 일: 현장 PC에서 소리와 글 줄이 맞는지 귀로 확인. T93(이전 녹음을 레벨 1 스토리에 쓸지) 사용자 결정.
+
 ### [2026-10-19 18:10] Claude → Antigravity + 서브에이전트 · T90 인트로 나레이션·줄 시각, T91 템플릿 26.10.19-1 (feat/intro-narration)
 - 요청: 사용자가 넣은 4존 에피소드 나레이션(StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3)을 인트로에서 재생, 스토리 줄을 나레이션에 맞춰 올림, 템플릿 업데이트.
 - 변경: 템플릿 26.10.16-1 → 26.10.19-1(SoundManager.PreloadAsync, 로드 중 StopSFX 뒤 재생 막음). IntroFlowController가 씬 진입 때 나레이션을 미리 불러 두고 스토리 글 시작 때 효과음 채널로 재생, 튜토리얼로 넘어갈 때(클릭음보다 먼저)·씬을 떠날 때 StopSFX. Settings.json에 episodeNarration. StoryLineAnimator에 글 줄 시작 시각(paragraphStartTimes, 실제 흐른 시간 기준) 모드 추가, 인트로는 1_Intro.json storyLineStartTimes [0.5, 6.7, 15.0, 21.3, 25.4](ffmpeg silencedetect로 잰 값), 레벨 선택·아웃트로는 그대로. 테스트 3개.
