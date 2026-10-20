@@ -4,6 +4,13 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-20 13:00] Claude → Antigravity · T94 인트로 나레이션 재녹음 적용 (fix/intro-narration-v2)
+- 요청: 사용자가 나레이션을 다시 녹음해 '4존 에피소드 나레이션(수정2).mp3'로 넣음(기존 Zone_4_Episode_Narration.mp3·.meta는 지움). 이 파일로 적용하고 파일 이름도 맞춤.
+- 변경: 새 파일을 Zone_4_Episode_Narration.mp3로 이름을 바꾸고 기존 .meta(GUID)를 되살림, 원래 이름으로 Unity가 만든 .meta는 지움. 1_Intro.json storyLineStartTimes와 IntroSceneSettings 기본값 [0.5, 7.0, 14.0, 18.4, 24.7] → [0.5, 6.7, 11.2, 15.1, 21.1], CHANGELOG Changed. bundleVersion은 오늘 이미 26.10.20.
+- Claude 확인: 새 녹음 25.06초(이전 28.44초), 같은 형식(mp3 24kHz 스테레오 64kbps). faster-whisper로 씬 storyText와 같은 글을 읽는 것을 확인하고, 글 줄 5개의 말 시작을 -35dB silencedetect의 쉬는 구간 끝으로 재 0.1초 반올림(-45dB도 반올림 결과 같거나 0.05초 안). Rider·컴파일 오류 0, 에디터에서 새 기본값 확인, PlayMode 243/243(테스트가 늘린 TMP 글꼴 글리프는 되돌림), Play 모드 옵션 꺼짐 유지. Play 확인은 하지 않음(소리와 글이 맞는지는 귀로 확인하지 못함).
+- agy gemini-4-argon-high (1묶음, 시각·설정·문서): 값 5개와 글 줄 말 시작 대응(3번 11.16초·5번 21.12초 쉬는 구간 끝), 마지막 값이 녹음 길이 안·가장 짧은 간격 3.9초로 올림 연출(줄당 0.7초)이 넘치지 않음 → 통과. JSON과 기본값 일치, Settings.json clipPath와 파일 이름 일치 → 통과. CHANGELOG·TODO 문장 → 통과.
+- 남은 일: 현장 PC에서 소리와 글 줄이 맞는지 귀로 확인.
+
 ### [2026-10-20 10:30] Claude → Antigravity + 서브에이전트 · T92 인트로 나레이션 교체·줄 시각 (fix/intro-narration-replace)
 - 요청: 사용자가 인트로 나레이션(StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3)을 다시 넣음.
 - 변경: 새 녹음(길이 28.44초 그대로)에 맞춰 1_Intro.json storyLineStartTimes [0.5, 6.7, 15.0, 21.3, 25.4] → [0.5, 7.0, 14.0, 18.4, 24.7], 키가 없을 때 쓰는 IntroSceneSettings 기본값도 같은 값(PR을 만든 뒤 Claude가 찾아 고침), bundleVersion 26.10.20, CHANGELOG Fixed. 이전 녹음의 레벨 1 스토리 활용 여부는 TODO T93으로 나눔.
