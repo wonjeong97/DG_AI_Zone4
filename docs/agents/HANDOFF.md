@@ -4,12 +4,16 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
-### [2026-10-22 14:40] Claude → Antigravity · T95 튜토리얼 4번 이미지 교체 (fix/tutorial4-image)
+### [2026-10-22 14:40] Claude → Antigravity + 서브에이전트 · T95 튜토리얼 4번 이미지 교체 (fix/tutorial4-image)
 - 요청: 사용자가 튜토리얼 4번 이미지를 새 그림(채팅에 붙여넣음)으로 바꿔 달라고 함.
 - 변경: Assets/UI/1_Intro/Tutorial/Tutorial4.png를 다운로드 폴더의 원본 PNG(1920×1080 RGBA, 붙여넣은 그림과 평균 차이 0.8/255 — 채팅 사본은 손실 압축 WebP라 쓰지 않음)로 덮어씀. .meta(GUID·Sprite 설정)는 그대로라 Addressables 주소 Tutorial4 유지. bundleVersion 26.10.22, CHANGELOG Changed.
 - Claude 확인: Unity 강제 새로 고침 뒤 Sprite 1920×1080로 임포트, Default Local Group 항목 주소 Tutorial4, 콘솔 오류·경고 0, .meta 변경 없음(임포트 설정이 GUID 말고 Tutorial3와 같음). 코드 변경이 없어 PlayMode 테스트는 돌리지 않음. Play 확인은 하지 않음.
 - agy gemini-4-argon-high: 할당량 초과(429, 72시간 뒤 초기화)라 다음 단계로 넘김.
 - agy gemini-3.8-flash-high (1묶음, 이미지·설정·콘솔): 새 말풍선 문구·[달 (거리 10)] 반영, .meta guid·Sprite 설정·Addressables 주소, 콘솔 → 모두 통과. 추가 지적 2 — 왼쪽 선택지 '고체 로봇 (5)'(오른쪽 패널은 '고체 로켓') → 사실, 이미지 문제라 사용자에게 알림. 위쪽 배지('#4. 우주 개발 탐험'·'로켓 설계소') 없음 → 지금 3_Game에도 없는 배지라 오탐(새 이미지가 지금 화면, 다른 장들이 예전 화면).
+- PR wonjeong97/DG_AI_Zone4#75 리뷰(사용자 요청 — 리뷰 후 고칠 게 없으면 CHANGELOG 날짜 섹션으로 옮겨 머지, agy는 기본 모델 한도 초과로 gemini-3.8-flash-high):
+  - agy: 문서 정합성(CHANGELOG·TODO·HANDOFF·PR 본문이 실제 변경과 맞음, 맞춤법을 고친 요약 표현, CLAUDE.md 갱신 필요 없음) → 통과.
+  - 교차 검증 (agy + 서브에이전트): 임포트 설정이 GUID 말고 Tutorial3와 같고 1920×1080, Addressables Tutorial1~7 항목·주소, 슬라이더 로드·캐시·재시도와 테스트가 그림 내용에 기대지 않음, 콘솔 → 둘 다 통과. 둘 다 Tutorial5~7.png.meta만 alphaIsTransparency 0(5번은 wrapU/V도 다름)인 것을 짚음 → PR 이전부터 있던 차이이고 불투명한 전체 화면 그림이라 화면 영향 없어 고치지 않음. 서브에이전트 낮음 — 3번 → 4번 → 5번으로 넘길 때 화면 모양이 바뀌었다 돌아옴 → 사용자에게 알림.
+  - 서브에이전트: 정리(예전 4번 문구를 설명하던 곳 0건, Tutorial 폴더에 사본·webp 없음, HANDOFF·TODO 형식) → 통과. 제목과 TODO 검증 칸에 서브에이전트를 더하라는 지적 → 반영.
 - 남은 일: 이미지 문구('고체 로봇', 값 (5)와 게임 '고체 로켓 (+7)', 버튼 '에피소드 …'와 게임 '미션 …', '왼쪽 부터'·'알맞는' 맞춤법) 수정과 다른 튜토리얼 장을 지금 화면으로 바꿀지는 사용자 판단.
 
 ### [2026-10-20 13:00] Claude → Antigravity + 서브에이전트 · T94 인트로 나레이션 재녹음 적용 (fix/intro-narration-v2)
