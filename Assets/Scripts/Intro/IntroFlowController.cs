@@ -213,7 +213,7 @@ namespace DGAIZone.Intro
             else if (_logger != null) _logger.ZLogWarning($"[IntroFlowController] SoundManager가 null이라 나레이션을 멈출 수 없음.");
         }
 
-        /// <summary> 튜토리얼(체험 방법) 마지막 페이지에서 다음 터치 시 레벨 선택 씬으로 전환함. </summary>
+        /// <summary> 튜토리얼(체험 방법) 마지막 페이지에서 &gt; 버튼을 누르면 레벨 선택 씬으로 전환함. </summary>
         internal void OnTutorialCompleted()
         {
             OnUnderstandClicked();
