@@ -4,6 +4,15 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-23 07:40] Claude → Antigravity + 서브에이전트 · T98 결과 AI 패널 코드보기·영상보기 버튼 (feat/result-code-view-toggle)
+- 요청: 사용자가 Assets/UI에 결과 화면 레퍼런스와 버튼 리소스를 넣음. AI 패널 아래 버튼으로 AI 코딩 결과(블록)를 다시 보고(다시 조립하지 않음, 문구 코드보기 → 영상보기), 영상보기를 누르면 결과 영상을 처음부터 재생. 영상은 다시 불러오지 말고 불러온 것을 씀. 사용자가 Play로 볼 수 없어 Claude가 Play로 확인하고 영상으로 남겨 달라고 함.
+- 변경: ResultAiPanel에 viewToggleButton — 성공 영상이 한 번 끝나면 나타나고(준비 실패면 안 나옴), 코드보기는 영상을 멈추고 설계창으로 교차 페이드한 뒤 되감고, 영상보기는 같은 VideoPlayer를 time=0·Play(url·Prepare·Stop 없음)로 첫 화면이 그려진 뒤 보여 줌. 4_Result 씬 Background 맨 끝에 Button_ViewToggle(오른쪽 위 기준 -52,-651, 197×71, Navigation None) 추가, 리소스는 Assets/UI/4_Result/Button_ViewToggle.png로 옮김(임포트 설정은 AI_Panel.png와 같음). 레퍼런스 이미지 Assets/UI/이미지 (2).png는 커밋하지 않음. 테스트 ResultAiPanelTests 1개, bundleVersion 26.10.23, CHANGELOG Added.
+- Claude 확인: Rider·컴파일 오류 0, PlayMode 244/244. Play(0_Title에서 레벨 1 성공·정답 설계 3블록을 넣고 4_Result로 전환)를 0.1초 간격으로 녹화 — 버튼은 AI 영상이 끝난 뒤 '코드보기'로 나타남, 버튼 가운데 레이캐스트 맨 위가 버튼, 코드보기 → 문구 '영상보기'·설계창 a=1·영상 a=0·isPrepared 유지, 영상보기 → 문구 '코드보기'·영상 처음부터 재생(9초, 영상 10초), AI 영상 prepareCompleted는 처음 1회뿐. 녹화는 사용자에게 보냄. 리뷰 반영(되감기 위치·로그) 뒤에는 테스트만 다시 돌림(Play 재녹화 안 함).
+- agy gemini-4-argon-high: 할당량 초과(429)라 gemini-3.8-flash-high로 넘김.
+- 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 코드): 전환 상태·연타·취소·준비 실패, 영상 다시 불러오지 않음, 로그·리스너 해제·테스트 → 둘 다 통과. 서브에이전트 낮음 3 — 코드보기 때 페이드아웃 중 되감아 첫 장면으로 튈 수 있음 → 다 숨긴 뒤 되감도록 고침, 전환 중 누름을 로그 없이 무시 → 로그 추가, 테스트가 연타 무시·VideoPlayer 경로를 보지 않음 → Play 녹화로 확인해 그대로 둠.
+- 서브에이전트 (씬·.meta): 참조·계층·스프라이트 guid, Navigation None·raycastTarget, 기존 오브젝트 변경 없음, 임포트 설정 같음 → 통과.
+- 남은 일: '미션 성공!' 띠가 AI 패널 아래쪽에 겹쳐 코드보기 때 아래 블록이 어둡게 가려짐(예전부터 있던 배치) — 고칠지 사용자 판단.
+
 ### [2026-10-22 15:10] Claude → Antigravity + 서브에이전트 · T96 튜토리얼 1~3·5~7번 이미지 교체 (fix/tutorial-images)
 - 요청: 사용자가 튜토리얼 1~3·5~7번을 지금 게임 화면 그림으로 바꿈(Unity에서 원래 이미지를 지우고 새 이미지를 넣음). 확인 뒤 커밋. 그림 속 글자·디자인은 보지 않기로 함(사용자 결정, 이전 항목 '남은 일'의 그림 문구도 다루지 않음).
 - 변경: PNG 6장과 5~7번 .meta(wrapU/V 0→1, alphaIsTransparency 0→1 — 1~4번과 같아짐)를 etc: 커밋, CHANGELOG [Unreleased] Changed, TODO T96. GUID 7개는 그대로.
