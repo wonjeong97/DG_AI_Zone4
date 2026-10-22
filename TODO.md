@@ -12,6 +12,8 @@
 
 ## 완료
 
+- [x] T97 인트로 튜토리얼을 1존과 같이 이미지 양옆 < > 버튼으로 넘김: 첫 장에서는 < 버튼을 숨기고 마지막 장 > 로 레벨 선택으로, 이미지 좌우 터치 판정은 뺌, 안내 문구에서 '화면을 눌러서'를 지움(사용자 요청) — PlayMode 244/244 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-23)
+
 - [x] T96 튜토리얼 1~3·5~7번 이미지 교체: 사용자가 지금 게임 화면으로 그린 새 그림으로 바꾸고 5~7번 임포트 설정(wrap Clamp, alphaIsTransparency)을 1~4번과 맞춤(사용자 작업, Claude는 커밋·검증). 원래 이미지를 지울 때 에디터 메모리의 Addressables 그룹에서 빠진 항목 7개를 다시 넣음(그룹 파일은 그대로) — 담당: 사용자·Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-22)
 - [x] T95 튜토리얼 4번 이미지 교체: 사용자가 준 새 그림(지금 게임 화면, '왼쪽부터 순서대로 알맞은 블록을 올려 코딩' 안내)으로 `Assets/UI/1_Intro/Tutorial/Tutorial4.png`를 덮어씀(.meta·Addressables 주소 `Tutorial4` 유지, 사용자 요청) — 담당: Claude / 검증: Antigravity(gemini-3.8-flash-high, 기본 모델 한도 초과)·Claude 서브에이전트 (2026-10-22)
 - [x] T94 인트로 나레이션 재녹음 적용: 사용자가 넣은 `4존 에피소드 나레이션(수정2).mp3`(길이 28.44초 → 25.06초)를 코드가 찾는 `StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3` 이름으로 바꾸고(.meta GUID 유지), 새 녹음의 문장 시작(쉬는 구간 끝, 음성 인식으로 줄 대응 확인)에 맞춰 `1_Intro.json` `storyLineStartTimes`와 IntroSceneSettings 기본값을 [0.5, 7.0, 14.0, 18.4, 24.7] → [0.5, 6.7, 11.2, 15.1, 21.1]로 다시 잼(사용자 요청) — PlayMode 243/243 — 담당: Claude / 검증: Antigravity (2026-10-20)

@@ -4,6 +4,15 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-23 10:00] Claude → Antigravity + 서브에이전트 · T97 튜토리얼 < > 버튼으로 넘기기 (feat/tutorial-arrow-buttons)
+- 요청: 인트로 튜토리얼 넘기는 방식을 1존과 같게 바꿈(1존은 이미지 좌우 터치 → 이미지 양옆 < > 버튼, 첫 장에서 < 숨김, 안내 문구에서 '화면을 눌러서' 삭제).
+- 변경: TutorialImageSlider에서 IPointerClickHandler(좌우 절반 판정)를 빼고 previousButton·nextButton을 Start에서 연결, OnDestroy에서 해제, 페이지를 표시할 때 첫 장이면 < 숨김. 1_Intro 씬 TutorialPanel에 Button_Previous·Button_Next(1존과 같은 ±830,30·160×160·Knob·검정 0.9·TMP 120, Navigation None) 추가·연결, TutorialText 문구 수정. IntroFlowController 주석, 테스트 1개 추가(SetButtonsForTest). bundleVersion 26.10.23, CHANGELOG Changed.
+- Claude 확인: Rider 오류 0, 패널을 RenderTexture로 찍어 1존과 같은 배치 확인, PlayMode 244/244(새 테스트는 처음에 SetUp 슬라이더의 Start가 먼저 돌아 실패 → 꺼 둔 채 새로 만들도록 고침), Play 모드 옵션 꺼짐으로 되돌림. Play 확인은 하지 않음.
+- agy gemini-4-argon-high: 할당량 초과(429, 약 56시간 뒤 초기화)라 다음 단계로 넘김.
+- 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 코드): 리스너 연결·해제와 첫 장 < 숨김이 Start·ShowNext·ShowPrevious 모두에서 맞고 마지막 장 > 완료(연타는 IntroFlowController _isBusy가 막음), 실패 분기 로그·지운 코드 잔여 참조 없음, 새 테스트 거짓 통과 없음 → 둘 다 통과. 서브에이전트 낮음 — Start의 버튼 null 경고가 로거 null이면 빠짐 → 씬에서는 주입이 Start보다 먼저이고 같은 파일 pageText 경고와 같은 방식이라 그대로 둠.
+- 서브에이전트 (씬): 참조 fileID·부모 자식, Navigation None·raycastTarget(버튼 켬, 텍스트 끔), 다른 변경 없음·문구 → 통과.
+- 남은 일: Play에서 버튼으로 7장을 넘기고 레벨 선택으로 가는지 사용자 확인.
+
 ### [2026-10-22 15:10] Claude → Antigravity + 서브에이전트 · T96 튜토리얼 1~3·5~7번 이미지 교체 (fix/tutorial-images)
 - 요청: 사용자가 튜토리얼 1~3·5~7번을 지금 게임 화면 그림으로 바꿈(Unity에서 원래 이미지를 지우고 새 이미지를 넣음). 확인 뒤 커밋. 그림 속 글자·디자인은 보지 않기로 함(사용자 결정, 이전 항목 '남은 일'의 그림 문구도 다루지 않음).
 - 변경: PNG 6장과 5~7번 .meta(wrapU/V 0→1, alphaIsTransparency 0→1 — 1~4번과 같아짐)를 etc: 커밋, CHANGELOG [Unreleased] Changed, TODO T96. GUID 7개는 그대로.
