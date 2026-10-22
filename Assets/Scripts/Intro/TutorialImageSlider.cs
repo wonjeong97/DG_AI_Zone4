@@ -9,7 +9,6 @@ using R3;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.EventSystems;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using VContainer;
@@ -19,19 +18,21 @@ namespace DGAIZone.Intro
 {
     /// <summary>
     /// 튜토리얼 이미지를 페이지 단위로 넘겨보는 슬라이더. 씬이 시작되면 Addressables에서 Tutorial1~7 스프라이트를 모두 미리 로드해 캐싱하고,
-    /// 이미지의 좌/우 클릭 위치에 따라 이전/다음 페이지로 이동함. 1페이지 좌측 클릭 시 순환하지 않고, 마지막 페이지 우측 클릭 시 완료 이벤트 발생.
+    /// 이미지 양옆의 &lt; &gt; 버튼으로 이전/다음 페이지로 이동함. 1페이지에서는 &lt; 버튼을 숨기고, 마지막 페이지에서 &gt; 버튼을 누르면 완료 이벤트 발생.
     /// </summary>
     [RequireComponent(typeof(Image))]
-    public class TutorialImageSlider : MonoBehaviour, IPointerClickHandler
+    public class TutorialImageSlider : MonoBehaviour
     {
         private const int TotalPages = 7;
         private const string AddressPrefix = "Tutorial";
 
         [SerializeField] private TMP_Text pageText;
+        [SerializeField] private Button previousButton;
+        [SerializeField] private Button nextButton;
 
         private readonly Subject<Unit> _tutorialCompleted = new Subject<Unit>();
 
-        /// <summary> 마지막 페이지(7/7)에서 우측 영역을 터치했을 때 값을 내보내는 완료 스트림. </summary>
+        /// <summary> 마지막 페이지(7/7)에서 &gt; 버튼을 눌렀을 때 값을 내보내는 완료 스트림. </summary>
         public Observable<Unit> TutorialCompleted => _tutorialCompleted;
 
         // 페이지별로 1회만 Addressables에서 로드하고 이후에는 캐시된 핸들에서 반환(로드에 실패한 핸들은 해제하고 빼서 다음에 다시 로드). OnDestroy에서 모두 Release함.
@@ -40,7 +41,6 @@ namespace DGAIZone.Intro
         private Image _image;
         private ILogger<TutorialImageSlider> _logger;
         private SoundManager _soundManager;
-        private RectTransform _rectTransform;
         private int _currentIndex;
 
         /// <summary> 현재 페이지 인덱스 (0: 1페이지 ~ 6: 7페이지). </summary>
@@ -54,7 +54,7 @@ namespace DGAIZone.Intro
             _soundManager = soundManager;
         }
 
-        /// <summary> 표시 대상 Image와 클릭 좌표 계산용 RectTransform을 캐싱함. </summary>
+        /// <summary> 표시 대상 Image를 캐싱함. </summary>
         private void Awake()
         {
             if (!TryGetComponent(out _image))
@@ -62,12 +62,16 @@ namespace DGAIZone.Intro
                 if (_logger != null) _logger.ZLogError($"[TutorialImageSlider] Image 컴포넌트가 없어 튜토리얼 이미지를 표시할 수 없음.");
                 else Debug.LogError("[TutorialImageSlider] Image 컴포넌트가 없어 튜토리얼 이미지를 표시할 수 없음.");
             }
-            _rectTransform = (RectTransform)transform;
         }
 
-        /// <summary> 넘길 때 이미지가 늦게 바뀌지 않도록 모든 페이지 로드를 시작하고 첫 페이지를 표시함. </summary>
+        /// <summary> &lt; &gt; 버튼에 페이지 넘기기를 연결하고, 넘길 때 이미지가 늦게 바뀌지 않도록 모든 페이지 로드를 시작한 뒤 첫 페이지를 표시함. </summary>
         private void Start()
         {
+            if (previousButton) previousButton.onClick.AddListener(ShowPrevious);
+            else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] previousButton이 null이라 이전 페이지로 넘길 수 없음.");
+            if (nextButton) nextButton.onClick.AddListener(ShowNext);
+            else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] nextButton이 null이라 다음 페이지로 넘기거나 튜토리얼을 마칠 수 없음.");
+
             for (int page = 1; page <= TotalPages; page++) GetOrLoadHandle(page);
 
             _currentIndex = 0;
@@ -84,9 +88,12 @@ namespace DGAIZone.Intro
             return handle;
         }
 
-        /// <summary> 완료 스트림과 로드해 둔 Addressables 핸들을 모두 해제함. </summary>
+        /// <summary> 버튼 연결, 완료 스트림, 로드해 둔 Addressables 핸들을 모두 해제함. </summary>
         private void OnDestroy()
         {
+            if (previousButton) previousButton.onClick.RemoveListener(ShowPrevious);
+            if (nextButton) nextButton.onClick.RemoveListener(ShowNext);
+
             _tutorialCompleted.Dispose();
 
             foreach (AsyncOperationHandle<Sprite> handle in _spriteHandles.Values)
@@ -96,16 +103,11 @@ namespace DGAIZone.Intro
             _spriteHandles.Clear();
         }
 
-        /// <summary> 클릭 위치가 이미지의 좌측 절반이면 이전 페이지, 우측 절반이면 다음 페이지(또는 완료)로 이동함. </summary>
-        public void OnPointerClick(PointerEventData eventData)
+        /// <summary> 테스트에서 씬 없이 &lt; &gt; 버튼을 넣을 때 씀(Start 전에 불러야 클릭이 연결됨). </summary>
+        internal void SetButtonsForTest(Button previous, Button next)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(_rectTransform, eventData.position, eventData.pressEventCamera, out Vector2 localPoint);
-
-            Rect rect = _rectTransform.rect;
-            float normalizedX = (localPoint.x - rect.xMin) / rect.width;
-
-            if (normalizedX >= 0.5f) ShowNext();
-            else ShowPrevious();
+            previousButton = previous;
+            nextButton = next;
         }
 
         /// <summary> 클릭음을 내고 다음 페이지로 이동함. 마지막 페이지(7/7)에서 호출 시 TutorialCompleted로 완료를 알림. </summary>
@@ -137,6 +139,8 @@ namespace DGAIZone.Intro
         private async UniTaskVoid ShowPageAsync()
         {
             int page = _currentIndex + 1;
+            // 첫 페이지에서는 이전으로 갈 곳이 없으므로 < 버튼을 숨김
+            if (previousButton) previousButton.gameObject.SetActive(_currentIndex > 0);
             if (pageText) pageText.text = ZString.Format("체험 방법 ({0}/{1})", page, TotalPages);
             else if (_logger != null) _logger.ZLogWarning($"[TutorialImageSlider] pageText가 null이라 페이지 번호를 표시할 수 없음.");
 

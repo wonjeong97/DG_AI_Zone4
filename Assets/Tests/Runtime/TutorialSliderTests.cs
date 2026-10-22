@@ -1,7 +1,9 @@
+using System.Collections;
 using DGAIZone.Intro;
 using NUnit.Framework;
 using R3;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace DGAIZone.Tests
@@ -92,6 +94,37 @@ namespace DGAIZone.Tests
 
             // Assert
             Assert.AreEqual(5, _slider.CurrentIndex, "7페이지에서 ShowPrevious 호출 시 6페이지(인덱스 5)로 이동해야 함.");
+        }
+
+        [UnityTest]
+        public IEnumerator TutorialImageSlider_버튼으로_넘기고_1페이지에서는_이전버튼을_숨긴다()
+        {
+            // SetUp의 슬라이더는 테스트 본문 전에 Start가 돌 수 있어, Start 전에 버튼을 넣도록 꺼 둔 채 새로 만듦
+            Object.DestroyImmediate(_sliderGo);
+            _sliderGo = new GameObject("TestTutorialSlider");
+            _sliderGo.SetActive(false);
+            _sliderGo.AddComponent<RectTransform>();
+            _sliderGo.AddComponent<Image>();
+            _slider = _sliderGo.AddComponent<TutorialImageSlider>();
+
+            Button previous = new GameObject("Button_Previous").AddComponent<Button>();
+            Button next = new GameObject("Button_Next").AddComponent<Button>();
+            previous.transform.SetParent(_sliderGo.transform);
+            next.transform.SetParent(_sliderGo.transform);
+            _slider.SetButtonsForTest(previous, next);
+            _sliderGo.SetActive(true);
+
+            yield return null; // Start에서 버튼 연결·첫 페이지 표시
+
+            Assert.IsFalse(previous.gameObject.activeSelf, "1페이지에서는 < 버튼이 숨겨져야 함.");
+
+            next.onClick.Invoke();
+            Assert.AreEqual(1, _slider.CurrentIndex, "> 버튼을 누르면 2페이지로 넘어가야 함.");
+            Assert.IsTrue(previous.gameObject.activeSelf, "2페이지에서는 < 버튼이 보여야 함.");
+
+            previous.onClick.Invoke();
+            Assert.AreEqual(0, _slider.CurrentIndex, "< 버튼을 누르면 1페이지로 돌아가야 함.");
+            Assert.IsFalse(previous.gameObject.activeSelf, "1페이지로 돌아오면 < 버튼이 다시 숨겨져야 함.");
         }
     }
 }

@@ -10,6 +10,7 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 - Claude 확인: Rider 오류 0, PlayMode 244/244, Play 녹화 2회. ① 블록 3개: 영상 0.54초에 버튼 '코드보기'(미션 결과 a=0) → 3.5초에 코드보기 → 설계창 a=1·미션 결과 a=1 → 영상보기로 처음부터 재생, prepare 1회. ② 블록 8개(내용 722/보이는 344): 띠와 겹친 (1490,520)·(1490,560)에서도 레이캐스트 맨 위가 AI DesignArea이고 끌기로 스크롤 0.00→0.82, 0.94→0.12, 띠 바깥도 0.00→0.75 → 띠가 스크롤을 막지 않음. 녹화 ②를 G:/내 드라이브/Agents/ProjectFiles/DG_AI_Zone4/PlayRecordings/에 v2로 넣음. ②는 레벨 1 블록을 임의로 8개 넣어 헷갈린다는 사용자 지적으로 파일 이름에 '참고하지말것'을 붙이고, 실제 레벨 3 정답(3_Game에서 StoreResultDesigns로 기록, 5블록, 내용 652/보이는 344)으로 다시 녹화(v3) — 띠와 겹친 곳 끌기로 스크롤 0→1→0, prepare 1회. v3의 나의 코딩은 카드를 놓지 않아 비어 있고 결과는 미션 실패.
 - 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 코드): 첫 재생 중 토글과 PlayAsync가 상태를 꼬지 않고 완료 패널은 한 번만 뜸, 버튼은 영상 페이드가 끝난 뒤에만 나와 페이드가 겹치지 않음, 문구 → 둘 다 통과. 서브에이전트 불확실 — 버튼이 켜진 바로 그 프레임에 눌려 Pause가 WaitUntil(isPlaying) 첫 확인보다 앞서면 완료 패널이 영상 길이+5초 뒤에 뜸 → 같은 프레임 안에서 새로 켜진 버튼이 눌리는 경로가 사실상 없어 그대로 둠.
 - 남은 일: '미션 성공!' 띠가 코드보기 때 AI 패널 아래쪽 블록을 어둡게 덮음(스크롤은 됨) — 고칠지 사용자 판단.
+- PR wonjeong97/DG_AI_Zone4#78 리뷰(사용자 요청 — 리뷰 후 고칠 게 없으면 머지, agy는 gemini-3.8-flash-high): agy 문서 정합성(CHANGELOG·TODO·HANDOFF·주석이 동작과 맞음) → 통과. 교차 검증 (agy + 서브에이전트, 주변 흐름 회귀): 다음 미션·타이머 재개·씬 이탈과 토글이 겹쳐도 예외·중복 전환 없음, 왼쪽 결과 영상과 AI 영상은 VideoPlayer·RenderTexture가 따로라 영향 없음 → 둘 다 통과. 서브에이전트 중간(조건부) — 영상보기로 다시 보는 동안 비활동 타이머가 멈추지 않아 영상이 resetTime보다 길면 중간에 타이틀로 감 → 성공 영상 5개가 5.2~10.0초(ffprobe)이고 누를 때 타이머가 다시 재며 resetTime 20초라 일어나지 않아 고치지 않음. 서브에이전트 정리 → 통과. PR #77 머지 뒤 main을 합쳐 CHANGELOG(2026-10-23 섹션에 Added)·TODO·HANDOFF 충돌을 양쪽 항목 유지로 풂.
 
 ### [2026-10-23 07:40] Claude → Antigravity + 서브에이전트 · T98 결과 AI 패널 코드보기·영상보기 버튼 (feat/result-code-view-toggle)
 - 요청: 사용자가 Assets/UI에 결과 화면 레퍼런스와 버튼 리소스를 넣음. AI 패널 아래 버튼으로 AI 코딩 결과(블록)를 다시 보고(다시 조립하지 않음, 문구 코드보기 → 영상보기), 영상보기를 누르면 결과 영상을 처음부터 재생. 영상은 다시 불러오지 말고 불러온 것을 씀. 사용자가 Play로 볼 수 없어 Claude가 Play로 확인하고 영상으로 남겨 달라고 함.
@@ -19,6 +20,15 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 - 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 코드): 전환 상태·연타·취소·준비 실패, 영상 다시 불러오지 않음, 로그·리스너 해제·테스트 → 둘 다 통과. 서브에이전트 낮음 3 — 코드보기 때 페이드아웃 중 되감아 첫 장면으로 튈 수 있음 → 다 숨긴 뒤 되감도록 고침, 전환 중 누름을 로그 없이 무시 → 로그 추가, 테스트가 연타 무시·VideoPlayer 경로를 보지 않음 → Play 녹화로 확인해 그대로 둠.
 - 서브에이전트 (씬·.meta): 참조·계층·스프라이트 guid, Navigation None·raycastTarget, 기존 오브젝트 변경 없음, 임포트 설정 같음 → 통과.
 - 남은 일: '미션 성공!' 띠가 AI 패널 아래쪽에 겹쳐 코드보기 때 아래 블록이 어둡게 가려짐(예전부터 있던 배치) — 고칠지 사용자 판단.
+### [2026-10-23 07:10] Claude → Antigravity + 서브에이전트 · T97 튜토리얼 < > 버튼으로 넘기기 (feat/tutorial-arrow-buttons)
+- 요청: 인트로 튜토리얼 넘기는 방식을 1존과 같게 바꿈(1존은 이미지 좌우 터치 → 이미지 양옆 < > 버튼, 첫 장에서 < 숨김, 안내 문구에서 '화면을 눌러서' 삭제).
+- 변경: TutorialImageSlider에서 IPointerClickHandler(좌우 절반 판정)를 빼고 previousButton·nextButton을 Start에서 연결, OnDestroy에서 해제, 페이지를 표시할 때 첫 장이면 < 숨김. 1_Intro 씬 TutorialPanel에 Button_Previous·Button_Next(1존과 같은 ±830,30·160×160·Knob·검정 0.9·TMP 120, Navigation None) 추가·연결, TutorialText 문구 수정. IntroFlowController 주석, 테스트 1개 추가(SetButtonsForTest). bundleVersion 26.10.23, CHANGELOG Changed.
+- Claude 확인: Rider 오류 0, 패널을 RenderTexture로 찍어 1존과 같은 배치 확인, PlayMode 244/244(새 테스트는 처음에 SetUp 슬라이더의 Start가 먼저 돌아 실패 → 꺼 둔 채 새로 만들도록 고침), Play 모드 옵션 꺼짐으로 되돌림. Play 확인은 하지 않음.
+- agy gemini-4-argon-high: 할당량 초과(429, 약 56시간 뒤 초기화)라 다음 단계로 넘김.
+- 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 코드): 리스너 연결·해제와 첫 장 < 숨김이 Start·ShowNext·ShowPrevious 모두에서 맞고 마지막 장 > 완료(연타는 IntroFlowController _isBusy가 막음), 실패 분기 로그·지운 코드 잔여 참조 없음, 새 테스트 거짓 통과 없음 → 둘 다 통과. 서브에이전트 낮음 — Start의 버튼 null 경고가 로거 null이면 빠짐 → 씬에서는 주입이 Start보다 먼저이고 같은 파일 pageText 경고와 같은 방식이라 그대로 둠.
+- 서브에이전트 (씬): 참조 fileID·부모 자식, Navigation None·raycastTarget(버튼 켬, 텍스트 끔), 다른 변경 없음·문구 → 통과.
+- 남은 일: Play에서 버튼으로 7장을 넘기고 레벨 선택으로 가는지 사용자 확인.
+- PR wonjeong97/DG_AI_Zone4#77 리뷰(사용자 요청 — 리뷰 후 고칠 게 없으면 머지, agy는 기본 모델 한도 초과로 gemini-3.8-flash-high): agy 문서 정합성(CHANGELOG·TODO·HANDOFF가 동작과 맞음, CLAUDE.md에 옛 동작 없음) → 통과, IntroFlowController.cs:216 OnTutorialCompleted 주석의 '다음 터치 시' 지적. 서브에이전트 회귀·정리(스토리 중 튜토리얼 패널은 CanvasGroup interactable·blocksRaycasts가 꺼져 버튼이 안 눌림, Start의 < 숨김은 Canvas가 꺼진 동안이라 깜빡이지 않음, 마지막 장 > 연타는 _isBusy가 막음, 관리자 레벨 이동·비활동 영향 없음, 지운 using·필드 잔여 없음) → 통과, 같은 주석 지적 → '&gt; 버튼을 누르면'으로 고침. 버튼이 TutorialPanel 아래인지는 앞 씬 리뷰에서 확인함. CHANGELOG를 2026-10-23 섹션으로 옮김.
 
 ### [2026-10-22 15:10] Claude → Antigravity + 서브에이전트 · T96 튜토리얼 1~3·5~7번 이미지 교체 (fix/tutorial-images)
 - 요청: 사용자가 튜토리얼 1~3·5~7번을 지금 게임 화면 그림으로 바꿈(Unity에서 원래 이미지를 지우고 새 이미지를 넣음). 확인 뒤 커밋. 그림 속 글자·디자인은 보지 않기로 함(사용자 결정, 이전 항목 '남은 일'의 그림 문구도 다루지 않음).
