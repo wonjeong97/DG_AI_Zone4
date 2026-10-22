@@ -4,6 +4,13 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-23 07:50] Claude → Antigravity + 서브에이전트 · T98 코드보기 버튼을 AI 영상 시작 때 보이기 (feat/result-code-view-toggle)
+- 요청: 버튼은 미션 성공이 나오기 전, AI 결과 영상이 처음 시작될 때 나와야 함. '미션 성공!' 띠 뒤 검은 배경이 AI 패널 블록 스크롤을 막지 않는지도 확인. 다 되면 Play 영상을 다시 구글 드라이브에 넣기.
+- 변경: ResultAiPanel.PlayAsync에서 ShowViewToggle을 성공 영상 교차 페이드가 끝난 직후로 옮김. 첫 재생 중에 코드보기를 누르면 Pause로 isPlaying이 꺼져 재생 종료 대기가 끝나고 미션 결과 패널로 넘어감. 주석·테스트 이름·CHANGELOG·TODO 문구를 새 시점에 맞춤.
+- Claude 확인: Rider 오류 0, PlayMode 244/244, Play 녹화 2회. ① 블록 3개: 영상 0.54초에 버튼 '코드보기'(미션 결과 a=0) → 3.5초에 코드보기 → 설계창 a=1·미션 결과 a=1 → 영상보기로 처음부터 재생, prepare 1회. ② 블록 8개(내용 722/보이는 344): 띠와 겹친 (1490,520)·(1490,560)에서도 레이캐스트 맨 위가 AI DesignArea이고 끌기로 스크롤 0.00→0.82, 0.94→0.12, 띠 바깥도 0.00→0.75 → 띠가 스크롤을 막지 않음. 녹화 ②를 G:/내 드라이브/Agents/ProjectFiles/DG_AI_Zone4/PlayRecordings/에 v2로 넣음.
+- 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 코드): 첫 재생 중 토글과 PlayAsync가 상태를 꼬지 않고 완료 패널은 한 번만 뜸, 버튼은 영상 페이드가 끝난 뒤에만 나와 페이드가 겹치지 않음, 문구 → 둘 다 통과. 서브에이전트 불확실 — 버튼이 켜진 바로 그 프레임에 눌려 Pause가 WaitUntil(isPlaying) 첫 확인보다 앞서면 완료 패널이 영상 길이+5초 뒤에 뜸 → 같은 프레임 안에서 새로 켜진 버튼이 눌리는 경로가 사실상 없어 그대로 둠.
+- 남은 일: '미션 성공!' 띠가 코드보기 때 AI 패널 아래쪽 블록을 어둡게 덮음(스크롤은 됨) — 고칠지 사용자 판단.
+
 ### [2026-10-23 07:40] Claude → Antigravity + 서브에이전트 · T98 결과 AI 패널 코드보기·영상보기 버튼 (feat/result-code-view-toggle)
 - 요청: 사용자가 Assets/UI에 결과 화면 레퍼런스와 버튼 리소스를 넣음. AI 패널 아래 버튼으로 AI 코딩 결과(블록)를 다시 보고(다시 조립하지 않음, 문구 코드보기 → 영상보기), 영상보기를 누르면 결과 영상을 처음부터 재생. 영상은 다시 불러오지 말고 불러온 것을 씀. 사용자가 Play로 볼 수 없어 Claude가 Play로 확인하고 영상으로 남겨 달라고 함.
 - 변경: ResultAiPanel에 viewToggleButton — 성공 영상이 한 번 끝나면 나타나고(준비 실패면 안 나옴), 코드보기는 영상을 멈추고 설계창으로 교차 페이드한 뒤 되감고, 영상보기는 같은 VideoPlayer를 time=0·Play(url·Prepare·Stop 없음)로 첫 화면이 그려진 뒤 보여 줌. 4_Result 씬 Background 맨 끝에 Button_ViewToggle(오른쪽 위 기준 -52,-651, 197×71, Navigation None) 추가, 리소스는 Assets/UI/4_Result/Button_ViewToggle.png로 옮김(임포트 설정은 AI_Panel.png와 같음). 레퍼런스 이미지 Assets/UI/이미지 (2).png는 커밋하지 않음. 테스트 ResultAiPanelTests 1개, bundleVersion 26.10.23, CHANGELOG Added.

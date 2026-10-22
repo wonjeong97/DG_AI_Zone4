@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 결과 화면 AI 패널의 코드보기 ↔ 영상보기 버튼 검증 테스트. 버튼이 영상이 끝나기 전에는 숨어 있고,
+    /// 결과 화면 AI 패널의 코드보기 ↔ 영상보기 버튼 검증 테스트. 버튼이 영상이 나타나기 전에는 숨어 있고,
     /// 누를 때마다 문구와 보이는 묶음(정답 설계창 / 성공 영상)이 번갈아 바뀌는지 확인함.
     /// </summary>
     public class ResultAiPanelTests
@@ -23,7 +23,7 @@ namespace DGAIZone.Tests
         }
 
         [UnityTest]
-        public IEnumerator 코드보기_버튼은_영상이_끝난_뒤_나오고_누를_때마다_설계창과_영상을_번갈아_보여준다()
+        public IEnumerator 코드보기_버튼은_영상이_나타나면_나오고_누를_때마다_설계창과_영상을_번갈아_보여준다()
         {
             // Start 전에 묶음과 버튼을 넣도록 꺼 둔 채 만듦
             _root = new GameObject("TestAiPanel");
@@ -41,13 +41,13 @@ namespace DGAIZone.Tests
             _root.SetActive(true);
 
             yield return null; // Start에서 버튼을 숨기고 연결함
-            Assert.IsFalse(button.gameObject.activeSelf, "성공 영상이 끝나기 전에는 코드보기 버튼이 숨어 있어야 함.");
+            Assert.IsFalse(button.gameObject.activeSelf, "성공 영상이 나타나기 전에는 코드보기 버튼이 숨어 있어야 함.");
 
-            // 성공 영상이 끝난 상태(영상 보임)를 만듦
+            // 성공 영상이 나타난 상태(영상 보임)를 만듦
             video.alpha = 1f;
             design.alpha = 0f;
             panel.ShowViewToggle();
-            Assert.IsTrue(button.gameObject.activeSelf, "성공 영상이 끝나면 코드보기 버튼이 보여야 함.");
+            Assert.IsTrue(button.gameObject.activeSelf, "성공 영상이 나타나면 코드보기 버튼이 보여야 함.");
             Assert.AreEqual(ResultAiPanel.CodeViewText, label.text);
 
             button.onClick.Invoke();

@@ -21,7 +21,7 @@ namespace DGAIZone.Result
     /// 패널이 열리면 이번 판 문제의 정답 설계(GameResultStore.SolutionDesign)를 3_Game 설계창과 같은 블록 이미지로 하나씩 쌓아
     /// 완성하기까지 붙인 뒤(블록 간격은 4_Result.json의 designBlockInterval), 같은 레벨의 성공 영상("{Constants.Files.ResultVideoPrefix}-{레벨}-Success.mp4")을
     /// 처음부터 끝까지 재생함. 패널은 끝난 뒤에도 마지막 프레임으로 남음.
-    /// 성공 영상이 한 번 끝나면 패널 아래 '코드보기' 버튼이 나타나, 누르면 이미 쌓아 둔 정답 설계창으로 돌아가고(버튼은 '영상보기'),
+    /// 성공 영상이 처음 나타나면 패널 아래 '코드보기' 버튼도 나타나, 누르면(첫 재생 중이면 영상을 멈추고 완료 패널로 넘어감) 이미 쌓아 둔 정답 설계창으로 돌아가고(버튼은 '영상보기'),
     /// '영상보기'를 누르면 준비해 둔 성공 영상을 다시 불러오지 않고 처음부터 재생함.
     /// </summary>
     public class ResultAiPanel : MonoBehaviour
@@ -104,7 +104,7 @@ namespace DGAIZone.Result
         /// 패널을 열고 정답 설계를 블록으로 blockInterval초 간격으로 하나씩 쌓아 완성하기까지 붙인 뒤 designHoldDuration초 보여 주고,
         /// 성공 영상으로 교차 페이드해 끝까지 재생함.
         /// 영상은 패널이 열릴 때 미리 준비해 두며, 준비하지 못하면(videoPlayer 없음, 파일 없음, 준비 실패) 설계창까지만 보여 주고 끝냄(코드보기 버튼도 나오지 않음).
-        /// 영상이 끝나면 코드보기 버튼을 보여 줌.
+        /// 영상이 나타나면 코드보기 버튼을 보여 줌. 첫 재생 중에 코드보기를 누르면 영상이 멈춰 재생이 끝난 것으로 보고 반환함(완료 패널로 넘어감).
         /// </summary>
         public async UniTask PlayAsync(float fadeDuration, float designHoldDuration, float blockInterval, CancellationToken token)
         {
@@ -132,13 +132,13 @@ namespace DGAIZone.Result
                 PanelFader.FadeAsync(videoGroup, 0f, 1f, fadeDuration, _logger, token));
             PanelFader.ApplyState(designGroup, false, _logger);
             PanelFader.ApplyState(videoGroup, true, _logger);
+            ShowViewToggle();
 
+            // 코드보기로 영상을 멈춰도 isPlaying이 꺼져 여기서 끝난 것으로 봄
             if (!await VideoReadyGate.WaitUntilPlaybackEndsAsync(videoPlayer, token) && _logger != null)
             {
                 _logger.ZLogWarning($"[ResultAiPanel] 성공 영상이 영상 길이({videoPlayer.length:F1}초)보다 {VideoReadyGate.PlaybackEndMarginSeconds}초 넘게 끝나지 않아 완료 패널로 넘어감.");
             }
-
-            ShowViewToggle();
         }
 
         /// <summary> 성공 영상을 보여 주는 상태로 코드보기 버튼을 나타냄. </summary>
