@@ -12,6 +12,7 @@
 
 ## 완료
 
+- [x] T95 튜토리얼 4번 이미지 교체: 사용자가 준 새 그림(지금 게임 화면, '왼쪽부터 순서대로 알맞은 블록을 올려 코딩' 안내)으로 `Assets/UI/1_Intro/Tutorial/Tutorial4.png`를 덮어씀(.meta·Addressables 주소 `Tutorial4` 유지, 사용자 요청) — 담당: Claude / 검증: Antigravity(gemini-3.8-flash-high, 기본 모델 한도 초과) (2026-10-22)
 - [x] T94 인트로 나레이션 재녹음 적용: 사용자가 넣은 `4존 에피소드 나레이션(수정2).mp3`(길이 28.44초 → 25.06초)를 코드가 찾는 `StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3` 이름으로 바꾸고(.meta GUID 유지), 새 녹음의 문장 시작(쉬는 구간 끝, 음성 인식으로 줄 대응 확인)에 맞춰 `1_Intro.json` `storyLineStartTimes`와 IntroSceneSettings 기본값을 [0.5, 7.0, 14.0, 18.4, 24.7] → [0.5, 6.7, 11.2, 15.1, 21.1]로 다시 잼(사용자 요청) — PlayMode 243/243 — 담당: Claude / 검증: Antigravity (2026-10-20)
 - [x] T92 인트로 나레이션 파일 교체: 사용자가 인트로 스토리 글을 읽는 녹음으로 `StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3`를 바꿈(길이 28.44초 그대로). 새 녹음의 문장 시작 시각(쉬는 구간 끝, 음성 인식으로 줄 대응 확인)에 맞춰 `1_Intro.json`의 `storyLineStartTimes`를 [0.5, 6.7, 15.0, 21.3, 25.4] → [0.5, 7.0, 14.0, 18.4, 24.7]로 다시 잼(키가 없을 때 쓰는 IntroSceneSettings 기본값도 같은 값으로), PR #73 리뷰 반영 — PlayMode 243/243 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-20)
 - [x] T90 인트로 에피소드 나레이션(StreamingAssets/Sounds/Zone_4_Episode_Narration.mp3, 사용자 추가): 스토리 글이 올라오기 시작할 때 재생(미리 불러 둠), 튜토리얼로 넘어가거나 씬을 떠나면 멈춤, 스토리 글 줄이 나레이션 시각(1_Intro.json storyLineStartTimes, 쉬는 구간으로 잰 값)에 맞춰 올라옴(사용자 요청) — PlayMode 243/243 — 담당: Claude / 검증: Antigravity·Claude 서브에이전트 (2026-10-19)
