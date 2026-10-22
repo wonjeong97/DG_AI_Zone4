@@ -10,7 +10,7 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 - Claude 확인: 7장 1920×1080 RGBA·불투명, Addressables 그룹 파일 git 변경 없음. 사용자가 Play에서 InvalidKeyException(No Location found for Key=Tutorial1~7)을 알려 옴 → 원인: 원래 이미지를 지울 때 Addressables가 에디터 메모리의 Default Local Group에서 항목 7개를 뺐고, 새 이미지는 같은 경로라 GUID를 다시 받았지만 그룹에는 다시 들어가지 않음. 그룹 파일은 저장 전이라 디스크에는 남아 있었음. CreateOrMoveEntry로 7개를 주소 Tutorial1~7로 다시 넣고 그룹만 SaveAssetIfDirty → 디스크 내용이 커밋과 같아 git 변경 없음. 에디터에서 Addressables.LoadAssetAsync로 7장 모두 Succeeded(1920×1080). Play 확인은 하지 않음.
 - agy gemini-3.8-flash-high (기본 모델 한도 초과, 1묶음, 에셋 연결): .meta가 GUID를 바꾸지 않고 wrap·alphaIsTransparency만 바꿔 7장 설정이 같음, 그룹 항목 GUID·주소 Tutorial1~7이 .meta와 맞음 → 통과.
 - 서브에이전트 (1묶음, 문서·정리): CHANGELOG 한 문장·T96 형식, PR 본문과 실제 변경, 장별 그림을 설명하던 낡은 내용 0건 → 통과. 6·7번 wrap이 바뀌었는지 확실하지 않다고 함 → diff로 5~7번 모두 0→1 확인. CHANGELOG '나머지 장' 항목은 날짜 섹션으로 합칠 때 4번 항목 뒤에 둘 것.
-- 남은 일: 사용자가 Play에서 튜토리얼 7장이 보이는지 확인. PR #76 머지는 사용자 결정.
+- 남은 일: 없음. 사용자가 Play에서 튜토리얼 7장이 잘 나오는 것을 확인하고 PR #76 머지를 요청함(CHANGELOG는 2026-10-22 섹션 4번 장 항목 뒤로 옮김).
 
 ### [2026-10-22 14:40] Claude → Antigravity + 서브에이전트 · T95 튜토리얼 4번 이미지 교체 (fix/tutorial4-image)
 - 요청: 사용자가 튜토리얼 4번 이미지를 새 그림(채팅에 붙여넣음)으로 바꿔 달라고 함.
