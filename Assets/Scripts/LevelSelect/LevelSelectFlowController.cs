@@ -59,7 +59,7 @@ namespace DGAIZone.LevelSelect
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private bool _isLevelSelected; // 레벨을 이미 골랐는지(관리자 레벨 이동이 씬 전환을 기다리는 사이 버튼으로 먼저 고른 경우 다시 고르지 않음)
-        private bool _isLeaving; // 뒤로 버튼으로 이 씬을 떠나는 중인지(연타해도 한 번만 처리)
+        private bool _isLeaving; // 뒤로·종료하기 버튼으로 이 씬을 떠나는 중인지(연타해도 한 번만 처리)
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();

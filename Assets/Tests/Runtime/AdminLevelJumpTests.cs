@@ -87,21 +87,26 @@ namespace DGAIZone.Tests
                 Assert.AreEqual(i == 1 || i == 3, marks[i].activeSelf, $"레벨 {i + 1} V 표시");
         }
 
-        /// <summary> 종료하기 버튼(아웃트로로 가는 유일한 길)은 다섯 레벨에 모두 V가 붙었을 때만 보임. </summary>
+        /// <summary>
+        /// 종료하기 버튼(아웃트로로 가는 유일한 길)은 다섯 레벨에 모두 V가 붙었을 때만 보임.
+        /// missingLevel은 V가 없는 레벨(0이면 모두 V) — 첫 레벨이 빠진 경우로 "마지막 레벨만 보는" 조건과 구별함.
+        /// </summary>
         [UnityTest]
-        public IEnumerator 다섯_레벨을_모두_마쳤을_때만_종료하기_버튼이_보인다([Values(4, 5)] int completedCount)
+        public IEnumerator 다섯_레벨을_모두_마쳤을_때만_종료하기_버튼이_보인다([Values(0, 1, 5)] int missingLevel)
         {
             CompletedLevelStore completed = new CompletedLevelStore();
-            for (int level = 1; level <= completedCount; level++) completed.MarkCompleted(level);
+            for (int level = 1; level <= Constants.LastLevel; level++)
+                if (level != missingLevel) completed.MarkCompleted(level);
+            bool expectVisible = missingLevel == 0;
 
             GameObject endGo = new GameObject("Button_End", typeof(RectTransform), typeof(Image), typeof(Button));
             Button end = endGo.GetComponent<Button>();
-            endGo.SetActive(completedCount != Constants.LastLevel); // 기대와 반대로 두어 Start가 실제로 바꾸는지 봄
+            endGo.SetActive(!expectVisible); // 기대와 반대로 두어 Start가 실제로 바꾸는지 봄
             CreateController(completed, new SelectedLevelStore(), new AdminLevelJumpStore(), out _, end);
             endGo.transform.SetParent(_go.transform, false);
             yield return null; // Start: 종료하기 버튼 표시 결정
 
-            Assert.AreEqual(completedCount == Constants.LastLevel, endGo.activeSelf, $"완료 레벨 {completedCount}개");
+            Assert.AreEqual(expectVisible, endGo.activeSelf, $"V가 없는 레벨 {missingLevel}");
         }
 
         /// <summary> 완료 레벨 저장소는 1~마지막 레벨만 기록하고 Reset으로 모두 비움. </summary>
