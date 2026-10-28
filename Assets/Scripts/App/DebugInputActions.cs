@@ -138,15 +138,6 @@ namespace DGAIZone.App
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""UnlockAllLevels"",
-                    ""type"": ""Button"",
-                    ""id"": ""1c7e67be-b142-45b5-b7b8-1ce7bf593ab8"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -204,17 +195,6 @@ namespace DGAIZone.App
                     ""action"": ""PlayLevel4Simulation"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""26dfeb7e-de54-48f2-94ae-f3e7716ea124"",
-                    ""path"": ""<Keyboard>/space"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""UnlockAllLevels"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -228,7 +208,6 @@ namespace DGAIZone.App
             m_Debug_SimulateLogicCard = m_Debug.FindAction("SimulateLogicCard", throwIfNotFound: true);
             m_Debug_SimulateFunctionCard = m_Debug.FindAction("SimulateFunctionCard", throwIfNotFound: true);
             m_Debug_PlayLevel4Simulation = m_Debug.FindAction("PlayLevel4Simulation", throwIfNotFound: true);
-            m_Debug_UnlockAllLevels = m_Debug.FindAction("UnlockAllLevels", throwIfNotFound: true);
         }
 
         ~@DebugInputActions()
@@ -314,7 +293,6 @@ namespace DGAIZone.App
         private readonly InputAction m_Debug_SimulateLogicCard;
         private readonly InputAction m_Debug_SimulateFunctionCard;
         private readonly InputAction m_Debug_PlayLevel4Simulation;
-        private readonly InputAction m_Debug_UnlockAllLevels;
         /// <summary>
         /// Provides access to input actions defined in input action map "Debug".
         /// </summary>
@@ -346,10 +324,6 @@ namespace DGAIZone.App
             /// Provides access to the underlying input action "Debug/PlayLevel4Simulation".
             /// </summary>
             public InputAction @PlayLevel4Simulation => m_Wrapper.m_Debug_PlayLevel4Simulation;
-            /// <summary>
-            /// Provides access to the underlying input action "Debug/UnlockAllLevels".
-            /// </summary>
-            public InputAction @UnlockAllLevels => m_Wrapper.m_Debug_UnlockAllLevels;
             /// <summary>
             /// Provides access to the underlying input action map instance.
             /// </summary>
@@ -391,9 +365,6 @@ namespace DGAIZone.App
                 @PlayLevel4Simulation.started += instance.OnPlayLevel4Simulation;
                 @PlayLevel4Simulation.performed += instance.OnPlayLevel4Simulation;
                 @PlayLevel4Simulation.canceled += instance.OnPlayLevel4Simulation;
-                @UnlockAllLevels.started += instance.OnUnlockAllLevels;
-                @UnlockAllLevels.performed += instance.OnUnlockAllLevels;
-                @UnlockAllLevels.canceled += instance.OnUnlockAllLevels;
             }
 
             /// <summary>
@@ -420,9 +391,6 @@ namespace DGAIZone.App
                 @PlayLevel4Simulation.started -= instance.OnPlayLevel4Simulation;
                 @PlayLevel4Simulation.performed -= instance.OnPlayLevel4Simulation;
                 @PlayLevel4Simulation.canceled -= instance.OnPlayLevel4Simulation;
-                @UnlockAllLevels.started -= instance.OnUnlockAllLevels;
-                @UnlockAllLevels.performed -= instance.OnUnlockAllLevels;
-                @UnlockAllLevels.canceled -= instance.OnUnlockAllLevels;
             }
 
             /// <summary>
@@ -498,13 +466,6 @@ namespace DGAIZone.App
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnPlayLevel4Simulation(InputAction.CallbackContext context);
-            /// <summary>
-            /// Method invoked when associated input action "UnlockAllLevels" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnUnlockAllLevels(InputAction.CallbackContext context);
         }
     }
 }

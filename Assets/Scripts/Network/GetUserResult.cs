@@ -23,23 +23,23 @@ namespace DGAIZone.Network
 
         public bool IsFound { get; }
 
-        /// <summary> 기록(성공·실패)이 있는 이 존의 마지막 레벨 번호(1부터) — 기록이 없으면 0. </summary>
-        public int LastRecordedLevel { get; }
+        // 기록(성공·실패)이 있는 이 존의 레벨 — 레벨 번호(1부터) - 1번째 비트가 켜져 있음
+        private readonly int _recordedLevelMask;
 
         /// <summary> 진행도를 읽지 못한 이유 — 응답에 uid·이름이 있어 원문 대신 이것만 로그에 남김. </summary>
         public string FailReason { get; }
 
         /// <summary>
-        /// 서버 기록으로 열 레벨 수(UnlockedLevelStore.UnlockedLevelCount). 로컬 규칙(결과 화면에서 성공·실패와 상관없이 다음 레벨을 엶)과 같게,
-        /// 기록이 있는 마지막 레벨의 다음 레벨까지 열고 Constants.LastLevel을 넘지 않음. 기록이 없으면 1.
+        /// 이 존의 레벨(1부터)에 성공·실패 기록이 있는지. 레벨 선택 화면은 기록이 있는 레벨에 결과 화면까지 간 레벨처럼 V를 붙임(CompletedLevelStore).
         /// </summary>
-        public int UnlockedLevelCount => Mathf.Clamp(LastRecordedLevel + 1, 1, Constants.LastLevel);
+        public bool IsRecorded(int level) =>
+            level >= 1 && level <= Constants.LastLevel && (_recordedLevelMask & (1 << (level - 1))) != 0;
 
-        /// <summary> 찾음 여부, 마지막 기록 레벨 번호, 실패 사유로 결과를 만듦. </summary>
-        private GetUserResult(bool isFound, int lastRecordedLevel, string failReason)
+        /// <summary> 찾음 여부, 기록이 있는 레벨, 실패 사유로 결과를 만듦. </summary>
+        private GetUserResult(bool isFound, int recordedLevelMask, string failReason)
         {
             IsFound = isFound;
-            LastRecordedLevel = lastRecordedLevel;
+            _recordedLevelMask = recordedLevelMask;
             FailReason = failReason;
         }
 
@@ -48,7 +48,7 @@ namespace DGAIZone.Network
 
         /// <summary>
         /// getUser 응답 본문을 해석함. JSON 앞뒤에 붙은 글자는 무시하고, result가 true일 때만 찾은 것으로 보며,
-        /// 이 존의 레벨(D1~D5) 값 중 null이 아닌 마지막 레벨을 찾음.
+        /// 이 존의 레벨(D1~D5) 값 중 null이 아닌 레벨을 모음.
         /// </summary>
         public static GetUserResult Parse(string body)
         {
@@ -70,18 +70,18 @@ namespace DGAIZone.Network
             if (response == null) return Failed("빈 응답");
             if (!response.result) return Failed(string.IsNullOrEmpty(response.message) ? "result false" : response.message);
 
-            int lastRecordedLevel = NoRecord;
+            int recordedLevelMask = NoRecord;
             foreach (Match match in ZoneLevelPattern.Matches(json))
             {
                 if (match.Groups[2].Value == NullValue) continue;
 
-                // 이 존의 레벨(D1~D5)만 봄 — 서버에 D6처럼 없는 레벨 키가 생겨도 모든 레벨을 열지 않게 함
+                // 이 존의 레벨(D1~D5)만 봄 — 서버에 D6처럼 없는 레벨 키가 생겨도 없는 레벨을 기록으로 세지 않음
                 if (int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int levelNumber)
                     && levelNumber >= 1 && levelNumber <= Constants.LastLevel)
-                    lastRecordedLevel = Math.Max(lastRecordedLevel, levelNumber);
+                    recordedLevelMask |= 1 << (levelNumber - 1);
             }
 
-            return new GetUserResult(true, lastRecordedLevel, null);
+            return new GetUserResult(true, recordedLevelMask, null);
         }
 
         // 응답 최상위의 성공 여부와 실패 메시지만 JsonUtility로 읽음 — 필드 이름은 서버 JSON 키와 같아야 함

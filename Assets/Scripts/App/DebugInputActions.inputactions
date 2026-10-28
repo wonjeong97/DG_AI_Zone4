@@ -50,15 +50,6 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
-                },
-                {
-                    "name": "UnlockAllLevels",
-                    "type": "Button",
-                    "id": "1c7e67be-b142-45b5-b7b8-1ce7bf593ab8",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -114,17 +105,6 @@
                     "processors": "",
                     "groups": "",
                     "action": "PlayLevel4Simulation",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "26dfeb7e-de54-48f2-94ae-f3e7716ea124",
-                    "path": "<Keyboard>/space",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "UnlockAllLevels",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

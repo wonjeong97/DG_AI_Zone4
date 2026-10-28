@@ -1,10 +1,12 @@
+using System.Collections.Generic;
+using DGAIZone.App;
 using DGAIZone.Network;
 using NUnit.Framework;
 
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 체험자 서버 getUser 응답에서 이 존(4존, D1~D5)의 진행도를 읽고 열 레벨 수로 바꾸는지 검증함 — 응답 형식은 현장 서버 실측값.
+    /// 체험자 서버 getUser 응답에서 이 존(4존, D1~D5)의 진행도를 읽고 기록이 있는 레벨(레벨 선택 화면의 V)을 모으는지 검증함 — 응답 형식은 현장 서버 실측값.
     /// </summary>
     public class GetUserResultTests
     {
@@ -52,31 +54,38 @@ namespace DGAIZone.Tests
                 .Replace(@"""D4"": null", @"""D4"": " + d4)
                 .Replace(@"""D5"": null", @"""D5"": " + d5);
 
-        /// <summary> 기록이 하나도 없으면 찾았지만 마지막 기록 레벨은 0이고 레벨 1만 열림. </summary>
+        /// <summary> 레벨 1~5 중 기록이 있는 레벨을 "1,3"처럼 적음(없으면 빈 문자열). </summary>
+        private static string Recorded(GetUserResult result)
+        {
+            List<string> levels = new List<string>();
+            for (int level = 1; level <= Constants.LastLevel; level++)
+                if (result.IsRecorded(level)) levels.Add(level.ToString());
+            return string.Join(",", levels);
+        }
+
+        /// <summary> 기록이 하나도 없으면 찾았지만 기록 있는 레벨이 없음(V 없음). </summary>
         [Test]
-        public void 기록이_없으면_레벨_1만_열린다()
+        public void 기록이_없으면_기록_있는_레벨이_없다()
         {
             GetUserResult result = GetUserResult.Parse(AllNullBody);
 
             Assert.IsTrue(result.IsFound);
-            Assert.AreEqual(0, result.LastRecordedLevel);
-            Assert.AreEqual(1, result.UnlockedLevelCount);
+            Assert.AreEqual("", Recorded(result));
         }
 
-        /// <summary> 성공(1)·실패(0) 모두 기록으로 보고, 값이 있는 마지막 레벨의 다음 레벨까지 엶(최대 5). </summary>
-        [TestCase("1", "null", "null", "null", "null", 1, 2)]
-        [TestCase("1", "0", "null", "null", "null", 2, 3)]
-        [TestCase("0", "null", "0", "null", "null", 3, 4)]
-        [TestCase("1", "1", "1", "0", "null", 4, 5)]
-        [TestCase("1", "1", "1", "1", "1", 5, 5)]
-        [TestCase("null", "null", "null", "null", "0", 5, 5)]
-        public void 값이_있는_마지막_레벨의_다음_레벨까지_연다(string d1, string d2, string d3, string d4, string d5, int expectedLast, int expectedUnlocked)
+        /// <summary> 성공(1)·실패(0) 모두 기록으로 보고, 값이 있는 레벨만 기록 있는 레벨로 봄(사이가 비어 있어도 그대로). </summary>
+        [TestCase("1", "null", "null", "null", "null", "1")]
+        [TestCase("1", "0", "null", "null", "null", "1,2")]
+        [TestCase("0", "null", "0", "null", "null", "1,3")]
+        [TestCase("1", "1", "1", "0", "null", "1,2,3,4")]
+        [TestCase("1", "1", "1", "1", "1", "1,2,3,4,5")]
+        [TestCase("null", "null", "null", "null", "0", "5")]
+        public void 값이_있는_레벨만_기록으로_본다(string d1, string d2, string d3, string d4, string d5, string expected)
         {
             GetUserResult result = GetUserResult.Parse(WithValues(d1, d2, d3, d4, d5));
 
             Assert.IsTrue(result.IsFound);
-            Assert.AreEqual(expectedLast, result.LastRecordedLevel);
-            Assert.AreEqual(expectedUnlocked, result.UnlockedLevelCount);
+            Assert.AreEqual(expected, Recorded(result));
         }
 
         /// <summary> 다른 존(A~C)의 기록은 이 존의 진행도에 영향을 주지 않음. </summary>
@@ -87,8 +96,7 @@ namespace DGAIZone.Tests
 
             GetUserResult result = GetUserResult.Parse(body);
 
-            Assert.AreEqual(0, result.LastRecordedLevel);
-            Assert.AreEqual(1, result.UnlockedLevelCount);
+            Assert.AreEqual("", Recorded(result));
         }
 
         /// <summary> 한 줄로 붙은 응답(공백 없음)도 같은 규칙으로 읽음. </summary>
@@ -99,8 +107,7 @@ namespace DGAIZone.Tests
 
             GetUserResult result = GetUserResult.Parse(body);
 
-            Assert.AreEqual(2, result.LastRecordedLevel);
-            Assert.AreEqual(3, result.UnlockedLevelCount);
+            Assert.AreEqual("1,2", Recorded(result));
         }
 
         /// <summary> 따옴표로 감싼 숫자("1"·"0")도 기록으로 봄. </summary>
@@ -109,11 +116,10 @@ namespace DGAIZone.Tests
         {
             GetUserResult result = GetUserResult.Parse(WithValues("\"1\"", "\"0\"", "null", "null", "null"));
 
-            Assert.AreEqual(2, result.LastRecordedLevel);
-            Assert.AreEqual(3, result.UnlockedLevelCount);
+            Assert.AreEqual("1,2", Recorded(result));
         }
 
-        /// <summary> 이 존에 없는 레벨 키(D0·D6·D10)는 무시해, 없는 레벨 기록 때문에 모든 레벨이 열리지 않음. </summary>
+        /// <summary> 이 존에 없는 레벨 키(D0·D6·D10)는 무시해, 없는 레벨을 기록으로 세지 않음. </summary>
         [Test]
         public void 이_존에_없는_레벨_키는_무시한다()
         {
@@ -122,8 +128,7 @@ namespace DGAIZone.Tests
 
             GetUserResult result = GetUserResult.Parse(body);
 
-            Assert.AreEqual(1, result.LastRecordedLevel);
-            Assert.AreEqual(2, result.UnlockedLevelCount);
+            Assert.AreEqual("1", Recorded(result));
         }
 
         /// <summary> JSON 앞뒤에 붙은 줄바꿈·글자는 무시함 — 현장 서버는 JSON 끝 } 뒤에 ``` 줄을 붙여 보낸 적이 있음. </summary>
@@ -135,7 +140,7 @@ namespace DGAIZone.Tests
             GetUserResult result = GetUserResult.Parse(prefix + WithValues("1", "0", "null", "null", "null") + suffix);
 
             Assert.IsTrue(result.IsFound);
-            Assert.AreEqual(2, result.LastRecordedLevel);
+            Assert.AreEqual("1,2", Recorded(result));
         }
 
         /// <summary> JSON으로 읽지 못하면 실패 사유에 JsonUtility 오류 문구를 함께 남김 — 로그만으로 응답이 어떻게 깨졌는지 짐작할 수 있게. </summary>
@@ -170,7 +175,7 @@ namespace DGAIZone.Tests
             GetUserResult result = GetUserResult.Parse(body);
 
             Assert.IsFalse(result.IsFound);
-            Assert.AreEqual(0, result.LastRecordedLevel);
+            Assert.AreEqual("", Recorded(result));
         }
     }
 }

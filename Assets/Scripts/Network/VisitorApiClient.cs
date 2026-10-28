@@ -81,7 +81,15 @@ namespace DGAIZone.Network
             }
             else if (_logger != null)
             {
-                _logger.ZLogInformation($"[VisitorApiClient] getUser 결과: 기록 있는 마지막 레벨 {result.LastRecordedLevel}(0이면 없음) → 레벨 {result.UnlockedLevelCount}까지 엶");
+                // 기록이 있는 레벨을 코드로 적음(예: D1, D3) — 레벨 선택 화면에서 이 레벨들에 V가 붙음
+                using Utf16ValueStringBuilder levels = ZString.CreateStringBuilder();
+                for (int level = 1; level <= Constants.LastLevel; level++)
+                {
+                    if (!result.IsRecorded(level)) continue;
+                    if (levels.Length > 0) levels.Append(", ");
+                    levels.Append(GetLevelCode(level));
+                }
+                _logger.ZLogInformation($"[VisitorApiClient] getUser 결과: 기록 있는 레벨 {(levels.Length > 0 ? levels.ToString() : "없음")}");
             }
 
             return result;

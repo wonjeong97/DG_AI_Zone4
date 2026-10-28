@@ -10,6 +10,7 @@ namespace DGAIZone.Tests
 {
     /// <summary>
     /// 관리자 화면 레벨 이동 검증 — 저장소의 스토리 레벨은 한 번만 꺼내지고, 2_LevelSelect는 그 레벨을 고른 것처럼 바로 스토리로 넘어가야 함.
+    /// 레벨 선택 화면의 모든 레벨이 처음부터 열려 있고, 완료한 레벨(CompletedLevelStore)에만 V가 켜지는지도 확인함.
     /// </summary>
     public class AdminLevelJumpTests
     {
@@ -45,64 +46,98 @@ namespace DGAIZone.Tests
         [UnityTest]
         public IEnumerator 관리자_레벨_이동으로_들어오면_그_레벨을_바로_고른다()
         {
-            UnlockedLevelStore unlocked = new UnlockedLevelStore { UnlockedLevelCount = 3 };
             SelectedLevelStore selected = new SelectedLevelStore();
             AdminLevelJumpStore jump = new AdminLevelJumpStore();
-            jump.Begin(3);
+            jump.Begin(5);
 
-            Button[] buttons = CreateController(unlocked, selected, jump);
-            yield return WaitUntilSettingsLoaded(_controller); // Start → 2_LevelSelect.json 로드 → 잠금 다시 적용 → 레벨 선택
+            Button[] buttons = CreateController(new CompletedLevelStore(), selected, jump, out _);
+            yield return WaitUntilSettingsLoaded(_controller); // Start → 2_LevelSelect.json 로드 → 레벨 선택
 
-            Assert.AreEqual(3, selected.SelectedLevel, "관리자가 고른 레벨이 선택돼야 함");
-            Assert.IsFalse(buttons[2].interactable, "고른 레벨 버튼은 스토리 영역으로 옮겨지며 다시 누를 수 없어야 함");
-            Assert.IsTrue(buttons[0].interactable && buttons[1].interactable, "그 레벨까지는 해금돼 있어야 함");
+            Assert.AreEqual(5, selected.SelectedLevel, "관리자가 고른 레벨이 선택돼야 함");
+            Assert.IsFalse(buttons[4].interactable, "고른 레벨 버튼은 스토리 영역으로 옮겨지며 다시 누를 수 없어야 함");
             Assert.IsFalse(jump.TryTakePendingStoryLevel(out _), "스토리 레벨은 한 번 쓰고 비워져야 함");
         }
 
-        /// <summary> 관리자 레벨 이동이 아니면 레벨을 고르지 않고 레벨 선택 화면에 머묾. </summary>
+        /// <summary> 관리자 레벨 이동이 아니면 레벨을 고르지 않고 레벨 선택 화면에 머물며, 모든 레벨 버튼을 처음부터 누를 수 있음. </summary>
         [UnityTest]
-        public IEnumerator 관리자_레벨_이동이_아니면_레벨을_고르지_않는다()
+        public IEnumerator 관리자_레벨_이동이_아니면_레벨을_고르지_않고_모든_레벨이_열려_있다()
         {
-            UnlockedLevelStore unlocked = new UnlockedLevelStore { UnlockedLevelCount = 3 };
             SelectedLevelStore selected = new SelectedLevelStore();
 
-            Button[] buttons = CreateController(unlocked, selected, new AdminLevelJumpStore());
-            yield return WaitUntilSettingsLoaded(_controller); // 로드가 끝나 잠금을 다시 적용한 뒤에도 고르지 않았는지 봄
+            Button[] buttons = CreateController(new CompletedLevelStore(), selected, new AdminLevelJumpStore(), out _);
+            yield return WaitUntilSettingsLoaded(_controller); // 설정을 다 불러온 뒤에도 고르지 않았는지 봄
 
             Assert.AreEqual(1, selected.SelectedLevel, "레벨을 고르지 않았으니 기본값 그대로여야 함");
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < buttons.Length; i++)
                 Assert.IsTrue(buttons[i].interactable, $"레벨 {i + 1} 버튼이 열려 있어야 함");
         }
 
-        /// <summary> 레벨 선택 컨트롤러와 레벨 버튼을 만들고 켬(씬 전환 서비스 없이 — 전환을 기다리지 않고 바로 고름). </summary>
-        private Button[] CreateController(UnlockedLevelStore unlocked, SelectedLevelStore selected, AdminLevelJumpStore jump)
+        /// <summary> 결과 화면까지 간 레벨(서버 기록 포함)의 버튼에만 V가 켜짐. </summary>
+        [UnityTest]
+        public IEnumerator 완료한_레벨의_버튼에만_V가_켜진다()
+        {
+            CompletedLevelStore completed = new CompletedLevelStore();
+            completed.MarkCompleted(2);
+            completed.MarkCompleted(4);
+
+            CreateController(completed, new SelectedLevelStore(), new AdminLevelJumpStore(), out GameObject[] marks);
+            yield return null; // Start: V 표시 적용
+
+            for (int i = 0; i < marks.Length; i++)
+                Assert.AreEqual(i == 1 || i == 3, marks[i].activeSelf, $"레벨 {i + 1} V 표시");
+        }
+
+        /// <summary> 완료 레벨 저장소는 1~마지막 레벨만 기록하고 Reset으로 모두 비움. </summary>
+        [Test]
+        public void 완료_레벨은_레벨_범위_안만_기록하고_Reset으로_비운다()
+        {
+            CompletedLevelStore completed = new CompletedLevelStore();
+
+            Assert.IsTrue(completed.MarkCompleted(1));
+            Assert.IsTrue(completed.MarkCompleted(Constants.LastLevel));
+            Assert.IsFalse(completed.MarkCompleted(0), "레벨 0은 없음");
+            Assert.IsFalse(completed.MarkCompleted(Constants.LastLevel + 1), "마지막 레벨 다음은 없음");
+            Assert.IsTrue(completed.IsCompleted(1) && completed.IsCompleted(Constants.LastLevel));
+            Assert.IsFalse(completed.IsCompleted(0) || completed.IsCompleted(2));
+
+            completed.Reset();
+
+            Assert.IsFalse(completed.IsCompleted(1), "Reset 뒤에는 V가 없어야 함");
+        }
+
+        /// <summary> 레벨 선택 컨트롤러와 레벨 버튼·V 표시를 만들고 켬(씬 전환 서비스 없이 — 전환을 기다리지 않고 바로 고름). </summary>
+        private Button[] CreateController(CompletedLevelStore completed, SelectedLevelStore selected, AdminLevelJumpStore jump, out GameObject[] marks)
         {
             _go = new GameObject("LevelSelectFlowController");
             _go.SetActive(false);
             LevelSelectFlowController controller = _go.AddComponent<LevelSelectFlowController>();
-            controller.Construct(null, selected, unlocked, null, levelJumpStore: jump);
+            controller.Construct(null, selected, completed, null, levelJumpStore: jump);
             _controller = controller;
 
             Button[] buttons = new Button[Constants.LastLevel];
+            marks = new GameObject[Constants.LastLevel];
             for (int i = 0; i < buttons.Length; i++)
             {
                 GameObject buttonGo = new GameObject($"Button_Level{i + 1}", typeof(RectTransform), typeof(Image), typeof(Button));
                 buttonGo.transform.SetParent(_go.transform, false);
                 buttons[i] = buttonGo.GetComponent<Button>();
                 buttons[i].image = buttonGo.GetComponent<Image>();
+
+                marks[i] = new GameObject("Image_Complete", typeof(RectTransform));
+                marks[i].transform.SetParent(buttonGo.transform, false);
             }
 
-            controller.SetLevelButtonsForTest(buttons);
+            controller.SetLevelButtonsForTest(buttons, marks);
             _go.SetActive(true);
             return buttons;
         }
 
-        /// <summary> 컨트롤러가 2_LevelSelect.json을 불러와 잠금을 다시 적용할 때까지 기다림(최대 5초, 실시간 고정 대기 대신). </summary>
+        /// <summary> 컨트롤러가 2_LevelSelect.json을 불러와 끝낼 때까지 기다림(최대 5초, 실시간 고정 대기 대신). </summary>
         private static IEnumerator WaitUntilSettingsLoaded(LevelSelectFlowController controller)
         {
             float deadline = Time.realtimeSinceStartup + 5f;
             while (!controller.IsSceneSettingsLoaded && Time.realtimeSinceStartup < deadline) yield return null;
-            Assert.IsTrue(controller.IsSceneSettingsLoaded, "5초 안에 2_LevelSelect.json을 불러와 잠금을 다시 적용하지 못함");
+            Assert.IsTrue(controller.IsSceneSettingsLoaded, "5초 안에 2_LevelSelect.json을 불러오지 못함");
         }
     }
 }

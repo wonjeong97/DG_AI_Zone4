@@ -6,7 +6,7 @@ namespace DGAIZone.Intro
 {
     /// <summary>
     /// 인트로 씬 전용 LifetimeScope. 0_Title에서부터 DontDestroyOnLoad로 유지되는 GameLifetimeScope(루트)를
-    /// 부모로 직접 찾아 연결하며, 인트로 흐름 컨트롤러·로봇 영상 패널·튜토리얼 슬라이더를 컨테이너에 등록함.
+    /// 부모로 직접 찾아 연결하며, 인트로 흐름 컨트롤러·로봇 영상 패널·튜토리얼 슬라이더·홈 버튼을 컨테이너에 등록함.
     /// </summary>
     public class IntroLifetimeScope : LifetimeScope
     {
@@ -17,12 +17,13 @@ namespace DGAIZone.Intro
         /// </summary>
         protected override LifetimeScope FindParent() => GameLifetimeScope.ResolveAndEnsureBuilt();
 
-        /// <summary> 인트로 흐름 컨트롤러, 로봇 영상 패널, 튜토리얼 슬라이더를 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 인트로 흐름 컨트롤러, 로봇 영상 패널, 튜토리얼 슬라이더, 홈 버튼을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<IntroFlowController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
             builder.RegisterComponentInHierarchy<TutorialImageSlider>();
+            builder.RegisterComponentInHierarchy<HomeButton>();
         }
     }
 }

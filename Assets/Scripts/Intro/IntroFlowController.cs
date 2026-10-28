@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using R3;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
 using HuliacDev.Core;
@@ -30,6 +31,8 @@ namespace DGAIZone.Intro
         [SerializeField] private CanvasGroup tutorialPanel;
         [SerializeField] private TMP_Text storyText;
         [SerializeField] private TutorialImageSlider tutorialSlider;
+        [Tooltip("화면 우상단 홈 버튼 — 이 버튼을 누른 터치는 튜토리얼로 넘기는 화면 터치로 받지 않음")]
+        [SerializeField] private HomeButton homeButton;
 
         // 튜토리얼 패널의 하위 Canvas — 인트로 스토리 동안 패널을 켜 둔 채(이미지 미리 로드) 그리기만 끄려고 씀
         private Canvas _tutorialCanvas;
@@ -178,6 +181,9 @@ namespace DGAIZone.Intro
 
             if (StoryLineAnimator.IsPointerPressedThisFrame())
             {
+                // 홈 버튼을 누른 터치는 버튼이 타이틀로 보냄 — 스토리를 건너뛰거나 튜토리얼로 넘기지 않음
+                if (homeButton && homeButton.ContainsScreenPoint(Pointer.current.position.ReadValue())) return;
+
                 if (_isTextAnimating)
                 {
                     _skipStoryRequested = true;

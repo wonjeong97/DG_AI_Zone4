@@ -24,7 +24,7 @@ namespace DGAIZone.Title
     /// <summary>
     /// 타이틀 씬의 화면 흐름 제어. 시작 버튼을 누르면 화면 페이드와 함께 인트로 씬으로 전환함.
     /// 서버 모드면 "QR 코드를 인식하여 주세요"를 띄우고 시작 버튼을 숨긴 채 QR 입력을 기다렸다가, 인식되면 체험자 서버에
-    /// 체험 가능 여부(checkActive)와 진행도(getUser)를 확인해 체험자와 해금 레벨을 기록하고 "{이름}님, 시작하기를 눌러주세요"와 시작 버튼을 보여줌.
+    /// 체험 가능 여부(checkActive)와 진행도(getUser)를 확인해 체험자와 완료 레벨(V)을 기록하고 "{이름}님, 시작하기를 눌러주세요"와 시작 버튼을 보여줌.
     /// 체험할 수 없으면 이유를 잠시 보여 준 뒤 다시 QR을 기다림. 로컬 모드면 QR 단계 없이 바로 시작 안내와 버튼을 보여줌.
     /// 안내는 어느 쪽이든 원래 색과 최소 알파 사이를 오가며 부드럽게 깜빡임(Zone1 TitleSceneManager와 동일한 정책·효과).
     /// </summary>
@@ -39,7 +39,7 @@ namespace DGAIZone.Title
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
         private SelectedLevelStore _selectedLevelStore;
-        private UnlockedLevelStore _unlockedLevelStore;
+        private CompletedLevelStore _completedLevelStore;
         private AdminLevelJumpStore _levelJumpStore;
         private VisitorApiClient _visitorApiClient;
         private AppSettingsProvider _settingsProvider;
@@ -61,7 +61,7 @@ namespace DGAIZone.Title
         private bool _isWaitingForQr;
 
         /// <summary>
-        /// 이 씬을 떠나는 전환 중이거나 관리자 화면에서 레벨 이동을 눌러 곧 씬을 떠나는지. 이때는 QR로 체험자·해금 레벨을 바꾸지 않아 이동할 씬이 받은 값을
+        /// 이 씬을 떠나는 전환 중이거나 관리자 화면에서 레벨 이동을 눌러 곧 씬을 떠나는지. 이때는 QR로 체험자·완료 레벨을 바꾸지 않아 이동할 씬이 받은 값을
         /// 덮어쓰지 않게 함. 레벨 이동은 설정을 읽은 뒤에야 전환을 시작하므로 그 사이도 막도록 이동 표시(IsLevelJump)도 봄.
         /// 이 씬으로 들어오는 페이드인 동안의 전환은 떠나는 것이 아니므로 막지 않음(타이틀로 돌아오자마자 찍은 QR이 버려지지 않게).
         /// </summary>
@@ -91,18 +91,18 @@ namespace DGAIZone.Title
         private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary>
-        /// VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택/잠금 해제 레벨 저장소, 관리자 레벨 이동 저장소,
+        /// VContainer 의존성 주입. 씬 전환 서비스, 체험자 정보 제공자, 선택·완료 레벨 저장소, 관리자 레벨 이동 저장소,
         /// 체험자 서버 API, 앱 설정(Settings.json) 제공자, 로거, 효과음 매니저, 서버 로그 매니저, 관리자 화면·비밀번호 창을 할당함.
         /// </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, AdminLevelJumpStore levelJumpStore,
+        public void Construct(SceneTransitionService sceneTransition, VisitorInfoProvider visitorInfoProvider, SelectedLevelStore selectedLevelStore, CompletedLevelStore completedLevelStore, AdminLevelJumpStore levelJumpStore,
             VisitorApiClient visitorApiClient, AppSettingsProvider settingsProvider, ILogger<TitleFlowController> logger, SoundManager soundManager = null, ApiManagerBase apiManager = null,
             AdminPanel adminPanel = null, AdminPasswordPanel adminPasswordPanel = null)
         {
             _sceneTransition = sceneTransition;
             _visitorInfoProvider = visitorInfoProvider;
             _selectedLevelStore = selectedLevelStore;
-            _unlockedLevelStore = unlockedLevelStore;
+            _completedLevelStore = completedLevelStore;
             _levelJumpStore = levelJumpStore;
             _visitorApiClient = visitorApiClient;
             _settingsProvider = settingsProvider;
@@ -116,12 +116,12 @@ namespace DGAIZone.Title
         /// <summary>
         /// 버튼 이벤트를 연결하고, QR 표시 여부/블링크 연출과 00_Common.json 연출 타이밍을 비동기로 처리함.
         /// 0_Title은 앱이 처음 켜졌을 때뿐 아니라 아웃트로에서 홈으로 돌아오거나 비활동 타임아웃으로도 진입하므로, 여기서 모드와 상관없이
-        /// 레벨 진행도·QR로 확인한 체험자·관리자 레벨 이동 표시를 초기화해 이전 체험자의 상태가 다음 체험자에게 넘어가지 않도록 함.
+        /// 완료 레벨(V)·QR로 확인한 체험자·관리자 레벨 이동 표시를 초기화해 이전 체험자의 상태가 다음 체험자에게 넘어가지 않도록 함.
         /// </summary>
         private void Start()
         {
-            if (_unlockedLevelStore != null) _unlockedLevelStore.Reset();
-            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] unlockedLevelStore가 null이라 레벨 진행도를 초기화할 수 없음.");
+            if (_completedLevelStore != null) _completedLevelStore.Reset();
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] completedLevelStore가 null이라 완료 레벨(V)을 초기화할 수 없음.");
             if (_visitorInfoProvider != null) _visitorInfoProvider.ClearServerVisitor();
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 QR로 확인한 체험자 기록을 비울 수 없음.");
             if (_levelJumpStore != null) _levelJumpStore.EndLevelJump();
@@ -348,7 +348,7 @@ namespace DGAIZone.Title
 
         /// <summary>
         /// QR 인식이 끝나면 입력 대기를 멈추고 서버에 체험자를 확인함. uid에는 생년월일이 들어 있어 로그에 남기지 않음(확인 결과만 CheckVisitorAsync가 남김).
-        /// 시작하기가 떠 있는 동안 다음 사람이 찍은 경우에도 시작 버튼을 숨기고 앞사람 기록(체험자·해금)을 비운 뒤 새로 확인함.
+        /// 시작하기가 떠 있는 동안 다음 사람이 찍은 경우에도 시작 버튼을 숨기고 앞사람 기록(체험자·완료 레벨)을 비운 뒤 새로 확인함.
         /// </summary>
         private void OnQrScanned(string code)
         {
@@ -402,7 +402,7 @@ namespace DGAIZone.Title
         }
 
         /// <summary>
-        /// 서버에 체험 가능 여부(checkActive)와 진행도(getUser)를 물어 체험자와 해금 레벨을 기록함.
+        /// 서버에 체험 가능 여부(checkActive)와 진행도(getUser)를 물어 체험자와 완료 레벨(V)을 기록함.
         /// 체험할 수 없으면 하단에 보여 줄 안내 문구를, 확인되면 null을 돌려줌.
         /// </summary>
         private async UniTask<string> ConfirmVisitorAsync(string uid, CancellationToken token)
@@ -419,7 +419,7 @@ namespace DGAIZone.Title
             GetUserResult progress = await _visitorApiClient.GetUserAsync(uid, token);
             if (!progress.IsFound) return _sceneSettings.qrCheckFailedText;
 
-            // 서버 응답을 기다리는 동안 관리자 레벨 이동 등으로 씬을 떠나기 시작했으면 그쪽이 정한 해금 레벨을 덮어쓰지 않음(CheckVisitorAsync가 정상 종료로 처리)
+            // 서버 응답을 기다리는 동안 관리자 레벨 이동 등으로 씬을 떠나기 시작했으면 그쪽이 비운 완료 레벨을 덮어쓰지 않음(CheckVisitorAsync가 정상 종료로 처리)
             if (IsSceneChanging)
             {
                 if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 서버 확인을 기다리는 동안 씬 전환이 시작돼 확인 결과를 반영하지 않음.");
@@ -429,9 +429,16 @@ namespace DGAIZone.Title
             if (_visitorInfoProvider != null) _visitorInfoProvider.SetServerVisitor(active.IdxUser, active.Name);
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 확인한 체험자를 기록하지 못함.");
 
-            // 성공·실패와 상관없이 기록이 있는 마지막 레벨의 다음 레벨까지 엶 — 로컬 진행 규칙(ResultFlowController의 UnlockThrough)과 같음
-            if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockedLevelCount = progress.UnlockedLevelCount;
-            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] unlockedLevelStore가 null이라 서버 진행도를 반영하지 못함.");
+            // 성공·실패와 상관없이 기록이 있는 레벨은 레벨 선택 화면에 V를 붙임 — 결과 화면까지 간 레벨(ResultFlowController)과 같음
+            if (_completedLevelStore != null)
+            {
+                for (int level = 1; level <= Constants.LastLevel; level++)
+                    if (progress.IsRecorded(level)) _completedLevelStore.MarkCompleted(level);
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[TitleFlowController] completedLevelStore가 null이라 서버 진행도를 반영하지 못함.");
+            }
 
             return null;
         }
@@ -469,14 +476,14 @@ namespace DGAIZone.Title
             StartConfirmTimeout();
         }
 
-        /// <summary> 확인했던 체험자와 서버 진행도로 연 해금 레벨을 비움 — 다음 사람의 QR로 다시 확인하거나 대기 시간이 지났을 때. </summary>
+        /// <summary> 확인했던 체험자와 서버 진행도로 채운 완료 레벨(V)을 비움 — 다음 사람의 QR로 다시 확인하거나 대기 시간이 지났을 때. </summary>
         private void ClearConfirmedVisitor()
         {
             _confirmedUid = null;
             if (_visitorInfoProvider != null) _visitorInfoProvider.ClearServerVisitor();
             else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] visitorInfoProvider가 null이라 확인한 체험자를 비울 수 없음.");
-            if (_unlockedLevelStore != null) _unlockedLevelStore.Reset();
-            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] unlockedLevelStore가 null이라 해금 레벨을 비울 수 없음.");
+            if (_completedLevelStore != null) _completedLevelStore.Reset();
+            else if (_logger != null) _logger.ZLogWarning($"[TitleFlowController] completedLevelStore가 null이라 완료 레벨(V)을 비울 수 없음.");
         }
 
         /// <summary> 시작하기를 기다린 시간 재기를 새로 시작함 — 이전에 재던 것은 취소함. </summary>
@@ -532,7 +539,7 @@ namespace DGAIZone.Title
                     await UniTask.Delay(TimeSpan.FromSeconds(settings.resetTime), DelayType.UnscaledDeltaTime, cancellationToken: token);
                 }
 
-                // 관리자 레벨 이동 등으로 씬을 떠나는 중이면 그쪽이 정한 해금 레벨을 비우지 않음
+                // 시작하기·관리자 레벨 이동 등으로 씬을 떠나는 중이면 이동할 씬이 쓸 체험자·완료 레벨을 비우지 않음
                 if (IsSceneChanging)
                 {
                     if (_logger != null) _logger.ZLogInformation($"[TitleFlowController] 씬을 전환하는 중이라 시작하기 대기 시간이 지나도 확인한 체험자를 비우지 않음.");

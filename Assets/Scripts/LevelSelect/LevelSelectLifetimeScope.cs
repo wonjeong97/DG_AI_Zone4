@@ -6,7 +6,7 @@ namespace DGAIZone.LevelSelect
 {
     /// <summary>
     /// 레벨 선택 씬 전용 LifetimeScope. 0_Title에서부터 DontDestroyOnLoad로 유지되는 GameLifetimeScope(루트)를
-    /// 부모로 직접 찾아 연결하며, 레벨 선택 흐름 컨트롤러와 로봇 영상 패널을 컨테이너에 등록함.
+    /// 부모로 직접 찾아 연결하며, 레벨 선택 흐름 컨트롤러·로봇 영상 패널·홈 버튼을 컨테이너에 등록함.
     /// </summary>
     public class LevelSelectLifetimeScope : LifetimeScope
     {
@@ -17,11 +17,12 @@ namespace DGAIZone.LevelSelect
         /// </summary>
         protected override LifetimeScope FindParent() => GameLifetimeScope.ResolveAndEnsureBuilt();
 
-        /// <summary> 레벨 선택 흐름 컨트롤러와 로봇 영상 패널을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
+        /// <summary> 레벨 선택 흐름 컨트롤러, 로봇 영상 패널, 홈 버튼을 계층에서 찾아 등록하여 주입 대상으로 만듦. </summary>
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponentInHierarchy<LevelSelectFlowController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
+            builder.RegisterComponentInHierarchy<HomeButton>();
         }
     }
 }
