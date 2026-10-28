@@ -21,6 +21,7 @@ namespace DGAIZone.LevelSelect
     /// 레벨 선택 씬의 화면 흐름 제어. 모든 레벨 버튼은 처음부터 누를 수 있고, 결과 화면까지 간 레벨(QR 체험자의 서버 기록 포함, CompletedLevelStore)의
     /// 버튼에만 V를 켬. 레벨 버튼을 누르면 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼을 Background로 옮겨
     /// 목표 위치·크기로 튀어 들어오도록(OutBack) 이동시키고, 해당 레벨의 스토리 오브젝트만 활성화함.
+    /// 다섯 레벨에 모두 V가 붙으면 레벨 선택 화면 우하단(스토리 화면 시작하기 자리)에 종료하기 버튼이 보이고, 누르면 아웃트로로 감(아웃트로는 이 버튼으로만 감).
     /// 화면 좌상단 &lt; 버튼은 레벨 선택 화면이면 인트로로, 스토리 화면이면 레벨 선택 화면으로(관리자 레벨 이동이면 타이틀의 관리자 화면으로) 돌아감.
     /// 타이틀 관리자 화면의 레벨 이동으로 들어오면(AdminLevelJumpStore) 씬 전환이 끝난 뒤 그 레벨 버튼을 고른 것처럼 스토리를 바로 띄움.
     /// </summary>
@@ -36,6 +37,8 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private GameObject[] levelCompleteMarks;
         [Tooltip("화면 좌상단 < 버튼 — 레벨 선택 화면이면 인트로로, 스토리 화면이면 레벨 선택 화면으로(관리자 레벨 이동이면 타이틀의 관리자 화면으로) 돌아감")]
         [SerializeField] private Button backButton;
+        [Tooltip("레벨 선택 화면 우하단(스토리 화면 시작하기 자리) 종료하기 버튼 — 다섯 레벨에 모두 V가 붙었을 때만 보이고, 누르면 아웃트로로 감")]
+        [SerializeField] private Button endButton;
         [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 3_Game(스토리 다시보기)과 공유하는 스토리 텍스트 소스
         [Header("Selected Level Button Move")]
         [SerializeField] private RectTransform selectedLevelButtonParent; // 선택된 버튼이 이동해 들어갈 부모(Background)
@@ -56,7 +59,7 @@ namespace DGAIZone.LevelSelect
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private bool _isLevelSelected; // 레벨을 이미 골랐는지(관리자 레벨 이동이 씬 전환을 기다리는 사이 버튼으로 먼저 고른 경우 다시 고르지 않음)
-        private bool _isLeaving; // 뒤로 버튼으로 이 씬을 떠나는 중인지(연타해도 한 번만 처리)
+        private bool _isLeaving; // 뒤로·종료하기 버튼으로 이 씬을 떠나는 중인지(연타해도 한 번만 처리)
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();
@@ -84,14 +87,18 @@ namespace DGAIZone.LevelSelect
             _levelJumpStore = levelJumpStore;
         }
 
-        /// <summary> 유닛 테스트용: 씬 없이 레벨 버튼과 V 표시 목록을 직접 지정함. </summary>
-        internal void SetLevelButtonsForTest(Button[] buttons, GameObject[] completeMarks = null)
+        /// <summary> 유닛 테스트용: 씬 없이 레벨 버튼과 V 표시 목록(과 종료하기 버튼)을 직접 지정함. </summary>
+        internal void SetLevelButtonsForTest(Button[] buttons, GameObject[] completeMarks = null, Button end = null)
         {
             levelButtons = buttons;
             levelCompleteMarks = completeMarks;
+            endButton = end;
         }
 
-        /// <summary> 초기 패널 상태를 적용하고 뒤로 버튼을 연결한 뒤 2_LevelSelect.json/00_Common.json 로드를 시작하고, 레벨 버튼 클릭 이벤트와 V 표시를 설정함. </summary>
+        /// <summary>
+        /// 초기 패널 상태를 적용하고 뒤로·종료하기 버튼을 연결한 뒤 2_LevelSelect.json/00_Common.json 로드를 시작하고,
+        /// 레벨 버튼 클릭 이벤트와 V 표시를 설정하며 다섯 레벨을 모두 마쳤을 때만 종료하기 버튼을 보임.
+        /// </summary>
         private void Start()
         {
             // DOTween은 씬에서 처음 쓰이는 트윈이 자기 자신을 초기화하는 비용까지 그 자리에서 치르므로, 2_LevelSelect를
@@ -126,6 +133,16 @@ namespace DGAIZone.LevelSelect
 
             if (backButton) backButton.onClick.AddListener(OnBackClicked);
             else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] backButton이 null이라 뒤로 버튼을 연결할 수 없음.");
+
+            if (endButton)
+            {
+                endButton.onClick.AddListener(OnEndClicked);
+                endButton.gameObject.SetActive(AreAllLevelsCompleted());
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[LevelSelectFlowController] endButton이 null이라 다섯 레벨을 마쳐도 아웃트로로 갈 수 없음.");
+            }
 
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
 
@@ -167,6 +184,16 @@ namespace DGAIZone.LevelSelect
                 if (levelCompleteMarks[i]) levelCompleteMarks[i].SetActive(_completedLevelStore != null && _completedLevelStore.IsCompleted(i + 1));
                 else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelCompleteMarks[{i}]가 null이라 레벨{i + 1} V 표시를 바꿀 수 없음.");
             }
+        }
+
+        /// <summary> 다섯 레벨 모두 V가 붙을 조건(결과 화면까지 감, QR 체험자의 서버 기록 포함)을 채웠는지 — 종료하기 버튼을 보일지 정함. </summary>
+        private bool AreAllLevelsCompleted()
+        {
+            if (_completedLevelStore == null) return false; // 없을 때의 경고는 ApplyCompleteMarks가 남김
+
+            for (int level = 1; level <= Constants.LastLevel; level++)
+                if (!_completedLevelStore.IsCompleted(level)) return false;
+            return true;
         }
 
         /// <summary>
@@ -227,6 +254,7 @@ namespace DGAIZone.LevelSelect
         {
             if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
             if (backButton) backButton.onClick.RemoveListener(OnBackClicked);
+            if (endButton) endButton.onClick.RemoveListener(OnEndClicked);
 
             if (levelButtons == null) return;
             for (int i = 0; i < levelButtons.Length; i++)
@@ -303,6 +331,33 @@ namespace DGAIZone.LevelSelect
             _isLeaving = true;
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
             _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings.sceneTransitionFadeDuration).Forget();
+        }
+
+        /// <summary>
+        /// 종료하기 버튼 — 다섯 레벨을 모두 마친 체험자를 아웃트로로 보냄(아웃트로의 처음으로 버튼이 move_idle로 집계함).
+        /// 레벨을 막 골라 스토리 화면으로 넘어가는 중이거나 이미 다른 화면으로 떠나는 중이면 받지 않음.
+        /// </summary>
+        private void OnEndClicked()
+        {
+            if (_isBusy || _isLevelSelected || _isLeaving) return; // 레벨을 골랐거나 뒤로를 눌러 떠나는 중(연타) — 정상이라 로그 없음
+
+            if (_sceneTransition == null)
+            {
+                if (_logger != null) _logger.ZLogError($"[LevelSelectFlowController] sceneTransition이 null이라 {Constants.Scenes.Outro} 씬을 로드할 수 없음.");
+                return;
+            }
+
+            // 홈 버튼으로 이미 타이틀로 가는 중이면 받지 않음
+            if (_sceneTransition.IsTransitioning)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 이미 다른 화면으로 넘어가는 중이라 종료하기 버튼을 무시함.");
+                return;
+            }
+
+            _isLeaving = true;
+            if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 다섯 레벨을 마치고 종료하기를 누름 — 아웃트로로 감.");
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
+            _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Outro, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
         /// <summary> 레벨 버튼 클릭 시 클릭음을 내고 그 레벨을 고름. </summary>

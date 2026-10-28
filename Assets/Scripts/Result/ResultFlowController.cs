@@ -20,8 +20,8 @@ namespace DGAIZone.Result
     /// 결과 씬의 화면 흐름 제어. 플레이어 결과 영상 재생이 끝나면(ResultVideoPanel) 화면 중앙에 'AI가 코딩 중입니다...'를 띄웠다가 지우고,
     /// 우측 상단 AI 패널(ResultAiPanel)에서 정답 설계창과 성공 영상을 보여 준 뒤 컴플리트 패널로 페이드인함.
     /// 컴플리트 패널 제목은 미션 결과에 따라 "미션 성공!" 또는 "미션 실패!"로 표시함(1존과 같은 문구).
-    /// 컴플리트 패널의 "다음 미션" 버튼은 방금 플레이한 레벨이 마지막 레벨이 아니면 2_LevelSelect로(다음 레벨을
-    /// 고를 수 있도록), 마지막 레벨(Constants.LastLevel)이면 5_Outro로 전환하며 버튼 문구도 "종료하기"로 바뀜.
+    /// 컴플리트 패널의 "다음 미션" 버튼은 어느 레벨이든 2_LevelSelect로 전환함 — 아웃트로는 다섯 레벨을 모두 마친 뒤
+    /// 레벨 선택 화면의 종료하기 버튼으로만 감(LevelSelectFlowController).
     /// 관리자 레벨 이동으로 시작한 판이면 레벨과 상관없이 타이틀로 돌아가 관리자 화면을 다시 엶.
     /// 서버 모드에서 QR로 확인한 체험자의 판이면 결과 화면에 들어오자마자 레벨 결과(미션 성공 1·실패 0)를 체험자 서버에 올림(관리자 판 제외).
     /// </summary>
@@ -35,7 +35,6 @@ namespace DGAIZone.Result
         [SerializeField] private ResultAiPanel aiPanel; // 우측 상단 AI 패널(정답 설계창 -> 성공 영상)
         [SerializeField] private ResultPlayerPanel playerPanel; // 좌측 하단 '나의 코딩 결과' 패널
 
-        private const string EndButtonText = "종료하기";
         private const string MissionSuccessText = "미션 성공!";
         private const string MissionFailText = "미션 실패!";
         private const string AiCodingText = "AI가 코딩 중입니다";
@@ -83,7 +82,7 @@ namespace DGAIZone.Result
         /// 초기 패널 상태(AI 코딩 안내·컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 결과 영상과 AI 연출은 입력 없이 보는 구간이라
         /// 미션 결과 문구(컴플리트 패널)가 나올 때까지 비활동 타이머를 멈춤. 방금 플레이한 레벨(SelectedLevelStore)을
         /// 결과를 서버에 올리는 순간과 같이 완료한 것으로 기록하고(성공/실패·넘어가기 무관 — 레벨 선택 화면이 V를 붙임), 레벨 결과를 체험자 서버에 올리고,
-        /// 패널 제목을 미션 결과에 맞추고, 마지막 레벨이면 버튼 문구를 "종료하기"로 바꾼 뒤 연출 타이밍을 비동기로 불러옴.
+        /// 패널 제목을 미션 결과에 맞춘 뒤 연출 타이밍을 비동기로 불러옴.
         /// </summary>
         private void Start()
         {
@@ -100,8 +99,6 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completedLevelStore가 null이라 레벨{playedLevel}을 완료(V)로 기록할 수 없음.");
 
             UploadLevelResult(playedLevel);
-
-            if (playedLevel >= Constants.LastLevel) ApplyEndButtonText();
 
             LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
@@ -156,24 +153,13 @@ namespace DGAIZone.Result
             return hasServerVisitor ? UploadDecision.Upload : UploadDecision.NoServerVisitor;
         }
 
-        /// <summary> 결과 화면 다음 씬: 관리자 레벨 이동 판이면 타이틀(관리자 화면을 다시 엶), 마지막 레벨이면 아웃트로, 아니면 레벨 선택. </summary>
-        internal static string ResolveNextScene(int playedLevel, bool isLevelJump)
+        /// <summary>
+        /// 결과 화면 다음 씬: 관리자 레벨 이동 판이면 타이틀(관리자 화면을 다시 엶), 아니면 어느 레벨이든 레벨 선택
+        /// (아웃트로는 다섯 레벨을 모두 마친 뒤 레벨 선택 화면의 종료하기 버튼으로만 감).
+        /// </summary>
+        internal static string ResolveNextScene(bool isLevelJump)
         {
-            if (isLevelJump) return Constants.Scenes.Title;
-            return playedLevel >= Constants.LastLevel ? Constants.Scenes.Outro : Constants.Scenes.LevelSelect;
-        }
-
-        /// <summary> completeNextButton의 자식 텍스트를 "종료하기"로 바꿈(마지막 레벨을 완료했을 때만 호출됨). </summary>
-        private void ApplyEndButtonText()
-        {
-            if (!completeNextButton)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null이라 버튼 문구를 바꿀 수 없음.");
-                return;
-            }
-
-            if (ChildComponentFinder.TryGetInDirectChildren(completeNextButton.transform, out TMP_Text label)) label.text = EndButtonText;
-            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton의 직계 자식에 TMP_Text가 없어 문구를 바꾸지 못함.");
+            return isLevelJump ? Constants.Scenes.Title : Constants.Scenes.LevelSelect;
         }
 
         /// <summary> 테스트 전용: 인스펙터로 연결하는 컴플리트 패널 제목 텍스트를 넣음. </summary>
@@ -274,8 +260,7 @@ namespace DGAIZone.Result
         }
 
         /// <summary>
-        /// 컴플리트 패널의 다음 버튼 클릭 시 클릭음을 내고 화면 페이드와 함께 전환함. 방금 플레이한 레벨이 마지막 레벨(Constants.LastLevel)이면
-        /// 아웃트로 씬으로, 아니면 다음 레벨을 고를 수 있도록 레벨 선택 씬으로 전환함.
+        /// 컴플리트 패널의 다음 버튼 클릭 시 클릭음을 내고 화면 페이드와 함께 전환함. 어느 레벨이든 다음 레벨을 고를 수 있도록 레벨 선택 씬으로 전환함.
         /// 관리자 레벨 이동으로 시작한 판이면 타이틀로 돌아가 관리자 화면을 다시 열도록 표시함.
         /// </summary>
         private void OnCompleteNextClicked()
@@ -288,9 +273,8 @@ namespace DGAIZone.Result
                 return;
             }
 
-            int playedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultFlowController));
             bool isLevelJump = _levelJumpStore != null && _levelJumpStore.IsLevelJump;
-            string nextScene = ResolveNextScene(playedLevel, isLevelJump);
+            string nextScene = ResolveNextScene(isLevelJump);
 
             if (_levelJumpStore == null)
             {
