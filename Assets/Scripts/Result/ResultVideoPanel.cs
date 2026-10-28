@@ -1,12 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Text;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using DGAIZone.App;
+using DGAIZone.Data;
+using DGAIZone.Game.UI;
 using Microsoft.Extensions.Logging;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Video;
 using VContainer;
+using HuliacDev.Utils;
 using ZLogger;
 
 namespace DGAIZone.Result
@@ -16,13 +22,24 @@ namespace DGAIZone.Result
     /// "{Constants.Files.ResultVideoPrefix}-{레벨}-{Success|Fail}.mp4" 규칙을 따름(예: 레벨 2 성공 = "4-2-Success.mp4"). 레벨 3처럼 실패 원인별 영상이 있으면
     /// GameResultStore.FailVideoSuffix에 따라 "4-3-Fail-O2.mp4"처럼 고름.
     /// 반복 재생은 하지 않으며, 재생이 끝나면 AI 연출(ResultFlowController.PlayAiSequence)로 넘어감.
+    /// 레벨 1은 로켓이 다 보이는 동안만 로켓 왼쪽에 체험자가 고른 블록 값('엔진: 고체 로켓 (+7)'처럼, 블록 순서대로 엔진·탑승 물체·연료량)을
+    /// 로켓 쪽으로 모이는 선과 함께 띄움(level1RocketLabels) — 성공은 조립이 끝난 뒤부터, 실패는 부서지기 전까지(4_Result.json).
     /// </summary>
     public class ResultVideoPanel : MonoBehaviour, ISceneVideoReadiness
     {
         [SerializeField] private VideoPlayer videoPlayer;
         [SerializeField] private ResultFlowController flowController;
+        [Tooltip("레벨 1 결과 영상의 로켓 왼쪽 글자·선 묶음 — 로켓이 다 보이는 동안만 알파를 1로 둠")]
+        [SerializeField] private CanvasGroup level1RocketLabels;
+        [Tooltip("블록 순서(엔진·탑승 물체·연료량)대로, 체험자가 고른 값을 '이름: 값'으로 적을 글자")]
+        [SerializeField] private TMP_Text[] level1RocketLabelTexts;
 
         private const int MinLevel = 1;
+        private const int RocketLabelLevel = 1; // 로켓 글자를 띄우는 레벨
+        private const string NotChosenText = "없음"; // 그 블록을 고르지 않았을 때(넘어가기·일부만 설정) 값 자리에 적는 말
+
+        // 레벨 1 블록 순서(추진체 종류·탑재 장비·연료량)대로 로켓 글자에 붙이는 이름
+        private readonly static string[] RocketLabelNames = { "엔진", "탑승 물체", "연료량" };
 
         private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
         private GameResultStore _resultStore;
@@ -41,6 +58,21 @@ namespace DGAIZone.Result
                 ? ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-", success ? "Success" : "Fail", ".mp4")
                 : ZString.Concat(Constants.Files.ResultVideoPrefix, "-", level, "-Fail-", failSuffix, ".mp4");
 
+        /// <summary>
+        /// 레벨 1 '나의 코딩 결과' 블록(설계 단계, 블록 순서 = 추진체 종류·탑재 장비·연료량)에서 로켓 글자 문구를 만듦: '엔진: 고체 로켓 (+7)'처럼
+        /// 이름과 값 블록 문구를 붙이고, 그 단계를 설정하지 않았으면 '엔진: 없음'. 값 블록이 없는 단계는 명령 블록 문구를 씀.
+        /// </summary>
+        internal static string[] BuildRocketLabelTexts(IReadOnlyList<DesignStep> playerDesign)
+        {
+            string[] texts = new string[RocketLabelNames.Length];
+            for (int i = 0; i < texts.Length; i++)
+            {
+                string value = playerDesign != null && i < playerDesign.Count ? playerDesign[i].Value ?? playerDesign[i].Command : null;
+                texts[i] = ZString.Concat(RocketLabelNames[i], ": ", string.IsNullOrEmpty(value) ? NotChosenText : value);
+            }
+            return texts;
+        }
+
         /// <summary> StreamingAssets/Videos 아래 영상 파일의 전체 경로. </summary>
         internal static string GetVideoPath(string fileName) =>
             System.IO.Path.Combine(Application.streamingAssetsPath, Constants.ResourcePaths.VideosFolder, fileName);
@@ -54,9 +86,12 @@ namespace DGAIZone.Result
             _logger = logger;
         }
 
-        /// <summary> 씬 진입 시 이번 판 결과(레벨·성공 여부·실패 원인)에 맞는 영상 재생을 시작함. </summary>
+        /// <summary> 레벨 1 로켓 글자를 숨긴 채 시작하고, 이번 판 결과(레벨·성공 여부·실패 원인)에 맞는 영상 재생을 시작함. </summary>
         private void Start()
         {
+            if (level1RocketLabels) level1RocketLabels.alpha = 0f;
+            else if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] level1RocketLabels가 null이라 레벨 1 결과 영상에 로켓 글자를 띄울 수 없음.");
+
             PlayResultVideoAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
@@ -132,6 +167,64 @@ namespace DGAIZone.Result
             RenderTexture.active = previousActive;
         }
 
+        /// <summary> 체험자가 고른 블록 값으로 레벨 1 로켓 글자를 채움. 글자 칸이 모자라면 경고하고 있는 칸만 채움. </summary>
+        private void ApplyRocketLabelTexts()
+        {
+            if (_resultStore == null && _logger != null) _logger.ZLogWarning($"[ResultVideoPanel] resultStore가 null이라 레벨 1 로켓 글자의 값을 모두 '{NotChosenText}'으로 적음.");
+
+            string[] texts = BuildRocketLabelTexts(_resultStore?.PlayerDesign);
+            if (level1RocketLabelTexts == null || level1RocketLabelTexts.Length < texts.Length)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] level1RocketLabelTexts가 {texts.Length}칸만큼 연결되지 않아 레벨 1 로켓 글자 일부를 채우지 못함.");
+                if (level1RocketLabelTexts == null) return;
+            }
+
+            for (int i = 0; i < texts.Length && i < level1RocketLabelTexts.Length; i++)
+            {
+                if (level1RocketLabelTexts[i]) level1RocketLabelTexts[i].text = texts[i];
+                else if (_logger != null) _logger.ZLogWarning($"[ResultVideoPanel] level1RocketLabelTexts[{i}]가 null이라 '{texts[i]}'을 적지 못함.");
+            }
+        }
+
+        /// <summary>
+        /// 레벨 1 로켓 글자를 로켓이 다 보이는 동안만 띄움. 성공 영상은 조립이 끝나는 시각부터 끝까지(마지막 화면에 로켓이 남음),
+        /// 실패 영상은 처음부터 로켓이 부서지기 전 시각까지. 영상이 그 시각 전에 끝나면 끝난 때를 기준으로 함.
+        /// </summary>
+        private async UniTaskVoid ShowRocketLabelsAsync(bool success, CancellationToken token)
+        {
+            try
+            {
+                string path = $"{Constants.ResourcePaths.SceneSettingsFolder}/{Constants.Scenes.Result}";
+                ResultSceneSettings settings = await JsonLoader.LoadAsync<ResultSceneSettings>(path, token, _logger);
+                float fadeDuration = Mathf.Max(0f, settings.level1RocketLabelFadeDuration);
+
+                if (success)
+                {
+                    float showTime = settings.level1RocketLabelSuccessShowTime;
+                    await UniTask.WaitUntil(() => !videoPlayer.isPlaying || videoPlayer.time >= showTime, cancellationToken: token);
+                    await FadeRocketLabelsAsync(1f, fadeDuration, token);
+                }
+                else
+                {
+                    float hideTime = settings.level1RocketLabelFailHideTime;
+                    await FadeRocketLabelsAsync(1f, fadeDuration, token);
+                    await UniTask.WaitUntil(() => !videoPlayer.isPlaying || videoPlayer.time >= hideTime, cancellationToken: token);
+                    await FadeRocketLabelsAsync(0f, fadeDuration, token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 씬을 떠남(정상)
+            }
+        }
+
+        /// <summary> 레벨 1 로켓 글자 묶음의 알파를 alpha까지 duration초 동안 바꿈. </summary>
+        private UniTask FadeRocketLabelsAsync(float alpha, float duration, CancellationToken token)
+        {
+            return level1RocketLabels.DOFade(alpha, duration).SetUpdate(true).SetLink(level1RocketLabels.gameObject)
+                .ToUniTask(TweenCancelBehaviour.KillAndCancelAwait, cancellationToken: token);
+        }
+
         /// <summary> 결과 영상을 준비해 끝까지 재생함. videoPlayer가 없거나 준비에 실패하면 로그를 남기고 바로 반환함. </summary>
         private async UniTask PlayVideoToEndAsync(CancellationToken token)
         {
@@ -173,6 +266,12 @@ namespace DGAIZone.Result
                 _logger.ZLogWarning($"[ResultVideoPanel] {fileName}의 첫 화면이 {VideoReadyGate.FirstFrameTimeoutSeconds}초 안에 그려지지 않았지만 그대로 진행함.");
             }
             _readySignal.TrySetResult();
+
+            if (clampedLevel == RocketLabelLevel && level1RocketLabels)
+            {
+                ApplyRocketLabelTexts();
+                ShowRocketLabelsAsync(success, token).Forget();
+            }
 
             if (!await VideoReadyGate.WaitUntilPlaybackEndsAsync(videoPlayer, token) && _logger != null)
             {

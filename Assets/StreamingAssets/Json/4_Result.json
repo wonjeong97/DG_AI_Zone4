@@ -3,5 +3,8 @@
   "aiCodingHoldDuration": 3.0,
   "aiCodingDotIntervalMs": 400,
   "aiDesignHoldDuration": 4.0,
-  "designBlockInterval": 1.0
+  "designBlockInterval": 1.0,
+  "level1RocketLabelSuccessShowTime": 9.5,
+  "level1RocketLabelFailHideTime": 3.6,
+  "level1RocketLabelFadeDuration": 0.3
 }

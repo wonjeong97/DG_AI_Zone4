@@ -13,7 +13,7 @@ namespace DGAIZone.Tests
     public class RootPrefabDefaultsTests
     {
         [Test]
-        public void 숨은_종료_버튼은_설정이_없어도_오른쪽_위_구석에_투명하게_있다()
+        public void 숨은_종료_버튼은_설정이_없어도_왼쪽_아래_구석에_투명하게_있다()
         {
 #if UNITY_EDITOR
             GameObject root = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/GameLifetimeScope.prefab");
@@ -23,9 +23,10 @@ namespace DGAIZone.Tests
             Assert.AreEqual(1, closers.Length, "루트 프리팹에 숨은 종료 버튼이 하나 있어야 함");
 
             RectTransform rect = (RectTransform)closers[0].transform;
-            Assert.AreEqual(Vector2.one, rect.anchorMin, "앵커가 오른쪽 위여야 함");
-            Assert.AreEqual(Vector2.one, rect.anchorMax, "앵커가 오른쪽 위여야 함");
-            Assert.AreEqual(Vector2.one, rect.pivot, "피벗이 오른쪽 위여야 함");
+            // 오른쪽 위는 인트로·레벨 선택의 홈 버튼 자리라 왼쪽 아래에 둠
+            Assert.AreEqual(Vector2.zero, rect.anchorMin, "앵커가 왼쪽 아래여야 함");
+            Assert.AreEqual(Vector2.zero, rect.anchorMax, "앵커가 왼쪽 아래여야 함");
+            Assert.AreEqual(Vector2.zero, rect.pivot, "피벗이 왼쪽 아래여야 함");
             Assert.IsTrue(closers[0].TryGetComponent(out Image image), "종료 버튼에 Image가 있어야 함");
             Assert.AreEqual(0f, image.color.a, "종료 버튼은 보이지 않아야 함");
 #else

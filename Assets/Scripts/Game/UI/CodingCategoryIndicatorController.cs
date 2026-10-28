@@ -17,7 +17,7 @@ namespace DGAIZone.Game.UI
     /// <summary>
     /// CodingCategories 하위 칸(Slot_1~Slot_5)으로 이번 판 단계마다 받을 카드 분류를 순서대로 보여 줌(레벨 1은 동작 3칸, 레벨 3은 만약 > 동작 > 논리 > 만약 > 동작 등).
     /// 칸 수와 분류는 IngredientSelectionController가 레벨 시작 때 SetSlots로 정하고, 남는 칸은 숨김(CodingCategories의 HorizontalLayoutGroup이 보이는 칸만 나란히 둠).
-    /// 칸마다 분류 색 이미지 위에 흑백 머티리얼을 입힌 오버레이 이미지(씬에 미리 배치됨)를 겹쳐 두고 그 알파만 조절해 색/흑백을 전환함:
+    /// 칸마다 분류 블록 그림(동작·만약·반복·논리·함수) 위에 같은 그림에 흑백 머티리얼을 입힌 오버레이 이미지(씬에 미리 배치됨)를 겹쳐 두고 그 알파만 조절해 색/흑백을 전환함:
     /// 설정을 마친 앞 칸과 카드가 인식된 지금 칸은 색(오버레이 알파 0), 나머지는 흑백(알파 1).
     /// 지금 칸에 idleHintDelay(초) 동안 카드가 올라오지 않으면 그 칸 오버레이 알파를 0~1로 반복시켜 색상과 흑백 사이를 부드럽게 오가며 안내함.
     /// 그 전에 카드가 올라오면 대기 자체가 취소됨.
@@ -31,18 +31,19 @@ namespace DGAIZone.Game.UI
         internal class StepSlot
         {
             public GameObject root;        // Slot_N
-            public Image colorImage;       // Slot_N/Image_Color — 분류 색
+            public Image colorImage;       // Slot_N/Image_Color — 분류 블록 그림
             public TMP_Text label;         // Slot_N/Image_Color/Text_Label — 분류 이름
-            public Image grayscaleOverlay; // Slot_N/Image_GrayscaleOverlay — 흑백 머티리얼, 알파 1이면 칸을 흑백으로 덮음
+            public Image grayscaleOverlay; // Slot_N/Image_GrayscaleOverlay — 같은 블록 그림에 흑백 머티리얼, 알파 1이면 칸을 흑백으로 덮음
         }
 
         [SerializeField] private StepSlot[] slots; // Slot_1..Slot_5 순서(단계 순서)
 
-        [Header("Category Colors")]
-        [SerializeField] private Color actionColor = new Color(0f, 0f, 1f, 1f);
-        [SerializeField] private Color controlColor = new Color(1f, 0.7607843f, 0f, 1f);
-        [SerializeField] private Color logicColor = new Color(0.11764706f, 0.70980394f, 0.03137255f, 1f);
-        [SerializeField] private Color funcColor = new Color(0.7764706f, 0.03529412f, 0.03529412f, 1f);
+        [Header("Category Blocks")]
+        [SerializeField] private Sprite actionSprite;  // 동작
+        [SerializeField] private Sprite ifSprite;      // 제어 — 레벨 3 [만약]
+        [SerializeField] private Sprite repeatSprite;  // 제어 — 레벨 4 [반복]
+        [SerializeField] private Sprite logicSprite;   // 논리
+        [SerializeField] private Sprite funcSprite;    // 함수
 
         private ILogger<CodingCategoryIndicatorController> _logger;
         private readonly List<Tween> _hintTweens = new List<Tween>();
@@ -87,7 +88,7 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
-        /// 이번 판 단계별 분류로 칸을 정함: 앞에서부터 분류 수만큼 칸을 보여 주고 분류 색·이름(제어 칸은 controlLabel)을 입혀 모두 흑백으로 두며, 남는 칸은 숨김.
+        /// 이번 판 단계별 분류로 칸을 정함: 앞에서부터 분류 수만큼 칸을 보여 주고 분류 블록 그림·이름(제어 칸은 controlLabel)을 입혀 모두 흑백으로 두며, 남는 칸은 숨김.
         /// categories가 비었으면(레벨 상태가 분류를 정하지 못함) 칸을 모두 숨기고, 칸보다 단계가 많으면 앞 단계만 보여 줌.
         /// </summary>
         public void SetSlots(IReadOnlyList<string> categories, string controlLabel)
@@ -146,7 +147,7 @@ namespace DGAIZone.Game.UI
             }
         }
 
-        /// <summary> index번째 칸에 분류 색과 이름을 입힘. </summary>
+        /// <summary> index번째 칸에 분류 블록 그림(색 이미지와 흑백 오버레이 모두)과 이름을 입힘. </summary>
         private void ApplyCategory(int index, string category, string controlLabel)
         {
             StepSlot slot = slots[index];
@@ -156,23 +157,59 @@ namespace DGAIZone.Game.UI
                 return;
             }
 
-            if (slot.colorImage) slot.colorImage.color = ColorOf(category);
-            else if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] slots[{index}].colorImage가 null이라 {index + 1}번째 칸 색을 바꿀 수 없음.");
+            Sprite sprite = SpriteOf(category, controlLabel);
+            if (slot.colorImage)
+            {
+                slot.colorImage.sprite = sprite;
+                slot.colorImage.color = sprite ? Color.white : Color.gray; // 그림이 없으면 회색 칸으로 둠(SpriteOf가 경고함)
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[CodingCategoryIndicatorController] slots[{index}].colorImage가 null이라 {index + 1}번째 칸 그림을 바꿀 수 없음.");
+            }
+
+            // 흑백 오버레이도 같은 그림이어야 칸 모양 그대로 흑백으로 덮임. 그림이 없으면 흰 사각형으로 보이지 않게 회색으로 둠
+            // (오버레이가 없을 때의 경고는 색/흑백을 바꿀 때 GetOverlayGroup이 남김)
+            if (slot.grayscaleOverlay)
+            {
+                slot.grayscaleOverlay.sprite = sprite;
+                slot.grayscaleOverlay.color = sprite ? Color.white : Color.gray;
+            }
 
             if (slot.label) slot.label.text = LabelOf(category, controlLabel);
             else if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] slots[{index}].label이 null이라 {index + 1}번째 칸 이름을 바꿀 수 없음.");
         }
 
-        /// <summary> 분류 색. 알 수 없는 분류(단계 정의 오타 등)면 경고를 남기고 회색. </summary>
-        private Color ColorOf(string category)
+        /// <summary>
+        /// 분류 블록 그림. 제어 칸은 레벨마다 다른 블록(controlLabel이 반복이면 [반복], 그 밖에는 [만약])을 씀.
+        /// 알 수 없는 분류(단계 정의 오타 등)이거나 그림이 연결되지 않았으면 경고를 남기고 null(칸을 회색으로 둠).
+        /// </summary>
+        internal Sprite SpriteOf(string category, string controlLabel)
         {
-            if (string.Equals(category, Constants.RfidCategories.Action, StringComparison.Ordinal)) return actionColor;
-            if (string.Equals(category, Constants.RfidCategories.Control, StringComparison.Ordinal)) return controlColor;
-            if (string.Equals(category, Constants.RfidCategories.Logic, StringComparison.Ordinal)) return logicColor;
-            if (string.Equals(category, Constants.RfidCategories.Func, StringComparison.Ordinal)) return funcColor;
+            Sprite sprite;
+            if (string.Equals(category, Constants.RfidCategories.Action, StringComparison.Ordinal)) sprite = actionSprite;
+            else if (string.Equals(category, Constants.RfidCategories.Control, StringComparison.Ordinal))
+                sprite = string.Equals(controlLabel, Constants.ControlSlotLabels.Repeat, StringComparison.Ordinal) ? repeatSprite : ifSprite;
+            else if (string.Equals(category, Constants.RfidCategories.Logic, StringComparison.Ordinal)) sprite = logicSprite;
+            else if (string.Equals(category, Constants.RfidCategories.Func, StringComparison.Ordinal)) sprite = funcSprite;
+            else
+            {
+                if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] '{category}'는 알 수 없는 분류라 칸을 회색으로 둠.");
+                return null;
+            }
 
-            if (_logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] '{category}'는 알 수 없는 분류라 칸을 회색으로 둠.");
-            return Color.gray;
+            if (!sprite && _logger != null) _logger.ZLogWarning($"[CodingCategoryIndicatorController] '{LabelOf(category, controlLabel)}' 블록 그림이 연결되지 않아 칸을 회색으로 둠.");
+            return sprite;
+        }
+
+        /// <summary> 테스트 전용: 씬 없이 분류 블록 그림을 넣음. </summary>
+        internal void SetSpritesForTest(Sprite action, Sprite ifBlock, Sprite repeat, Sprite logic, Sprite func)
+        {
+            actionSprite = action;
+            ifSprite = ifBlock;
+            repeatSprite = repeat;
+            logicSprite = logic;
+            funcSprite = func;
         }
 
         /// <summary> 칸 이름. 제어 칸은 레벨마다 다른 블록 이름(controlLabel, 만약·반복)을 쓰고, 나머지는 분류 이름. </summary>

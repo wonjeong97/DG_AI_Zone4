@@ -14,7 +14,7 @@ using UnityEngine.UI;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 게임 화면 CodingCategories 칸 검증: 레벨마다 단계별로 받을 카드 분류(칸 수·순서), 단계 분류에 맞는 카드만 받는 판정, 칸의 색/흑백·이름 표시.
+    /// 게임 화면 CodingCategories 칸 검증: 레벨마다 단계별로 받을 카드 분류(칸 수·순서), 단계 분류에 맞는 카드만 받는 판정, 칸의 블록 그림·색/흑백·이름 표시.
     /// </summary>
     public class CodingCategorySlotTests
     {
@@ -23,16 +23,30 @@ namespace DGAIZone.Tests
         private const string Logic = Constants.RfidCategories.Logic;
         private const string Func = Constants.RfidCategories.Func;
 
-        private readonly List<GameObject> _created = new List<GameObject>();
+        private readonly List<Object> _created = new List<Object>();
+
+        // 분류 블록 그림 — CreateIndicator가 만들어 칸 표시기에 넣음
+        private Sprite _actionSprite, _ifSprite, _repeatSprite, _logicSprite, _funcSprite;
 
         [TearDown]
         public void TearDown()
         {
-            foreach (GameObject go in _created)
+            foreach (Object created in _created)
             {
-                if (go != null) Object.DestroyImmediate(go);
+                if (created != null) Object.DestroyImmediate(created);
             }
             _created.Clear();
+        }
+
+        /// <summary> 테스트용 블록 그림 하나를 만듦(텍스처와 함께 TearDown에서 지움). </summary>
+        private Sprite CreateSprite(string name)
+        {
+            Texture2D texture = new Texture2D(2, 2);
+            Sprite sprite = Sprite.Create(texture, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
+            sprite.name = name;
+            _created.Add(texture);
+            _created.Add(sprite);
+            return sprite;
         }
 
         /// <summary> 실제 RfidMappings.json의 level 정의를 적용한 컨트롤러를 만듦. </summary>
@@ -246,6 +260,12 @@ namespace DGAIZone.Tests
             GameObject go = new GameObject("TestCodingCategories", typeof(RectTransform));
             _created.Add(go);
             CodingCategoryIndicatorController indicator = go.AddComponent<CodingCategoryIndicatorController>();
+            _actionSprite = CreateSprite("Category_Action");
+            _ifSprite = CreateSprite("Category_If");
+            _repeatSprite = CreateSprite("Category_Repeat");
+            _logicSprite = CreateSprite("Category_Logic");
+            _funcSprite = CreateSprite("Category_Func");
+            indicator.SetSpritesForTest(_actionSprite, _ifSprite, _repeatSprite, _logicSprite, _funcSprite);
 
             views = new CodingCategoryIndicatorController.StepSlot[5];
             for (int i = 0; i < views.Length; i++)
@@ -294,12 +314,43 @@ namespace DGAIZone.Tests
             Assert.AreEqual(3, indicator.VisibleSlotCount);
             CollectionAssert.AreEqual(new[] { true, true, true, false, false }, views.Select(v => v.root.activeSelf).ToArray(), "앞 3칸만 보임");
             CollectionAssert.AreEqual(new[] { "만약", Action, Logic }, views.Take(3).Select(v => v.label.text).ToArray());
-            Assert.AreNotEqual(views[0].colorImage.color, views[1].colorImage.color, "분류마다 색이 다름");
+            CollectionAssert.AreEqual(new[] { _ifSprite, _actionSprite, _logicSprite }, views.Take(3).Select(v => v.colorImage.sprite).ToArray(), "분류마다 블록 그림");
+            CollectionAssert.AreEqual(views.Take(3).Select(v => v.colorImage.sprite).ToArray(), views.Take(3).Select(v => v.grayscaleOverlay.sprite).ToArray(), "흑백 오버레이도 같은 그림");
             CollectionAssert.AreEqual(new[] { false, false, false }, Colored(views, 3), "처음에는 모두 흑백");
 
             indicator.SetSlots(null, null);
             Assert.AreEqual(0, indicator.VisibleSlotCount);
             Assert.IsFalse(views.Any(v => v.root.activeSelf), "분류를 정하지 못하면 칸을 모두 숨김");
+        }
+
+        [Test]
+        public void 제어_칸은_레벨마다_반복이나_만약_블록_그림을_쓴다()
+        {
+            CodingCategoryIndicatorController indicator = CreateIndicator(out CodingCategoryIndicatorController.StepSlot[] views);
+
+            indicator.SetSlots(new[] { Control, Action, Func }, Constants.ControlSlotLabels.Repeat);
+            CollectionAssert.AreEqual(new[] { _repeatSprite, _actionSprite, _funcSprite }, views.Take(3).Select(v => v.colorImage.sprite).ToArray(), "레벨 4 제어 칸은 [반복]");
+
+            indicator.SetSlots(new[] { Control }, Constants.ControlSlotLabels.If);
+            Assert.AreEqual(_ifSprite, views[0].colorImage.sprite, "레벨 3 제어 칸은 [만약]");
+        }
+
+        [Test]
+        public void 그림이_없거나_모르는_분류면_칸을_회색으로_둔다()
+        {
+            CodingCategoryIndicatorController indicator = CreateIndicator(out CodingCategoryIndicatorController.StepSlot[] views);
+            indicator.SetSpritesForTest(_actionSprite, _ifSprite, _repeatSprite, _logicSprite, null);
+
+            indicator.SetSlots(new[] { Action, Func, "알수없음" }, null);
+
+            Assert.AreEqual(Color.white, views[0].colorImage.color, "그림이 있으면 원래 색 그대로");
+            Assert.AreEqual(Color.white, views[0].grayscaleOverlay.color);
+            for (int i = 1; i < 3; i++)
+            {
+                Assert.IsNull(views[i].colorImage.sprite, $"{i + 1}번째 칸은 그림 없음");
+                Assert.AreEqual(Color.gray, views[i].colorImage.color, $"{i + 1}번째 칸 색은 회색");
+                Assert.AreEqual(Color.gray, views[i].grayscaleOverlay.color, $"{i + 1}번째 칸 흑백 오버레이도 회색(흰 사각형 아님)");
+            }
         }
 
         [Test]

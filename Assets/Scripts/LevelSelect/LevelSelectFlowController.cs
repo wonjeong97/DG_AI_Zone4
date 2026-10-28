@@ -18,10 +18,10 @@ using ZLogger;
 namespace DGAIZone.LevelSelect
 {
     /// <summary>
-    /// 레벨 선택 씬의 화면 흐름 제어. 시작 시 잠긴 레벨 버튼을 흑백 처리해 비활성화하고, 열린 레벨 버튼을 누르면
-    /// 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼을 Background로 옮겨
+    /// 레벨 선택 씬의 화면 흐름 제어. 모든 레벨 버튼은 처음부터 누를 수 있고, 결과 화면까지 간 레벨(QR 체험자의 서버 기록 포함, CompletedLevelStore)의
+    /// 버튼에만 V를 켬. 레벨 버튼을 누르면 레벨 선택 패널을 페이드아웃한 뒤 스토리 패널을 페이드인함. 이때 선택한 버튼을 Background로 옮겨
     /// 목표 위치·크기로 튀어 들어오도록(OutBack) 이동시키고, 해당 레벨의 스토리 오브젝트만 활성화함.
-    /// 에디터·개발 빌드에서는 레벨을 고르기 전에 디버그 액션 UnlockAllLevels(DebugInputActions, 기본 스페이스바)를 누르면 모든 레벨이 열림.
+    /// 화면 좌상단 &lt; 버튼은 레벨 선택 화면이면 인트로로, 스토리 화면이면 레벨 선택 화면으로(관리자 레벨 이동이면 타이틀의 관리자 화면으로) 돌아감.
     /// 타이틀 관리자 화면의 레벨 이동으로 들어오면(AdminLevelJumpStore) 씬 전환이 끝난 뒤 그 레벨 버튼을 고른 것처럼 스토리를 바로 띄움.
     /// </summary>
     public class LevelSelectFlowController : MonoBehaviour
@@ -32,21 +32,22 @@ namespace DGAIZone.LevelSelect
         [SerializeField] private GameObject[] storyLevels;   // Story_Level1..5 순서
         [SerializeField] private Image storyImage;           // Image_Story
         [SerializeField] private Button startButton;         // Button_Start (타이핑 완료 전까지 비활성)
-        [SerializeField] private Material lockedMaterial;    // 잠긴 버튼용 흑백 머티리얼
+        [Tooltip("levelButtons와 같은 순서로, 결과 화면까지 간 레벨 버튼에 켤 V 표시(Button_LevelN/Image_Complete)")]
+        [SerializeField] private GameObject[] levelCompleteMarks;
+        [Tooltip("화면 좌상단 < 버튼 — 레벨 선택 화면이면 인트로로, 스토리 화면이면 레벨 선택 화면으로(관리자 레벨 이동이면 타이틀의 관리자 화면으로) 돌아감")]
+        [SerializeField] private Button backButton;
         [SerializeField] private LevelData[] levelDataList;  // Level1..5 순서, 3_Game(스토리 다시보기)과 공유하는 스토리 텍스트 소스
         [Header("Selected Level Button Move")]
         [SerializeField] private RectTransform selectedLevelButtonParent; // 선택된 버튼이 이동해 들어갈 부모(Background)
         [Header("Theme Background")]
         [SerializeField] private Image themeBackgroundImage; // Background/ThemeBackground: 평소엔 투명, 레벨 선택 시 테마 스프라이트로 페이드인됨
         [SerializeField] private Sprite[] themeBackgroundSprites; // Level1..5 순서. 레벨 1·2는 같은 스프라이트(Background_1)를 지정하면 됨
-        [Header("Debug (Editor Testing)")]
-        [SerializeField] private int debugUnlockedLevelCount = 0; // 0=사용 안 함(JSON 값 사용). 1~5면 시작 시 해당 난이도로 강제 설정. 에디터·개발 빌드에서만 적용되는 테스트 전용 값이라 JSON으로 분리하지 않음.
 
         private static readonly ProfilerMarker WarmUpThemeBackgroundMarker = new ProfilerMarker("LevelSelectFlowController.WarmUpThemeBackgroundSprites");
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
-        private UnlockedLevelStore _unlockedLevelStore;
+        private CompletedLevelStore _completedLevelStore;
         private ILogger<LevelSelectFlowController> _logger;
         private InactivityTimer _inactivityTimer;
         private VisitorInfoProvider _visitorInfoProvider;
@@ -55,19 +56,18 @@ namespace DGAIZone.LevelSelect
         private CanvasGroup _themeBackgroundCanvasGroup;
         private bool _isBusy;
         private bool _isLevelSelected; // 레벨을 이미 골랐는지(관리자 레벨 이동이 씬 전환을 기다리는 사이 버튼으로 먼저 고른 경우 다시 고르지 않음)
-        private int _currentUnlockedCount; // ApplyLevelButtonLocks가 마지막으로 적용한 값(버튼 표시 상태와 클릭 허용 판단을 항상 일치시키기 위함)
-        private DebugInputActions _debugInput;
+        private bool _isLeaving; // 뒤로 버튼으로 이 씬을 떠나는 중인지(연타해도 한 번만 처리)
 
         // 2_LevelSelect.json / 00_Common.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private LevelSelectSceneSettings _sceneSettings = new LevelSelectSceneSettings();
         private CommonSettings _commonSettings = new CommonSettings();
 
-        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 잠금 해제 진행도 저장소, 로거, 체험자 정보 제공자, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 씬 전환 서비스, 선택된 레벨 저장소, 완료 레벨 저장소, 로거, 체험자 정보 제공자, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소를 할당함. </summary>
         [Inject]
         public void Construct(
             SceneTransitionService sceneTransition,
             SelectedLevelStore selectedLevelStore,
-            UnlockedLevelStore unlockedLevelStore,
+            CompletedLevelStore completedLevelStore,
             ILogger<LevelSelectFlowController> logger,
             VisitorInfoProvider visitorInfoProvider = null,
             InactivityTimer inactivityTimer = null,
@@ -76,7 +76,7 @@ namespace DGAIZone.LevelSelect
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
-            _unlockedLevelStore = unlockedLevelStore;
+            _completedLevelStore = completedLevelStore;
             _logger = logger;
             _visitorInfoProvider = visitorInfoProvider;
             _inactivityTimer = inactivityTimer;
@@ -84,57 +84,14 @@ namespace DGAIZone.LevelSelect
             _levelJumpStore = levelJumpStore;
         }
 
-        /// <summary>
-        /// debugUnlockedLevelCount가 설정되어 있으면 그 값을 그대로 씀(에디터·개발 빌드 전용, 최우선 — 현장용 릴리스 빌드에서는 무시하고 경고만 남김). 아니면 이번에
-        /// 적용하려는 값(jsonOrFallback: JSON 프리셋 또는 폴백 상수)과 세션 진행도(_unlockedLevelStore) 중 더 큰
-        /// 값을 실제 잠금 해제 수로 확정하고, 진행도가 그보다 낮았다면 갱신함(레벨 완료로 넓어진 잠금이 줄어들지 않도록).
-        /// </summary>
-        private int ResolveUnlockedCount(int jsonOrFallback)
-        {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (debugUnlockedLevelCount > 0) return debugUnlockedLevelCount;
-#else
-            if (debugUnlockedLevelCount > 0 && _logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 릴리스 빌드라 씬에 남은 디버그 잠금 해제 수({debugUnlockedLevelCount})를 무시함.");
-#endif
-            if (_unlockedLevelStore == null)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] unlockedLevelStore가 null이라 세션 진행도 없이 JSON/폴백 값({jsonOrFallback})을 그대로 사용함.");
-                return jsonOrFallback;
-            }
-
-            if (jsonOrFallback > _unlockedLevelStore.UnlockedLevelCount)
-            {
-                _unlockedLevelStore.UnlockedLevelCount = jsonOrFallback;
-            }
-            return _unlockedLevelStore.UnlockedLevelCount;
-        }
-
-        /// <summary> 유닛 테스트용: 씬 없이 레벨 버튼 목록을 직접 지정함. </summary>
-        internal void SetLevelButtonsForTest(Button[] buttons)
+        /// <summary> 유닛 테스트용: 씬 없이 레벨 버튼과 V 표시 목록을 직접 지정함. </summary>
+        internal void SetLevelButtonsForTest(Button[] buttons, GameObject[] completeMarks = null)
         {
             levelButtons = buttons;
+            levelCompleteMarks = completeMarks;
         }
 
-        /// <summary> 전체 해금 디버그 액션을 만들고 해금 처리에 연결함. </summary>
-        private void Awake()
-        {
-            _debugInput = new DebugInputActions();
-            _debugInput.Debug.UnlockAllLevels.performed += OnUnlockAllLevelsInput;
-        }
-
-        /// <summary> 에디터·개발 빌드에서만 전체 해금 디버그 액션을 켬(릴리스 빌드에서는 현장 키보드·QR 스캐너 입력으로 열리지 않도록 끔). </summary>
-        private void OnEnable()
-        {
-            if (Debug.isDebugBuild) _debugInput.Debug.UnlockAllLevels.Enable();
-        }
-
-        /// <summary> 전체 해금 디버그 액션을 끔. </summary>
-        private void OnDisable()
-        {
-            _debugInput.Debug.UnlockAllLevels.Disable();
-        }
-
-        /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 잠금/활성화 및 클릭 이벤트를 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
+        /// <summary> 초기 패널 상태를 적용하고 뒤로 버튼을 연결한 뒤 2_LevelSelect.json/00_Common.json 로드를 시작하고, 레벨 버튼 클릭 이벤트와 V 표시를 설정함. </summary>
         private void Start()
         {
             // DOTween은 씬에서 처음 쓰이는 트윈이 자기 자신을 초기화하는 비용까지 그 자리에서 치르므로, 2_LevelSelect를
@@ -167,6 +124,11 @@ namespace DGAIZone.LevelSelect
                 _logger.ZLogWarning($"[LevelSelectFlowController] startButton이 null이라 게임 시작 버튼을 연결할 수 없음.");
             }
 
+            if (backButton) backButton.onClick.AddListener(OnBackClicked);
+            else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] backButton이 null이라 뒤로 버튼을 연결할 수 없음.");
+
+            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+
             if (levelButtons == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons가 null이라 설정할 버튼이 없음.");
@@ -186,15 +148,29 @@ namespace DGAIZone.LevelSelect
                 button.onClick.AddListener(() => OnLevelClicked(index));
             }
 
-            // 기본값(설정 클래스 초기값)으로 즉시 잠금 상태를 적용해 JSON 로드 전에도 버튼이 정상 표시되도록 하고,
-            // 로드가 끝나면 실제 값으로 다시 적용함 (에디터·개발 빌드에서 debugUnlockedLevelCount가 1~5면 해당 값으로 강제 설정)
-            ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
-            LoadSceneSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();
+            ApplyCompleteMarks();
+        }
+
+        /// <summary> 결과 화면까지 간 레벨(QR 체험자의 서버 기록 포함)의 버튼에만 V를 켬. </summary>
+        private void ApplyCompleteMarks()
+        {
+            if (levelCompleteMarks == null || levelCompleteMarks.Length < levelButtons.Length)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelCompleteMarks가 레벨 버튼 수({levelButtons.Length}개)만큼 할당되지 않아 일부 레벨의 V 표시를 켜지 못함.");
+                if (levelCompleteMarks == null) return;
+            }
+
+            if (_completedLevelStore == null && _logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] completedLevelStore가 null이라 V 표시를 모두 끔.");
+
+            for (int i = 0; i < levelCompleteMarks.Length; i++)
+            {
+                if (levelCompleteMarks[i]) levelCompleteMarks[i].SetActive(_completedLevelStore != null && _completedLevelStore.IsCompleted(i + 1));
+                else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelCompleteMarks[{i}]가 null이라 레벨{i + 1} V 표시를 바꿀 수 없음.");
+            }
         }
 
         /// <summary>
-        /// 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 레벨 잠금 상태를 실제 값으로 다시 적용함.
-        /// 관리자 레벨 이동이면 잠금을 다시 적용한 뒤에 그 레벨을 고름(먼저 고르면 다시 적용되는 잠금이 스토리 영역으로 옮긴 버튼을 다시 누를 수 있게 만듦).
+        /// 2_LevelSelect.json(LevelSelectSceneSettings)과 00_Common.json(CommonSettings)을 비동기로 로드하고, 관리자 레벨 이동이면 그 레벨을 고름.
         /// </summary>
         private async UniTaskVoid LoadSceneSettingsAsync(CancellationToken token)
         {
@@ -204,9 +180,6 @@ namespace DGAIZone.LevelSelect
 
             (_sceneSettings, _commonSettings) = await UniTask.WhenAll(settingsTask, commonTask);
 
-            // 로드하는 사이 체험자가 이미 레벨을 골랐으면 다시 적용하지 않음(스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 됨) — 정상 흐름이라 로그 없음
-            if (!_isLevelSelected) ApplyLevelButtonLocks(ResolveUnlockedCount(_sceneSettings.unlockedLevelCount));
-
             if (_levelJumpStore != null && _levelJumpStore.TryTakePendingStoryLevel(out int level))
                 await SelectAdminJumpLevelAsync(level, token);
 
@@ -214,12 +187,11 @@ namespace DGAIZone.LevelSelect
             IsSceneSettingsLoaded = true;
         }
 
-        /// <summary> 설정을 불러와 레벨 잠금을 다시 적용하고(관리자 레벨 이동이면 그 레벨까지 고른 뒤) 끝났는지. 테스트가 실시간 대기 대신 이 시점을 기다림. </summary>
+        /// <summary> 설정을 불러와(관리자 레벨 이동이면 그 레벨까지 고른 뒤) 끝났는지. 테스트가 실시간 대기 대신 이 시점을 기다림. </summary>
         internal bool IsSceneSettingsLoaded { get; private set; }
 
         /// <summary>
         /// 관리자 레벨 이동으로 들어온 레벨(1부터)을, 씬 전환 페이드인이 끝나면 그 레벨 버튼을 고른 것처럼 선택해 스토리를 띄움.
-        /// 관리자 화면이 그 레벨까지 해금해 두지만, 에디터 테스트용 debugUnlockedLevelCount가 더 작으면 고르지 못하고 경고만 남김.
         /// </summary>
         private async UniTask SelectAdminJumpLevelAsync(int level, CancellationToken token)
         {
@@ -233,16 +205,16 @@ namespace DGAIZone.LevelSelect
                 return; // 기다리는 도중 씬을 떠난 경우 — 정상 종료
             }
 
-            if (_isLevelSelected)
+            if (_isLevelSelected || _isLeaving)
             {
-                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 씬 전환 중에 이미 레벨을 골라 관리자 레벨 이동 레벨{level}은 고르지 않음.");
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 씬 전환 중에 이미 레벨을 골랐거나 뒤로를 눌러 관리자 레벨 이동 레벨{level}은 고르지 않음.");
                 return;
             }
 
             int index = level - 1;
-            if (index < 0 || index >= _currentUnlockedCount)
+            if (levelButtons == null || index < 0 || index >= levelButtons.Length)
             {
-                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 관리자 레벨 이동 레벨{level}이 열린 레벨 수({_currentUnlockedCount}) 밖이라 고르지 못함.");
+                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 관리자 레벨 이동 레벨{level}에 맞는 레벨 버튼이 없어 고르지 못함(버튼 {levelButtons?.Length ?? 0}개).");
                 return;
             }
 
@@ -250,39 +222,11 @@ namespace DGAIZone.LevelSelect
             SelectLevel(index);
         }
 
-        /// <summary> levelButtons를 앞에서부터 count개만 잠금 해제 상태로 적용함. </summary>
-        public void ApplyLevelButtonLocks(int count)
-        {
-            _currentUnlockedCount = count; // OnLevelClicked가 이 값으로 클릭 허용 여부를 판단함(표시 상태와 항상 일치시키기 위함)
-
-            if (levelButtons != null)
-            {
-                for (int i = 0; i < levelButtons.Length; i++)
-                {
-                    if (levelButtons[i]) ApplyLockState(levelButtons[i], i < count);
-                    else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelButtons[{i}]가 null이라 잠금 상태를 적용할 수 없음.");
-                }
-            }
-        }
-
-        /// <summary>
-        /// 전체 해금 디버그 입력 — 세션 진행도와 버튼 잠금을 마지막 레벨까지 엶. 진행도에도 남겨 2_LevelSelect.json 로드가 끝난 뒤
-        /// 다시 적용되는 잠금이나 이번 체험(0_Title로 돌아가기 전)에 다시 들어온 레벨 선택 화면에서도 모두 열려 있음.
-        /// </summary>
-        private void OnUnlockAllLevelsInput(UnityEngine.InputSystem.InputAction.CallbackContext _)
-        {
-            if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockedLevelCount = Constants.LastLevel;
-            else if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] unlockedLevelStore가 null이라 이번 화면의 버튼만 모두 엶.");
-
-            ApplyLevelButtonLocks(Constants.LastLevel);
-            if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 디버그 입력으로 모든 레벨({Constants.LastLevel}개)을 잠금 해제함.");
-        }
-
-        /// <summary> 버튼 리스너를 해제하고 디버그 액션 에셋 사본을 정리함. </summary>
+        /// <summary> 버튼 리스너를 해제함. </summary>
         private void OnDestroy()
         {
-            _debugInput.Dispose();
             if (startButton) startButton.onClick.RemoveListener(OnStartClicked);
+            if (backButton) backButton.onClick.RemoveListener(OnBackClicked);
 
             if (levelButtons == null) return;
             for (int i = 0; i < levelButtons.Length; i++)
@@ -294,11 +238,18 @@ namespace DGAIZone.LevelSelect
         /// <summary> 시작 버튼 클릭 시 클릭음을 내고 화면 페이드와 함께 게임 씬으로 전환함. </summary>
         private void OnStartClicked()
         {
-            if (_isBusy) return;
+            if (_isBusy || _isLeaving) return; // 이미 시작했거나 뒤로를 눌러 떠나는 중(연타) — 정상이라 로그 없음
 
             if (_sceneTransition == null)
             {
                 if (_logger != null) _logger.ZLogError($"[LevelSelectFlowController] sceneTransition이 null이라 {Constants.Scenes.Game} 씬을 로드할 수 없음.");
+                return;
+            }
+
+            // 홈 버튼으로 이미 타이틀로 가는 중이면 받지 않음(시작 로그·효과음이 함께 나가지 않게)
+            if (_sceneTransition.IsTransitioning)
+            {
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 이미 다른 화면으로 넘어가는 중이라 시작 버튼을 무시함.");
                 return;
             }
 
@@ -308,38 +259,61 @@ namespace DGAIZone.LevelSelect
             _sceneTransition.LoadSceneWithFadeAsync(Constants.Scenes.Game, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
-        /// <summary> 버튼의 잠금 여부에 따라 상호작용 가능 상태와 흑백 머티리얼을 적용함. </summary>
-        private void ApplyLockState(Button button, bool unlocked)
+        /// <summary>
+        /// &lt; 버튼 — 관리자 레벨 이동으로 들어온 판이면(그 레벨을 자동으로 고르기 전이어도) 타이틀의 관리자 화면으로, 레벨을 고르기 전(레벨 선택 화면)이면 인트로로,
+        /// 스토리 화면이면 이 씬을 다시 불러 레벨 선택 화면으로 돌아감(고른 버튼을 옮기고 별·V를 숨긴 연출을 하나씩 되돌리지 않기 위해).
+        /// </summary>
+        private void OnBackClicked()
         {
-            button.interactable = unlocked;
+            if (_isLeaving) return; // 이미 눌러 떠나는 중(연타) — 정상이라 로그 없음
 
-            Image image = button.image;
-            if (image)
+            if (_sceneTransition == null)
             {
-                image.material = unlocked ? null : lockedMaterial;
-            }
-            else if (_logger != null)
-            {
-                _logger.ZLogWarning($"[LevelSelectFlowController] {button.name}의 image가 null이라 잠금 머티리얼을 적용할 수 없음.");
+                if (_logger != null) _logger.ZLogError($"[LevelSelectFlowController] sceneTransition이 null이라 뒤로 갈 씬을 로드할 수 없음.");
+                return;
             }
 
-            // 비활성 버튼이 반투명해지지 않도록 disabled 틴트를 불투명 흰색으로 두어 흑백 머티리얼이 그대로 보이게 함.
-            if (!unlocked)
+            // 홈·시작 버튼으로 이미 다른 씬으로 가는 중이면 받지 않음
+            if (_sceneTransition.IsTransitioning)
             {
-                ColorBlock colors = button.colors;
-                colors.disabledColor = Color.white;
-                button.colors = colors;
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 이미 다른 화면으로 넘어가는 중이라 뒤로 버튼을 무시함.");
+                return;
             }
+
+            if (_levelJumpStore == null && _logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] levelJumpStore가 null이라 관리자 레벨 이동 판인지 알 수 없어 일반 판처럼 돌아감.");
+
+            string nextScene;
+            if (_levelJumpStore != null && _levelJumpStore.IsLevelJump)
+            {
+                nextScene = Constants.Scenes.Title;
+                _levelJumpStore.OpenAdminOnTitle = true;
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 관리자 레벨 이동 판에서 뒤로를 누름 — 타이틀 관리자 화면으로 돌아감.");
+            }
+            else if (!_isLevelSelected)
+            {
+                nextScene = Constants.Scenes.Intro;
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 레벨 선택 화면에서 뒤로를 누름 — 인트로로 돌아감.");
+            }
+            else
+            {
+                nextScene = Constants.Scenes.LevelSelect;
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] {VisitorInfoProvider.LogSubjectOf(_visitorInfoProvider)} 스토리 화면에서 뒤로를 누름 — 레벨 선택 화면으로 돌아감.");
+            }
+
+            _isLeaving = true;
+            SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
+            _sceneTransition.LoadSceneWithFadeAsync(nextScene, _commonSettings.sceneTransitionFadeDuration).Forget();
         }
 
-        /// <summary> 열린 레벨 버튼 클릭 시 클릭음을 내고 그 레벨을 고름. </summary>
+        /// <summary> 레벨 버튼 클릭 시 클릭음을 내고 그 레벨을 고름. </summary>
         private void OnLevelClicked(int index)
         {
-            if (_isBusy) return;
-            if (index < 0 || index >= _currentUnlockedCount)
+            if (_isBusy || _isLevelSelected || _isLeaving) return; // 이미 레벨을 골랐거나 뒤로를 눌러 떠나는 중(연타) — 정상이라 로그 없음
+
+            // 홈 버튼으로 이미 타이틀로 가는 중이면 고르지 않음
+            if (_sceneTransition != null && _sceneTransition.IsTransitioning)
             {
-                // 잠긴 버튼은 누를 수 없으므로 여기에 오면 버튼 표시와 해금 상태가 어긋난 것
-                if (_logger != null) _logger.ZLogWarning($"[LevelSelectFlowController] 열린 레벨이 {_currentUnlockedCount}개인데 {index + 1}레벨 버튼이 눌려 무시함.");
+                if (_logger != null) _logger.ZLogInformation($"[LevelSelectFlowController] 이미 다른 화면으로 넘어가는 중이라 {index + 1}레벨 버튼을 무시함.");
                 return;
             }
 
@@ -352,9 +326,6 @@ namespace DGAIZone.LevelSelect
         private void SelectLevel(int index)
         {
             _isLevelSelected = true;
-
-            // 레벨을 고른 뒤 전체 해금이 다시 적용되면 스토리 영역으로 옮긴 버튼이 다시 눌릴 수 있게 되므로 디버그 입력을 끔
-            _debugInput.Debug.UnlockAllLevels.Disable();
 
             if (_selectedLevelStore != null)
             {
@@ -396,7 +367,7 @@ namespace DGAIZone.LevelSelect
                 selectedButtonRect.SetParent(targetParent, worldPositionStays: true);
                 levelButtons[index].interactable = false;
 
-                // 버튼에 달려있던 별(Image_StarN) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
+                // 버튼에 달려있던 별(Image_StarN)·V(Image_Complete) 아이콘은 스토리 패널로 넘어갈 땐 필요 없으므로 숨김
                 foreach (Transform child in selectedButtonRect)
                 {
                     child.gameObject.SetActive(false);

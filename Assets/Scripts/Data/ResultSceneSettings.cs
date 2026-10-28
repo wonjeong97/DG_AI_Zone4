@@ -22,5 +22,14 @@ namespace DGAIZone.Data
 
         /// <summary> 결과 설계창(나의 코딩 결과·AI 패널)에서 블록이 하나씩 붙는 간격(초). 블록 하나가 다 붙는 시간(설계창 인스펙터의 올라오기 + 값 붙기)보다 길면 하나씩 차례로 붙음. </summary>
         public float designBlockInterval = 1f;
+
+        /// <summary> 레벨 1 성공 영상에서 로켓 조립이 끝나 '엔진·탑승 물체·연료량' 글자(고른 블록 값)를 띄우는 영상 시각(초). 이후 결과 화면이 끝날 때까지(마지막 화면에 로켓이 남음) 둠. </summary>
+        public float level1RocketLabelSuccessShowTime = 9.5f;
+
+        /// <summary> 레벨 1 실패 영상에서 로켓이 부서지기 시작하기 전에 '엔진·탑승 물체·연료량' 글자(고른 블록 값)를 지우는 영상 시각(초). 영상 처음부터 이 시각까지 보임. </summary>
+        public float level1RocketLabelFailHideTime = 3.6f;
+
+        /// <summary> 레벨 1 로켓 글자가 나타나고 사라지는 시간(초). </summary>
+        public float level1RocketLabelFadeDuration = 0.3f;
     }
 }

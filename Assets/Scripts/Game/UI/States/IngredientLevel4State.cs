@@ -84,7 +84,7 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> 레벨 4의 제어 카드는 [반복] 블록. </summary>
-        public string ControlSlotLabel => "반복";
+        public string ControlSlotLabel => Constants.ControlSlotLabels.Repeat;
 
         /// <summary> 바로 이전 단계에서 확정한 재료가 "반복하기"(제어, 횟수 카드)였다면, 이번 단계는 반드시 "이동하기"(동작)여야 함. </summary>
         private static bool IsRepeatFollowUpRequired(IngredientSelectionController controller)

@@ -16,7 +16,7 @@ namespace DGAIZone.Admin
 {
     /// <summary>
     /// 비밀번호를 통과하면 열리는 관리자 화면 — 운영 모드(로컬/서버)·체험자 이름·비밀번호를 바꾸고,
-    /// 고른 레벨까지 해금한 뒤 2_LevelSelect에서 그 레벨의 스토리를 바로 띄움(관리자 레벨 이동).
+    /// 고른 레벨을 2_LevelSelect에서 스토리부터 바로 띄움(관리자 레벨 이동).
     /// 입력 없이 Admin.json의 idleCloseSeconds(기본 60초)가 지나면 위에 뜬 이름 입력·비밀번호 변경 창과 함께 닫힘.
     /// </summary>
     public class AdminPanel : MonoBehaviour
@@ -41,7 +41,7 @@ namespace DGAIZone.Admin
         [SerializeField] private AdminPasswordPanel passwordPanel;
 
         [Header("레벨 이동")]
-        [Tooltip("레벨1부터 순서대로 — 누르면 그 레벨까지 해금하고 2_LevelSelect에서 그 레벨 스토리를 바로 띄움")]
+        [Tooltip("레벨1부터 순서대로 — 누르면 2_LevelSelect에서 그 레벨 스토리를 바로 띄움")]
         [SerializeField] private Button[] levelButtons;
 
         [Tooltip("변경 결과 안내 문구")]
@@ -59,19 +59,19 @@ namespace DGAIZone.Admin
 
         private ILogger<AdminPanel> _logger;
         private VisitorSettings _visitorSettings;
-        private UnlockedLevelStore _unlockedLevelStore;
+        private CompletedLevelStore _completedLevelStore;
         private SelectedLevelStore _selectedLevelStore;
         private AdminLevelJumpStore _levelJumpStore;
         private SceneTransitionService _sceneTransition;
         private VisitorInfoProvider _visitorInfoProvider;
         private SoundManager _soundManager;
 
-        /// <summary> VContainer 의존성 주입. 로거, 체험자 설정, 해금·선택 레벨 저장소, 관리자 레벨 이동 저장소, 씬 전환 서비스, 체험자 정보 제공자, 효과음 매니저를 할당함. </summary>
+        /// <summary> VContainer 의존성 주입. 로거, 체험자 설정, 완료·선택 레벨 저장소, 관리자 레벨 이동 저장소, 씬 전환 서비스, 체험자 정보 제공자, 효과음 매니저를 할당함. </summary>
         [Inject]
         public void Construct(
             ILogger<AdminPanel> logger,
             VisitorSettings visitorSettings,
-            UnlockedLevelStore unlockedLevelStore,
+            CompletedLevelStore completedLevelStore,
             SelectedLevelStore selectedLevelStore,
             AdminLevelJumpStore levelJumpStore,
             SceneTransitionService sceneTransition,
@@ -80,7 +80,7 @@ namespace DGAIZone.Admin
         {
             _logger = logger;
             _visitorSettings = visitorSettings;
-            _unlockedLevelStore = unlockedLevelStore;
+            _completedLevelStore = completedLevelStore;
             _selectedLevelStore = selectedLevelStore;
             _levelJumpStore = levelJumpStore;
             _sceneTransition = sceneTransition;
@@ -293,7 +293,7 @@ namespace DGAIZone.Admin
         }
 
         /// <summary>
-        /// 고른 레벨(1부터)까지 해금하고 그 레벨을 고른 상태로 2_LevelSelect로 이동함. 2_LevelSelect는 레벨 선택 화면 대신 그 레벨의 스토리를 바로 띄움.
+        /// 고른 레벨(1부터)을 고른 상태로 2_LevelSelect로 이동함. 2_LevelSelect는 레벨 선택 화면 대신 그 레벨의 스토리를 바로 띄움.
         /// 이 판은 결과 화면의 다음 버튼으로 타이틀의 관리자 화면에 돌아오고, 결과를 서버에 올리지 않음.
         /// </summary>
         private void OnLevelClicked(int level)
@@ -305,20 +305,21 @@ namespace DGAIZone.Admin
             }
 
             SoundEffects.Play(_soundManager, Constants.Sounds.ButtonClick, _logger);
-            if (_levelJumpStore == null || _unlockedLevelStore == null || _selectedLevelStore == null)
+            if (_levelJumpStore == null || _completedLevelStore == null || _selectedLevelStore == null)
             {
                 if (_logger != null) _logger.ZLogWarning($"[AdminPanel] 레벨 이동에 필요한 저장소가 주입되지 않아 레벨{level}로 이동할 수 없음.");
                 return;
             }
 
-            _unlockedLevelStore.UnlockedLevelCount = Mathf.Max(_unlockedLevelStore.UnlockedLevelCount, level);
             _selectedLevelStore.SelectedLevel = level;
             _levelJumpStore.Begin(level);
 
-            // 관리자 시험 판이라 QR로 확인해 둔 체험자의 이름이 스토리·게임 화면과 행동 로그에 나오지 않게 비움(결과 업로드는 IsLevelJump로 막혀 있음)
+            // 관리자 시험 판이라 QR로 확인해 둔 체험자의 이름이 스토리·게임 화면과 행동 로그에 나오지 않게 비우고(결과 업로드는 IsLevelJump로 막혀 있음),
+            // 그 체험자의 서버 기록으로 채운 V도 남지 않게 비움
+            _completedLevelStore.Reset();
             if (_visitorInfoProvider != null) _visitorInfoProvider.ClearServerVisitor();
             else if (_logger != null) _logger.ZLogWarning($"[AdminPanel] visitorInfoProvider가 null이라 QR로 확인한 체험자를 비우지 못하고 레벨{level}로 이동함.");
-            if (_logger != null) _logger.ZLogInformation($"[AdminPanel] 레벨{level}까지 해금하고 레벨{level} 스토리로 이동함.");
+            if (_logger != null) _logger.ZLogInformation($"[AdminPanel] 레벨{level} 스토리로 이동함.");
 
             LoadSceneAsync(Constants.Scenes.LevelSelect, this.GetCancellationTokenOnDestroy()).Forget();
         }

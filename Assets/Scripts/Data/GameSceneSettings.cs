@@ -28,6 +28,15 @@ namespace DGAIZone.Data
         /// <summary> 다섯 화살표가 모두 켜진 뒤 페이드아웃이 시작되기 전까지 그대로 붙잡아 보여주는 대기 시간(초). </summary>
         public float rightArrowHoldDuration = 0.25f;
 
+        /// <summary> 카드 값이 떠 있는 동안 설정 보드 아우라가 밝아지거나 옅어지는 한쪽 방향 시간(초). </summary>
+        public float settingBoardAuraPulseDuration = 0.8f;
+
+        /// <summary> 설정 보드 아우라가 가장 옅어졌을 때의 알파(0~1). </summary>
+        public float settingBoardAuraMinAlpha = 0.35f;
+
+        /// <summary> 카드 값이 사라질 때 설정 보드 아우라가 꺼지는 시간(초). </summary>
+        public float settingBoardAuraFadeOutDuration = 0.2f;
+
         /// <summary> 레벨 2 진행바(Image_Fill)가 목표 값까지 채워지는 데 걸리는 시간(초). </summary>
         public float level2FillTweenDuration = 0.45f;
 
@@ -67,7 +76,7 @@ namespace DGAIZone.Data
         /// <summary> 화면 흔들림이 끝난 뒤 Image_Warning을 페이드아웃하기 전까지 더 붙잡아 보여주는 시간(초). </summary>
         public float warningHoldDuration = 1.0f;
 
-        /// <summary> 레벨 4 로봇이 한 칸 이동하는 데 걸리는 시간(초). Level4BoardController.ExecuteStepAsync가 씀. </summary>
+        /// <summary> 레벨 4 로봇이 한 칸 이동하는 데 걸리는 시간(초). Level4BoardController.ExecuteStepAsync와 레벨 4 고스트(Level4GhostHint)가 씀. </summary>
         public float level4MoveDuration = 0.35f;
 
         /// <summary> 레벨 4 로봇이 한 칸 이동을 마치고 다음 이동을 시작하기 전까지 셀에 멈춰 있는 시간(초). </summary>
@@ -84,6 +93,15 @@ namespace DGAIZone.Data
 
         /// <summary> 위 흔들림의 좌우 폭(픽셀). </summary>
         public float level4HqRejectShakeStrength = 15.0f;
+
+        /// <summary>
+        /// 레벨 4 코딩 중 투명한 로봇(고스트)이 로봇 시작 칸에서 정답 경로를 따라 기지까지 움직여 보여 주는 간격(초). 처음은 게임 화면이 열린 뒤,
+        /// 그다음은 고스트가 사라진 뒤부터 잼. 한 칸 이동 시간은 level4MoveDuration을 씀.
+        /// </summary>
+        public float level4GhostInterval = 5.0f;
+
+        /// <summary> 레벨 4 고스트 로봇의 알파(0~1). </summary>
+        public float level4GhostAlpha = 0.45f;
 
         /// <summary>
         /// 레벨 2 발사 순서 블록(점화·상승·1단 로켓 분리·2단 로켓 분리·궤도 진입 순)을 설정했을 때 그 블록의 스텝 볼에 띄우는 완료 문구.

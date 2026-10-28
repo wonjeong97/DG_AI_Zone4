@@ -44,7 +44,7 @@ namespace DGAIZone.Result
 
         private SceneTransitionService _sceneTransition;
         private SelectedLevelStore _selectedLevelStore;
-        private UnlockedLevelStore _unlockedLevelStore;
+        private CompletedLevelStore _completedLevelStore;
         private GameResultStore _resultStore;
         private AdminLevelJumpStore _levelJumpStore;
         private VisitorInfoProvider _visitorInfoProvider;
@@ -60,16 +60,16 @@ namespace DGAIZone.Result
         private CommonSettings _commonSettings = new CommonSettings();
 
         /// <summary>
-        /// VContainer 의존성 주입. 씬 전환 서비스, 선택/잠금 해제 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소,
+        /// VContainer 의존성 주입. 씬 전환 서비스, 선택·완료 레벨 저장소, 미션 결과 저장소, 로거, 비활동 타이머, 효과음 매니저, 관리자 레벨 이동 저장소,
         /// 체험자 정보 제공자, 체험자 서버 API를 할당함.
         /// </summary>
         [Inject]
-        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, UnlockedLevelStore unlockedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null, AdminLevelJumpStore levelJumpStore = null,
+        public void Construct(SceneTransitionService sceneTransition, SelectedLevelStore selectedLevelStore, CompletedLevelStore completedLevelStore, GameResultStore resultStore, ILogger<ResultFlowController> logger, InactivityTimer inactivityTimer = null, SoundManager soundManager = null, AdminLevelJumpStore levelJumpStore = null,
             VisitorInfoProvider visitorInfoProvider = null, VisitorApiClient visitorApiClient = null)
         {
             _sceneTransition = sceneTransition;
             _selectedLevelStore = selectedLevelStore;
-            _unlockedLevelStore = unlockedLevelStore;
+            _completedLevelStore = completedLevelStore;
             _resultStore = resultStore;
             _logger = logger;
             _inactivityTimer = inactivityTimer;
@@ -82,7 +82,7 @@ namespace DGAIZone.Result
         /// <summary>
         /// 초기 패널 상태(AI 코딩 안내·컴플리트 숨김)를 적용하고 버튼 이벤트를 연결함. 결과 영상과 AI 연출은 입력 없이 보는 구간이라
         /// 미션 결과 문구(컴플리트 패널)가 나올 때까지 비활동 타이머를 멈춤. 방금 플레이한 레벨(SelectedLevelStore)을
-        /// 완료한 것으로 간주해 다음 레벨까지 잠금 해제하고(성공/실패 무관, 체험 자체를 진행도로 인정), 레벨 결과를 체험자 서버에 올리고,
+        /// 결과를 서버에 올리는 순간과 같이 완료한 것으로 기록하고(성공/실패·넘어가기 무관 — 레벨 선택 화면이 V를 붙임), 레벨 결과를 체험자 서버에 올리고,
         /// 패널 제목을 미션 결과에 맞추고, 마지막 레벨이면 버튼 문구를 "종료하기"로 바꾼 뒤 연출 타이밍을 비동기로 불러옴.
         /// </summary>
         private void Start()
@@ -96,8 +96,8 @@ namespace DGAIZone.Result
             else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completeNextButton이 null임.");
 
             int playedLevel = SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(ResultFlowController));
-            if (_unlockedLevelStore != null) _unlockedLevelStore.UnlockThrough(playedLevel);
-            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] unlockedLevelStore가 null이라 다음 레벨을 잠금 해제할 수 없음.");
+            if (_completedLevelStore != null) _completedLevelStore.MarkCompleted(playedLevel);
+            else if (_logger != null) _logger.ZLogWarning($"[ResultFlowController] completedLevelStore가 null이라 레벨{playedLevel}을 완료(V)로 기록할 수 없음.");
 
             UploadLevelResult(playedLevel);
 

@@ -41,7 +41,7 @@ namespace DGAIZone.App
 
         /// <summary>
         /// 콘텐츠(미션·레벨별 결과 영상)가 있는 마지막 레벨. 레벨이 늘어나면 영상 추가와 함께 이 값만 올리면
-        /// 잠금 해제 상한, 결과 후 아웃트로 전환, 결과 영상 레벨 범위가 함께 따라옴.
+        /// 완료 레벨(V)·서버 기록 레벨 범위, 결과 후 아웃트로 전환, 결과 영상 레벨 범위가 함께 따라옴.
         /// </summary>
         public const int LastLevel = 5;
 
@@ -178,6 +178,13 @@ namespace DGAIZone.App
             public const string Control = "제어";
             public const string Logic = "논리";
             public const string Func = "함수";
+        }
+
+        /// <summary> 제어 칸 이름(레벨 상태의 ControlSlotLabel). 코딩 카테고리 칸은 이 이름으로 만약·반복 블록 그림을 고름. </summary>
+        public static class ControlSlotLabels
+        {
+            public const string If = "만약";     // 레벨 3
+            public const string Repeat = "반복"; // 레벨 4
         }
 
         /// <summary>
