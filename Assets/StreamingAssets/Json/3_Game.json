@@ -5,6 +5,9 @@
   "rightArrowStepFadeDuration": 0.2,
   "rightArrowFadeOutDuration": 0.5,
   "rightArrowHoldDuration": 0.25,
+  "settingBoardAuraPulseDuration": 0.8,
+  "settingBoardAuraMinAlpha": 0.35,
+  "settingBoardAuraFadeOutDuration": 0.2,
   "level2FillTweenDuration": 0.45,
   "level2FillOvershoot": 1.2,
   "level3GaugeTweenDuration": 0.4,
@@ -24,6 +27,8 @@
   "level4ResultHoldDuration": 1.0,
   "level4HqRejectShakeDuration": 0.5,
   "level4HqRejectShakeStrength": 15.0,
+  "level4GhostInterval": 5.0,
+  "level4GhostAlpha": 0.45,
   "level2LaunchTexts": [
     "점화 시퀀스\n완료",
     "상승 시퀀스\n준비 완료",

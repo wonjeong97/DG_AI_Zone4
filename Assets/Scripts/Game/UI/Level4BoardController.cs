@@ -70,6 +70,9 @@ namespace DGAIZone.Game.UI
         public int TrapRow { get; private set; }
         public int HqRow { get; private set; }
 
+        /// <summary> 이동 시뮬레이션(코딩 완료 연출·디버그 재생)이 진행 중인지. 레벨 4 고스트 안내는 이때 숨김. </summary>
+        internal bool IsSimulating => _simulationCts != null;
+
         /// <summary> 이번 판 배치(행 위치). </summary>
         private Level4Layout Layout => new Level4Layout(RobotRow, ResourceRow, TrapRow, HqRow);
 
@@ -266,7 +269,7 @@ namespace DGAIZone.Game.UI
         /// 절반만큼 위로 올려야 아이콘의 바닥이 목표 지점에 닿음. (0.5, 0.5) 앵커는 Image_Grid 왼쪽 위 원점 기준으로
         /// (GridWidth/2, -GridHeight/2) 지점이므로, 그 지점을 기준으로 한 오프셋으로 변환함.
         /// </summary>
-        private Vector2 GetIconAnchoredPositionForCell(RectTransform icon, int column, int row)
+        internal Vector2 GetIconAnchoredPositionForCell(RectTransform icon, int column, int row)
         {
             Vector2 cellCenter = GetCellCenterPosition(column, row);
             Vector2 markerBottomCenter = new Vector2(cellCenter.x, cellCenter.y - DebugMarkerHeight / 2f);

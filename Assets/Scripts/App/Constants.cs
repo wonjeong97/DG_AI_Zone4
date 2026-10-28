@@ -180,6 +180,13 @@ namespace DGAIZone.App
             public const string Func = "함수";
         }
 
+        /// <summary> 제어 칸 이름(레벨 상태의 ControlSlotLabel). 코딩 카테고리 칸은 이 이름으로 만약·반복 블록 그림을 고름. </summary>
+        public static class ControlSlotLabels
+        {
+            public const string If = "만약";     // 레벨 3
+            public const string Repeat = "반복"; // 레벨 4
+        }
+
         /// <summary>
         /// RfidMappings.json의 재료(ingredientId)·물질(matters[].id) 식별자. 코드는 화면 이름(label)이 아니라 이 값으로 판정하므로
         /// JSON의 label은 자유롭게 바꿔도 되지만 id는 여기와 맞아야 함.

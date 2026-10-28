@@ -27,12 +27,14 @@ namespace DGAIZone.Game
             builder.RegisterComponentInHierarchy<KeyboardRfidSimulator>();
             builder.RegisterComponentInHierarchy<IngredientSelectionController>();
             builder.RegisterComponentInHierarchy<RightArrowHint>();
+            builder.RegisterComponentInHierarchy<SettingBoardAura>();
             builder.RegisterComponentInHierarchy<InvalidCardWarning>();
             builder.RegisterComponentInHierarchy<DesignPanel>();
             builder.RegisterComponentInHierarchy<MissionBoardController>();
             builder.RegisterComponentInHierarchy<CodingCategoryIndicatorController>();
             builder.RegisterComponentInHierarchy<RobotVideoPanel>();
             builder.RegisterComponentInHierarchy<Level4BoardController>();
+            builder.RegisterComponentInHierarchy<Level4GhostHint>();
             builder.RegisterComponentInHierarchy<Level5CityView>();
         }
     }

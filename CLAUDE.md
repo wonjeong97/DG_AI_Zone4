@@ -17,6 +17,8 @@
 `0_Title`(QR 확인·관리자 화면) → `1_Intro`(스토리·튜토리얼) → `2_LevelSelect`(레벨 고름·레벨 스토리) → `3_Game`(카드 코딩) → `4_Result`(나의 코딩 결과·AI 정답·결과 영상) → 레벨 1~4면 `2_LevelSelect`, 레벨 5면 `5_Outro` → `0_Title`.
 관리자 레벨 이동 판은 `0_Title` → `2_LevelSelect`(그 레벨 스토리) → … → `4_Result` → `0_Title`(관리자 화면)으로 돌아간다.
 비활동 타임아웃이 나면 타이틀로 돌아간다(타이틀에서는 타이머를 멈춤).
+`1_Intro`·`2_LevelSelect` 오른쪽 위 홈 버튼(`HomeButton`)은 move_idle을 보내고 타이틀로(관리자 레벨 이동 판이면 관리자 화면으로), `2_LevelSelect` 왼쪽 위 < 버튼은 레벨 선택 화면이면 인트로로, 스토리 화면이면 레벨 선택 화면(관리자 레벨 이동 판이면 관리자 화면)으로 간다. 그 밖의 씬에는 이 버튼이 없다.
+레벨은 처음부터 모두 열려 있고, 결과 화면까지 간 레벨(넘어가기 포함)과 QR 체험자의 getUser 기록(D1~D5 값이 null 아님)이 있는 레벨 버튼에 V를 붙인다(`CompletedLevelStore`, 타이틀 진입·관리자 레벨 이동 때 비움).
 
 ### 레벨
 
@@ -30,11 +32,11 @@
 
 레벨별 블록 값과 단계 정의는 `RfidMappings.json`의 `levelMappings`, 스토리·미션 문구와 레벨 1·3 목적지·기준값은 `Assets/Data/Level{1~5}.asset`(LevelData)에 있다.
 
-게임 화면 설정 보드의 `CodingCategories`는 단계마다 받을 카드 칸(`Slot_1`~`Slot_5`)을 순서대로 보여 주고, 각 단계는 그 칸의 분류 카드만 받는다. 칸은 레벨 상태의 `BuildStepCategories`가 정한다: 레벨 1~3은 단계 정의, 레벨 4는 이번 판 AI 정답 경로, 레벨 5는 코드(함수 → 동작 4). 제어 칸 이름은 레벨 3 '만약', 레벨 4 '반복'이다.
+게임 화면 설정 보드의 `CodingCategories`는 단계마다 받을 카드 칸(`Slot_1`~`Slot_5`, 분류별 블록 그림 `UI/3_Game/CodingCategory/Category_*.png`)을 순서대로 보여 주고, 각 단계는 그 칸의 분류 카드만 받는다. 칸은 레벨 상태의 `BuildStepCategories`가 정한다: 레벨 1~3은 단계 정의, 레벨 4는 이번 판 AI 정답 경로, 레벨 5는 코드(함수 → 동작 4). 제어 칸 이름은 레벨 3 '만약', 레벨 4 '반복'이다.
 
 ### 설정 파일 (StreamingAssets, 재빌드 없이 현장 조정)
 
-- `Json/00_Common.json`, `0_Title.json` ~ `4_Result.json`: 씬별 연출 타이밍(페이드, QR 확인 시간, 스캐너 글자 간격 등). `00_Common.json`의 `robotVideoPath`는 로봇 영상 경로(없는 파일이면 기본 `Videos/robot_0811.webm`), `0_Title.json`에는 하단 안내 문구 7개(이름 자리 `{name}`)도 있다.
+- `Json/00_Common.json`, `0_Title.json` ~ `4_Result.json`: 씬별 연출 타이밍(페이드, QR 확인 시간, 스캐너 글자 간격 등). `3_Game.json`의 `level4GhostInterval`·`level4GhostAlpha`는 레벨 4 고스트 로봇(5초마다 정답 길 안내), `settingBoardAura*`는 카드 값이 뜰 때 설정 보드 아우라, `4_Result.json`의 `level1RocketLabel*`은 레벨 1 결과 영상 로켓 글자(고른 블록 값, 엔진·탑승 물체·연료량)를 띄우는 영상 시각. `00_Common.json`의 `robotVideoPath`는 로봇 영상 경로(없는 파일이면 기본 `Videos/robot_0811.webm`), `0_Title.json`에는 하단 안내 문구 7개(이름 자리 `{name}`)도 있다.
 - 인트로 나레이션: `Sounds/Zone_4_Episode_Narration.mp3`(효과음 키 `episodeNarration`)를 스토리 글이 올라오기 시작할 때 틀고, 튜토리얼로 넘어가거나 씬을 떠나면 멈춘다. 스토리 글 줄(빈 줄을 뺀 줄)은 `1_Intro.json`의 `storyLineStartTimes`(나레이션 시작 뒤 초) 시각에 올라온다. 나레이션 파일을 바꾸면 이 시각도 맞춘다(비우면 줄 간격으로 올라옴).
 - `Json/Admin.json`: 관리자 비밀번호(4~6자리, 기본 `0000`), 관리자 화면·이름 입력 창 자동 닫기 `idleCloseSeconds`(60초), 비밀번호 창 `passwordIdleCloseSeconds`(10초), 진입 클릭 `entryClickCount`(10회)·`entryClickWindowSeconds`(3초). 시간·횟수가 1보다 작으면 기본값을 쓰고, 비밀번호를 바꿀 때 다른 값은 유지한다.
 - `Json/Server.json`: 체험자 서버 주소·시간 제한·재시도 횟수.
@@ -83,7 +85,7 @@
 ### 입력·디버그
 
 - 터치스크린(운영은 사실상 한 손가락, 마우스 없음). 화면 아무 곳이나 누르는 판정은 `Pointer.current`로 한다.
-- 디버그 키(에디터·개발 빌드만, `App/DebugInputActions.inputactions`의 Debug 맵): `1`~`4`는 동작·제어·논리·함수 카드 흉내(`KeyboardRfidSimulator`), `Space`는 레벨 4 시뮬레이션·전체 레벨 해금.
+- 디버그 키(에디터·개발 빌드만, `App/DebugInputActions.inputactions`의 Debug 맵): `1`~`4`는 동작·제어·논리·함수 카드 흉내(`KeyboardRfidSimulator`), `Space`는 레벨 4 시뮬레이션.
 
 ### 설치·출시 체크리스트
 
@@ -92,6 +94,7 @@
 - Development Build를 끈다. 켜 두면 3_Game에서 QR 스캐너의 숫자가 디버그 카드 키 `1`~`4`로 잡히고 서버 로그도 보내지 않는다.
 - `Settings.json`의 `useInactivityTimer`를 `true`로, `resetTime`을 현장 값으로 바꾼다(저장소 값은 개발용 `false`). 끄면 떠난 체험자의 판을 다음 사람이 이어 하거나 앞사람 이름으로 시작해 서버 기록이 섞인다.
 - 현장에서 따로 고친 `Settings.json`을 새 빌드에 덮어쓰면 `sounds`에 저장소의 새 항목(예: 인트로 나레이션 `episodeNarration`)이 있는지 확인한다. 없으면 그 소리만 경고 로그를 남기고 빠진다.
+- 현장에서 따로 고친 `Settings.json`의 `closeSetting.position`이 `{ "x": 0.0, "y": 0.0 }`(왼쪽 아래)인지 확인한다. 예전 값(오른쪽 위 1, 1)이면 숨은 종료 버튼이 인트로·레벨 선택의 홈 버튼을 덮는다.
 - 설치 폴더는 쓰기 가능한 곳에 둔다(Program Files 금지). 관리자 비밀번호를 `Admin.json`에 저장한다.
 - 첫 실행은 로컬 모드다(운영 모드는 PlayerPrefs). 관리자 화면에서 서버 모드로 바꾸고, 기본 비밀번호 `0000`을 바꾼다.
 - Windows 방화벽에 인바운드 TCP `listenPort`(10123) 허용 규칙을 미리 등록한다. 첫 실행 때 뜨는 허용 창은 창 포커스 복구가 3초 뒤 앱으로 가려 터치만으로는 누를 수 없다.
@@ -100,6 +103,6 @@
 
 ## 공통 규칙의 예외
 
-- 세션 상태는 GameSession(ScriptableObject) 대신 루트 스코프 싱글톤 저장소(`SelectedLevelStore`, `UnlockedLevelStore`, `GameResultStore`, `VisitorInfoProvider`, `AdminLevelJumpStore`)에 둔다(2026-10-07 결정).
+- 세션 상태는 GameSession(ScriptableObject) 대신 루트 스코프 싱글톤 저장소(`SelectedLevelStore`, `CompletedLevelStore`, `GameResultStore`, `VisitorInfoProvider`, `AdminLevelJumpStore`)에 둔다(2026-10-07 결정).
 - 템플릿 단축키(D 디버그 창·I 인스펙터·M 마우스 커서·F 창 포커스 복구)는 QR 스캐너 입력과 겹쳐 `Ctrl+D`·`Ctrl+I`·`Ctrl+M`·`Ctrl+F`로 바꿔 쓴다(`GameLifetimeScope.ConfigureInputBindings` → `App/DebugShortcutBindings.cs`).
 - 레벨 상태(`IngredientLevel1~5State`)는 컨트롤러 로거를 빌려 쓰므로 로그 태그가 `[IngredientSelectionController]`다.

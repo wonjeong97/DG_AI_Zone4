@@ -67,7 +67,7 @@ namespace DGAIZone.Game.UI.States
         }
 
         /// <summary> 레벨 3의 제어 카드는 [만약] 블록. </summary>
-        public string ControlSlotLabel => "만약";
+        public string ControlSlotLabel => Constants.ControlSlotLabels.If;
 
         /// <summary> JSON에 정의된 단계별 고정 재료/물질을 그대로 사용함. </summary>
         public RfidStepDefinition ResolveStepCard(IngredientSelectionController controller, RfidStepDefinition step, string category)

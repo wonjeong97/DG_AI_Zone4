@@ -34,6 +34,7 @@ namespace DGAIZone.Game.UI
         [SerializeField] private TMP_Text textMatter; // Text_Matter
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
+        [SerializeField] private SettingBoardAura settingBoardAura; // Image_SettingBoardAura — 카드 값이 떠 있는 동안 설정 보드 테두리를 빛나게 함
 
         [Header("Workflow Buttons")]
         [SerializeField] private Button buttonConfirm;
@@ -1655,21 +1656,32 @@ namespace DGAIZone.Game.UI
 
         /// <summary>
         /// Text_Matter 또는 Text_Material에 값이 있는지(RFID 태그/디버그 키로 재료가 선택된 상태인지)에 따라
-        /// 오른쪽 화살표 안내 연출을 시작하거나 멈춤.
+        /// 오른쪽 화살표 안내 연출과 설정 보드 아우라를 시작하거나 멈춤.
         /// </summary>
         private void UpdateRightArrowAnimation()
         {
-            if (!_rightArrowHint)
-            {
-                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] rightArrowHint가 null이라 화살표 안내 연출을 건너뜀.");
-                return;
-            }
-
             bool hasValue = (textMatter && !string.IsNullOrEmpty(textMatter.text))
                           || (textIngredient && !string.IsNullOrEmpty(textIngredient.text));
 
-            if (hasValue) _rightArrowHint.Play();
-            else _rightArrowHint.Stop();
+            if (_rightArrowHint)
+            {
+                if (hasValue) _rightArrowHint.Play();
+                else _rightArrowHint.Stop();
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] rightArrowHint가 null이라 화살표 안내 연출을 건너뜀.");
+            }
+
+            if (settingBoardAura)
+            {
+                if (hasValue) settingBoardAura.Play();
+                else settingBoardAura.Stop();
+            }
+            else if (_logger != null)
+            {
+                _logger.ZLogWarning($"[IngredientSelectionController] settingBoardAura가 null이라 설정 보드 아우라를 건너뜀.");
+            }
         }
 
         /// <summary> 테스트 전용: 인스펙터로 연결하는 레벨 4 보드를 넣음. </summary>
