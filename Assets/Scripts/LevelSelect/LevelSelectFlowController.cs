@@ -91,7 +91,7 @@ namespace DGAIZone.LevelSelect
             levelCompleteMarks = completeMarks;
         }
 
-        /// <summary> 초기 패널 상태를 적용하고 레벨 버튼 클릭 이벤트·V 표시·뒤로 버튼을 설정한 뒤, 2_LevelSelect.json/00_Common.json 연출 타이밍을 비동기로 불러옴. </summary>
+        /// <summary> 초기 패널 상태를 적용하고 뒤로 버튼을 연결한 뒤 2_LevelSelect.json/00_Common.json 로드를 시작하고, 레벨 버튼 클릭 이벤트와 V 표시를 설정함. </summary>
         private void Start()
         {
             // DOTween은 씬에서 처음 쓰이는 트윈이 자기 자신을 초기화하는 비용까지 그 자리에서 치르므로, 2_LevelSelect를

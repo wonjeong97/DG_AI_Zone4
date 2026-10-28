@@ -19,7 +19,7 @@ namespace DGAIZone.Game.UI
     public class SettingBoardAura : MonoBehaviour
     {
         private const string AuraShaderName = "UI/PanelAura";
-        private static readonly int RectSizeId = Shader.PropertyToID("_RectSize");
+        private readonly static int RectSizeId = Shader.PropertyToID("_RectSize");
 
         private Image _image;
         private CanvasGroup _canvasGroup;

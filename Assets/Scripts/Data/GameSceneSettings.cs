@@ -76,7 +76,7 @@ namespace DGAIZone.Data
         /// <summary> 화면 흔들림이 끝난 뒤 Image_Warning을 페이드아웃하기 전까지 더 붙잡아 보여주는 시간(초). </summary>
         public float warningHoldDuration = 1.0f;
 
-        /// <summary> 레벨 4 로봇이 한 칸 이동하는 데 걸리는 시간(초). Level4BoardController.ExecuteStepAsync가 씀. </summary>
+        /// <summary> 레벨 4 로봇이 한 칸 이동하는 데 걸리는 시간(초). Level4BoardController.ExecuteStepAsync와 레벨 4 고스트(Level4GhostHint)가 씀. </summary>
         public float level4MoveDuration = 0.35f;
 
         /// <summary> 레벨 4 로봇이 한 칸 이동을 마치고 다음 이동을 시작하기 전까지 셀에 멈춰 있는 시간(초). </summary>
@@ -95,7 +95,7 @@ namespace DGAIZone.Data
         public float level4HqRejectShakeStrength = 15.0f;
 
         /// <summary>
-        /// 레벨 4 코딩 중 투명한 로봇(고스트)이 로봇 위치에서 정답 경로를 따라 기지까지 움직여 보여 주는 간격(초). 처음은 게임 화면이 열린 뒤,
+        /// 레벨 4 코딩 중 투명한 로봇(고스트)이 로봇 시작 칸에서 정답 경로를 따라 기지까지 움직여 보여 주는 간격(초). 처음은 게임 화면이 열린 뒤,
         /// 그다음은 고스트가 사라진 뒤부터 잼. 한 칸 이동 시간은 level4MoveDuration을 씀.
         /// </summary>
         public float level4GhostInterval = 5.0f;

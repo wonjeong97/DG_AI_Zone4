@@ -13,7 +13,7 @@ using ZLogger;
 namespace DGAIZone.Game.UI
 {
     /// <summary>
-    /// 레벨 4 코딩 중 level4GhostInterval(기본 5초)마다 투명한 로봇(고스트, Image_RobotGhost)이 로봇의 지금 위치(시작 칸)에서
+    /// 레벨 4 코딩 중 level4GhostInterval(기본 5초)마다 투명한 로봇(고스트, Image_RobotGhost)이 로봇 시작 칸에서
     /// 이번 판 AI 정답 경로를 따라 기지까지 한 칸씩 움직여 보여 주고 사라짐. 사라진 뒤 다시 그 시간이 지나면 또 보여 줌.
     /// 코딩 완료·넘어가기로 게임 패널이 잠기거나 진짜 로봇의 이동 시뮬레이션이 시작되면 고스트를 페이드아웃하고,
     /// 미션 다시 보기로 게임 패널이 꺼져 있는 동안에도 숨김(돌아오면 처음부터 다시 잼).
@@ -35,7 +35,7 @@ namespace DGAIZone.Game.UI
         private CanvasGroup _ghostGroup;
         private float _ghostScaleAbsX = 1f;
         private Vector3 _ghostBaseScale = Vector3.one;
-        private bool _isActive;        // 레벨 4이고 화면 요소가 모두 연결돼 보여 줄 수 있는지(Start에서 정함)
+        private bool _isActive;        // 레벨 4이고 화면 요소가 모두 연결돼 보여 줄 수 있는지(Start에서 켜고, 정답 경로를 알 수 없으면 ShowGhost가 끔)
         private bool _isShowing;       // 고스트가 지금 움직이는 중인지
         private float _waitSeconds;    // 고스트가 사라진 뒤(처음은 보여 줄 수 있게 된 뒤) 흐른 시간(초)
         private CancellationTokenSource _ghostCts;
@@ -43,9 +43,6 @@ namespace DGAIZone.Game.UI
 
         // 3_Game.json 튜닝 값 — 로드 전에는 설정 클래스의 기본값을 그대로 씀
         private GameSceneSettings _sceneSettings = new GameSceneSettings();
-
-        /// <summary> 고스트가 지금 움직이는 중인지. </summary>
-        internal bool IsShowing => _isShowing;
 
         /// <summary> VContainer 의존성 주입. 선택된 레벨 저장소와 로거를 할당함. </summary>
         [Inject]
@@ -72,13 +69,16 @@ namespace DGAIZone.Game.UI
         /// <summary> 레벨 4일 때만 보여 줄 준비를 하고 3_Game.json 연출 값을 불러옴. 화면 요소가 빠졌으면 경고하고 보여 주지 않음. </summary>
         private void Start()
         {
-            if (_selectedLevelStore == null || _selectedLevelStore.SelectedLevel != 4) return; // 다른 레벨은 보여 주지 않음(정상)
+            // 다른 레벨은 보여 주지 않음(정상). 저장소가 주입되지 않았으면 LevelOrFallback이 경고를 남김
+            if (SelectedLevelStore.LevelOrFallback(_selectedLevelStore, _logger, nameof(Level4GhostHint)) != 4) return;
 
             if (!board || !ghostIcon)
             {
                 if (_logger != null) _logger.ZLogWarning($"[Level4GhostHint] board 또는 ghostIcon이 비어 있어 레벨 4 고스트 안내를 끔.");
                 return;
             }
+
+            if (!gamePanel && _logger != null) _logger.ZLogWarning($"[Level4GhostHint] gamePanel이 비어 있어 미션 다시 보기·코딩 완료 중에도 고스트를 숨기지 못할 수 있음(진짜 로봇 시뮬레이션 중에는 숨김).");
 
             _isActive = true;
             LoadSettingsAsync(this.GetCancellationTokenOnDestroy()).Forget();

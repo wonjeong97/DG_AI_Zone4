@@ -71,7 +71,7 @@
 
 ### 체험자 서버 (`Server.json`의 `baseUrl`)
 
-- 타이틀 QR 확인: `checkActive`(체험 가능 여부)와 `getUser`(진행도 → 해금 레벨). 결과 업로드: `updateValue`. 이 존의 코드는 `D`.
+- 타이틀 QR 확인: `checkActive`(체험 가능 여부)와 `getUser`(진행도 → 완료 레벨 V). 결과 업로드: `updateValue`. 이 존의 코드는 `D`.
 - JSON 응답(`getUser`·`updateValue`) 앞뒤에 붙은 글자는 무시한다(첫 `{` ~ 마지막 `}`만 읽음). `checkActive` 응답은 평문이다.
 - 서버 로그(`APIManager`, 템플릿 `ApiManagerBase`, 주소는 `Settings.json`의 `apiUrl`): 시작·종료·비활동. 비활동은 `move_idle_timeout`이고, `5_Outro`에서는 타임아웃·처음으로 모두 정상 이탈이라 `move_idle`을 보낸다. 타이틀에서는 QR로 확인한 체험자가 `resetTime` 동안 시작하기를 누르지 않을 때만 `TitleFlowController`가 `move_idle_timeout`을 보낸다.
 

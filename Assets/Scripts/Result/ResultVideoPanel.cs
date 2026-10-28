@@ -39,7 +39,7 @@ namespace DGAIZone.Result
         private const string NotChosenText = "없음"; // 그 블록을 고르지 않았을 때(넘어가기·일부만 설정) 값 자리에 적는 말
 
         // 레벨 1 블록 순서(추진체 종류·탑재 장비·연료량)대로 로켓 글자에 붙이는 이름
-        private static readonly string[] RocketLabelNames = { "엔진", "탑승 물체", "연료량" };
+        private readonly static string[] RocketLabelNames = { "엔진", "탑승 물체", "연료량" };
 
         private readonly UniTaskCompletionSource _readySignal = new UniTaskCompletionSource();
         private GameResultStore _resultStore;

@@ -15,6 +15,7 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
   - 완료 레벨(V) 흐름(체험자 사이 섞임·늦은 서버 응답·파싱) → 둘 다 통과, 서브에이전트만 낡은 주석 1(Constants.LastLevel) → 고침.
   - 레벨 4 고스트(페이드아웃·정리·경로와 시선) → 둘 다 통과.
 - 남은 것: 'AI가 코딩 중' 띠가 레벨 1 로켓 글자 위로 지나감(띠가 위라 가려짐). 1존 bda2892(결과 다음은 항상 레벨 선택, V 5개일 때만 아웃트로)는 옮기지 않아 레벨 5를 먼저 하면 바로 아웃트로로 감. 현장 Settings.json closeSetting.position을 (0,0)으로 고쳐야 함.
+- PR wonjeong97/DG_AI_Zone4#79 리뷰(사용자 요청 — 리뷰 후 고칠 게 없으면 머지, agy는 기본 모델 할당량 초과로 gemini-3.8-flash-high): agy 문서 정합성(CHANGELOG·TODO·PR 본문·CLAUDE.md·HANDOFF 형식) → 통과. 교차 검증 (agy + 서브에이전트, 주변 흐름 회귀 — 한 바퀴 흐름·비활동·관리자 복귀, 다른 레벨의 고스트·아우라·Space 시뮬레이션, 결과 영상·AI 연출) → 둘 다 통과. 서브에이전트 불확실 2 — 인트로 스토리 중 홈을 누르면 타이틀에서 비활동 타이머가 다시 켜질 수 있음(타이틀은 타임아웃에 아무것도 하지 않아 로그 한 줄뿐), 관리자 시험 판의 홈도 move_idle을 보냄(1존과 같고 비활동 타임아웃도 원래 보냄) → 기록만. 서브에이전트 정리 → 낮음 9(CLAUDE.md '해금 레벨', Start 요약 순서, 고스트 '지금 위치' 문구 2곳, level4MoveDuration 주석, _isActive 주석, 안 쓰는 IsShowing, 필드 제어자 순서 2곳, 주입·연결 누락 때 로그 없음 3곳) → 모두 고침, PlayMode 252/252, agy 재확인 통과. 사용자 요청으로 아우라 셰이더가 빌드에 들어가는지 확인: 3_Game(빌드 씬)이 Image 머티리얼을 거쳐 UIPanelAura.shader에 의존(GetDependencies), 셰이더 컴파일 메시지 0, Shader.Find를 쓰지 않아 Always Included 불필요. CHANGELOG를 2026-10-28 섹션으로 옮김.
 
 ### [2026-10-23 07:50] Claude → Antigravity + 서브에이전트 · T98 코드보기 버튼을 AI 영상 시작 때 보이기 (feat/result-code-view-toggle)
 - 요청: 버튼은 미션 성공이 나오기 전, AI 결과 영상이 처음 시작될 때 나와야 함. '미션 성공!' 띠 뒤 검은 배경이 AI 패널 블록 스크롤을 막지 않는지도 확인. 다 되면 Play 영상을 다시 구글 드라이브에 넣기.

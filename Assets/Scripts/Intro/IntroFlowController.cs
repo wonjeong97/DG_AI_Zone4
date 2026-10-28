@@ -71,6 +71,8 @@ namespace DGAIZone.Intro
         /// <summary> 초기 패널 상태를 설정하고 스토리 연출 및 버튼 이벤트를 시작함. </summary>
         private void Start()
         {
+            if (!homeButton && _logger != null) _logger.ZLogWarning($"[IntroFlowController] homeButton이 연결되지 않아 홈 버튼을 누른 터치도 스토리 건너뛰기·튜토리얼 넘기기로 받음.");
+
             if (storyText)
             {
                 _originalStoryColor = storyText.color;
