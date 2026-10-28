@@ -4,6 +4,15 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-28 16:43] Claude → Antigravity + 서브에이전트 · T104 결과 다음은 항상 레벨 선택, V 5개면 종료하기로 아웃트로 (feat/outro-after-all-levels)
+- 요청: 1존 bda2892(결과 다음 버튼은 항상 레벨 선택, 아웃트로는 다섯 레벨에 모두 V가 붙었을 때 레벨 선택의 종료하기 버튼으로만)를 4존에 옮김. 앞 항목 "남은 것"의 bda2892 미반영이 이것으로 해결됨.
+- 변경: 결과 다음 씬은 관리자 판이면 타이틀, 아니면 어느 레벨이든 레벨 선택(레벨 5의 '종료하기' 문구 삭제). 레벨 선택에 종료하기 버튼(스토리 시작하기 자리, 모든 레벨 V일 때만 보이고 누르면 5_Outro, 고른 뒤·떠나는 중에는 받지 않음). 테스트 2개.
+- Claude 확인: 컴파일 오류 0, PlayMode 254/254. Play에서 V 5개일 때 오른쪽 아래 종료하기 버튼이 보이고 raycast가 닿으며 누르면 5_Outro로 감.
+- agy (gemini-3.8-flash-high, 기본 모델 할당량 초과, 1묶음): 2_LevelSelect Button_End(endButton 연결·위치·꺼진 시작 상태·Navigation·리스너) → 통과.
+- 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 1묶음):
+  - 결과 다음 씬 분기·종료하기 표시 조건과 중복 입력·테스트 → 둘 다 통과, 서브에이전트만 낮음 1(Constants.LastLevel 주석에 지운 "결과 후 아웃트로 전환") → 고침.
+- 남은 것: 다섯 레벨을 마치고 종료하기를 누르지 않고 떠나면 아웃트로 대신 비활동 타임아웃(move_idle_timeout)으로 끝남(요청한 설계대로, 기록만).
+
 ### [2026-10-28 16:05] Claude → Antigravity + 서브에이전트 · T99~T103 홈·뒤로·V, 레벨 1 로켓 글자, 레벨 4 고스트, 블록 그림 칸, 설정 보드 아우라 (feat/home-back-level-hints)
 - 요청: 1존처럼 홈·뒤로 버튼(사용자 선택으로 전체 해금·V까지), 레벨 1 결과 영상 로켓 왼쪽 글자, 레벨 4 고스트 로봇, 코딩 카테고리 블록 그림, Matter 값이 뜨면 설정 보드 아우라. 진행 중 지시로 고스트는 5초마다 시작 칸→기지(코딩 완료 때 페이드아웃), 로켓 글자는 고른 블록 값·꺾인 선, 블록 그림은 새 1080 그림으로 바꿈.
 - 변경: HomeButton·CompletedLevelStore 추가(UnlockedLevelStore·Space 전체 해금 삭제), 레벨 선택 < 버튼·V, getUser 기록 레벨 비트마스크, 숨은 종료 버튼 왼쪽 아래, ResultVideoPanel 로켓 글자, Level4GhostHint, 카테고리 블록 그림, SettingBoardAura + UI/PanelAura 셰이더, 테스트 추가·수정.

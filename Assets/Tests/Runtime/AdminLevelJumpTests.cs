@@ -10,7 +10,7 @@ namespace DGAIZone.Tests
 {
     /// <summary>
     /// 관리자 화면 레벨 이동 검증 — 저장소의 스토리 레벨은 한 번만 꺼내지고, 2_LevelSelect는 그 레벨을 고른 것처럼 바로 스토리로 넘어가야 함.
-    /// 레벨 선택 화면의 모든 레벨이 처음부터 열려 있고, 완료한 레벨(CompletedLevelStore)에만 V가 켜지는지도 확인함.
+    /// 레벨 선택 화면의 모든 레벨이 처음부터 열려 있고, 완료한 레벨(CompletedLevelStore)에만 V가 켜지며, 다섯 레벨을 모두 마쳤을 때만 종료하기 버튼이 보이는지도 확인함.
     /// </summary>
     public class AdminLevelJumpTests
     {
@@ -87,6 +87,23 @@ namespace DGAIZone.Tests
                 Assert.AreEqual(i == 1 || i == 3, marks[i].activeSelf, $"레벨 {i + 1} V 표시");
         }
 
+        /// <summary> 종료하기 버튼(아웃트로로 가는 유일한 길)은 다섯 레벨에 모두 V가 붙었을 때만 보임. </summary>
+        [UnityTest]
+        public IEnumerator 다섯_레벨을_모두_마쳤을_때만_종료하기_버튼이_보인다([Values(4, 5)] int completedCount)
+        {
+            CompletedLevelStore completed = new CompletedLevelStore();
+            for (int level = 1; level <= completedCount; level++) completed.MarkCompleted(level);
+
+            GameObject endGo = new GameObject("Button_End", typeof(RectTransform), typeof(Image), typeof(Button));
+            Button end = endGo.GetComponent<Button>();
+            endGo.SetActive(completedCount != Constants.LastLevel); // 기대와 반대로 두어 Start가 실제로 바꾸는지 봄
+            CreateController(completed, new SelectedLevelStore(), new AdminLevelJumpStore(), out _, end);
+            endGo.transform.SetParent(_go.transform, false);
+            yield return null; // Start: 종료하기 버튼 표시 결정
+
+            Assert.AreEqual(completedCount == Constants.LastLevel, endGo.activeSelf, $"완료 레벨 {completedCount}개");
+        }
+
         /// <summary> 완료 레벨 저장소는 1~마지막 레벨만 기록하고 Reset으로 모두 비움. </summary>
         [Test]
         public void 완료_레벨은_레벨_범위_안만_기록하고_Reset으로_비운다()
@@ -106,7 +123,7 @@ namespace DGAIZone.Tests
         }
 
         /// <summary> 레벨 선택 컨트롤러와 레벨 버튼·V 표시를 만들고 켬(씬 전환 서비스 없이 — 전환을 기다리지 않고 바로 고름). </summary>
-        private Button[] CreateController(CompletedLevelStore completed, SelectedLevelStore selected, AdminLevelJumpStore jump, out GameObject[] marks)
+        private Button[] CreateController(CompletedLevelStore completed, SelectedLevelStore selected, AdminLevelJumpStore jump, out GameObject[] marks, Button end = null)
         {
             _go = new GameObject("LevelSelectFlowController");
             _go.SetActive(false);
@@ -127,7 +144,7 @@ namespace DGAIZone.Tests
                 marks[i].transform.SetParent(buttonGo.transform, false);
             }
 
-            controller.SetLevelButtonsForTest(buttons, marks);
+            controller.SetLevelButtonsForTest(buttons, marks, end);
             _go.SetActive(true);
             return buttons;
         }
