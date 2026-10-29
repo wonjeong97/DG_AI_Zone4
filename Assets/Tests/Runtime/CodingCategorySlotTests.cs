@@ -254,6 +254,35 @@ namespace DGAIZone.Tests
             Assert.IsFalse(views.Any(v => v.root.activeSelf), "칸을 모두 끔");
         }
 
+        [Test]
+        public void 인식된_카드의_블록_그림을_칸과_같게_띄우고_카드가_없으면_숨긴다()
+        {
+            CodingCategoryIndicatorController indicator = CreateIndicator(out _);
+            GameObject imageGo = new GameObject("Image_CurrentBlock", typeof(RectTransform), typeof(Image));
+            _created.Add(imageGo);
+            Image image = imageGo.GetComponent<Image>();
+
+            IngredientSelectionController level3 = ApplySettings(3, null, indicator);
+            level3.SetCurrentBlockImageForTest(image);
+
+            level3.UpdateCurrentBlockImage(Control);
+            Assert.IsTrue(imageGo.activeSelf, "카드가 인식되면 보임");
+            Assert.AreSame(_ifSprite, image.sprite, "레벨 3 제어 카드는 [만약] 블록");
+
+            level3.UpdateCurrentBlockImage(Logic);
+            Assert.AreSame(_logicSprite, image.sprite);
+
+            level3.UpdateCurrentBlockImage(null);
+            Assert.IsFalse(imageGo.activeSelf, "고르던 카드가 없으면 숨김");
+
+            IngredientSelectionController level4 = ApplySettings(4, null, indicator);
+            level4.SetCurrentBlockImageForTest(image);
+
+            level4.UpdateCurrentBlockImage(Control);
+            Assert.IsTrue(imageGo.activeSelf);
+            Assert.AreSame(_repeatSprite, image.sprite, "레벨 4 제어 카드는 [반복] 블록");
+        }
+
         /// <summary> 칸 5개를 씬 없이 만들어 넣은 칸 표시기를 만듦. </summary>
         private CodingCategoryIndicatorController CreateIndicator(out CodingCategoryIndicatorController.StepSlot[] views)
         {
