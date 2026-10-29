@@ -4,6 +4,13 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-29 12:10] Claude → Antigravity · T105 단계 이름이 빈 논리 단계는 블록 그림을 가운데에 (feat/game-current-block-image)
+- 요청: 앞 항목 "남은 것"(레벨 3 논리 단계는 단계 이름이 비어 그림이 가운데에서 약 44px 왼쪽에 혼자 나옴)을 사용자가 가운데로 정함. 이름이 비는 단계는 이것 하나뿐임(레벨 4·5는 categoryIngredients 이름을 씀).
+- 변경: UpdateCurrentBlockImage가 단계 이름도 받아, 이름이 비면 그림을 Text_Material 가운데(피벗 x 0.5, 위치 x 0)에 두고, 이름이 있으면 처음 기억한 씬 자리(피벗 x 1, 위치 x -4)로 되돌림. 테스트 1개 추가, 기존 테스트 호출 수정.
+- Claude 확인: Rider 오류 0, 컴파일 오류 0, PlayMode 257/257. Play(레벨 3): 논리 카드 그림 중심이 텍스트 중심(보드 기준 x 375.5)과 같음, 다음 단계 '만약 산소량이'에서 글자 왼쪽 자리로 돌아오고, 취소로 논리 단계로 되돌아가도 다시 가운데. 화면 캡처 확인, 콘솔 오류·경고 0.
+- agy (gemini-3.8-flash-high, 기본 모델 할당량 초과, 1묶음): 가운데/글자 왼쪽 자리 전환과 씬 값 기억 순서, 테스트 → 통과.
+- 남은 것: 사용자가 에디터에서 바꾼 3_Game GameFlowController debugStartLevel 3이 PlayMode 테스트 실행 때 씬에 저장됨(커밋하지 않고 작업 트리에 둠). 테스트가 남긴 EditorSettings EnterPlayModeOptionsEnabled 1은 되돌림.
+
 ### [2026-10-29 12:01] Claude → Antigravity + 서브에이전트 · T105 설정 보드 Text_Material 왼쪽에 인식된 블록 그림 (feat/game-current-block-image)
 - 요청: 3_Game 설정 보드 Text_Material 왼쪽에 지금 인식된 카드의 블록 그림(코딩 카테고리 그림 그대로). 처음에는 그림과 텍스트를 가로로 묶어 가운데 정렬했는데 텍스트가 오른쪽으로 밀려, 진행 중 지시대로 텍스트는 원래 가운데에 두고 그림만 그 왼쪽에 붙이도록 바꿈.
 - 변경: IngredientSelectionController에 imageCurrentBlock·UpdateCurrentBlockImage 추가(ApplyStepCard에서 띄우고 ClearPendingSelection에서 숨김, 그림은 CodingCategoryIndicatorController.SpriteOf로 칸과 같게). Text_Material에 ContentSizeFitter(가로 PreferredSize)와 자식 Image_CurrentBlock(왼쪽 끝, 80×80, 처음 꺼짐)을 붙임. 테스트 1개, Player 버전 26.10.29.

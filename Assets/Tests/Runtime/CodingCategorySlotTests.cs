@@ -265,22 +265,44 @@ namespace DGAIZone.Tests
             IngredientSelectionController level3 = ApplySettings(3, null, indicator);
             level3.SetCurrentBlockImageForTest(image);
 
-            level3.UpdateCurrentBlockImage(Control);
+            level3.UpdateCurrentBlockImage(Control, "만약 전기량이");
             Assert.IsTrue(imageGo.activeSelf, "카드가 인식되면 보임");
             Assert.AreSame(_ifSprite, image.sprite, "레벨 3 제어 카드는 [만약] 블록");
 
-            level3.UpdateCurrentBlockImage(Logic);
+            level3.UpdateCurrentBlockImage(Logic, "");
             Assert.AreSame(_logicSprite, image.sprite);
 
-            level3.UpdateCurrentBlockImage(null);
+            level3.UpdateCurrentBlockImage(null, null);
             Assert.IsFalse(imageGo.activeSelf, "고르던 카드가 없으면 숨김");
 
             IngredientSelectionController level4 = ApplySettings(4, null, indicator);
             level4.SetCurrentBlockImageForTest(image);
 
-            level4.UpdateCurrentBlockImage(Control);
+            level4.UpdateCurrentBlockImage(Control, "반복하기");
             Assert.IsTrue(imageGo.activeSelf);
             Assert.AreSame(_repeatSprite, image.sprite, "레벨 4 제어 카드는 [반복] 블록");
+        }
+
+        [Test]
+        public void 단계_이름이_비면_블록_그림을_가운데에_두고_이름이_있으면_글자_왼쪽_자리로_되돌린다()
+        {
+            CodingCategoryIndicatorController indicator = CreateIndicator(out _);
+            GameObject imageGo = new GameObject("Image_CurrentBlock", typeof(RectTransform), typeof(Image));
+            _created.Add(imageGo);
+            RectTransform rect = (RectTransform)imageGo.transform;
+            rect.pivot = new Vector2(1f, 0.5f); // 씬처럼 Text_Material 왼쪽 끝에 붙임
+            rect.anchoredPosition = new Vector2(-4f, 0f);
+
+            IngredientSelectionController controller = ApplySettings(3, null, indicator);
+            controller.SetCurrentBlockImageForTest(imageGo.GetComponent<Image>());
+
+            controller.UpdateCurrentBlockImage(Logic, "");
+            Assert.AreEqual(new Vector2(0.5f, 0.5f), rect.pivot, "이름이 비면 그림 가운데를 기준으로");
+            Assert.AreEqual(Vector2.zero, rect.anchoredPosition, "이름이 비면 Text_Material 가운데에 둠");
+
+            controller.UpdateCurrentBlockImage(Action, "전기량");
+            Assert.AreEqual(new Vector2(1f, 0.5f), rect.pivot, "이름이 있으면 씬에 둔 피벗으로 되돌림");
+            Assert.AreEqual(new Vector2(-4f, 0f), rect.anchoredPosition, "이름이 있으면 글자 왼쪽 자리로 되돌림");
         }
 
         /// <summary> 칸 5개를 씬 없이 만들어 넣은 칸 표시기를 만듦. </summary>
