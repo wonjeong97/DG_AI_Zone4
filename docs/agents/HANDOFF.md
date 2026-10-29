@@ -4,6 +4,23 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-10-29 12:10] Claude → Antigravity · T105 단계 이름이 빈 논리 단계는 블록 그림을 가운데에 (feat/game-current-block-image)
+- 요청: 앞 항목 "남은 것"(레벨 3 논리 단계는 단계 이름이 비어 그림이 가운데에서 약 44px 왼쪽에 혼자 나옴)을 사용자가 가운데로 정함. 이름이 비는 단계는 이것 하나뿐임(레벨 4·5는 categoryIngredients 이름을 씀).
+- 변경: UpdateCurrentBlockImage가 단계 이름도 받아, 이름이 비면 그림을 Text_Material 가운데(피벗 x 0.5, 위치 x 0)에 두고, 이름이 있으면 처음 기억한 씬 자리(피벗 x 1, 위치 x -4)로 되돌림. 테스트 1개 추가, 기존 테스트 호출 수정.
+- Claude 확인: Rider 오류 0, 컴파일 오류 0, PlayMode 257/257. Play(레벨 3): 논리 카드 그림 중심이 텍스트 중심(보드 기준 x 375.5)과 같음, 다음 단계 '만약 산소량이'에서 글자 왼쪽 자리로 돌아오고, 취소로 논리 단계로 되돌아가도 다시 가운데. 화면 캡처 확인, 콘솔 오류·경고 0.
+- agy (gemini-3.8-flash-high, 기본 모델 할당량 초과, 1묶음): 가운데/글자 왼쪽 자리 전환과 씬 값 기억 순서, 테스트 → 통과.
+- PR wonjeong97/DG_AI_Zone4#81 리뷰(사용자 요청 — 리뷰 후 머지, agy는 기본 모델 할당량 초과로 gemini-3.8-flash-high): agy 문서 정합성(CHANGELOG·TODO·HANDOFF·PR 본문·버전) → 1 통과, 2 지적 1(CLAUDE.md 설정 보드 문단에 새 블록 그림 설명 없음) → 한 문장 추가. 교차 검증 (agy + 서브에이전트, 주변 흐름 — 미션 다시 보기 복귀·놓인 카드 이어 쓰기·미리 올린 카드·레벨 4·5 categoryIngredients, 폭 변경이 화살표·아우라에 주는 영향) → 둘 다 통과(서브에이전트의 폭=글자 폭일 때 줄 넘김 우려는 단계 이름 13개 한 줄 확인으로 해소). 서브에이전트 정리·낡은 주석 → 통과, 낮음 1(CodingCategorySlotTests 클래스 summary에 Image_CurrentBlock 테스트 범위 없음) → 고침. 반영분 agy 재확인 통과. CHANGELOG를 2026-10-29 섹션으로 옮김.
+- 남은 것: 사용자가 에디터에서 바꾼 3_Game GameFlowController debugStartLevel 3이 PlayMode 테스트 실행 때 씬에 저장됨(커밋하지 않고 작업 트리에 둠). 테스트가 남긴 EditorSettings EnterPlayModeOptionsEnabled 1은 되돌림.
+
+### [2026-10-29 12:01] Claude → Antigravity + 서브에이전트 · T105 설정 보드 Text_Material 왼쪽에 인식된 블록 그림 (feat/game-current-block-image)
+- 요청: 3_Game 설정 보드 Text_Material 왼쪽에 지금 인식된 카드의 블록 그림(코딩 카테고리 그림 그대로). 처음에는 그림과 텍스트를 가로로 묶어 가운데 정렬했는데 텍스트가 오른쪽으로 밀려, 진행 중 지시대로 텍스트는 원래 가운데에 두고 그림만 그 왼쪽에 붙이도록 바꿈.
+- 변경: IngredientSelectionController에 imageCurrentBlock·UpdateCurrentBlockImage 추가(ApplyStepCard에서 띄우고 ClearPendingSelection에서 숨김, 그림은 CodingCategoryIndicatorController.SpriteOf로 칸과 같게). Text_Material에 ContentSizeFitter(가로 PreferredSize)와 자식 Image_CurrentBlock(왼쪽 끝, 80×80, 처음 꺼짐)을 붙임. 테스트 1개, Player 버전 26.10.29.
+- Claude 확인: Rider 오류 0, 컴파일 오류 0, PlayMode 256/256(구조를 바꾼 뒤 다시 돌림). 단계 이름 13개가 모두 한 줄이고 잘리지 않으며, 텍스트 중심이 원래 자리(보드 기준 x 375.5)에 그대로임. Play(레벨 1)에서 카드를 인식하면 그림(동작)이 뜨고, 취소하기·설정하기·카드 뗌 때 숨고, 2단계 카드에 다시 뜸. 캔버스를 카메라로 렌더해 화면을 확인했고 콘솔 오류 0.
+- agy (gemini-4-argon-high가 할당량 초과(429, 약 75시간)라 gemini-3.8-flash-high, 1묶음): 씬(Text_Material 자리, ContentSizeFitter와 TMP 설정, Image_CurrentBlock 배치·꺼짐·raycast·참조) → 통과.
+- 교차 검증 (agy gemini-3.8-flash-high + 서브에이전트, 1묶음):
+  - 그림 표시/숨김 경로, 그림 선택과 경고 로그, 테스트 → 1·2는 둘 다 통과. 3(테스트)은 agy 통과, 서브에이전트만 낮음 1(테스트가 UpdateCurrentBlockImage를 직접 불러 ApplyStepCard·ClearPendingSelection 호출이 빠져도 통과) → 기존 테스트에도 카드 이벤트를 끝까지 흘리는 장치가 없어 고치지 않음. 호출 연결은 위 Play 확인으로 검증함.
+- 남은 것: 레벨 3 논리 단계는 단계 이름이 비어 있어, 그림이 텍스트 가운데 기준 왼쪽(가운데에서 약 44px 왼쪽)에 혼자 나옴(텍스트를 가운데에 두는 설계대로).
+
 ### [2026-10-28 16:43] Claude → Antigravity + 서브에이전트 · T104 결과 다음은 항상 레벨 선택, V 5개면 종료하기로 아웃트로 (feat/outro-after-all-levels)
 - 요청: 1존 bda2892(결과 다음 버튼은 항상 레벨 선택, 아웃트로는 다섯 레벨에 모두 V가 붙었을 때 레벨 선택의 종료하기 버튼으로만)를 4존에 옮김. 앞 항목 "남은 것"의 bda2892 미반영이 이것으로 해결됨.
 - 변경: 결과 다음 씬은 관리자 판이면 타이틀, 아니면 어느 레벨이든 레벨 선택(레벨 5의 '종료하기' 문구 삭제). 레벨 선택에 종료하기 버튼(스토리 시작하기 자리, 모든 레벨 V일 때만 보이고 누르면 5_Outro, 고른 뒤·떠나는 중에는 받지 않음). 테스트 2개.

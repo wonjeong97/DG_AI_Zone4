@@ -32,7 +32,7 @@
 
 레벨별 블록 값과 단계 정의는 `RfidMappings.json`의 `levelMappings`, 스토리·미션 문구와 레벨 1·3 목적지·기준값은 `Assets/Data/Level{1~5}.asset`(LevelData)에 있다.
 
-게임 화면 설정 보드의 `CodingCategories`는 단계마다 받을 카드 칸(`Slot_1`~`Slot_5`, 분류별 블록 그림 `UI/3_Game/CodingCategory/Category_*.png`)을 순서대로 보여 주고, 각 단계는 그 칸의 분류 카드만 받는다. 칸은 레벨 상태의 `BuildStepCategories`가 정한다: 레벨 1~3은 단계 정의, 레벨 4는 이번 판 AI 정답 경로, 레벨 5는 코드(함수 → 동작 4). 제어 칸 이름은 레벨 3 '만약', 레벨 4 '반복'이다.
+게임 화면 설정 보드의 `CodingCategories`는 단계마다 받을 카드 칸(`Slot_1`~`Slot_5`, 분류별 블록 그림 `UI/3_Game/CodingCategory/Category_*.png`)을 순서대로 보여 주고, 각 단계는 그 칸의 분류 카드만 받는다. 칸은 레벨 상태의 `BuildStepCategories`가 정한다: 레벨 1~3은 단계 정의, 레벨 4는 이번 판 AI 정답 경로, 레벨 5는 코드(함수 → 동작 4). 제어 칸 이름은 레벨 3 '만약', 레벨 4 '반복'이다. 카드가 인식되면 가운데 단계 이름(`Text_Material`, ContentSizeFitter로 폭이 글자 폭) 바로 왼쪽에 칸과 같은 블록 그림(자식 `Image_CurrentBlock`)이 뜨고, 고르던 값이 비면 숨는다. 단계 이름이 빈 레벨 3 논리 단계는 그림만 가운데에 둔다.
 
 ### 설정 파일 (StreamingAssets, 재빌드 없이 현장 조정)
 

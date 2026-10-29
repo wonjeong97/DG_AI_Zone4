@@ -14,7 +14,8 @@ using UnityEngine.UI;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 게임 화면 CodingCategories 칸 검증: 레벨마다 단계별로 받을 카드 분류(칸 수·순서), 단계 분류에 맞는 카드만 받는 판정, 칸의 블록 그림·색/흑백·이름 표시.
+    /// 게임 화면 CodingCategories 칸 검증: 레벨마다 단계별로 받을 카드 분류(칸 수·순서), 단계 분류에 맞는 카드만 받는 판정, 칸의 블록 그림·색/흑백·이름 표시,
+    /// 설정 보드 단계 이름 왼쪽에 띄우는 인식된 카드 블록 그림(Image_CurrentBlock)의 표시·자리.
     /// </summary>
     public class CodingCategorySlotTests
     {
@@ -252,6 +253,57 @@ namespace DGAIZone.Tests
             Assert.AreEqual(5, controller.TotalSteps, "단계 정의 개수로 진행");
             Assert.AreEqual(0, indicator.VisibleSlotCount);
             Assert.IsFalse(views.Any(v => v.root.activeSelf), "칸을 모두 끔");
+        }
+
+        [Test]
+        public void 인식된_카드의_블록_그림을_칸과_같게_띄우고_카드가_없으면_숨긴다()
+        {
+            CodingCategoryIndicatorController indicator = CreateIndicator(out _);
+            GameObject imageGo = new GameObject("Image_CurrentBlock", typeof(RectTransform), typeof(Image));
+            _created.Add(imageGo);
+            Image image = imageGo.GetComponent<Image>();
+
+            IngredientSelectionController level3 = ApplySettings(3, null, indicator);
+            level3.SetCurrentBlockImageForTest(image);
+
+            level3.UpdateCurrentBlockImage(Control, "만약 전기량이");
+            Assert.IsTrue(imageGo.activeSelf, "카드가 인식되면 보임");
+            Assert.AreSame(_ifSprite, image.sprite, "레벨 3 제어 카드는 [만약] 블록");
+
+            level3.UpdateCurrentBlockImage(Logic, "");
+            Assert.AreSame(_logicSprite, image.sprite);
+
+            level3.UpdateCurrentBlockImage(null, null);
+            Assert.IsFalse(imageGo.activeSelf, "고르던 카드가 없으면 숨김");
+
+            IngredientSelectionController level4 = ApplySettings(4, null, indicator);
+            level4.SetCurrentBlockImageForTest(image);
+
+            level4.UpdateCurrentBlockImage(Control, "반복하기");
+            Assert.IsTrue(imageGo.activeSelf);
+            Assert.AreSame(_repeatSprite, image.sprite, "레벨 4 제어 카드는 [반복] 블록");
+        }
+
+        [Test]
+        public void 단계_이름이_비면_블록_그림을_가운데에_두고_이름이_있으면_글자_왼쪽_자리로_되돌린다()
+        {
+            CodingCategoryIndicatorController indicator = CreateIndicator(out _);
+            GameObject imageGo = new GameObject("Image_CurrentBlock", typeof(RectTransform), typeof(Image));
+            _created.Add(imageGo);
+            RectTransform rect = (RectTransform)imageGo.transform;
+            rect.pivot = new Vector2(1f, 0.5f); // 씬처럼 Text_Material 왼쪽 끝에 붙임
+            rect.anchoredPosition = new Vector2(-4f, 0f);
+
+            IngredientSelectionController controller = ApplySettings(3, null, indicator);
+            controller.SetCurrentBlockImageForTest(imageGo.GetComponent<Image>());
+
+            controller.UpdateCurrentBlockImage(Logic, "");
+            Assert.AreEqual(new Vector2(0.5f, 0.5f), rect.pivot, "이름이 비면 그림 가운데를 기준으로");
+            Assert.AreEqual(Vector2.zero, rect.anchoredPosition, "이름이 비면 Text_Material 가운데에 둠");
+
+            controller.UpdateCurrentBlockImage(Action, "전기량");
+            Assert.AreEqual(new Vector2(1f, 0.5f), rect.pivot, "이름이 있으면 씬에 둔 피벗으로 되돌림");
+            Assert.AreEqual(new Vector2(-4f, 0f), rect.anchoredPosition, "이름이 있으면 글자 왼쪽 자리로 되돌림");
         }
 
         /// <summary> 칸 5개를 씬 없이 만들어 넣은 칸 표시기를 만듦. </summary>

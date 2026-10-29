@@ -31,6 +31,7 @@ namespace DGAIZone.Game.UI
     {
         [Header("UI References")]
         [SerializeField] private TMP_Text textIngredient; // Text_Material
+        [SerializeField] private Image imageCurrentBlock; // Text_Material/Image_CurrentBlock — Text_Material 왼쪽 끝에 붙은 지금 단계에 인식된 카드의 블록 그림(Text_Material 폭은 ContentSizeFitter로 글자 폭)
         [SerializeField] private TMP_Text textMatter; // Text_Matter
         [SerializeField] private Button buttonLeft;
         [SerializeField] private Button buttonRight;
@@ -164,6 +165,9 @@ namespace DGAIZone.Game.UI
         private readonly ReactiveProperty<int> _currentMatterIndex = new ReactiveProperty<int>(0);
 
         private R3.DisposableBag _disposables = new R3.DisposableBag();
+        private Vector2 _currentBlockSidePivot;    // 씬에 둔 블록 그림 피벗·위치(Text_Material 왼쪽 끝에 붙임). 단계 이름이 비어 가운데로 옮겼다가 되돌릴 때 씀
+        private Vector2 _currentBlockSidePosition;
+        private bool _currentBlockSideLayoutCached;
         private CanvasGroup _level3OxygenIconCanvasGroup;
         private CanvasGroup _level3ElectricIconCanvasGroup;
 
@@ -831,6 +835,7 @@ namespace DGAIZone.Game.UI
             _currentIngredient.Value = ingredient.ingredientName ?? "";
             _currentIngredientId = ingredient.ingredientId;
             _currentCategory = evt.Category;
+            UpdateCurrentBlockImage(evt.Category, ingredient.ingredientName);
             _currentMatters = CurrentLevelState != null
                 ? CurrentLevelState.FilterMatters(this, ingredient.ingredientId, matters)
                 : ExcludeConfirmedMatters(ingredient.ingredientId, matters);
@@ -1212,6 +1217,7 @@ namespace DGAIZone.Game.UI
             _currentIngredient.Value = "";
             _currentIngredientId = null;
             _currentCategory = null;
+            UpdateCurrentBlockImage(null, null);
             _currentMatters = Array.Empty<RfidMatter>();
             ResetMatterIndexAndRefresh();
         }
@@ -1588,6 +1594,48 @@ namespace DGAIZone.Game.UI
         }
 
         /// <summary>
+        /// Text_Material 왼쪽 블록 그림을 지금 단계에 인식된 카드 분류(category)의 CodingCategories 블록 그림으로 바꾸고, 분류가 없으면(고르던 카드 없음) 숨김.
+        /// 제어 카드는 칸과 같게 레벨마다 다른 블록([만약]·[반복])을 씀. 단계 이름(ingredientName)이 비면(레벨 3 논리) 옆에 붙을 글자가 없으므로 그림을 가운데에 둠.
+        /// </summary>
+        internal void UpdateCurrentBlockImage(string category, string ingredientName)
+        {
+            if (!imageCurrentBlock)
+            {
+                if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] imageCurrentBlock이 null이라 인식된 블록 그림을 표시할 수 없음.");
+                return;
+            }
+
+            Sprite sprite = null;
+            if (!string.IsNullOrEmpty(category))
+            {
+                if (_codingCategoryIndicator) sprite = _codingCategoryIndicator.SpriteOf(category, CurrentLevelState?.ControlSlotLabel); // 그림이 없으면 SpriteOf가 경고함
+                else if (_logger != null) _logger.ZLogWarning($"[IngredientSelectionController] codingCategoryIndicator가 null이라 인식된 블록 그림을 고를 수 없음.");
+            }
+
+            imageCurrentBlock.sprite = sprite;
+            imageCurrentBlock.gameObject.SetActive(sprite);
+            if (sprite) PlaceCurrentBlockImage(string.IsNullOrEmpty(ingredientName));
+        }
+
+        /// <summary>
+        /// 블록 그림 자리를 정함: centered면 Text_Material 가운데(이름이 비어 ContentSizeFitter가 폭을 0으로 두므로 왼쪽 끝 앵커가 곧 가운데), 아니면 씬에 둔 자리(글자 왼쪽 끝에 붙임).
+        /// 씬에 둔 피벗·위치는 처음 부를 때 기억해 두고 되돌릴 때 씀.
+        /// </summary>
+        private void PlaceCurrentBlockImage(bool centered)
+        {
+            RectTransform rect = imageCurrentBlock.rectTransform;
+            if (!_currentBlockSideLayoutCached)
+            {
+                _currentBlockSidePivot = rect.pivot;
+                _currentBlockSidePosition = rect.anchoredPosition;
+                _currentBlockSideLayoutCached = true;
+            }
+
+            rect.pivot = centered ? new Vector2(0.5f, _currentBlockSidePivot.y) : _currentBlockSidePivot;
+            rect.anchoredPosition = centered ? new Vector2(0f, _currentBlockSidePosition.y) : _currentBlockSidePosition;
+        }
+
+        /// <summary>
         /// 현재 인덱스에 따라 물질 표시 텍스트 컴포넌트 값을 변경함.
         /// </summary>
         private void UpdateMatterText()
@@ -1689,6 +1737,9 @@ namespace DGAIZone.Game.UI
 
         /// <summary> 테스트 전용: 인스펙터로 연결하는 레벨 2 진행바 이미지를 넣음. </summary>
         internal void SetLevel2FillImageForTest(Image fillImage) => level2FillImage = fillImage;
+
+        /// <summary> 테스트 전용: 인스펙터로 연결하는 인식된 블록 그림(Image_CurrentBlock)을 넣음. </summary>
+        internal void SetCurrentBlockImageForTest(Image image) => imageCurrentBlock = image;
 
         /// <summary> 테스트 전용: 단계별로 확정된 블록 목록을 넣음. </summary>
         internal void SetConfirmedMattersForTest(RfidMatter[] matters) => _confirmedMatters = matters;
