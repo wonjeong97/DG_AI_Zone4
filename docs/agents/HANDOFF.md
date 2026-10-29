@@ -9,6 +9,7 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 - 변경: UpdateCurrentBlockImage가 단계 이름도 받아, 이름이 비면 그림을 Text_Material 가운데(피벗 x 0.5, 위치 x 0)에 두고, 이름이 있으면 처음 기억한 씬 자리(피벗 x 1, 위치 x -4)로 되돌림. 테스트 1개 추가, 기존 테스트 호출 수정.
 - Claude 확인: Rider 오류 0, 컴파일 오류 0, PlayMode 257/257. Play(레벨 3): 논리 카드 그림 중심이 텍스트 중심(보드 기준 x 375.5)과 같음, 다음 단계 '만약 산소량이'에서 글자 왼쪽 자리로 돌아오고, 취소로 논리 단계로 되돌아가도 다시 가운데. 화면 캡처 확인, 콘솔 오류·경고 0.
 - agy (gemini-3.8-flash-high, 기본 모델 할당량 초과, 1묶음): 가운데/글자 왼쪽 자리 전환과 씬 값 기억 순서, 테스트 → 통과.
+- PR wonjeong97/DG_AI_Zone4#81 리뷰(사용자 요청 — 리뷰 후 머지, agy는 기본 모델 할당량 초과로 gemini-3.8-flash-high): agy 문서 정합성(CHANGELOG·TODO·HANDOFF·PR 본문·버전) → 1 통과, 2 지적 1(CLAUDE.md 설정 보드 문단에 새 블록 그림 설명 없음) → 한 문장 추가. 교차 검증 (agy + 서브에이전트, 주변 흐름 — 미션 다시 보기 복귀·놓인 카드 이어 쓰기·미리 올린 카드·레벨 4·5 categoryIngredients, 폭 변경이 화살표·아우라에 주는 영향) → 둘 다 통과(서브에이전트의 폭=글자 폭일 때 줄 넘김 우려는 단계 이름 13개 한 줄 확인으로 해소). 서브에이전트 정리·낡은 주석 → 통과, 낮음 1(CodingCategorySlotTests 클래스 summary에 Image_CurrentBlock 테스트 범위 없음) → 고침. 반영분 agy 재확인 통과. CHANGELOG를 2026-10-29 섹션으로 옮김.
 - 남은 것: 사용자가 에디터에서 바꾼 3_Game GameFlowController debugStartLevel 3이 PlayMode 테스트 실행 때 씬에 저장됨(커밋하지 않고 작업 트리에 둠). 테스트가 남긴 EditorSettings EnterPlayModeOptionsEnabled 1은 되돌림.
 
 ### [2026-10-29 12:01] Claude → Antigravity + 서브에이전트 · T105 설정 보드 Text_Material 왼쪽에 인식된 블록 그림 (feat/game-current-block-image)

@@ -14,7 +14,8 @@ using UnityEngine.UI;
 namespace DGAIZone.Tests
 {
     /// <summary>
-    /// 게임 화면 CodingCategories 칸 검증: 레벨마다 단계별로 받을 카드 분류(칸 수·순서), 단계 분류에 맞는 카드만 받는 판정, 칸의 블록 그림·색/흑백·이름 표시.
+    /// 게임 화면 CodingCategories 칸 검증: 레벨마다 단계별로 받을 카드 분류(칸 수·순서), 단계 분류에 맞는 카드만 받는 판정, 칸의 블록 그림·색/흑백·이름 표시,
+    /// 설정 보드 단계 이름 왼쪽에 띄우는 인식된 카드 블록 그림(Image_CurrentBlock)의 표시·자리.
     /// </summary>
     public class CodingCategorySlotTests
     {
