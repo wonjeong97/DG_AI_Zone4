@@ -4,6 +4,13 @@ Claude가 Antigravity(agy)와 리뷰 서브에이전트에 맡긴 검증 기록.
 
 ---
 
+### [2026-11-03 15:05] Claude → Antigravity · Template 26.11.3-2 업데이트 (chore/template-26.11.3-2)
+- 요청: 오늘 바뀐 Template(비정상 종료 자동 재시작, Build 메뉴, ZLogger 2.6.0)을 이 프로젝트에도 반영.
+- 변경: Template 7fbccfe(26.10.19-1) → e78563a(26.11.3-2), UPM·NuGet ZLogger 2.6.0, NuGet `Microsoft.*`·`System.*` 10.0.14, MCP for Unity·NuGetForUnity 최신 커밋. Settings.json `autoRestart` 켬, Version 26.11.3, README 새로 만들고 Unity 버전 적음.
+- Claude 확인: 메뉴를 다시 실행해 UPM·NuGet 남은 업데이트 없음, 콘솔 오류 0, Windows 빌드 성공(오류·경고 0). 서버 요청은 자체 `VisitorApiClient`라 26.10.30-1 Breaking에 걸리지 않음.
+- agy (gemini-4-argon-high, 1묶음): 설정 JSON·Version·README → 통과. 패키지 버전 짝(manifest·packages.config·NuGet 폴더·lock) → 통과. CHANGELOG·TODO → 통과.
+- 남은 것: 작업 전부터 있던 `RfidMappings.json` 의 리더기 MAC 주소 변경(사용자 변경으로 보임)은 커밋하지 않고 그대로 둠. 자동 재시작 동작은 이 프로젝트 빌드로 따로 시험하지 않음.
+
 ### [2026-10-29 12:10] Claude → Antigravity · T105 단계 이름이 빈 논리 단계는 블록 그림을 가운데에 (feat/game-current-block-image)
 - 요청: 앞 항목 "남은 것"(레벨 3 논리 단계는 단계 이름이 비어 그림이 가운데에서 약 44px 왼쪽에 혼자 나옴)을 사용자가 가운데로 정함. 이름이 비는 단계는 이것 하나뿐임(레벨 4·5는 categoryIngredients 이름을 씀).
 - 변경: UpdateCurrentBlockImage가 단계 이름도 받아, 이름이 비면 그림을 Text_Material 가운데(피벗 x 0.5, 위치 x 0)에 두고, 이름이 있으면 처음 기억한 씬 자리(피벗 x 1, 위치 x -4)로 되돌림. 테스트 1개 추가, 기존 테스트 호출 수정.
