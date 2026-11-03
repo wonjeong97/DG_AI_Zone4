@@ -2,6 +2,7 @@
   "useInactivityTimer": false,
   "resetTime": 20,
   "targetFrameRate": 60,
+  "autoRestart": { "enabled": true, "hangRestartSeconds": 60, "restartDelaySeconds": 5 },
   "apiUrl": "https://www.huliac.com/api/content_log.cfm?idx_content_device=18&uid=5D44B634A41C&message=",
   "closeSetting": {
     "position": { "x": 0.0, "y": 0.0 },  
